@@ -115,17 +115,26 @@ export default function CalendarPage() {
                 <div className="border-b border-r border-border p-1 text-[11px] text-muted-foreground text-right pr-2">{String(h).padStart(2, "0")}:00</div>
                 {days.map(d => {
                   const cell = getCellContent(d, h);
-                  if (cell.type === "lesson") return (
+                  if (cell.type === "lesson") {
+                    const isMay = cell.lesson.teacher === "mayara";
+                    return (
                     <button key={d.toISOString() + h} onClick={() => { setEditing(cell.lesson); setDlgOpen(true); }}
-                      className={`border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : "bg-primary/10"}`}>
-                      <div className="font-semibold truncate text-primary">{cell.lesson.student_name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{cell.lesson.subject}</div>
+                      className={`border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"}`}>
+                      <div className={`font-semibold truncate ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{cell.lesson.student_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{isMay ? "Mayara" : "Thiago"} · {cell.lesson.subject}</div>
                     </button>
-                  );
+                  );}
                   if (cell.type === "block") return (
-                    <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground"
+                    <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
                       style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}>
                       <div className="truncate">{cell.label}</div>
+                      {cell.recurring && (
+                        <button
+                          onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(cell.blockId!, d); }}
+                          className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
+                          title="Liberar somente este dia"
+                        >Liberar este dia</button>
+                      )}
                     </div>
                   );
                   return (
