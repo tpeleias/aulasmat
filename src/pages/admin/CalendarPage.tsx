@@ -16,6 +16,7 @@ export default function CalendarPage() {
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [exceptions, setExceptions] = useState<BlockException[]>([]);
   const [dlgOpen, setDlgOpen] = useState(false);
   const [editing, setEditing] = useState<Lesson | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>(undefined);
@@ -25,14 +26,16 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, 7).toISOString();
-    const [s, l, b] = await Promise.all([
+    const [s, l, b, ex] = await Promise.all([
       supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
+      supabase.from("block_exceptions").select("*"),
     ]);
     if (s.data) setSettings(s.data);
     setLessons((l.data ?? []) as Lesson[]);
     setBlocks((b.data ?? []) as Block[]);
+    setExceptions((ex.data ?? []) as BlockException[]);
   }, [weekStart]);
 
   useEffect(() => { load(); }, [load]);
@@ -47,6 +50,13 @@ export default function CalendarPage() {
 
   const slotMin = settings.slot_minutes;
 
+  const skipRecurringForDay = async (blockId: string, day: Date) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    const { error } = await supabase.from("block_exceptions").insert({ block_id: blockId, exception_date: dateStr });
+    if (error) console.error(error);
+    load();
+  };
+
   const getCellContent = (day: Date, hour: number) => {
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
     const cellEnd = addMinutes(cellStart, slotMin);
@@ -58,18 +68,20 @@ export default function CalendarPage() {
     if (lesson) return { type: "lesson" as const, lesson };
 
     const oneOff = blocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
-    if (oneOff) return { type: "block" as const, label: oneOff.title };
+    if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
 
     const wd = getDay(day);
+    const dateStr = format(day, "yyyy-MM-dd");
     const recur = blocks.find(b => {
       if (b.block_type !== "recurring" || b.weekday !== wd || !b.start_time || !b.end_time) return false;
+      if (exceptions.some(e => e.block_id === b.id && e.exception_date === dateStr)) return false;
       const [sh, sm] = b.start_time.split(":").map(Number);
       const [eh, em] = b.end_time.split(":").map(Number);
       const bs = new Date(day); bs.setHours(sh, sm, 0, 0);
       const be = new Date(day); be.setHours(eh, em, 0, 0);
       return bs < cellEnd && be > cellStart;
     });
-    if (recur) return { type: "block" as const, label: recur.title };
+    if (recur) return { type: "block" as const, label: recur.title, blockId: recur.id, recurring: true };
 
     return { type: "free" as const, cellStart };
   };
