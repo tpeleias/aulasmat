@@ -89,6 +89,30 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
             <div><Label>Duração (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></div>
             <div><Label>Início</Label><Input type="datetime-local" value={form.start_at} onChange={e => setForm({ ...form, start_at: e.target.value })} /></div>
           </div>
+          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <Label>Endereço do aluno</Label>
+              <Input
+                value={form.address ?? ""}
+                disabled={form.is_online}
+                placeholder={form.is_online ? "Aula on-line" : "Rua, número, bairro, cidade"}
+                onChange={e => setForm({ ...form, address: e.target.value })}
+              />
+              {form.address && !form.is_online && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(form.address)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                >
+                  <ExternalLink className="w-3 h-3" /> Abrir rota no Google Maps
+                </a>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer select-none">
+              <Checkbox checked={!!form.is_online} onCheckedChange={v => setForm({ ...form, is_online: !!v, address: v ? "" : form.address })} />
+              On-line
+            </label>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Pacote</Label>
               <Select value={form.package_type} onValueChange={setPackage}>
