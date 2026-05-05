@@ -48,9 +48,8 @@ export default function AdminLayout() {
         </nav>
         <div className="p-3 hidden md:block border-t border-sidebar-border space-y-2">
           <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Links públicos</div>
-          <Button onClick={() => copyLink("/disponibilidade/thiago", "do Thiago")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Agenda Thiago</Button>
-          <Button onClick={() => copyLink("/disponibilidade/mayara", "da Mayara")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Agenda Mayara</Button>
-          <Button onClick={() => copyLink("/disponibilidade", "geral")} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LinkIcon className="w-4 h-4" />Agenda geral</Button>
+          <Button onClick={() => copyLink("/disponibilidade/thiago", "do Thiago")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Thiago</Button>
+          <Button onClick={() => copyLink("/disponibilidade/mayara", "da Mayara")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Mayara</Button>
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
         </div>
       </aside>
