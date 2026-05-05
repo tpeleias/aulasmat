@@ -13,7 +13,7 @@ type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
 export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [teacherFilter, setTeacherFilter] = useState<"all" | "thiago" | "mayara">("all");
+  const [teacherFilter, setTeacherFilter] = useState<"thiago" | "mayara">("thiago");
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
