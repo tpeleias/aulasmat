@@ -13,7 +13,7 @@ type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
 export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [teacherFilter, setTeacherFilter] = useState<"all" | "thiago" | "mayara">("all");
+  const [teacherFilter, setTeacherFilter] = useState<"thiago" | "mayara">("thiago");
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -59,8 +59,13 @@ export default function CalendarPage() {
   };
 
   const filteredLessons = useMemo(
-    () => teacherFilter === "all" ? lessons : lessons.filter(l => l.teacher === teacherFilter),
+    () => lessons.filter(l => l.teacher === teacherFilter),
     [lessons, teacherFilter]
+  );
+
+  const teacherBlocks = useMemo(
+    () => blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
+    [blocks, teacherFilter]
   );
 
   const getCellContent = (day: Date, hour: number) => {
@@ -73,12 +78,12 @@ export default function CalendarPage() {
     });
     if (cellLessons.length > 0) return { type: "lesson" as const, lessons: cellLessons };
 
-    const oneOff = blocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
+    const oneOff = teacherBlocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
     if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
 
     const wd = getDay(day);
     const dateStr = format(day, "yyyy-MM-dd");
-    const recur = blocks.find(b => {
+    const recur = teacherBlocks.find(b => {
       if (b.block_type !== "recurring" || b.weekday !== wd || !b.start_time || !b.end_time) return false;
       if (exceptions.some(e => e.block_id === b.id && e.exception_date === dateStr)) return false;
       const [sh, sm] = b.start_time.split(":").map(Number);
@@ -123,7 +128,6 @@ export default function CalendarPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <div className="inline-flex rounded-md border border-border p-0.5 bg-muted">
-            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Ambos</button>
             <button onClick={() => setTeacherFilter("thiago")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "thiago" ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>Thiago</button>
             <button onClick={() => setTeacherFilter("mayara")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "mayara" ? "bg-background shadow-sm font-medium text-fuchsia-600" : "text-muted-foreground"}`}>Mayara</button>
           </div>
