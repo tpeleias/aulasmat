@@ -27,6 +27,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
+            <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
+            <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" /></Route>.replace ? null : null}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<CalendarPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />
