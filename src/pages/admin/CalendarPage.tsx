@@ -59,8 +59,13 @@ export default function CalendarPage() {
   };
 
   const filteredLessons = useMemo(
-    () => teacherFilter === "all" ? lessons : lessons.filter(l => l.teacher === teacherFilter),
+    () => lessons.filter(l => l.teacher === teacherFilter),
     [lessons, teacherFilter]
+  );
+
+  const teacherBlocks = useMemo(
+    () => blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
+    [blocks, teacherFilter]
   );
 
   const getCellContent = (day: Date, hour: number) => {
@@ -73,12 +78,12 @@ export default function CalendarPage() {
     });
     if (cellLessons.length > 0) return { type: "lesson" as const, lessons: cellLessons };
 
-    const oneOff = blocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
+    const oneOff = teacherBlocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
     if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
 
     const wd = getDay(day);
     const dateStr = format(day, "yyyy-MM-dd");
-    const recur = blocks.find(b => {
+    const recur = teacherBlocks.find(b => {
       if (b.block_type !== "recurring" || b.weekday !== wd || !b.start_time || !b.end_time) return false;
       if (exceptions.some(e => e.block_id === b.id && e.exception_date === dateStr)) return false;
       const [sh, sm] = b.start_time.split(":").map(Number);
