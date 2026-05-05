@@ -12,6 +12,7 @@ import { format } from "date-fns";
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
+  teacher: string;
 };
 
 const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
