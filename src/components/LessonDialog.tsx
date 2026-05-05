@@ -71,7 +71,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Professor(a)</Label>
-              <Select value={form.teacher} onValueChange={v => setForm({ ...form, teacher: v })}>
+              <Select value={form.teacher} onValueChange={setTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="thiago">Thiago</SelectItem>
