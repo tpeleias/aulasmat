@@ -119,9 +119,20 @@ export default function CalendarPage() {
                     const isMay = cell.lesson.teacher === "mayara";
                     return (
                     <button key={d.toISOString() + h} onClick={() => { setEditing(cell.lesson); setDlgOpen(true); }}
-                      className={`border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"}`}>
-                      <div className={`font-semibold truncate ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{cell.lesson.student_name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{isMay ? "Mayara" : "Thiago"} · {cell.lesson.subject}</div>
+                      className={`relative border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"}`}>
+                      <div className={`font-semibold truncate pr-5 ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{cell.lesson.student_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate pr-5">{isMay ? "Mayara" : "Thiago"} · {cell.lesson.subject}</div>
+                      {cell.lesson.is_online ? (
+                        <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>
+                      ) : cell.lesson.address ? (
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cell.lesson.address)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute top-1 right-1 p-0.5 text-muted-foreground hover:text-primary"
+                          title="Abrir rota no Google Maps"
+                        ><MapPin className="w-3 h-3" /></a>
+                      ) : null}
                     </button>
                   );}
                   if (cell.type === "block") return (
