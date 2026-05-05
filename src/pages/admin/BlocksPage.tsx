@@ -87,8 +87,18 @@ export default function BlocksPage() {
         <TabsContent value="oneoff" className="space-y-4">
           <Card className="p-5">
             <h3 className="font-semibold mb-3">Novo bloqueio pontual</h3>
-            <div className="grid md:grid-cols-3 gap-3 items-end">
+            <div className="grid md:grid-cols-4 gap-3 items-end">
               <div><Label>Título</Label><Input value={oneForm.title} onChange={e => setOneForm({ ...oneForm, title: e.target.value })} /></div>
+              <div><Label>Professor(a)</Label>
+                <Select value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="both">Ambos</SelectItem>
+                    <SelectItem value="thiago">Thiago</SelectItem>
+                    <SelectItem value="mayara">Mayara</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label>Início</Label><Input type="datetime-local" value={oneForm.start_at} onChange={e => setOneForm({ ...oneForm, start_at: e.target.value })} /></div>
               <div><Label>Fim</Label><Input type="datetime-local" value={oneForm.end_at} onChange={e => setOneForm({ ...oneForm, end_at: e.target.value })} /></div>
             </div>
@@ -98,7 +108,10 @@ export default function BlocksPage() {
             {oneOffs.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Nenhum bloqueio pontual.</p>}
             {oneOffs.map(b => (
               <Card key={b.id} className="p-4 flex items-center justify-between">
-                <div><div className="font-medium">{b.title}</div><div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), "dd/MM/yyyy HH:mm")} – {b.end_at && format(new Date(b.end_at), "dd/MM HH:mm")}</div></div>
+                <div>
+                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{TEACHER_LABEL[b.teacher] ?? b.teacher}</span></div>
+                  <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), "dd/MM/yyyy HH:mm")} – {b.end_at && format(new Date(b.end_at), "dd/MM HH:mm")}</div>
+                </div>
                 <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>
               </Card>
             ))}
