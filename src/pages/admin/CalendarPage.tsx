@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 
-type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null };
+type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string };
+type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
 type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
@@ -15,6 +16,7 @@ export default function CalendarPage() {
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [exceptions, setExceptions] = useState<BlockException[]>([]);
   const [dlgOpen, setDlgOpen] = useState(false);
   const [editing, setEditing] = useState<Lesson | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>(undefined);
@@ -24,14 +26,16 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, 7).toISOString();
-    const [s, l, b] = await Promise.all([
+    const [s, l, b, ex] = await Promise.all([
       supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
+      supabase.from("block_exceptions").select("*"),
     ]);
     if (s.data) setSettings(s.data);
     setLessons((l.data ?? []) as Lesson[]);
     setBlocks((b.data ?? []) as Block[]);
+    setExceptions((ex.data ?? []) as BlockException[]);
   }, [weekStart]);
 
   useEffect(() => { load(); }, [load]);
@@ -46,6 +50,13 @@ export default function CalendarPage() {
 
   const slotMin = settings.slot_minutes;
 
+  const skipRecurringForDay = async (blockId: string, day: Date) => {
+    const dateStr = format(day, "yyyy-MM-dd");
+    const { error } = await supabase.from("block_exceptions").insert({ block_id: blockId, exception_date: dateStr });
+    if (error) console.error(error);
+    load();
+  };
+
   const getCellContent = (day: Date, hour: number) => {
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
     const cellEnd = addMinutes(cellStart, slotMin);
@@ -57,18 +68,20 @@ export default function CalendarPage() {
     if (lesson) return { type: "lesson" as const, lesson };
 
     const oneOff = blocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
-    if (oneOff) return { type: "block" as const, label: oneOff.title };
+    if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
 
     const wd = getDay(day);
+    const dateStr = format(day, "yyyy-MM-dd");
     const recur = blocks.find(b => {
       if (b.block_type !== "recurring" || b.weekday !== wd || !b.start_time || !b.end_time) return false;
+      if (exceptions.some(e => e.block_id === b.id && e.exception_date === dateStr)) return false;
       const [sh, sm] = b.start_time.split(":").map(Number);
       const [eh, em] = b.end_time.split(":").map(Number);
       const bs = new Date(day); bs.setHours(sh, sm, 0, 0);
       const be = new Date(day); be.setHours(eh, em, 0, 0);
       return bs < cellEnd && be > cellStart;
     });
-    if (recur) return { type: "block" as const, label: recur.title };
+    if (recur) return { type: "block" as const, label: recur.title, blockId: recur.id, recurring: true };
 
     return { type: "free" as const, cellStart };
   };
@@ -102,17 +115,26 @@ export default function CalendarPage() {
                 <div className="border-b border-r border-border p-1 text-[11px] text-muted-foreground text-right pr-2">{String(h).padStart(2, "0")}:00</div>
                 {days.map(d => {
                   const cell = getCellContent(d, h);
-                  if (cell.type === "lesson") return (
+                  if (cell.type === "lesson") {
+                    const isMay = cell.lesson.teacher === "mayara";
+                    return (
                     <button key={d.toISOString() + h} onClick={() => { setEditing(cell.lesson); setDlgOpen(true); }}
-                      className={`border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : "bg-primary/10"}`}>
-                      <div className="font-semibold truncate text-primary">{cell.lesson.student_name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate">{cell.lesson.subject}</div>
+                      className={`border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"}`}>
+                      <div className={`font-semibold truncate ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{cell.lesson.student_name}</div>
+                      <div className="text-[10px] text-muted-foreground truncate">{isMay ? "Mayara" : "Thiago"} · {cell.lesson.subject}</div>
                     </button>
-                  );
+                  );}
                   if (cell.type === "block") return (
-                    <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground"
+                    <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
                       style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}>
                       <div className="truncate">{cell.label}</div>
+                      {cell.recurring && (
+                        <button
+                          onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(cell.blockId!, d); }}
+                          className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
+                          title="Liberar somente este dia"
+                        >Liberar este dia</button>
+                      )}
                     </div>
                   );
                   return (

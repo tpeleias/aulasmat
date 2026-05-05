@@ -12,6 +12,7 @@ import { format } from "date-fns";
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
+  teacher: string;
 };
 
 const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
@@ -21,7 +22,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
 }) {
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: "Matemática",
-    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: ""
+    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "", teacher: "thiago"
   });
   const [busy, setBusy] = useState(false);
 
@@ -56,14 +57,25 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
         <DialogHeader><DialogTitle>{lesson?.id ? "Editar aula" : "Nova aula"}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
+            <div><Label>Professor(a)</Label>
+              <Select value={form.teacher} onValueChange={v => setForm({ ...form, teacher: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="thiago">Thiago</SelectItem>
+                  <SelectItem value="mayara">Mayara</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div><Label>Aluno</Label><Input value={form.student_name} onChange={e => setForm({ ...form, student_name: e.target.value })} /></div>
-            <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
+            <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
             <div><Label>Assunto</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
-            <div><Label>Duração (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></div>
           </div>
-          <div><Label>Início</Label><Input type="datetime-local" value={form.start_at} onChange={e => setForm({ ...form, start_at: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Duração (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></div>
+            <div><Label>Início</Label><Input type="datetime-local" value={form.start_at} onChange={e => setForm({ ...form, start_at: e.target.value })} /></div>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Pacote</Label>
               <Select value={form.package_type} onValueChange={setPackage}>
