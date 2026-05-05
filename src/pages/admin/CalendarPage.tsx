@@ -128,7 +128,6 @@ export default function CalendarPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <div className="inline-flex rounded-md border border-border p-0.5 bg-muted">
-            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Ambos</button>
             <button onClick={() => setTeacherFilter("thiago")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "thiago" ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>Thiago</button>
             <button onClick={() => setTeacherFilter("mayara")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "mayara" ? "bg-background shadow-sm font-medium text-fuchsia-600" : "text-muted-foreground"}`}>Mayara</button>
           </div>
