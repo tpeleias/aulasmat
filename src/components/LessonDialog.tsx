@@ -5,15 +5,19 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ExternalLink } from "lucide-react";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
-  teacher: string;
+  teacher: string; address?: string | null; is_online?: boolean;
 };
+
+const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
 
 const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
 
