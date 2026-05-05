@@ -74,7 +74,10 @@ export default function BlocksPage() {
             {recurring.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">Nenhum bloqueio recorrente.</p>}
             {recurring.map(b => (
               <Card key={b.id} className="p-4 flex items-center justify-between">
-                <div><div className="font-medium">{b.title}</div><div className="text-sm text-muted-foreground">{WEEKDAYS[b.weekday ?? 0]} · {b.start_time?.slice(0,5)} – {b.end_time?.slice(0,5)}</div></div>
+                <div>
+                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{TEACHER_LABEL[b.teacher] ?? b.teacher}</span></div>
+                  <div className="text-sm text-muted-foreground">{WEEKDAYS[b.weekday ?? 0]} · {b.start_time?.slice(0,5)} – {b.end_time?.slice(0,5)}</div>
+                </div>
                 <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>
               </Card>
             ))}
