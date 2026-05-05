@@ -14,16 +14,159 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      blocks: {
+        Row: {
+          block_type: string
+          created_at: string
+          end_at: string | null
+          end_time: string | null
+          id: string
+          start_at: string | null
+          start_time: string | null
+          title: string
+          weekday: number | null
+        }
+        Insert: {
+          block_type?: string
+          created_at?: string
+          end_at?: string | null
+          end_time?: string | null
+          id?: string
+          start_at?: string | null
+          start_time?: string | null
+          title: string
+          weekday?: number | null
+        }
+        Update: {
+          block_type?: string
+          created_at?: string
+          end_at?: string | null
+          end_time?: string | null
+          id?: string
+          start_at?: string | null
+          start_time?: string | null
+          title?: string
+          weekday?: number | null
+        }
+        Relationships: []
+      }
+      lessons: {
+        Row: {
+          created_at: string
+          duration_minutes: number
+          guardian_name: string | null
+          id: string
+          notes: string | null
+          package_type: string
+          payment_status: string
+          price: number
+          start_at: string
+          student_name: string
+          subject: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number
+          guardian_name?: string | null
+          id?: string
+          notes?: string | null
+          package_type?: string
+          payment_status?: string
+          price?: number
+          start_at: string
+          student_name: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number
+          guardian_name?: string | null
+          id?: string
+          notes?: string | null
+          package_type?: string
+          payment_status?: string
+          price?: number
+          start_at?: string
+          student_name?: string
+          subject?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      settings: {
+        Row: {
+          id: number
+          slot_minutes: number
+          work_end: string
+          work_start: string
+        }
+        Insert: {
+          id?: number
+          slot_minutes?: number
+          work_end?: string
+          work_start?: string
+        }
+        Update: {
+          id?: number
+          slot_minutes?: number
+          work_end?: string
+          work_start?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_busy_ranges: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          end_at: string
+          start_at: string
+        }[]
+      }
+      get_recurring_blocks: {
+        Args: never
+        Returns: {
+          end_time: string
+          start_time: string
+          weekday: number
+        }[]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +293,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "user"],
+    },
   },
 } as const
