@@ -5,15 +5,19 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { ExternalLink } from "lucide-react";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
-  teacher: string;
+  teacher: string; address?: string | null; is_online?: boolean;
 };
+
+const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
 
 const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
 
@@ -22,14 +26,23 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
 }) {
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: "Matemática",
-    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "", teacher: "thiago"
+    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+    teacher: "thiago", address: "", is_online: false,
   });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (lesson) setForm(lesson);
+    if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
     else if (slotStart) setForm(f => ({ ...f, start_at: format(slotStart, "yyyy-MM-dd'T'HH:mm") }));
   }, [lesson, slotStart, open]);
+
+  const setTeacher = (t: string) => setForm(f => ({
+    ...f,
+    teacher: t,
+    subject: !f.subject || f.subject === DEFAULT_SUBJECT.thiago || f.subject === DEFAULT_SUBJECT.mayara
+      ? DEFAULT_SUBJECT[t] ?? f.subject
+      : f.subject,
+  }));
 
   const setPackage = (pkg: string) => setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
 
@@ -58,7 +71,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Professor(a)</Label>
-              <Select value={form.teacher} onValueChange={v => setForm({ ...form, teacher: v })}>
+              <Select value={form.teacher} onValueChange={setTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="thiago">Thiago</SelectItem>
@@ -75,6 +88,30 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Duração (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></div>
             <div><Label>Início</Label><Input type="datetime-local" value={form.start_at} onChange={e => setForm({ ...form, start_at: e.target.value })} /></div>
+          </div>
+          <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <Label>Endereço do aluno</Label>
+              <Input
+                value={form.address ?? ""}
+                disabled={form.is_online}
+                placeholder={form.is_online ? "Aula on-line" : "Rua, número, bairro, cidade"}
+                onChange={e => setForm({ ...form, address: e.target.value })}
+              />
+              {form.address && !form.is_online && (
+                <a
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(form.address)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
+                >
+                  <ExternalLink className="w-3 h-3" /> Abrir rota no Google Maps
+                </a>
+              )}
+            </div>
+            <label className="flex items-center gap-2 text-sm pb-2 cursor-pointer select-none">
+              <Checkbox checked={!!form.is_online} onCheckedChange={v => setForm({ ...form, is_online: !!v, address: v ? "" : form.address })} />
+              On-line
+            </label>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Pacote</Label>

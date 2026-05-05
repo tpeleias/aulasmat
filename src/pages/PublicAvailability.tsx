@@ -6,23 +6,36 @@ import { computeFreeSlots, fmtTime } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { GraduationCap, Info, Clock } from "lucide-react";
 
-export default function PublicAvailability() {
+type Props = { teacher?: "thiago" | "mayara" };
+
+const TEACHER_LABEL: Record<string, { name: string; subject: string }> = {
+  thiago: { name: "Prof. Thiago", subject: "Matemática" },
+  mayara: { name: "Profa. Mayara", subject: "Química" },
+};
+
+export default function PublicAvailability({ teacher }: Props) {
   const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const meta = teacher ? TEACHER_LABEL[teacher] : null;
+  const title = meta ? `Horários disponíveis — ${meta.name} (${meta.subject})` : "Horários disponíveis";
+
   useEffect(() => {
-    document.title = "Horários disponíveis — Professor de Matemática";
-    const meta = document.querySelector('meta[name="description"]') || (() => {
-      const m = document.createElement("meta"); m.setAttribute("name", "description"); document.head.appendChild(m); return m;
+    document.title = title;
+    const m = document.querySelector('meta[name="description"]') || (() => {
+      const el = document.createElement("meta"); el.setAttribute("name", "description"); document.head.appendChild(el); return el;
     })();
-    meta.setAttribute("content", "Confira os horários livres do professor para os próximos 5 dias.");
+    m.setAttribute("content", `Horários livres ${meta ? `de ${meta.name} (${meta.subject})` : ""} para os próximos 5 dias.`);
 
     (async () => {
       const from = startOfDay(new Date());
       const to = addDays(from, 5);
+      const busyCall = teacher
+        ? supabase.rpc("get_busy_ranges_by_teacher", { _from: from.toISOString(), _to: to.toISOString(), _teacher: teacher })
+        : supabase.rpc("get_busy_ranges", { _from: from.toISOString(), _to: to.toISOString() });
       const [settingsR, busyR, recR] = await Promise.all([
         supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
-        supabase.rpc("get_busy_ranges", { _from: from.toISOString(), _to: to.toISOString() }),
+        busyCall,
         supabase.rpc("get_recurring_blocks"),
       ]);
       const s = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60 };
@@ -36,7 +49,7 @@ export default function PublicAvailability() {
       }
       setSlotsByDay(grouped); setLoading(false);
     })();
-  }, []);
+  }, [teacher, title]);
 
   return (
     <div className="min-h-screen" style={{ background: "var(--gradient-subtle)" }}>
@@ -46,7 +59,9 @@ export default function PublicAvailability() {
             <GraduationCap className="text-primary-foreground w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-xl font-bold">Aulas Particulares de Matemática</h1>
+            <h1 className="text-xl font-bold">
+              {meta ? `Aulas Particulares de ${meta.subject} — ${meta.name}` : "Aulas Particulares"}
+            </h1>
             <p className="text-xs text-muted-foreground">Horários disponíveis para os próximos 5 dias</p>
           </div>
         </div>
