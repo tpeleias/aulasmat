@@ -58,15 +58,20 @@ export default function CalendarPage() {
     load();
   };
 
+  const filteredLessons = useMemo(
+    () => teacherFilter === "all" ? lessons : lessons.filter(l => l.teacher === teacherFilter),
+    [lessons, teacherFilter]
+  );
+
   const getCellContent = (day: Date, hour: number) => {
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
     const cellEnd = addMinutes(cellStart, slotMin);
 
-    const lesson = lessons.find(l => {
+    const cellLessons = filteredLessons.filter(l => {
       const ls = new Date(l.start_at);
       return isSameDay(ls, day) && ls < cellEnd && addMinutes(ls, l.duration_minutes) > cellStart;
     });
-    if (lesson) return { type: "lesson" as const, lesson };
+    if (cellLessons.length > 0) return { type: "lesson" as const, lessons: cellLessons };
 
     const oneOff = blocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
     if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
@@ -87,6 +92,28 @@ export default function CalendarPage() {
     return { type: "free" as const, cellStart };
   };
 
+  const renderLesson = (lesson: Lesson) => {
+    const isMay = lesson.teacher === "mayara";
+    return (
+      <button key={lesson.id} onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
+        className={`relative flex-1 min-w-0 p-1.5 text-left text-xs hover:opacity-90 border-l-2 ${lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}>
+        <div className={`font-semibold truncate pr-5 ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
+        <div className="text-[10px] text-muted-foreground truncate pr-5">{isMay ? "Mayara" : "Thiago"} · {lesson.subject}</div>
+        {lesson.is_online ? (
+          <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>
+        ) : lesson.address ? (
+          <a
+            href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lesson.address)}`}
+            target="_blank" rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="absolute top-1 right-1 p-0.5 text-muted-foreground hover:text-primary"
+            title="Abrir rota no Google Maps"
+          ><MapPin className="w-3 h-3" /></a>
+        ) : null}
+      </button>
+    );
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -94,7 +121,12 @@ export default function CalendarPage() {
           <h1 className="text-2xl font-bold">Calendário</h1>
           <p className="text-sm text-muted-foreground">{format(days[0], "dd 'de' MMM", { locale: ptBR })} — {format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted">
+            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Ambos</button>
+            <button onClick={() => setTeacherFilter("thiago")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "thiago" ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>Thiago</button>
+            <button onClick={() => setTeacherFilter("mayara")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "mayara" ? "bg-background shadow-sm font-medium text-fuchsia-600" : "text-muted-foreground"}`}>Mayara</button>
+          </div>
           <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
           <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
           <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
@@ -117,25 +149,12 @@ export default function CalendarPage() {
                 {days.map(d => {
                   const cell = getCellContent(d, h);
                   if (cell.type === "lesson") {
-                    const isMay = cell.lesson.teacher === "mayara";
                     return (
-                    <button key={d.toISOString() + h} onClick={() => { setEditing(cell.lesson); setDlgOpen(true); }}
-                      className={`relative border-b border-l border-border p-1.5 text-left text-xs hover:opacity-90 ${cell.lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"}`}>
-                      <div className={`font-semibold truncate pr-5 ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{cell.lesson.student_name}</div>
-                      <div className="text-[10px] text-muted-foreground truncate pr-5">{isMay ? "Mayara" : "Thiago"} · {cell.lesson.subject}</div>
-                      {cell.lesson.is_online ? (
-                        <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>
-                      ) : cell.lesson.address ? (
-                        <a
-                          href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(cell.lesson.address)}`}
-                          target="_blank" rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute top-1 right-1 p-0.5 text-muted-foreground hover:text-primary"
-                          title="Abrir rota no Google Maps"
-                        ><MapPin className="w-3 h-3" /></a>
-                      ) : null}
-                    </button>
-                  );}
+                      <div key={d.toISOString() + h} className="border-b border-l border-border flex min-h-[52px]">
+                        {cell.lessons.map(renderLesson)}
+                      </div>
+                    );
+                  }
                   if (cell.type === "block") return (
                     <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
                       style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}>
@@ -163,10 +182,12 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-primary/10 border border-primary/30"></span>Aula pendente</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-primary/10 border-l-2 border-primary"></span>Thiago</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-fuchsia-500/10 border-l-2 border-fuchsia-500"></span>Mayara</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/15 border border-success/30"></span>Aula paga</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
+
 
       <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} />
     </div>
