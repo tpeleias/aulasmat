@@ -1,0 +1,92 @@
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { addDays, startOfDay, format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { computeFreeSlots, fmtTime } from "@/lib/availability";
+import { Card } from "@/components/ui/card";
+import { GraduationCap, Info, Clock } from "lucide-react";
+
+export default function PublicAvailability() {
+  const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    document.title = "Horários disponíveis — Professor de Matemática";
+    const meta = document.querySelector('meta[name="description"]') || (() => {
+      const m = document.createElement("meta"); m.setAttribute("name", "description"); document.head.appendChild(m); return m;
+    })();
+    meta.setAttribute("content", "Confira os horários livres do professor para os próximos 5 dias.");
+
+    (async () => {
+      const from = startOfDay(new Date());
+      const to = addDays(from, 5);
+      const [settingsR, busyR, recR] = await Promise.all([
+        supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
+        supabase.rpc("get_busy_ranges", { _from: from.toISOString(), _to: to.toISOString() }),
+        supabase.rpc("get_recurring_blocks"),
+      ]);
+      const s = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60 };
+      const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
+      const rec = (recR.data ?? []) as any[];
+      const free = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, busy, rec);
+      const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
+      for (let i = 0; i < 5; i++) {
+        const day = addDays(from, i);
+        grouped.push({ day, slots: free.filter(f => f.start.toDateString() === day.toDateString()) });
+      }
+      setSlotsByDay(grouped); setLoading(false);
+    })();
+  }, []);
+
+  return (
+    <div className="min-h-screen" style={{ background: "var(--gradient-subtle)" }}>
+      <header className="bg-card border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 py-6 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
+            <GraduationCap className="text-primary-foreground w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl font-bold">Aulas Particulares de Matemática</h1>
+            <p className="text-xs text-muted-foreground">Horários disponíveis para os próximos 5 dias</p>
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <Card className="p-4 flex gap-3 bg-accent border-accent">
+          <Info className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
+          <p className="text-sm text-accent-foreground">
+            <strong>Estes são os horários livres para os próximos 5 dias.</strong> Entre em contato diretamente com o professor para reservar.
+          </p>
+        </Card>
+
+        {loading && <p className="text-center text-muted-foreground py-12">Carregando…</p>}
+
+        {!loading && slotsByDay.map(({ day, slots }) => (
+          <div key={day.toISOString()}>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+              {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+            </h2>
+            {slots.length === 0 ? (
+              <Card className="p-4 text-sm text-muted-foreground text-center">Sem horários livres neste dia.</Card>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {slots.map(s => (
+                  <div key={s.start.toISOString()} className="bg-card border border-border rounded-lg p-3 text-center shadow-[var(--shadow-card)]">
+                    <Clock className="w-3 h-3 inline mr-1 text-primary" />
+                    <span className="font-semibold">{fmtTime(s.start)}</span>
+                    <div className="text-[10px] text-muted-foreground">até {fmtTime(s.end)}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+
+        <footer className="text-center text-xs text-muted-foreground pt-8 pb-4">
+          Esta página é apenas informativa. Não há agendamento online.
+        </footer>
+      </main>
+    </div>
+  );
+}
