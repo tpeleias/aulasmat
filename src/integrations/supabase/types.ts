@@ -81,10 +81,12 @@ export type Database = {
       }
       lessons: {
         Row: {
+          address: string | null
           created_at: string
           duration_minutes: number
           guardian_name: string | null
           id: string
+          is_online: boolean
           notes: string | null
           package_type: string
           payment_status: string
@@ -96,10 +98,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
           duration_minutes?: number
           guardian_name?: string | null
           id?: string
+          is_online?: boolean
           notes?: string | null
           package_type?: string
           payment_status?: string
@@ -111,10 +115,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          address?: string | null
           created_at?: string
           duration_minutes?: number
           guardian_name?: string | null
           id?: string
+          is_online?: boolean
           notes?: string | null
           package_type?: string
           payment_status?: string
@@ -176,6 +182,13 @@ export type Database = {
     Functions: {
       get_busy_ranges: {
         Args: { _from: string; _to: string }
+        Returns: {
+          end_at: string
+          start_at: string
+        }[]
+      }
+      get_busy_ranges_by_teacher: {
+        Args: { _from: string; _teacher: string; _to: string }
         Returns: {
           end_at: string
           start_at: string
