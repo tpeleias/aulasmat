@@ -52,6 +52,7 @@ export type Database = {
           id: string
           start_at: string | null
           start_time: string | null
+          teacher: string
           title: string
           weekday: number | null
         }
@@ -63,6 +64,7 @@ export type Database = {
           id?: string
           start_at?: string | null
           start_time?: string | null
+          teacher?: string
           title: string
           weekday?: number | null
         }
@@ -74,6 +76,7 @@ export type Database = {
           id?: string
           start_at?: string | null
           start_time?: string | null
+          teacher?: string
           title?: string
           weekday?: number | null
         }
@@ -198,6 +201,16 @@ export type Database = {
         Args: never
         Returns: {
           end_time: string
+          start_time: string
+          weekday: number
+        }[]
+      }
+      get_recurring_blocks_by_teacher: {
+        Args: { _teacher: string }
+        Returns: {
+          end_time: string
+          exceptions: string[]
+          id: string
           start_time: string
           weekday: number
         }[]

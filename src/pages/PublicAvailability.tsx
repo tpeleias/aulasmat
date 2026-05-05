@@ -33,10 +33,13 @@ export default function PublicAvailability({ teacher }: Props) {
       const busyCall = teacher
         ? supabase.rpc("get_busy_ranges_by_teacher", { _from: from.toISOString(), _to: to.toISOString(), _teacher: teacher })
         : supabase.rpc("get_busy_ranges", { _from: from.toISOString(), _to: to.toISOString() });
+      const recCall = teacher
+        ? supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: teacher })
+        : supabase.rpc("get_recurring_blocks");
       const [settingsR, busyR, recR] = await Promise.all([
         supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
         busyCall,
-        supabase.rpc("get_recurring_blocks"),
+        recCall,
       ]);
       const s = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60 };
       const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
