@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      block_exceptions: {
+        Row: {
+          block_id: string
+          created_at: string
+          exception_date: string
+          id: string
+        }
+        Insert: {
+          block_id: string
+          created_at?: string
+          exception_date: string
+          id?: string
+        }
+        Update: {
+          block_id?: string
+          created_at?: string
+          exception_date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "block_exceptions_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       blocks: {
         Row: {
           block_type: string
@@ -63,6 +92,7 @@ export type Database = {
           start_at: string
           student_name: string
           subject: string | null
+          teacher: string
           updated_at: string
         }
         Insert: {
@@ -77,6 +107,7 @@ export type Database = {
           start_at: string
           student_name: string
           subject?: string | null
+          teacher?: string
           updated_at?: string
         }
         Update: {
@@ -91,6 +122,7 @@ export type Database = {
           start_at?: string
           student_name?: string
           subject?: string | null
+          teacher?: string
           updated_at?: string
         }
         Relationships: []
@@ -153,6 +185,16 @@ export type Database = {
         Args: never
         Returns: {
           end_time: string
+          start_time: string
+          weekday: number
+        }[]
+      }
+      get_recurring_blocks_v2: {
+        Args: never
+        Returns: {
+          end_time: string
+          exceptions: string[]
+          id: string
           start_time: string
           weekday: number
         }[]
