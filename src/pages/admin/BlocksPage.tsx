@@ -47,8 +47,18 @@ export default function BlocksPage() {
         <TabsContent value="recurring" className="space-y-4">
           <Card className="p-5">
             <h3 className="font-semibold mb-3">Novo bloqueio recorrente</h3>
-            <div className="grid md:grid-cols-5 gap-3 items-end">
+            <div className="grid md:grid-cols-6 gap-3 items-end">
               <div className="md:col-span-2"><Label>Título</Label><Input value={recForm.title} onChange={e => setRecForm({ ...recForm, title: e.target.value })} /></div>
+              <div><Label>Professor(a)</Label>
+                <Select value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="both">Ambos</SelectItem>
+                    <SelectItem value="thiago">Thiago</SelectItem>
+                    <SelectItem value="mayara">Mayara</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div><Label>Dia</Label>
                 <Select value={String(recForm.weekday)} onValueChange={v => setRecForm({ ...recForm, weekday: Number(v) })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
