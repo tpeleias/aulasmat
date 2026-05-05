@@ -26,14 +26,23 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
 }) {
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: "Matemática",
-    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "", teacher: "thiago"
+    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+    teacher: "thiago", address: "", is_online: false,
   });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (lesson) setForm(lesson);
+    if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
     else if (slotStart) setForm(f => ({ ...f, start_at: format(slotStart, "yyyy-MM-dd'T'HH:mm") }));
   }, [lesson, slotStart, open]);
+
+  const setTeacher = (t: string) => setForm(f => ({
+    ...f,
+    teacher: t,
+    subject: !f.subject || f.subject === DEFAULT_SUBJECT.thiago || f.subject === DEFAULT_SUBJECT.mayara
+      ? DEFAULT_SUBJECT[t] ?? f.subject
+      : f.subject,
+  }));
 
   const setPackage = (pkg: string) => setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
 
