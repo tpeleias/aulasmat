@@ -4,7 +4,50 @@ import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, fmtTime } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
-import { GraduationCap, Info, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { GraduationCap, Info, Clock, Flame } from "lucide-react";
+
+// Deterministic seeded pseudo-random so the public view is stable per day/teacher
+function seedRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => {
+    h += 0x6D2B79F5; let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pickScarcitySlots(
+  day: Date,
+  workStart: string,
+  workEnd: string,
+  slotMinutes: number,
+  teacherKey: string,
+): Date[] {
+  // Build all theoretical slot starts for the day (independent of bookings)
+  const [hs, ms] = workStart.split(":").map(Number);
+  const [he, me] = workEnd.split(":").map(Number);
+  const dayStart = new Date(day); dayStart.setHours(hs, ms ?? 0, 0, 0);
+  const dayEnd = new Date(day); dayEnd.setHours(he, me ?? 0, 0, 0);
+  const all: Date[] = [];
+  for (let t = dayStart.getTime(); t + slotMinutes * 60000 <= dayEnd.getTime(); t += slotMinutes * 60000) {
+    all.push(new Date(t));
+  }
+  if (all.length === 0) return [];
+  const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+  const rand = seedRandom(`${teacherKey}|${dayKey}`);
+  const maxN = 1 + Math.floor(rand() * 3); // 1..3
+  // Shuffle deterministically then take first maxN, then sort chronologically
+  const indices = all.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const chosen = indices.slice(0, maxN).map(i => all[i]).sort((a, b) => a.getTime() - b.getTime());
+  return chosen;
+}
 
 type Props = { teacher?: "thiago" | "mayara" };
 
@@ -45,10 +88,21 @@ export default function PublicAvailability({ teacher }: Props) {
       const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
       const rec = (recR.data ?? []) as any[];
       const free = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, busy, rec);
+      const now = new Date();
       const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
       for (let i = 0; i < 5; i++) {
         const day = addDays(from, i);
-        grouped.push({ day, slots: free.filter(f => f.start.toDateString() === day.toDateString()) });
+        // Pre-pick fixed scarcity slots (stable per day/teacher) — not affected by bookings
+        const picked = pickScarcitySlots(day, s.work_start, s.work_end, s.slot_minutes, teacher ?? "all");
+        // Keep only those that (a) are still actually free, (b) are not in the past
+        const visible = picked
+          .filter(start => {
+            const end = new Date(start.getTime() + s.slot_minutes * 60000);
+            if (end <= now) return false;
+            return free.some(f => f.start.getTime() === start.getTime());
+          })
+          .map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
+        grouped.push({ day, slots: visible });
       }
       setSlotsByDay(grouped); setLoading(false);
     })();
@@ -82,9 +136,16 @@ export default function PublicAvailability({ teacher }: Props) {
 
         {!loading && slotsByDay.map(({ day, slots }) => (
           <div key={day.toISOString()}>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-              {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-            </h2>
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              </h2>
+              {slots.length > 0 && slots.length <= 2 && (
+                <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
+                  <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                </Badge>
+              )}
+            </div>
             {slots.length === 0 ? (
               <Card className="p-4 text-sm text-muted-foreground text-center">Sem horários livres neste dia.</Card>
             ) : (

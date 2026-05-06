@@ -178,6 +178,47 @@ export type Database = {
         }
         Relationships: []
       }
+      wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          guardian_name: string | null
+          id: string
+          kind: string
+          lesson_id: string | null
+          student_name: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          guardian_name?: string | null
+          id?: string
+          kind: string
+          lesson_id?: string | null
+          student_name: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          guardian_name?: string | null
+          id?: string
+          kind?: string
+          lesson_id?: string | null
+          student_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wallet_transactions_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
