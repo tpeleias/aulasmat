@@ -19,18 +19,34 @@ function seedRandom(seed: string): () => number {
   };
 }
 
-function applyScarcity(
-  slots: { start: Date; end: Date }[],
-  dayKey: string,
+function pickScarcitySlots(
+  day: Date,
+  workStart: string,
+  workEnd: string,
+  slotMinutes: number,
   teacherKey: string,
-): { start: Date; end: Date }[] {
-  if (slots.length === 0) return slots;
+): Date[] {
+  // Build all theoretical slot starts for the day (independent of bookings)
+  const [hs, ms] = workStart.split(":").map(Number);
+  const [he, me] = workEnd.split(":").map(Number);
+  const dayStart = new Date(day); dayStart.setHours(hs, ms ?? 0, 0, 0);
+  const dayEnd = new Date(day); dayEnd.setHours(he, me ?? 0, 0, 0);
+  const all: Date[] = [];
+  for (let t = dayStart.getTime(); t + slotMinutes * 60000 <= dayEnd.getTime(); t += slotMinutes * 60000) {
+    all.push(new Date(t));
+  }
+  if (all.length === 0) return [];
+  const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
   const rand = seedRandom(`${teacherKey}|${dayKey}`);
-  // Random max between 1 and 3 (inclusive)
-  const maxN = 1 + Math.floor(rand() * 3);
-  // Prioritize earliest slots within the day for natural feel
-  const sorted = [...slots].sort((a, b) => a.start.getTime() - b.start.getTime());
-  return sorted.slice(0, Math.min(maxN, sorted.length));
+  const maxN = 1 + Math.floor(rand() * 3); // 1..3
+  // Shuffle deterministically then take first maxN, then sort chronologically
+  const indices = all.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  const chosen = indices.slice(0, maxN).map(i => all[i]).sort((a, b) => a.getTime() - b.getTime());
+  return chosen;
 }
 
 type Props = { teacher?: "thiago" | "mayara" };
