@@ -117,8 +117,8 @@ export default function BillingPage() {
 
       <div className="grid md:grid-cols-2 gap-4">
         <Card className="p-5">
-          <div className="text-xs text-muted-foreground uppercase">Crédito disponível (alunos)</div>
-          <div className="text-3xl font-bold text-success mt-1">{fmt(totals.positive)}</div>
+          <div className="text-xs text-muted-foreground uppercase">Total recebido</div>
+          <div className="text-3xl font-bold text-success mt-1">{fmt(totals.received)}</div>
         </Card>
         <Card className="p-5">
           <div className="text-xs text-muted-foreground uppercase">A cobrar (saldo negativo)</div>
