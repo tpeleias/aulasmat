@@ -74,13 +74,16 @@ export default function BillingPage() {
   }, [txs]);
 
   const totals = useMemo(() => {
-    let positive = 0, negative = 0;
-    for (const a of accounts) {
-      if (a.balance > 0) positive += a.balance;
-      else if (a.balance < 0) negative += a.balance;
+    let received = 0, negative = 0;
+    for (const t of txs) {
+      const amt = Number(t.amount);
+      if ((t.kind === "package" || t.kind === "adjustment") && amt > 0) received += amt;
     }
-    return { positive, negative };
-  }, [accounts]);
+    for (const a of accounts) {
+      if (a.balance < 0) negative += a.balance;
+    }
+    return { received, negative };
+  }, [txs, accounts]);
 
   const openCredit = (a: { guardian: string | null; student: string }) => {
     setCreditFor({ guardian: a.guardian, student: a.student });
