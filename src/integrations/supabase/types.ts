@@ -139,18 +139,30 @@ export type Database = {
       settings: {
         Row: {
           id: number
+          scarcity_weekday_max: number
+          scarcity_weekday_min: number
+          scarcity_weekend_max: number
+          scarcity_weekend_min: number
           slot_minutes: number
           work_end: string
           work_start: string
         }
         Insert: {
           id?: number
+          scarcity_weekday_max?: number
+          scarcity_weekday_min?: number
+          scarcity_weekend_max?: number
+          scarcity_weekend_min?: number
           slot_minutes?: number
           work_end?: string
           work_start?: string
         }
         Update: {
           id?: number
+          scarcity_weekday_max?: number
+          scarcity_weekday_min?: number
+          scarcity_weekend_max?: number
+          scarcity_weekend_min?: number
           slot_minutes?: number
           work_end?: string
           work_start?: string
