@@ -4,7 +4,34 @@ import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, fmtTime } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
-import { GraduationCap, Info, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { GraduationCap, Info, Clock, Flame } from "lucide-react";
+
+// Deterministic seeded pseudo-random so the public view is stable per day/teacher
+function seedRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => {
+    h += 0x6D2B79F5; let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function applyScarcity(
+  slots: { start: Date; end: Date }[],
+  dayKey: string,
+  teacherKey: string,
+): { start: Date; end: Date }[] {
+  if (slots.length === 0) return slots;
+  const rand = seedRandom(`${teacherKey}|${dayKey}`);
+  // Random max between 1 and 3 (inclusive)
+  const maxN = 1 + Math.floor(rand() * 3);
+  // Prioritize earliest slots within the day for natural feel
+  const sorted = [...slots].sort((a, b) => a.start.getTime() - b.start.getTime());
+  return sorted.slice(0, Math.min(maxN, sorted.length));
+}
 
 type Props = { teacher?: "thiago" | "mayara" };
 
