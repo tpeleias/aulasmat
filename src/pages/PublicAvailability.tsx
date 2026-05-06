@@ -80,16 +80,11 @@ export default function PublicAvailability({ teacher }: Props) {
       const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
       for (let i = 0; i < 5; i++) {
         const day = addDays(from, i);
-        // Pre-pick fixed scarcity slots (stable per day/teacher) — not affected by bookings
-        const picked = pickScarcitySlots(day, s.work_start, s.work_end, s.slot_minutes, teacher ?? "all");
-        // Keep only those that (a) are still actually free, (b) are not in the past
-        const visible = picked
-          .filter(start => {
-            const end = new Date(start.getTime() + s.slot_minutes * 60000);
-            if (end <= now) return false;
-            return free.some(f => f.start.getTime() === start.getTime());
-          })
-          .map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
+        const dayFreeStarts = free
+          .filter(f => f.start.getFullYear() === day.getFullYear() && f.start.getMonth() === day.getMonth() && f.start.getDate() === day.getDate() && f.end > now)
+          .map(f => f.start);
+        const picked = pickScarcityFromFree(day, dayFreeStarts, teacher ?? "all");
+        const visible = picked.map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
         grouped.push({ day, slots: visible });
       }
       setSlotsByDay(grouped); setLoading(false);
