@@ -75,7 +75,10 @@ export default function PublicAvailability({ teacher }: Props) {
       const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
       for (let i = 0; i < 5; i++) {
         const day = addDays(from, i);
-        grouped.push({ day, slots: free.filter(f => f.start.toDateString() === day.toDateString()) });
+        const daySlots = free.filter(f => f.start.toDateString() === day.toDateString());
+        const dayKey = format(day, "yyyy-MM-dd");
+        const limited = applyScarcity(daySlots, dayKey, teacher ?? "all");
+        grouped.push({ day, slots: limited });
       }
       setSlotsByDay(grouped); setLoading(false);
     })();
