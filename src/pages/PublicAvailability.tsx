@@ -23,18 +23,22 @@ function pickScarcityFromFree(
   day: Date,
   freeStarts: Date[],
   teacherKey: string,
+  minN: number,
+  maxN: number,
 ): Date[] {
   if (freeStarts.length === 0) return [];
   const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-  const rand = seedRandom(`${teacherKey}|${dayKey}`);
-  // Always at least 1; up to 3, but never more than what's actually free
-  const maxN = Math.min(freeStarts.length, 1 + Math.floor(rand() * 3));
+  const rand = seedRandom(`${teacherKey}|${dayKey}|${minN}-${maxN}`);
+  const lo = Math.max(1, Math.min(minN, maxN));
+  const hi = Math.max(lo, maxN);
+  const target = lo + Math.floor(rand() * (hi - lo + 1));
+  const count = Math.min(freeStarts.length, target);
   const indices = freeStarts.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  return indices.slice(0, maxN).map(i => freeStarts[i]).sort((a, b) => a.getTime() - b.getTime());
+  return indices.slice(0, count).map(i => freeStarts[i]).sort((a, b) => a.getTime() - b.getTime());
 }
 
 type Props = { teacher?: "thiago" | "mayara" };
@@ -68,11 +72,11 @@ export default function PublicAvailability({ teacher }: Props) {
         ? supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: teacher })
         : supabase.rpc("get_recurring_blocks");
       const [settingsR, busyR, recR] = await Promise.all([
-        supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
+        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").eq("id", 1).maybeSingle(),
         busyCall,
         recCall,
       ]);
-      const s = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60 };
+      const s: any = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity_weekday_min: 1, scarcity_weekday_max: 3, scarcity_weekend_min: 3, scarcity_weekend_max: 7 };
       const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
       const rec = (recR.data ?? []) as any[];
       const free = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, busy, rec);
@@ -83,7 +87,10 @@ export default function PublicAvailability({ teacher }: Props) {
         const dayFreeStarts = free
           .filter(f => f.start.getFullYear() === day.getFullYear() && f.start.getMonth() === day.getMonth() && f.start.getDate() === day.getDate() && f.end > now)
           .map(f => f.start);
-        const picked = pickScarcityFromFree(day, dayFreeStarts, teacher ?? "all");
+        const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+        const minN = isWeekend ? (s.scarcity_weekend_min ?? 3) : (s.scarcity_weekday_min ?? 1);
+        const maxN = isWeekend ? (s.scarcity_weekend_max ?? 7) : (s.scarcity_weekday_max ?? 3);
+        const picked = pickScarcityFromFree(day, dayFreeStarts, teacher ?? "all", minN, maxN);
         const visible = picked.map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
         grouped.push({ day, slots: visible });
       }
