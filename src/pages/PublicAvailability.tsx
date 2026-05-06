@@ -19,34 +19,22 @@ function seedRandom(seed: string): () => number {
   };
 }
 
-function pickScarcitySlots(
+function pickScarcityFromFree(
   day: Date,
-  workStart: string,
-  workEnd: string,
-  slotMinutes: number,
+  freeStarts: Date[],
   teacherKey: string,
 ): Date[] {
-  // Build all theoretical slot starts for the day (independent of bookings)
-  const [hs, ms] = workStart.split(":").map(Number);
-  const [he, me] = workEnd.split(":").map(Number);
-  const dayStart = new Date(day); dayStart.setHours(hs, ms ?? 0, 0, 0);
-  const dayEnd = new Date(day); dayEnd.setHours(he, me ?? 0, 0, 0);
-  const all: Date[] = [];
-  for (let t = dayStart.getTime(); t + slotMinutes * 60000 <= dayEnd.getTime(); t += slotMinutes * 60000) {
-    all.push(new Date(t));
-  }
-  if (all.length === 0) return [];
+  if (freeStarts.length === 0) return [];
   const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
   const rand = seedRandom(`${teacherKey}|${dayKey}`);
-  const maxN = 1 + Math.floor(rand() * 3); // 1..3
-  // Shuffle deterministically then take first maxN, then sort chronologically
-  const indices = all.map((_, i) => i);
+  // Always at least 1; up to 3, but never more than what's actually free
+  const maxN = Math.min(freeStarts.length, 1 + Math.floor(rand() * 3));
+  const indices = freeStarts.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  const chosen = indices.slice(0, maxN).map(i => all[i]).sort((a, b) => a.getTime() - b.getTime());
-  return chosen;
+  return indices.slice(0, maxN).map(i => freeStarts[i]).sort((a, b) => a.getTime() - b.getTime());
 }
 
 type Props = { teacher?: "thiago" | "mayara" };
@@ -92,16 +80,11 @@ export default function PublicAvailability({ teacher }: Props) {
       const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
       for (let i = 0; i < 5; i++) {
         const day = addDays(from, i);
-        // Pre-pick fixed scarcity slots (stable per day/teacher) — not affected by bookings
-        const picked = pickScarcitySlots(day, s.work_start, s.work_end, s.slot_minutes, teacher ?? "all");
-        // Keep only those that (a) are still actually free, (b) are not in the past
-        const visible = picked
-          .filter(start => {
-            const end = new Date(start.getTime() + s.slot_minutes * 60000);
-            if (end <= now) return false;
-            return free.some(f => f.start.getTime() === start.getTime());
-          })
-          .map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
+        const dayFreeStarts = free
+          .filter(f => f.start.getFullYear() === day.getFullYear() && f.start.getMonth() === day.getMonth() && f.start.getDate() === day.getDate() && f.end > now)
+          .map(f => f.start);
+        const picked = pickScarcityFromFree(day, dayFreeStarts, teacher ?? "all");
+        const visible = picked.map(start => ({ start, end: new Date(start.getTime() + s.slot_minutes * 60000) }));
         grouped.push({ day, slots: visible });
       }
       setSlotsByDay(grouped); setLoading(false);
