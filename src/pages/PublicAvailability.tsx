@@ -23,18 +23,22 @@ function pickScarcityFromFree(
   day: Date,
   freeStarts: Date[],
   teacherKey: string,
+  minN: number,
+  maxN: number,
 ): Date[] {
   if (freeStarts.length === 0) return [];
   const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
-  const rand = seedRandom(`${teacherKey}|${dayKey}`);
-  // Always at least 1; up to 3, but never more than what's actually free
-  const maxN = Math.min(freeStarts.length, 1 + Math.floor(rand() * 3));
+  const rand = seedRandom(`${teacherKey}|${dayKey}|${minN}-${maxN}`);
+  const lo = Math.max(1, Math.min(minN, maxN));
+  const hi = Math.max(lo, maxN);
+  const target = lo + Math.floor(rand() * (hi - lo + 1));
+  const count = Math.min(freeStarts.length, target);
   const indices = freeStarts.map((_, i) => i);
   for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [indices[i], indices[j]] = [indices[j], indices[i]];
   }
-  return indices.slice(0, maxN).map(i => freeStarts[i]).sort((a, b) => a.getTime() - b.getTime());
+  return indices.slice(0, count).map(i => freeStarts[i]).sort((a, b) => a.getTime() - b.getTime());
 }
 
 type Props = { teacher?: "thiago" | "mayara" };
