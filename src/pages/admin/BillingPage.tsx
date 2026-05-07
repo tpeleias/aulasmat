@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Wallet, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 type Tx = {
@@ -45,6 +45,7 @@ export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
+  const [editingTx, setEditingTx] = useState<Tx | null>(null);
   const [pkg, setPkg] = useState("pack10");
   const [customValue, setCustomValue] = useState<number>(0);
   const [customDesc, setCustomDesc] = useState("");
@@ -108,6 +109,31 @@ export default function BillingPage() {
     else { toast.success("Crédito adicionado"); setCreditFor(null); load(); }
   };
 
+  const openEdit = (t: Tx) => {
+    setEditingTx(t);
+    setCustomValue(Number(t.amount));
+    setCustomDesc(t.description ?? "");
+  };
+
+  const submitEdit = async () => {
+    if (!editingTx) return;
+    if (!customValue || customValue === 0) { toast.error("Valor inválido"); return; }
+    setBusy(true);
+    const { error } = await supabase.from("wallet_transactions")
+      .update({ amount: customValue, description: customDesc || editingTx.description })
+      .eq("id", editingTx.id);
+    setBusy(false);
+    if (error) toast.error(error.message);
+    else { toast.success("Lançamento atualizado"); setEditingTx(null); load(); }
+  };
+
+  const removeTx = async (t: Tx) => {
+    if (!confirm(`Remover este lançamento de ${fmt(Number(t.amount))}? Essa ação não pode ser desfeita.`)) return;
+    const { error } = await supabase.from("wallet_transactions").delete().eq("id", t.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Lançamento removido"); load(); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -160,19 +186,32 @@ export default function BillingPage() {
                 </div>
                 {isExp && (
                   <div className="mt-4 border-t border-border pt-3 space-y-1.5">
-                    {a.txs.map(t => (
-                      <div key={t.id} className="flex items-center justify-between text-sm gap-3">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <Wallet className="w-3 h-3 text-muted-foreground shrink-0" />
-                          <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : t.kind === "lesson" ? "aula" : "ajuste"}</Badge>
-                          <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
-                          <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
+                    {a.txs.map(t => {
+                      const editable = t.kind !== "lesson";
+                      return (
+                        <div key={t.id} className="flex items-center justify-between text-sm gap-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Wallet className="w-3 h-3 text-muted-foreground shrink-0" />
+                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : t.kind === "lesson" ? "aula" : "ajuste"}</Badge>
+                            <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
+                            <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`font-semibold ${Number(t.amount) < 0 ? "text-destructive" : "text-success"}`}>
+                              {Number(t.amount) > 0 ? "+" : ""}{fmt(Number(t.amount))}
+                            </span>
+                            {editable ? (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title="Editar"><Pencil className="w-3 h-3" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title="Remover"><Trash2 className="w-3 h-3" /></Button>
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground italic w-[60px] text-right">via aula</span>
+                            )}
+                          </div>
                         </div>
-                        <span className={`font-semibold ${Number(t.amount) < 0 ? "text-destructive" : "text-success"}`}>
-                          {Number(t.amount) > 0 ? "+" : ""}{fmt(Number(t.amount))}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </Card>
@@ -217,6 +256,31 @@ export default function BillingPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setCreditFor(null)}>Cancelar</Button>
             <Button onClick={submitCredit} disabled={busy}>Adicionar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editingTx} onOpenChange={v => !v && setEditingTx(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar lançamento</DialogTitle></DialogHeader>
+          {editingTx && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Conta: <strong className="text-foreground">{editingTx.guardian_name || `Aluno: ${editingTx.student_name}`}</strong>
+              </div>
+              <div>
+                <Label>Valor (R$) — use negativo para débito</Label>
+                <Input type="number" step="0.01" value={customValue} onChange={e => setCustomValue(Number(e.target.value))} />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Input value={customDesc} onChange={e => setCustomDesc(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTx(null)}>Cancelar</Button>
+            <Button onClick={submitEdit} disabled={busy}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
