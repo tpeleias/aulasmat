@@ -259,6 +259,31 @@ export default function BillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editingTx} onOpenChange={v => !v && setEditingTx(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar lançamento</DialogTitle></DialogHeader>
+          {editingTx && (
+            <div className="space-y-3">
+              <div className="text-sm text-muted-foreground">
+                Conta: <strong className="text-foreground">{editingTx.guardian_name || `Aluno: ${editingTx.student_name}`}</strong>
+              </div>
+              <div>
+                <Label>Valor (R$) — use negativo para débito</Label>
+                <Input type="number" step="0.01" value={customValue} onChange={e => setCustomValue(Number(e.target.value))} />
+              </div>
+              <div>
+                <Label>Descrição</Label>
+                <Input value={customDesc} onChange={e => setCustomDesc(e.target.value)} />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingTx(null)}>Cancelar</Button>
+            <Button onClick={submitEdit} disabled={busy}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
