@@ -47,17 +47,71 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
       : f.subject,
   }));
 
-  const setPackage = (pkg: string) => setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+  const setPackage = (pkg: string) => {
+    setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+    if (!lesson?.id) {
+      if (pkg === "pack5") { setRecurring(true); setRepeatCount(5); }
+      else if (pkg === "pack10") { setRecurring(true); setRepeatCount(10); }
+      else { setRecurring(false); setRepeatCount(1); }
+    }
+  };
+
+  const buildOccurrences = (baseISO: string, count: number) => {
+    const base = new Date(baseISO);
+    return Array.from({ length: count }, (_, i) => addWeeks(base, i));
+  };
 
   const save = async () => {
     if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
     setBusy(true);
-    const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
-    const { error } = lesson?.id
-      ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
-      : await supabase.from("lessons").insert(payload);
+    setConflictMsg(null);
+
+    if (lesson?.id || !recurring || repeatCount <= 1) {
+      const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
+      const { error } = lesson?.id
+        ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
+        : await supabase.from("lessons").insert(payload);
+      setBusy(false);
+      if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+      return;
+    }
+
+    const occurrences = buildOccurrences(form.start_at, repeatCount);
+    const minStart = occurrences[0].toISOString();
+    const lastEnd = new Date(occurrences[occurrences.length - 1].getTime() + form.duration_minutes * 60000).toISOString();
+
+    const { data: busyRanges } = await supabase.rpc("get_busy_ranges_by_teacher", {
+      _from: minStart, _to: lastEnd, _teacher: form.teacher,
+    });
+
+    const conflicts: string[] = [];
+    const toInsert: any[] = [];
+    for (const occ of occurrences) {
+      const occEnd = new Date(occ.getTime() + form.duration_minutes * 60000);
+      const hit = (busyRanges ?? []).some((r: any) =>
+        new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
+      );
+      if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
+      else toInsert.push({ ...form, start_at: occ.toISOString() });
+    }
+
+    if (toInsert.length === 0) {
+      setBusy(false);
+      setConflictMsg(`Todos os ${occurrences.length} horários estão ocupados: ${conflicts.join(", ")}`);
+      return;
+    }
+
+    const { error } = await supabase.from("lessons").insert(toInsert);
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+    if (error) { toast.error(error.message); return; }
+
+    if (conflicts.length > 0) {
+      toast.success(`${toInsert.length} aulas criadas. ${conflicts.length} ignoradas por conflito: ${conflicts.join(", ")}`);
+    } else {
+      toast.success(`${toInsert.length} aulas recorrentes criadas`);
+    }
+    onOpenChange(false);
+    onSaved();
   };
 
   const remove = async () => {
