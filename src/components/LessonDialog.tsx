@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addWeeks } from "date-fns";
 import { ExternalLink } from "lucide-react";
 
 type Lesson = {
