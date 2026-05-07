@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          duration_minutes: number | null
+          guardian_name: string | null
+          id: string
+          lesson_id: string | null
+          start_at: string | null
+          student_name: string | null
+          teacher: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          guardian_name?: string | null
+          id?: string
+          lesson_id?: string | null
+          start_at?: string | null
+          student_name?: string | null
+          teacher?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          duration_minutes?: number | null
+          guardian_name?: string | null
+          id?: string
+          lesson_id?: string | null
+          start_at?: string | null
+          student_name?: string | null
+          teacher?: string | null
+        }
+        Relationships: []
+      }
       block_exceptions: {
         Row: {
           block_id: string
