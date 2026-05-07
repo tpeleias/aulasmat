@@ -30,6 +30,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     teacher: "thiago", address: "", is_online: false,
   });
   const [busy, setBusy] = useState(false);
+  const [recurring, setRecurring] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(5);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
