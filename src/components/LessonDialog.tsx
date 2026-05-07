@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { format, addWeeks } from "date-fns";
 import { ExternalLink } from "lucide-react";
 
 type Lesson = {
@@ -30,6 +30,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     teacher: "thiago", address: "", is_online: false,
   });
   const [busy, setBusy] = useState(false);
+  const [recurring, setRecurring] = useState(false);
+  const [repeatCount, setRepeatCount] = useState(5);
+  const [conflictMsg, setConflictMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
@@ -44,17 +47,71 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
       : f.subject,
   }));
 
-  const setPackage = (pkg: string) => setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+  const setPackage = (pkg: string) => {
+    setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+    if (!lesson?.id) {
+      if (pkg === "pack5") { setRecurring(true); setRepeatCount(5); }
+      else if (pkg === "pack10") { setRecurring(true); setRepeatCount(10); }
+      else { setRecurring(false); setRepeatCount(1); }
+    }
+  };
+
+  const buildOccurrences = (baseISO: string, count: number) => {
+    const base = new Date(baseISO);
+    return Array.from({ length: count }, (_, i) => addWeeks(base, i));
+  };
 
   const save = async () => {
     if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
     setBusy(true);
-    const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
-    const { error } = lesson?.id
-      ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
-      : await supabase.from("lessons").insert(payload);
+    setConflictMsg(null);
+
+    if (lesson?.id || !recurring || repeatCount <= 1) {
+      const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
+      const { error } = lesson?.id
+        ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
+        : await supabase.from("lessons").insert(payload);
+      setBusy(false);
+      if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+      return;
+    }
+
+    const occurrences = buildOccurrences(form.start_at, repeatCount);
+    const minStart = occurrences[0].toISOString();
+    const lastEnd = new Date(occurrences[occurrences.length - 1].getTime() + form.duration_minutes * 60000).toISOString();
+
+    const { data: busyRanges } = await supabase.rpc("get_busy_ranges_by_teacher", {
+      _from: minStart, _to: lastEnd, _teacher: form.teacher,
+    });
+
+    const conflicts: string[] = [];
+    const toInsert: any[] = [];
+    for (const occ of occurrences) {
+      const occEnd = new Date(occ.getTime() + form.duration_minutes * 60000);
+      const hit = (busyRanges ?? []).some((r: any) =>
+        new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
+      );
+      if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
+      else toInsert.push({ ...form, start_at: occ.toISOString() });
+    }
+
+    if (toInsert.length === 0) {
+      setBusy(false);
+      setConflictMsg(`Todos os ${occurrences.length} horários estão ocupados: ${conflicts.join(", ")}`);
+      return;
+    }
+
+    const { error } = await supabase.from("lessons").insert(toInsert);
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+    if (error) { toast.error(error.message); return; }
+
+    if (conflicts.length > 0) {
+      toast.success(`${toInsert.length} aulas criadas. ${conflicts.length} ignoradas por conflito: ${conflicts.join(", ")}`);
+    } else {
+      toast.success(`${toInsert.length} aulas recorrentes criadas`);
+    }
+    onOpenChange(false);
+    onSaved();
   };
 
   const remove = async () => {
@@ -135,6 +192,25 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
               </SelectContent>
             </Select>
           </div>
+          {!lesson?.id && (
+            <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <Checkbox checked={recurring} onCheckedChange={v => setRecurring(!!v)} />
+                Repetir semanalmente (mesmo dia e horário)
+              </label>
+              {recurring && (
+                <div className="grid grid-cols-[auto_100px_1fr] items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">Nº de aulas</Label>
+                  <Input type="number" min={2} max={52} value={repeatCount}
+                    onChange={e => setRepeatCount(Math.max(1, Number(e.target.value) || 1))} />
+                  <span className="text-xs text-muted-foreground">
+                    Cria {repeatCount} aulas, uma por semana, a partir do início informado.
+                  </span>
+                </div>
+              )}
+              {conflictMsg && <div className="text-xs text-destructive">{conflictMsg}</div>}
+            </div>
+          )}
           <div><Label>Observações</Label><Textarea value={form.notes ?? ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
         </div>
         <DialogFooter className="gap-2">
