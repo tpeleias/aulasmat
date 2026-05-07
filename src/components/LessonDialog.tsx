@@ -192,6 +192,25 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
               </SelectContent>
             </Select>
           </div>
+          {!lesson?.id && (
+            <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
+              <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                <Checkbox checked={recurring} onCheckedChange={v => setRecurring(!!v)} />
+                Repetir semanalmente (mesmo dia e horário)
+              </label>
+              {recurring && (
+                <div className="grid grid-cols-[auto_100px_1fr] items-center gap-2">
+                  <Label className="text-xs text-muted-foreground">Nº de aulas</Label>
+                  <Input type="number" min={2} max={52} value={repeatCount}
+                    onChange={e => setRepeatCount(Math.max(1, Number(e.target.value) || 1))} />
+                  <span className="text-xs text-muted-foreground">
+                    Cria {repeatCount} aulas, uma por semana, a partir do início informado.
+                  </span>
+                </div>
+              )}
+              {conflictMsg && <div className="text-xs text-destructive">{conflictMsg}</div>}
+            </div>
+          )}
           <div><Label>Observações</Label><Textarea value={form.notes ?? ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
         </div>
         <DialogFooter className="gap-2">
