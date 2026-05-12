@@ -14,6 +14,7 @@ import BlocksPage from "./pages/admin/BlocksPage";
 import BillingPage from "./pages/admin/BillingPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import AuditPage from "./pages/admin/AuditPage";
+import StudentsPage from "./pages/admin/StudentsPage";
 
 const queryClient = new QueryClient();
 
