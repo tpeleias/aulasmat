@@ -33,11 +33,42 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+  const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
 
   useEffect(() => {
-    if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
-    else if (slotStart) setForm(f => ({ ...f, start_at: format(slotStart, "yyyy-MM-dd'T'HH:mm") }));
+    if (!open) return;
+    supabase.from("students").select("id,student_name,guardian_name,address").order("student_name").then(({ data }) => {
+      setStudents((data ?? []) as any);
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (lesson) {
+      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
+    } else {
+      // Reset to defaults for a new lesson — never carry the previous lesson's id.
+      setForm({
+        student_name: "", guardian_name: "", subject: "Matemática",
+        start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
+        duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+        teacher: "thiago", address: "", is_online: false,
+      });
+      setRecurring(false);
+      setRepeatCount(1);
+      setConflictMsg(null);
+    }
   }, [lesson, slotStart, open]);
+
+  const pickStudent = (name: string) => {
+    const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());
+    setForm(f => ({
+      ...f,
+      student_name: name,
+      guardian_name: match?.guardian_name ?? f.guardian_name,
+      address: match?.address ?? f.address,
+      is_online: match?.address ? false : f.is_online,
+    }));
+  };
 
   const setTeacher = (t: string) => setForm(f => ({
     ...f,
