@@ -168,7 +168,20 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Aluno</Label><Input value={form.student_name} onChange={e => setForm({ ...form, student_name: e.target.value })} /></div>
+            <div>
+              <Label>Aluno</Label>
+              <Input
+                list="students-list"
+                value={form.student_name}
+                onChange={e => pickStudent(e.target.value)}
+                placeholder="Digite ou selecione"
+              />
+              <datalist id="students-list">
+                {students.map(s => (
+                  <option key={s.id} value={s.student_name}>{s.guardian_name ? `Resp.: ${s.guardian_name}` : ""}</option>
+                ))}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
