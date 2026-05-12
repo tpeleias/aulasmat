@@ -98,7 +98,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     setConflictMsg(null);
 
     if (lesson?.id || !recurring || repeatCount <= 1) {
-      const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
+      const { id: _ignore, ...rest } = form as any;
+      const payload = { ...rest, start_at: new Date(form.start_at).toISOString() };
       const { error } = lesson?.id
         ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
         : await supabase.from("lessons").insert(payload);
