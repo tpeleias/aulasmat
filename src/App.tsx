@@ -14,6 +14,7 @@ import BlocksPage from "./pages/admin/BlocksPage";
 import BillingPage from "./pages/admin/BillingPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import AuditPage from "./pages/admin/AuditPage";
+import StudentsPage from "./pages/admin/StudentsPage";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<CalendarPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />
+              <Route path="alunos" element={<StudentsPage />} />
               <Route path="financeiro" element={<BillingPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
               <Route path="auditoria" element={<AuditPage />} />

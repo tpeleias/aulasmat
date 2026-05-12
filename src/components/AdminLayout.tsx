@@ -1,11 +1,12 @@
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users } from "lucide-react";
 import { toast } from "sonner";
 
 const items = [
   { to: "/admin", label: "Calendário", icon: Calendar, end: true },
+  { to: "/admin/alunos", label: "Alunos", icon: Users },
   { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
   { to: "/admin/financeiro", label: "Cobrança", icon: Wallet },
   { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },

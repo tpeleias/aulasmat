@@ -33,11 +33,42 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+  const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
 
   useEffect(() => {
-    if (lesson) setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
-    else if (slotStart) setForm(f => ({ ...f, start_at: format(slotStart, "yyyy-MM-dd'T'HH:mm") }));
+    if (!open) return;
+    supabase.from("students").select("id,student_name,guardian_name,address").order("student_name").then(({ data }) => {
+      setStudents((data ?? []) as any);
+    });
+  }, [open]);
+
+  useEffect(() => {
+    if (lesson) {
+      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
+    } else {
+      // Reset to defaults for a new lesson — never carry the previous lesson's id.
+      setForm({
+        student_name: "", guardian_name: "", subject: "Matemática",
+        start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
+        duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+        teacher: "thiago", address: "", is_online: false,
+      });
+      setRecurring(false);
+      setRepeatCount(1);
+      setConflictMsg(null);
+    }
   }, [lesson, slotStart, open]);
+
+  const pickStudent = (name: string) => {
+    const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());
+    setForm(f => ({
+      ...f,
+      student_name: name,
+      guardian_name: match?.guardian_name ?? f.guardian_name,
+      address: match?.address ?? f.address,
+      is_online: match?.address ? false : f.is_online,
+    }));
+  };
 
   const setTeacher = (t: string) => setForm(f => ({
     ...f,
@@ -67,7 +98,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     setConflictMsg(null);
 
     if (lesson?.id || !recurring || repeatCount <= 1) {
-      const payload = { ...form, start_at: new Date(form.start_at).toISOString() };
+      const { id: _ignore, ...rest } = form as any;
+      const payload = { ...rest, start_at: new Date(form.start_at).toISOString() };
       const { error } = lesson?.id
         ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
         : await supabase.from("lessons").insert(payload);
@@ -92,7 +124,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
-      else toInsert.push({ ...form, start_at: occ.toISOString() });
+      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {
@@ -136,7 +168,20 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
                 </SelectContent>
               </Select>
             </div>
-            <div><Label>Aluno</Label><Input value={form.student_name} onChange={e => setForm({ ...form, student_name: e.target.value })} /></div>
+            <div>
+              <Label>Aluno</Label>
+              <Input
+                list="students-list"
+                value={form.student_name}
+                onChange={e => pickStudent(e.target.value)}
+                placeholder="Digite ou selecione"
+              />
+              <datalist id="students-list">
+                {students.map(s => (
+                  <option key={s.id} value={s.student_name}>{s.guardian_name ? `Resp.: ${s.guardian_name}` : ""}</option>
+                ))}
+              </datalist>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
