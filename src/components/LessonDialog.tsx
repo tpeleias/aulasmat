@@ -124,7 +124,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
-      else toInsert.push({ ...form, start_at: occ.toISOString() });
+      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {
