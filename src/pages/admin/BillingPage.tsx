@@ -205,12 +205,13 @@ export default function BillingPage() {
                 {isExp && (
                   <div className="mt-4 border-t border-border pt-3 space-y-1.5">
                     {a.txs.map(t => {
-                      const editable = t.kind !== "lesson";
+                      const isLesson = t.kind === "lesson";
+                      const editable = !isLesson;
                       return (
                         <div key={t.id} className="flex items-center justify-between text-sm gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <Wallet className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : t.kind === "lesson" ? "aula" : "ajuste"}</Badge>
+                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : isLesson ? "aula" : "ajuste"}</Badge>
                             <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
                             <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
                           </div>
@@ -222,6 +223,11 @@ export default function BillingPage() {
                               <>
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title="Editar"><Pencil className="w-3 h-3" /></Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title="Remover"><Trash2 className="w-3 h-3" /></Button>
+                              </>
+                            ) : t.lesson_id ? (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title="Editar aula"><Pencil className="w-3 h-3" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title="Excluir aula"><Trash2 className="w-3 h-3" /></Button>
                               </>
                             ) : (
                               <span className="text-[10px] text-muted-foreground italic w-[60px] text-right">via aula</span>
