@@ -137,6 +137,21 @@ export default function BillingPage() {
     else { toast.success("Lançamento removido"); load(); }
   };
 
+  const openLessonEdit = async (lessonId: string) => {
+    const { data, error } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
+    if (error || !data) { toast.error("Aula não encontrada"); return; }
+    setEditingLesson({ ...data, start_at: format(new Date(data.start_at), "yyyy-MM-dd'T'HH:mm") });
+    setLessonDlgOpen(true);
+  };
+
+  const removeLesson = async (lessonId: string) => {
+    if (!confirm("Excluir esta aula? O lançamento na carteira também será removido.")) return;
+    await supabase.from("wallet_transactions").delete().eq("lesson_id", lessonId);
+    const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
+    if (error) toast.error(error.message);
+    else { toast.success("Aula excluída"); load(); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
