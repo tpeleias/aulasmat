@@ -308,6 +308,13 @@ export default function BillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LessonDialog
+        open={lessonDlgOpen}
+        onOpenChange={(v) => { setLessonDlgOpen(v); if (!v) setEditingLesson(null); }}
+        lesson={editingLesson}
+        onSaved={load}
+      />
     </div>
   );
 }
