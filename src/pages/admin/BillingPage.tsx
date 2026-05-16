@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { LessonDialog } from "@/components/LessonDialog";
 
 type Tx = {
   id: string;
@@ -46,6 +47,8 @@ export default function BillingPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
+  const [editingLesson, setEditingLesson] = useState<any | null>(null);
+  const [lessonDlgOpen, setLessonDlgOpen] = useState(false);
   const [pkg, setPkg] = useState("pack10");
   const [customValue, setCustomValue] = useState<number>(0);
   const [customDesc, setCustomDesc] = useState("");
@@ -134,6 +137,21 @@ export default function BillingPage() {
     else { toast.success("Lançamento removido"); load(); }
   };
 
+  const openLessonEdit = async (lessonId: string) => {
+    const { data, error } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
+    if (error || !data) { toast.error("Aula não encontrada"); return; }
+    setEditingLesson({ ...data, start_at: format(new Date(data.start_at), "yyyy-MM-dd'T'HH:mm") });
+    setLessonDlgOpen(true);
+  };
+
+  const removeLesson = async (lessonId: string) => {
+    if (!confirm("Excluir esta aula? O lançamento na carteira também será removido.")) return;
+    await supabase.from("wallet_transactions").delete().eq("lesson_id", lessonId);
+    const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
+    if (error) toast.error(error.message);
+    else { toast.success("Aula excluída"); load(); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -187,12 +205,13 @@ export default function BillingPage() {
                 {isExp && (
                   <div className="mt-4 border-t border-border pt-3 space-y-1.5">
                     {a.txs.map(t => {
-                      const editable = t.kind !== "lesson";
+                      const isLesson = t.kind === "lesson";
+                      const editable = !isLesson;
                       return (
                         <div key={t.id} className="flex items-center justify-between text-sm gap-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <Wallet className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : t.kind === "lesson" ? "aula" : "ajuste"}</Badge>
+                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : isLesson ? "aula" : "ajuste"}</Badge>
                             <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
                             <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
                           </div>
@@ -204,6 +223,11 @@ export default function BillingPage() {
                               <>
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title="Editar"><Pencil className="w-3 h-3" /></Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title="Remover"><Trash2 className="w-3 h-3" /></Button>
+                              </>
+                            ) : t.lesson_id ? (
+                              <>
+                                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title="Editar aula"><Pencil className="w-3 h-3" /></Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title="Excluir aula"><Trash2 className="w-3 h-3" /></Button>
                               </>
                             ) : (
                               <span className="text-[10px] text-muted-foreground italic w-[60px] text-right">via aula</span>
@@ -284,6 +308,13 @@ export default function BillingPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LessonDialog
+        open={lessonDlgOpen}
+        onOpenChange={(v) => { setLessonDlgOpen(v); if (!v) setEditingLesson(null); }}
+        lesson={editingLesson}
+        onSaved={load}
+      />
     </div>
   );
 }
