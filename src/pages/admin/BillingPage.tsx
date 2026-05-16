@@ -47,6 +47,8 @@ export default function BillingPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
+  const [editingLesson, setEditingLesson] = useState<any | null>(null);
+  const [lessonDlgOpen, setLessonDlgOpen] = useState(false);
   const [pkg, setPkg] = useState("pack10");
   const [customValue, setCustomValue] = useState<number>(0);
   const [customDesc, setCustomDesc] = useState("");
