@@ -11,6 +11,9 @@ type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
 type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
+const CELL_H = 52; // px per hour
+const HEADER_H = 56; // px for the day header row
+
 export default function CalendarPage() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [teacherFilter, setTeacherFilter] = useState<"thiago" | "mayara">("thiago");
@@ -48,7 +51,6 @@ export default function CalendarPage() {
   }, [settings]);
 
   const hours = useMemo(() => Array.from({ length: hEnd - hStart }, (_, i) => hStart + i), [hStart, hEnd]);
-
   const slotMin = settings.slot_minutes;
 
   const skipRecurringForDay = async (blockId: string, day: Date) => {
@@ -68,18 +70,12 @@ export default function CalendarPage() {
     [blocks, teacherFilter]
   );
 
-  const getCellContent = (day: Date, hour: number) => {
+  const getBlockForCell = (day: Date, hour: number) => {
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
-    const cellEnd = addMinutes(cellStart, slotMin);
-
-    const cellLessons = filteredLessons.filter(l => {
-      const ls = new Date(l.start_at);
-      return isSameDay(ls, day) && ls < cellEnd && addMinutes(ls, l.duration_minutes) > cellStart;
-    });
-    if (cellLessons.length > 0) return { type: "lesson" as const, lessons: cellLessons };
+    const cellEnd = addMinutes(cellStart, 60);
 
     const oneOff = teacherBlocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
-    if (oneOff) return { type: "block" as const, label: oneOff.title, blockId: oneOff.id, recurring: false };
+    if (oneOff) return { label: oneOff.title, blockId: oneOff.id, recurring: false };
 
     const wd = getDay(day);
     const dateStr = format(day, "yyyy-MM-dd");
@@ -92,18 +88,28 @@ export default function CalendarPage() {
       const be = new Date(day); be.setHours(eh, em, 0, 0);
       return bs < cellEnd && be > cellStart;
     });
-    if (recur) return { type: "block" as const, label: recur.title, blockId: recur.id, recurring: true };
-
-    return { type: "free" as const, cellStart };
+    if (recur) return { label: recur.title, blockId: recur.id, recurring: true };
+    return null;
   };
 
-  const renderLesson = (lesson: Lesson) => {
+  const renderLesson = (lesson: Lesson, day: Date) => {
+    const ls = new Date(lesson.start_at);
+    const minutesFromTop = (ls.getHours() - hStart) * 60 + ls.getMinutes();
+    if (minutesFromTop < 0) return null;
+    const top = (minutesFromTop * CELL_H) / 60;
+    const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
     const isMay = lesson.teacher === "mayara";
     return (
-      <button key={lesson.id} onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
-        className={`relative flex-1 min-w-0 p-1.5 text-left text-xs hover:opacity-90 border-l-2 ${lesson.payment_status === "pago" ? "bg-success/15" : isMay ? "bg-fuchsia-500/10" : "bg-primary/10"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}>
-        <div className={`font-semibold truncate pr-5 ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
-        <div className="text-[10px] text-muted-foreground truncate pr-5">{isMay ? "Mayara" : "Thiago"} · {lesson.subject}</div>
+      <button
+        key={lesson.id}
+        onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
+        style={{ top, height }}
+        className={`absolute left-0.5 right-0.5 z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 border-l-2 ${lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+      >
+        <div className={`font-semibold truncate pr-5 leading-tight ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
+        <div className="text-[10px] text-muted-foreground truncate pr-5 leading-tight">
+          {format(ls, "HH:mm")} · {lesson.subject}
+        </div>
         {lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>
         ) : lesson.address ? (
@@ -138,60 +144,88 @@ export default function CalendarPage() {
       </div>
 
       <div className="bg-card rounded-xl shadow-[var(--shadow-card)] overflow-x-auto">
-        <div className="min-w-[800px]">
-          <div className="grid" style={{ gridTemplateColumns: "70px repeat(7, 1fr)" }}>
-            <div className="border-b border-r border-border p-2 text-xs text-muted-foreground"></div>
-            {days.map(d => (
-              <div key={d.toISOString()} className={`border-b border-border p-2 text-center text-xs ${isSameDay(d, new Date()) ? "bg-accent text-accent-foreground font-semibold" : ""}`}>
-                <div className="uppercase">{format(d, "EEE", { locale: ptBR })}</div>
-                <div className="text-base font-semibold">{format(d, "dd")}</div>
-              </div>
-            ))}
+        <div className="min-w-[800px] flex">
+          {/* time gutter */}
+          <div className="w-[70px] shrink-0">
+            <div style={{ height: HEADER_H }} className="border-b border-r border-border" />
             {hours.map(h => (
-              <div key={h} className="contents">
-                <div className="border-b border-r border-border p-1 text-[11px] text-muted-foreground text-right pr-2">{String(h).padStart(2, "0")}:00</div>
-                {days.map(d => {
-                  const cell = getCellContent(d, h);
-                  if (cell.type === "lesson") {
-                    return (
-                      <div key={d.toISOString() + h} className="border-b border-l border-border flex min-h-[52px]">
-                        {cell.lessons.map(renderLesson)}
-                      </div>
-                    );
-                  }
-                  if (cell.type === "block") return (
-                    <div key={d.toISOString() + h} className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
-                      style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}>
-                      <div className="truncate">{cell.label}</div>
-                      {cell.recurring && (
-                        <button
-                          onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(cell.blockId!, d); }}
-                          className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
-                          title="Liberar somente este dia"
-                        >Liberar este dia</button>
-                      )}
-                    </div>
-                  );
-                  return (
-                    <button key={d.toISOString() + h} onClick={() => { setEditing(null); setSlotStart(cell.cellStart); setDlgOpen(true); }}
-                      className="border-b border-l border-border p-1.5 text-xs hover:bg-accent group min-h-[52px]">
-                      <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />
-                    </button>
-                  );
-                })}
+              <div key={h} style={{ height: CELL_H }} className="border-b border-r border-border text-[11px] text-muted-foreground text-right pr-2 pt-1">
+                {String(h).padStart(2, "0")}:00
               </div>
             ))}
           </div>
+
+          {/* day columns */}
+          {days.map(d => {
+            const dayLessons = filteredLessons.filter(l => isSameDay(new Date(l.start_at), d));
+            return (
+              <div key={d.toISOString()} className="flex-1 min-w-0 relative">
+                <div
+                  style={{ height: HEADER_H }}
+                  className={`border-b border-border p-2 text-center text-xs ${isSameDay(d, new Date()) ? "bg-accent text-accent-foreground font-semibold" : ""}`}
+                >
+                  <div className="uppercase">{format(d, "EEE", { locale: ptBR })}</div>
+                  <div className="text-base font-semibold">{format(d, "dd")}</div>
+                </div>
+
+                {/* hour cells (for clicks + blocks) */}
+                <div className="relative">
+                  {hours.map(h => {
+                    const block = getBlockForCell(d, h);
+                    if (block) {
+                      return (
+                        <div
+                          key={h}
+                          style={{ height: CELL_H, backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}
+                          className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
+                        >
+                          <div className="truncate">{block.label}</div>
+                          {block.recurring && (
+                            <button
+                              onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(block.blockId!, d); }}
+                              className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
+                              title="Liberar somente este dia"
+                            >Liberar este dia</button>
+                          )}
+                        </div>
+                      );
+                    }
+                    const cellStart = new Date(d); cellStart.setHours(h, 0, 0, 0);
+                    return (
+                      <button
+                        key={h}
+                        style={{ height: CELL_H }}
+                        onClick={() => { setEditing(null); setSlotStart(cellStart); setDlgOpen(true); }}
+                        className="w-full border-b border-l border-border p-1.5 text-xs hover:bg-accent group"
+                      >
+                        <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />
+                      </button>
+                    );
+                  })}
+
+                  {/* absolute-positioned lessons overlay */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="relative w-full h-full">
+                      {dayLessons.map(l => (
+                        <div key={l.id} className="pointer-events-auto">
+                          {renderLesson(l, d)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
       <div className="flex gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-primary/10 border-l-2 border-primary"></span>Thiago</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-fuchsia-500/10 border-l-2 border-fuchsia-500"></span>Mayara</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/15 border border-success/30"></span>Aula paga</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-primary/15 border-l-2 border-primary"></span>Thiago</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-fuchsia-500/15 border-l-2 border-fuchsia-500"></span>Mayara</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>Aula paga</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
-
 
       <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} />
     </div>
