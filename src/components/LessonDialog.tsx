@@ -165,6 +165,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
   const remove = async () => {
     if (!lesson?.id) return;
     if (!confirm("Excluir esta aula?")) return;
+    await supabase.from("wallet_transactions").delete().eq("lesson_id", lesson.id);
     const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
     if (error) toast.error(error.message); else { toast.success("Aula excluída"); onOpenChange(false); onSaved(); }
   };
