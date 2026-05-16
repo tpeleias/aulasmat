@@ -92,10 +92,26 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     return Array.from({ length: count }, (_, i) => addWeeks(base, i));
   };
 
+  const ensureStudent = async () => {
+    const name = form.student_name.trim();
+    if (!name) return;
+    const exists = students.some(s => s.student_name.toLowerCase() === name.toLowerCase());
+    if (exists) return;
+    const { error } = await supabase.from("students").insert({
+      student_name: name,
+      guardian_name: (form.guardian_name ?? "").trim() || null,
+      address: form.is_online ? null : ((form.address ?? "").trim() || null),
+    });
+    if (error) console.warn("Não foi possível cadastrar aluno automaticamente:", error.message);
+    else toast.success(`Aluno "${name}" cadastrado automaticamente`);
+  };
+
   const save = async () => {
     if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
     setBusy(true);
     setConflictMsg(null);
+
+    await ensureStudent();
 
     if (lesson?.id || !recurring || repeatCount <= 1) {
       const { id: _ignore, ...rest } = form as any;
