@@ -49,18 +49,21 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     if (lesson) {
       setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
     } else {
-      // Reset to defaults for a new lesson — never carry the previous lesson's id.
       setForm({
-        student_name: "", guardian_name: "", subject: "Matemática",
+        student_name: initialStudent?.student_name ?? "",
+        guardian_name: initialStudent?.guardian_name ?? "",
+        subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
         duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
-        teacher: "thiago", address: "", is_online: false,
+        teacher: baseTeacher,
+        address: initialStudent?.address ?? "",
+        is_online: false,
       });
       setRecurring(false);
       setRepeatCount(1);
       setConflictMsg(null);
     }
-  }, [lesson, slotStart, open]);
+  }, [lesson, slotStart, open, baseTeacher, initialStudent]);
 
   const pickStudent = (name: string) => {
     const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());
