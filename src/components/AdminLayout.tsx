@@ -72,7 +72,7 @@ export default function AdminLayout() {
         open={quickOpen}
         onOpenChange={setQuickOpen}
         defaultTeacher={defaultTeacher}
-        onSaved={() => setReloadKey(k => k + 1)}
+        onSaved={() => { /* pages refresh on their own focus/mount */ }}
       />
     </div>
   );
