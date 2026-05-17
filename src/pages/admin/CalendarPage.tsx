@@ -229,7 +229,7 @@ export default function CalendarPage() {
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
 
-      <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} />
+      <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} defaultTeacher={defaultTeacher} />
     </div>
   );
 }
