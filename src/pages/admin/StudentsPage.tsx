@@ -26,6 +26,8 @@ export default function StudentsPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
+  const defaultTeacher = useDefaultTeacher();
 
   const load = async () => {
     const [{ data: s }, { data: l }, { data: t }] = await Promise.all([
