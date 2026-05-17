@@ -21,13 +21,16 @@ const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara:
 
 const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
 
-export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }: {
+export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, defaultTeacher, initialStudent }: {
   open: boolean; onOpenChange: (v: boolean) => void; slotStart?: Date; lesson?: Lesson | null; onSaved: () => void;
+  defaultTeacher?: string;
+  initialStudent?: { student_name: string; guardian_name?: string | null; address?: string | null } | null;
 }) {
+  const baseTeacher = defaultTeacher || "thiago";
   const [form, setForm] = useState<Lesson>({
-    student_name: "", guardian_name: "", subject: "Matemática",
+    student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
     start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
-    teacher: "thiago", address: "", is_online: false,
+    teacher: baseTeacher, address: "", is_online: false,
   });
   const [busy, setBusy] = useState(false);
   const [recurring, setRecurring] = useState(false);
@@ -46,18 +49,21 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved }:
     if (lesson) {
       setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
     } else {
-      // Reset to defaults for a new lesson — never carry the previous lesson's id.
       setForm({
-        student_name: "", guardian_name: "", subject: "Matemática",
+        student_name: initialStudent?.student_name ?? "",
+        guardian_name: initialStudent?.guardian_name ?? "",
+        subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
         duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
-        teacher: "thiago", address: "", is_online: false,
+        teacher: baseTeacher,
+        address: initialStudent?.address ?? "",
+        is_online: false,
       });
       setRecurring(false);
       setRepeatCount(1);
       setConflictMsg(null);
     }
-  }, [lesson, slotStart, open]);
+  }, [lesson, slotStart, open, baseTeacher, initialStudent]);
 
   const pickStudent = (name: string) => {
     const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());

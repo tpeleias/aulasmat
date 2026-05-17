@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -15,6 +16,7 @@ const CELL_H = 52; // px per hour
 const HEADER_H = 56; // px for the day header row
 
 export default function CalendarPage() {
+  const defaultTeacher = useDefaultTeacher();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [teacherFilter, setTeacherFilter] = useState<"thiago" | "mayara">("thiago");
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
@@ -227,7 +229,7 @@ export default function CalendarPage() {
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
 
-      <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} />
+      <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} defaultTeacher={defaultTeacher} />
     </div>
   );
 }

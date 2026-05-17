@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { LessonDialog } from "@/components/LessonDialog";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 const items = [
   { to: "/admin", label: "Calendário", icon: Calendar, end: true },
@@ -15,6 +18,8 @@ const items = [
 
 export default function AdminLayout() {
   const { session, isAdmin, loading, signOut } = useAuth();
+  const defaultTeacher = useDefaultTeacher();
+  const [quickOpen, setQuickOpen] = useState(false);
   if (loading) return null;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isAdmin) return (
@@ -56,6 +61,19 @@ export default function AdminLayout() {
         </div>
       </aside>
       <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet /></main>
+      <Button
+        onClick={() => setQuickOpen(true)}
+        size="lg"
+        className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg gap-2 h-14 px-5"
+      >
+        <Plus className="w-5 h-5" /> Nova aula
+      </Button>
+      <LessonDialog
+        open={quickOpen}
+        onOpenChange={setQuickOpen}
+        defaultTeacher={defaultTeacher}
+        onSaved={() => { /* pages refresh on their own focus/mount */ }}
+      />
     </div>
   );
 }

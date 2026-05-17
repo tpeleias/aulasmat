@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, CalendarPlus } from "lucide-react";
 import { toast } from "sonner";
+import { LessonDialog } from "@/components/LessonDialog";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null;
@@ -24,6 +26,8 @@ export default function StudentsPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
+  const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
+  const defaultTeacher = useDefaultTeacher();
 
   const load = async () => {
     const [{ data: s }, { data: l }, { data: t }] = await Promise.all([
@@ -116,6 +120,9 @@ export default function StudentsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{count} {count === 1 ? "aula realizada" : "aulas realizadas"}</Badge>
                   <Badge variant={bal >= 0 ? "default" : "destructive"}>Saldo: {fmt(bal)}</Badge>
+                  <Button size="sm" variant="default" className="gap-1" onClick={() => setScheduleFor(st)}>
+                    <CalendarPlus className="w-4 h-4" /> Agendar
+                  </Button>
                   <Button size="icon" variant="ghost" onClick={() => setEditing(st)}><Pencil className="w-4 h-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => remove(st.id)}><Trash2 className="w-4 h-4" /></Button>
                 </div>
@@ -145,6 +152,18 @@ export default function StudentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LessonDialog
+        open={!!scheduleFor}
+        onOpenChange={v => !v && setScheduleFor(null)}
+        defaultTeacher={defaultTeacher}
+        initialStudent={scheduleFor ? {
+          student_name: scheduleFor.student_name,
+          guardian_name: scheduleFor.guardian_name,
+          address: scheduleFor.address,
+        } : null}
+        onSaved={() => { setScheduleFor(null); load(); }}
+      />
     </div>
   );
 }
