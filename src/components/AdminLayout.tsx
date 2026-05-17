@@ -20,7 +20,6 @@ export default function AdminLayout() {
   const { session, isAdmin, loading, signOut } = useAuth();
   const defaultTeacher = useDefaultTeacher();
   const [quickOpen, setQuickOpen] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
   if (loading) return null;
   if (!session) return <Navigate to="/auth" replace />;
   if (!isAdmin) return (
