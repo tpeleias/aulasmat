@@ -61,7 +61,7 @@ export default function AdminLayout() {
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet key={reloadKey} /></main>
+      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet /></main>
       <Button
         onClick={() => setQuickOpen(true)}
         size="lg"
