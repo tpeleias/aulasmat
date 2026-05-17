@@ -61,7 +61,20 @@ export default function AdminLayout() {
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet /></main>
+      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet key={reloadKey} /></main>
+      <Button
+        onClick={() => setQuickOpen(true)}
+        size="lg"
+        className="fixed bottom-6 right-6 z-50 rounded-full shadow-lg gap-2 h-14 px-5"
+      >
+        <Plus className="w-5 h-5" /> Nova aula
+      </Button>
+      <LessonDialog
+        open={quickOpen}
+        onOpenChange={setQuickOpen}
+        defaultTeacher={defaultTeacher}
+        onSaved={() => setReloadKey(k => k + 1)}
+      />
     </div>
   );
 }
