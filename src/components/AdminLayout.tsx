@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { LessonDialog } from "@/components/LessonDialog";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 const items = [
   { to: "/admin", label: "Calendário", icon: Calendar, end: true },
