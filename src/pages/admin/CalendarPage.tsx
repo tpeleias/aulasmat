@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean };
 type BlockException = { id: string; block_id: string; exception_date: string };
