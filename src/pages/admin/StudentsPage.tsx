@@ -152,6 +152,18 @@ export default function StudentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <LessonDialog
+        open={!!scheduleFor}
+        onOpenChange={v => !v && setScheduleFor(null)}
+        defaultTeacher={defaultTeacher}
+        initialStudent={scheduleFor ? {
+          student_name: scheduleFor.student_name,
+          guardian_name: scheduleFor.guardian_name,
+          address: scheduleFor.address,
+        } : null}
+        onSaved={() => { setScheduleFor(null); load(); }}
+      />
     </div>
   );
 }
