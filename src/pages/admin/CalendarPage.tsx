@@ -3,7 +3,7 @@ import { addDays, addMinutes, format, getDay, isSameDay, startOfWeek } from "dat
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
@@ -36,12 +36,13 @@ export default function CalendarPage() {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, 7).toISOString();
     const nowIso = new Date().toISOString();
+    const nextSevenDaysIso = addDays(new Date(), 7).toISOString();
     const [s, l, b, ex, up] = await Promise.all([
       supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
       supabase.from("block_exceptions").select("*"),
-      supabase.from("lessons").select("*").gte("start_at", nowIso).eq("status", "agendada").order("start_at").limit(100),
+      supabase.from("lessons").select("*").gte("start_at", nowIso).lt("start_at", nextSevenDaysIso).eq("status", "agendada").order("start_at").limit(100),
     ]);
     if (s.data) setSettings(s.data);
     setLessons((l.data ?? []) as Lesson[]);
@@ -79,6 +80,25 @@ export default function CalendarPage() {
       : blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
     [blocks, teacherFilter]
   );
+
+  const upcomingByTeacher = useMemo(() => {
+    const teacherNames = new Map(teachers.map(t => [teacherSlug(t.name), t.name]));
+    const order = new Map(teachers.map((t, index) => [teacherSlug(t.name), index]));
+    const grouped = upcoming.reduce<Record<string, Lesson[]>>((acc, lesson) => {
+      const key = lesson.teacher || "sem-professor";
+      acc[key] = acc[key] ?? [];
+      acc[key].push(lesson);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => (order.get(a) ?? 999) - (order.get(b) ?? 999) || a.localeCompare(b))
+      .map(([teacher, items]) => ({
+        teacher,
+        label: teacherNames.get(teacher) ?? teacher,
+        items,
+      }));
+  }, [teachers, upcoming]);
 
   const getBlockForCell = (day: Date, hour: number) => {
     if (teacherFilter === "all") return null;
