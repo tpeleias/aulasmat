@@ -279,9 +279,14 @@ export default function BillingPage() {
                             ) : t.lesson_id ? (
                               <>
                                 {lessonPay[t.lesson_id] !== "pago" && (
-                                  <Button size="sm" variant="outline" className="h-7 text-success border-success/40 hover:bg-success/10" onClick={() => markLessonPaid(t)} disabled={busy} title="Marcar aula como paga">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar paga
-                                  </Button>
+                                  <>
+                                    <Button size="sm" variant="outline" className="h-7 text-success border-success/40 hover:bg-success/10" onClick={() => markLessonPaid(t)} disabled={busy} title="Marcar aula como paga e creditar saldo">
+                                      <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar paga
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="h-7" onClick={() => markLessonPaidPackage(t)} disabled={busy} title="Pago via pacote (sem alterar saldo)">
+                                      <CheckCircle2 className="w-3 h-3 mr-1" /> Pago com pacote
+                                    </Button>
+                                  </>
                                 )}
                                 {lessonPay[t.lesson_id] === "pago" && (
                                   <Badge variant="outline" className="text-[10px] text-success border-success/40">paga</Badge>
