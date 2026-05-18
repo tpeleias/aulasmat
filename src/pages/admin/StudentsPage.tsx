@@ -122,8 +122,12 @@ export default function StudentsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{count} {count === 1 ? "aula realizada" : "aulas realizadas"}</Badge>
                   <Badge variant={bal >= 0 ? "default" : "destructive"}>Saldo: {fmt(bal)}</Badge>
+                  {st.user_id && <Badge variant="outline" className="gap-1"><Link2 className="w-3 h-3" /> conta</Badge>}
                   <Button size="sm" variant="default" className="gap-1" onClick={() => setScheduleFor(st)}>
                     <CalendarPlus className="w-4 h-4" /> Agendar
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setManageFor(st)}>
+                    <Settings2 className="w-4 h-4" /> Gerenciar
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => setEditing(st)}><Pencil className="w-4 h-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => remove(st.id)}><Trash2 className="w-4 h-4" /></Button>
