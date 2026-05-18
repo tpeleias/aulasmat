@@ -42,10 +42,11 @@ export type AppSettings = {
   show_availability_to_students: boolean;
   work_start: string; work_end: string; slot_minutes: number;
 };
-export function useAppSettings() {
+export function useAppSettings(options?: { enabled?: boolean }) {
   const [s, setS] = useState<AppSettings | null>(null);
   useEffect(() => {
+    if (options?.enabled === false) { setS(null); return; }
     supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => setS(data as any));
-  }, []);
+  }, [options?.enabled]);
   return s;
 }
