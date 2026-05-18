@@ -109,7 +109,7 @@ export default function BillingPage() {
     });
     setBusy(false);
     if (error) toast.error(error.message);
-    else { toast.success("Crédito adicionado"); setCreditFor(null); load(); }
+    else { toast.success("Pagamento registrado"); setCreditFor(null); load(); }
   };
 
   const openEdit = (t: Tx) => {
@@ -198,7 +198,7 @@ export default function BillingPage() {
                       <div className={`text-2xl font-bold ${balanceClass}`}>{fmt(a.balance)}</div>
                     </div>
                     <Button size="sm" onClick={() => openCredit(a)}>
-                      <Plus className="w-3 h-3 mr-1" /> Adicionar Pacote/Crédito
+                      <Plus className="w-3 h-3 mr-1" /> Adicionar Pacote/Pagamento
                     </Button>
                   </div>
                 </div>
@@ -247,7 +247,7 @@ export default function BillingPage() {
       <Dialog open={!!creditFor} onOpenChange={v => !v && setCreditFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Adicionar Pacote/Crédito</DialogTitle>
+            <DialogTitle>Adicionar Pacote/Pagamento</DialogTitle>
           </DialogHeader>
           {creditFor && (
             <div className="space-y-3">
