@@ -176,6 +176,15 @@ export default function BillingPage() {
     else { toast.success("Aula excluída"); load(); }
   };
 
+  const markLessonPaidPackage = async (t: Tx) => {
+    if (!t.lesson_id) return;
+    setBusy(true);
+    const { error } = await supabase.from("lessons").update({ payment_status: "pago" }).eq("id", t.lesson_id);
+    setBusy(false);
+    if (error) toast.error(error.message);
+    else { toast.success("Aula marcada como paga via pacote"); load(); }
+  };
+
   const markLessonPaid = async (t: Tx) => {
     if (!t.lesson_id) return;
     const price = Math.abs(Number(t.amount));
