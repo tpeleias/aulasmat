@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useStudent } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, FolderOpen, ListChecks } from "lucide-react";
+import { Calendar, Clock, FolderOpen, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -15,8 +15,11 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: true }).then(({ data }) => setLessons(data ?? []));
-    supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    (supabase as any).rpc("get_child_lessons").then(({ data }: any) => {
+      const ordered = [...(data ?? [])].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+      setLessons(ordered);
+    });
+    supabase.from("homework").select("id, title, deadline, status").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
   }, [student]);
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
@@ -28,32 +31,41 @@ export default function ChildDashboard() {
   );
 
   const now = new Date();
-  const upcoming = lessons.filter(l => new Date(l.start_at) >= now);
+  const upcoming = lessons.filter(l => new Date(l.start_at) >= now && l.status !== "realizada");
   const dueHomework = homework.filter(h => h.status !== "entregue");
+  const nextLesson = upcoming[0] ?? null;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Olá, {student.student_name.split(" ")[0]} 👋</h1>
-        <p className="text-sm text-muted-foreground">Aqui ficam suas aulas, materiais e tarefas.</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <StatCard icon={Calendar} label="Próximas aulas" value={upcoming.length} href="/meu-painel/aulas" />
-        <StatCard icon={ListChecks} label="Tarefas pendentes" value={dueHomework.length} href="/meu-painel/tarefas" />
-        <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/meu-painel/materiais" />
-      </div>
-
-      <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Próximas aulas</h2>
-        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>}
-        {upcoming.slice(0, 5).map(l => (
-          <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
-            <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
-            <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+      <Card className="p-6 space-y-4 border-primary/30">
+        <div className="flex items-center gap-2 text-primary">
+          <Calendar className="w-5 h-5" />
+          <h2 className="font-semibold">Próxima aula</h2>
+        </div>
+        {nextLesson ? (
+          <div className="space-y-2">
+            <div className="text-2xl font-bold">{format(new Date(nextLesson.start_at), "EEEE, dd 'de' MMMM", { locale: ptBR })}</div>
+            <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
+              <Clock className="w-4 h-4" />
+              <span>{format(new Date(nextLesson.start_at), "HH:mm", { locale: ptBR })}</span>
+              <span>· {nextLesson.duration_minutes} min</span>
+              <span>· Prof. {capitalize(nextLesson.teacher)}</span>
+            </div>
+            {nextLesson.subject && <Badge variant="secondary">{nextLesson.subject}</Badge>}
           </div>
-        ))}
+        ) : (
+          <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>
+        )}
       </Card>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/meu-painel/materiais" />
+        <StatCard icon={ListChecks} label="Tarefas" value={dueHomework.length} href="/meu-painel/tarefas" />
+      </div>
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Tarefas com prazo</h2>

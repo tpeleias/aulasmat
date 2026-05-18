@@ -1,24 +1,31 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
+import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { WhatsAppButton } from "./StudentDashboard";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentLessons() {
   const { student, isChild } = useStudent();
-  const settings = useAppSettings();
+  const { role } = useAuth();
+  const hideFinancial = role === "child" || isChild;
+  const settings = useAppSettings({ enabled: !hideFinancial });
   const [lessons, setLessons] = useState<any[]>([]);
 
   useEffect(() => {
     if (!student) return;
+    if (hideFinancial) {
+      (supabase as any).rpc("get_child_lessons").then(({ data }: any) => setLessons(data ?? []));
+      return;
+    }
     supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
-  }, [student]);
+  }, [student, hideFinancial]);
 
   const now = new Date();
   const upcoming = lessons.filter(l => new Date(l.start_at) >= now && l.status !== "realizada").reverse();
@@ -32,8 +39,8 @@ export default function StudentLessons() {
           <TabsTrigger value="upcoming">Próximas aulas ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={isChild} /></TabsContent>
-        <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={isChild} /></TabsContent>
+        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} /></TabsContent>
+        <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={hideFinancial} /></TabsContent>
       </Tabs>
     </div>
   );
