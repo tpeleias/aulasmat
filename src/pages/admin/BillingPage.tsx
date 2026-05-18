@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2 } from "lucide-react";
+import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 
@@ -47,6 +47,7 @@ type StudentRow = { id: string; student_name: string; guardian_name: string | nu
 export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [lessonPay, setLessonPay] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -58,12 +59,16 @@ export default function BillingPage() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const [tx, st] = await Promise.all([
+    const [tx, st, ls] = await Promise.all([
       supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
+      supabase.from("lessons").select("id, payment_status"),
     ]);
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
+    const map: Record<string, string> = {};
+    for (const l of (ls.data ?? []) as { id: string; payment_status: string }[]) map[l.id] = l.payment_status;
+    setLessonPay(map);
   };
   useEffect(() => { load(); }, []);
 
@@ -171,6 +176,25 @@ export default function BillingPage() {
     else { toast.success("Aula excluída"); load(); }
   };
 
+  const markLessonPaid = async (t: Tx) => {
+    if (!t.lesson_id) return;
+    const price = Math.abs(Number(t.amount));
+    setBusy(true);
+    const { error: e1 } = await supabase.from("lessons").update({ payment_status: "pago" }).eq("id", t.lesson_id);
+    if (e1) { setBusy(false); toast.error(e1.message); return; }
+    const { error: e2 } = await supabase.from("wallet_transactions").insert({
+      guardian_name: t.guardian_name,
+      student_name: t.student_name,
+      amount: price,
+      kind: "adjustment",
+      lesson_id: t.lesson_id,
+      description: `Pagamento — ${t.description ?? "aula"}`,
+    });
+    setBusy(false);
+    if (e2) toast.error(e2.message);
+    else { toast.success("Aula marcada como paga"); load(); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -245,6 +269,14 @@ export default function BillingPage() {
                               </>
                             ) : t.lesson_id ? (
                               <>
+                                {lessonPay[t.lesson_id] !== "pago" && (
+                                  <Button size="sm" variant="outline" className="h-7 text-success border-success/40 hover:bg-success/10" onClick={() => markLessonPaid(t)} disabled={busy} title="Marcar aula como paga">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Marcar paga
+                                  </Button>
+                                )}
+                                {lessonPay[t.lesson_id] === "pago" && (
+                                  <Badge variant="outline" className="text-[10px] text-success border-success/40">paga</Badge>
+                                )}
                                 <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title="Editar aula"><Pencil className="w-3 h-3" /></Button>
                                 <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title="Excluir aula"><Trash2 className="w-3 h-3" /></Button>
                               </>
