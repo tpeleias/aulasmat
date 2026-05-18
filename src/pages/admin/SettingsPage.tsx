@@ -89,6 +89,13 @@ export default function SettingsPage() {
           </div>
           <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
         </div>
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">Exibir disponibilidade dos professores ao responsável</Label>
+            <p className="text-xs text-muted-foreground">Mostra os links de agenda do Thiago e da Mayara no portal do aluno.</p>
+          </div>
+          <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
+        </div>
       </Card>
 
       <Card className="p-5 space-y-4">
