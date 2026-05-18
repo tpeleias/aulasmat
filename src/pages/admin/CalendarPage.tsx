@@ -206,6 +206,7 @@ export default function CalendarPage() {
           {/* day columns */}
           {days.map(d => {
             const dayLessons = filteredLessons.filter(l => isSameDay(new Date(l.start_at), d));
+            const layout = layoutDayLessons(dayLessons);
             return (
               <div key={d.toISOString()} className="flex-1 min-w-0 relative">
                 <div
