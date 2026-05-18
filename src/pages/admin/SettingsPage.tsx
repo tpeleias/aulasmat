@@ -78,6 +78,17 @@ export default function SettingsPage() {
         </div>
       </Card>
 
+      <Card className="p-5 space-y-3">
+        <h2 className="font-semibold text-sm uppercase text-muted-foreground">Portal do Aluno</h2>
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">Permitir que alunos agendem aulas diretamente</Label>
+            <p className="text-xs text-muted-foreground">Quando desligado, o portal do aluno fica apenas para visualização.</p>
+          </div>
+          <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
+        </div>
+      </Card>
+
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-sm uppercase text-muted-foreground">Contato (WhatsApp)</h2>
         <p className="text-xs text-muted-foreground -mt-2">Use formato internacional sem espaços. Ex: 5511999999999</p>
