@@ -31,7 +31,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
     start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
-    teacher: baseTeacher, address: "", is_online: false,
+    teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
   const [busy, setBusy] = useState(false);
   const [recurring, setRecurring] = useState(false);
