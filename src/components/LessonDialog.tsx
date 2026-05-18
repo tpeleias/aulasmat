@@ -193,8 +193,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.teacher} onValueChange={setTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="thiago">Thiago</SelectItem>
-                  <SelectItem value="mayara">Mayara</SelectItem>
+                  {teachers.length === 0 && <SelectItem value="thiago">Thiago</SelectItem>}
+                  {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
