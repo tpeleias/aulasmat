@@ -27,18 +27,22 @@ Deno.serve(async (req) => {
     // Find or create auth user
     const { data: existing } = await admin.auth.admin.listUsers();
     let targetUser = existing.users.find(u => u.email?.toLowerCase() === String(email).toLowerCase());
+    let created = false;
     if (!targetUser) {
       if (!password) return json({ error: "Usuário não existe. Informe uma senha temporária para criar a conta." }, 400);
-      const { data: created, error: cErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-      if (cErr || !created.user) return json({ error: cErr?.message || "erro ao criar usuário" }, 400);
-      targetUser = created.user;
+      const { data: c, error: cErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+      if (cErr || !c.user) return json({ error: cErr?.message || "erro ao criar usuário" }, 400);
+      targetUser = c.user;
+      created = true;
     }
 
     // Ensure student role
     await admin.from("user_roles").upsert({ user_id: targetUser.id, role: "student" }, { onConflict: "user_id,role" });
 
-    // Link student row
-    const { error: linkErr } = await admin.from("students").update({ user_id: targetUser.id }).eq("id", student_id);
+    // Link student row + force password change on first login when we just set the password
+    const { error: linkErr } = await admin.from("students")
+      .update({ user_id: targetUser.id, must_change_password: created })
+      .eq("id", student_id);
     if (linkErr) return json({ error: linkErr.message }, 400);
 
     return json({ ok: true, user_id: targetUser.id, email });
