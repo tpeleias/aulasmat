@@ -1,0 +1,1 @@
+ALTER TABLE public.settings ADD COLUMN IF NOT EXISTS show_availability_to_students boolean NOT NULL DEFAULT false;

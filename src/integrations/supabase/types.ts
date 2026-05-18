@@ -273,6 +273,7 @@ export type Database = {
           scarcity_weekday_min: number
           scarcity_weekend_max: number
           scarcity_weekend_min: number
+          show_availability_to_students: boolean
           show_payment_info_to_students: boolean
           slot_minutes: number
           whatsapp_mayara: string | null
@@ -289,6 +290,7 @@ export type Database = {
           scarcity_weekday_min?: number
           scarcity_weekend_max?: number
           scarcity_weekend_min?: number
+          show_availability_to_students?: boolean
           show_payment_info_to_students?: boolean
           slot_minutes?: number
           whatsapp_mayara?: string | null
@@ -305,6 +307,7 @@ export type Database = {
           scarcity_weekday_min?: number
           scarcity_weekend_max?: number
           scarcity_weekend_min?: number
+          show_availability_to_students?: boolean
           show_payment_info_to_students?: boolean
           slot_minutes?: number
           whatsapp_mayara?: string | null
