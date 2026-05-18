@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, Clock, AlertCircle } from "lucide-react";
 import { differenceInDays, isPast, format } from "date-fns";
 import { toast } from "sonner";
+import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
 export default function StudentHomework() {
   const { student } = useStudent();
@@ -46,7 +47,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
 
   const upload = async (file: File) => {
     setBusy(true);
-    const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const safeName = sanitizeFilename(file.name);
     const path = `${student.id}/${hw.id}/${Date.now()}-${safeName}`;
     const { error: upErr } = await supabase.storage.from("homework-submissions").upload(path, file, {
       contentType: file.type || "application/octet-stream",

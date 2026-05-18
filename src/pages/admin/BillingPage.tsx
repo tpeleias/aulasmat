@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2, CheckCircle2 } from "lucide-react";
+import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2, CheckCircle2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 
@@ -48,6 +48,7 @@ export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessonPay, setLessonPay] = useState<Record<string, string>>({});
+  const [upcoming, setUpcoming] = useState<{ id: string; student_name: string; start_at: string; duration_minutes: number; teacher: string; subject: string | null }[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -59,18 +60,34 @@ export default function BillingPage() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const [tx, st, ls] = await Promise.all([
+    const nowIso = new Date().toISOString();
+    const [tx, st, ls, up] = await Promise.all([
       supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, payment_status"),
+      supabase.from("lessons")
+        .select("id, student_name, start_at, duration_minutes, teacher, subject")
+        .eq("status", "agendada")
+        .gte("start_at", nowIso)
+        .order("start_at"),
     ]);
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
+    setUpcoming((up.data ?? []) as any[]);
     const map: Record<string, string> = {};
     for (const l of (ls.data ?? []) as { id: string; payment_status: string }[]) map[l.id] = l.payment_status;
     setLessonPay(map);
   };
   useEffect(() => { load(); }, []);
+
+  const upcomingByStudent = useMemo(() => {
+    const map: Record<string, typeof upcoming> = {};
+    for (const l of upcoming) {
+      const k = l.student_name.toLowerCase();
+      (map[k] ||= []).push(l);
+    }
+    return map;
+  }, [upcoming]);
 
   const accounts = useMemo(() => {
     const map = new Map<string, { key: string; label: string; guardian: string | null; student: string; balance: number; txs: Tx[] }>();
@@ -255,7 +272,34 @@ export default function BillingPage() {
                   </div>
                 </div>
                 {isExp && (
-                  <div className="mt-4 border-t border-border pt-3 space-y-1.5">
+                  <div className="mt-4 border-t border-border pt-3 space-y-3">
+                    {(() => {
+                      const next = upcomingByStudent[a.student.toLowerCase()] ?? [];
+                      if (next.length === 0) return null;
+                      return (
+                        <div className="rounded-md border border-border/60 bg-muted/30 p-3">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                            <CalendarClock className="w-3.5 h-3.5" />
+                            Próximas aulas agendadas ({next.length}) · não afetam o saldo
+                          </div>
+                          <ul className="space-y-1">
+                            {next.slice(0, 8).map(l => (
+                              <li key={l.id} className="flex items-center justify-between text-xs gap-2">
+                                <span className="text-foreground">
+                                  {format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
+                                  <span className="text-muted-foreground"> · {l.duration_minutes} min{l.subject ? ` · ${l.subject}` : ""}</span>
+                                </span>
+                                <Badge variant="outline" className="text-[10px] capitalize">{l.teacher}</Badge>
+                              </li>
+                            ))}
+                            {next.length > 8 && (
+                              <li className="text-[11px] text-muted-foreground italic">+ {next.length - 8} aula(s)…</li>
+                            )}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+                    <div className="space-y-1.5">
                     {a.txs.map(t => {
                       const isLesson = t.kind === "lesson";
                       const editable = !isLesson;
@@ -301,6 +345,7 @@ export default function BillingPage() {
                         </div>
                       );
                     })}
+                    </div>
                   </div>
                 )}
               </Card>

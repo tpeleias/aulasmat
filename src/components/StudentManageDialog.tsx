@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, Trash2, Link2, FileText, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
 type Student = { id: string; student_name: string; user_id: string | null };
 
@@ -134,8 +135,10 @@ function MaterialsTab({ student }: { student: Student }) {
   const upload = async (file: File) => {
     if (!title.trim()) { toast.error("Dê um título ao material"); return; }
     setBusy(true);
-    const path = `${student.id}/${Date.now()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file);
+    const path = `${student.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
+    const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file, {
+      contentType: file.type || "application/octet-stream",
+    });
     if (upErr) { toast.error(upErr.message); setBusy(false); return; }
     const { error } = await supabase.from("student_materials").insert({
       student_id: student.id, title: title.trim(), file_path: path, file_type: file.type,
