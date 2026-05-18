@@ -46,8 +46,12 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
 
   const upload = async (file: File) => {
     setBusy(true);
-    const path = `${student.id}/${hw.id}/${Date.now()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from("homework-submissions").upload(path, file);
+    const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${student.id}/${hw.id}/${Date.now()}-${safeName}`;
+    const { error: upErr } = await supabase.storage.from("homework-submissions").upload(path, file, {
+      contentType: file.type || "application/octet-stream",
+      upsert: false,
+    });
     if (upErr) { toast.error(upErr.message); setBusy(false); return; }
     const { error } = await supabase.from("homework_submissions").insert({
       homework_id: hw.id, file_path: path, file_type: file.type,
