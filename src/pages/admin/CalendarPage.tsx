@@ -139,9 +139,15 @@ export default function CalendarPage() {
           <p className="text-sm text-muted-foreground">{format(days[0], "dd 'de' MMM", { locale: ptBR })} — {format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}</p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted">
-            <button onClick={() => setTeacherFilter("thiago")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "thiago" ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>Thiago</button>
-            <button onClick={() => setTeacherFilter("mayara")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "mayara" ? "bg-background shadow-sm font-medium text-fuchsia-600" : "text-muted-foreground"}`}>Mayara</button>
+          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
+            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Todos</button>
+            {teachers.map(t => {
+              const slug = teacherSlug(t.name);
+              const active = teacherFilter === slug;
+              return (
+                <button key={t.id} onClick={() => setTeacherFilter(slug)} className={`px-3 py-1 text-xs rounded capitalize ${active ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>{t.name}</button>
+              );
+            })}
           </div>
           <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
           <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
