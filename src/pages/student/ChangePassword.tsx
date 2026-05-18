@@ -22,16 +22,20 @@ export default function ChangePassword() {
     document.title = "Alterar senha";
   }, []);
 
+  const { role } = useAuth();
   if (authLoading || stLoading) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
   if (!session) return <Navigate to="/" replace />;
+  const isChild = role === "child";
+  const destination = isChild ? "/meu-painel" : "/aluno";
+  const needsChange = isChild ? !!student?.child_must_change_password : !!student?.must_change_password;
   // If user doesn't need to change password, send them along
-  if (student && !student.must_change_password) return <Navigate to="/aluno" replace />;
+  if (student && !needsChange) return <Navigate to={destination} replace />;
 
   const releaseAccess = async () => {
     const { error: fnErr } = await supabase.functions.invoke("clear-must-change-password");
     if (fnErr) throw fnErr;
     toast.success("Senha definida!");
-    window.location.replace("/aluno");
+    window.location.replace(destination);
   };
 
   const submit = async () => {
