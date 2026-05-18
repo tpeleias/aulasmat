@@ -3,7 +3,7 @@ import { addDays, addMinutes, format, getDay, isSameDay, startOfWeek } from "dat
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays, Check } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
@@ -36,12 +36,13 @@ export default function CalendarPage() {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, 7).toISOString();
     const nowIso = new Date().toISOString();
+    const nextSevenDaysIso = addDays(new Date(), 7).toISOString();
     const [s, l, b, ex, up] = await Promise.all([
       supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
       supabase.from("block_exceptions").select("*"),
-      supabase.from("lessons").select("*").gte("start_at", nowIso).eq("status", "agendada").order("start_at").limit(100),
+      supabase.from("lessons").select("*").gte("start_at", nowIso).lt("start_at", nextSevenDaysIso).eq("status", "agendada").order("start_at").limit(100),
     ]);
     if (s.data) setSettings(s.data);
     setLessons((l.data ?? []) as Lesson[]);
@@ -79,6 +80,25 @@ export default function CalendarPage() {
       : blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
     [blocks, teacherFilter]
   );
+
+  const upcomingByTeacher = useMemo(() => {
+    const teacherNames = new Map(teachers.map(t => [teacherSlug(t.name), t.name]));
+    const order = new Map(teachers.map((t, index) => [teacherSlug(t.name), index]));
+    const grouped = upcoming.reduce<Record<string, Lesson[]>>((acc, lesson) => {
+      const key = lesson.teacher || "sem-professor";
+      acc[key] = acc[key] ?? [];
+      acc[key].push(lesson);
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .sort(([a], [b]) => (order.get(a) ?? 999) - (order.get(b) ?? 999) || a.localeCompare(b))
+      .map(([teacher, items]) => ({
+        teacher,
+        label: teacherNames.get(teacher) ?? teacher,
+        items,
+      }));
+  }, [teachers, upcoming]);
 
   const getBlockForCell = (day: Date, hour: number) => {
     if (teacherFilter === "all") return null;
@@ -176,7 +196,11 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Calendário</h1>
-          <p className="text-sm text-muted-foreground">{format(days[0], "dd 'de' MMM", { locale: ptBR })} — {format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}</p>
+          <p className="text-sm text-muted-foreground">
+            {teacherFilter === "all"
+              ? `Próximos 7 dias · ${format(new Date(), "dd 'de' MMM", { locale: ptBR })} — ${format(addDays(new Date(), 7), "dd 'de' MMM yyyy", { locale: ptBR })}`
+              : `${format(days[0], "dd 'de' MMM", { locale: ptBR })} — ${format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}`}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
@@ -189,9 +213,13 @@ export default function CalendarPage() {
               );
             })}
           </div>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
-          <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
+          {teacherFilter !== "all" && (
+            <>
+              <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
+              <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -199,46 +227,50 @@ export default function CalendarPage() {
         <div className="bg-card rounded-xl shadow-[var(--shadow-card)] p-5">
           <div className="flex items-center gap-2 mb-4">
             <CalendarDays className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold">Próximas aulas</h2>
+            <h2 className="font-semibold">Próximas aulas — próximos 7 dias</h2>
             <span className="text-xs text-muted-foreground">({upcoming.length})</span>
           </div>
           {upcoming.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-8">Nenhuma aula agendada.</div>
+            <div className="text-sm text-muted-foreground text-center py-8">Nenhuma aula agendada nos próximos 7 dias.</div>
           ) : (
-            <ul className="divide-y divide-border">
-              {upcoming.map(l => {
-                const ls = new Date(l.start_at);
-                const isMay = l.teacher === "mayara";
-                const paid = l.payment_status === "pago";
-                return (
-                  <li key={l.id}>
-                    <button
-                      onClick={() => { setEditing(l); setDlgOpen(true); }}
-                      className="w-full flex items-center gap-3 py-3 px-2 hover:bg-accent rounded-md text-left transition-colors"
-                    >
-                      <span className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center ${paid ? "bg-success/20 border-success/40" : "border-border"}`}>
-                        {paid && <Check className="w-3 h-3 text-success" />}
-                      </span>
-                      <div className="shrink-0 w-20 text-center">
-                        <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: ptBR })}</div>
-                        <div className="text-sm font-semibold leading-tight">{format(ls, "dd/MM")}</div>
-                        <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{l.student_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {l.subject ?? "—"} · {l.duration_minutes}min
-                          {l.is_online ? " · on-line" : l.address ? ` · ${l.address}` : ""}
-                        </div>
-                      </div>
-                      <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full capitalize ${isMay ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400" : "bg-primary/15 text-primary"}`}>
-                        {l.teacher}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="grid gap-4 md:grid-cols-2">
+              {upcomingByTeacher.map(group => (
+                <section key={group.teacher} className="rounded-lg border border-border bg-background/40 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold capitalize">{group.label}</h3>
+                    <span className="text-xs text-muted-foreground">{group.items.length} aulas</span>
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {group.items.map(l => {
+                      const ls = new Date(l.start_at);
+                      return (
+                        <li key={l.id}>
+                          <button
+                            onClick={() => { setEditing(l); setDlgOpen(true); }}
+                            className="w-full border-l-2 border-l-primary py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="shrink-0 w-20">
+                                <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: ptBR })}</div>
+                                <div className="text-sm font-semibold leading-tight">{format(ls, "dd/MM")}</div>
+                                <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate">{l.student_name}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {l.subject ?? "—"} · {l.duration_minutes}min
+                                  {l.is_online ? " · on-line" : l.address ? ` · ${l.address}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       ) : (
