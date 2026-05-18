@@ -47,6 +47,7 @@ type StudentRow = { id: string; student_name: string; guardian_name: string | nu
 export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
+  const [lessonPay, setLessonPay] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -58,12 +59,16 @@ export default function BillingPage() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const [tx, st] = await Promise.all([
+    const [tx, st, ls] = await Promise.all([
       supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
+      supabase.from("lessons").select("id, payment_status"),
     ]);
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
+    const map: Record<string, string> = {};
+    for (const l of (ls.data ?? []) as { id: string; payment_status: string }[]) map[l.id] = l.payment_status;
+    setLessonPay(map);
   };
   useEffect(() => { load(); }, []);
 
