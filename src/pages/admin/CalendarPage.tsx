@@ -35,16 +35,19 @@ export default function CalendarPage() {
   const load = useCallback(async () => {
     const from = weekStart.toISOString();
     const to = addDays(weekStart, 7).toISOString();
-    const [s, l, b, ex] = await Promise.all([
+    const nowIso = new Date().toISOString();
+    const [s, l, b, ex, up] = await Promise.all([
       supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
       supabase.from("block_exceptions").select("*"),
+      supabase.from("lessons").select("*").gte("start_at", nowIso).eq("status", "agendada").order("start_at").limit(100),
     ]);
     if (s.data) setSettings(s.data);
     setLessons((l.data ?? []) as Lesson[]);
     setBlocks((b.data ?? []) as Block[]);
     setExceptions((ex.data ?? []) as BlockException[]);
+    setUpcoming((up.data ?? []) as Lesson[]);
   }, [weekStart]);
 
   useEffect(() => { load(); }, [load]);
