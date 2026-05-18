@@ -12,6 +12,7 @@ export default function StudentLayout() {
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/" replace />;
   if (role === "admin") return <Navigate to="/admin" replace />;
+  if (role === "child") return <Navigate to="/meu-painel" replace />;
   if (role !== "student") return <Navigate to="/" replace />;
   if (student?.must_change_password) return <Navigate to="/trocar-senha" replace />;
 
