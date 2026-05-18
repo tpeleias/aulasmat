@@ -541,6 +541,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_past_lessons_realizada: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user" | "student"
