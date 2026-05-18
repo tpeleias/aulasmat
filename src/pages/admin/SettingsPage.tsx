@@ -26,6 +26,7 @@ export default function SettingsPage() {
     pix_key: "", payment_link: "", show_payment_info_to_students: false,
     whatsapp_thiago: "", whatsapp_mayara: "",
     allow_student_booking: true,
+    show_availability_to_students: false,
   });
   useEffect(() => {
     supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => data && setS({ ...s, ...(data as any) }));
