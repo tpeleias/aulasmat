@@ -17,8 +17,6 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function StudentDashboard() {
   const { student, loading } = useStudent();
-  const [reloadKey, setReloadKey] = useState(0);
-  const reload = () => setReloadKey(k => k + 1);
 
   const settings = useAppSettings();
   const [lessons, setLessons] = useState<any[]>([]);
