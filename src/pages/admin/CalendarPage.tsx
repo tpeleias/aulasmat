@@ -77,6 +77,7 @@ export default function CalendarPage() {
   );
 
   const getBlockForCell = (day: Date, hour: number) => {
+    if (teacherFilter === "all") return null;
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
     const cellEnd = addMinutes(cellStart, 60);
 
@@ -98,22 +99,57 @@ export default function CalendarPage() {
     return null;
   };
 
-  const renderLesson = (lesson: Lesson, day: Date) => {
+  // Lay out lessons side-by-side when they overlap.
+  // Returns map from lesson id => { col, cols }.
+  const layoutDayLessons = (dayLessons: Lesson[]) => {
+    const items = dayLessons
+      .map(l => {
+        const s = new Date(l.start_at).getTime();
+        return { id: l.id, start: s, end: s + l.duration_minutes * 60000 };
+      })
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+
+    const colEnds: number[] = []; // end time per column
+    const colOf: Record<string, number> = {};
+    for (const it of items) {
+      let placed = -1;
+      for (let c = 0; c < colEnds.length; c++) {
+        if (colEnds[c] <= it.start) { placed = c; break; }
+      }
+      if (placed === -1) { placed = colEnds.length; colEnds.push(it.end); }
+      else colEnds[placed] = it.end;
+      colOf[it.id] = placed;
+    }
+
+    // For each item, compute the max concurrent columns among items it overlaps with.
+    const result: Record<string, { col: number; cols: number }> = {};
+    for (const it of items) {
+      const overlapping = items.filter(o => o.start < it.end && o.end > it.start);
+      const maxCol = Math.max(...overlapping.map(o => colOf[o.id]));
+      result[it.id] = { col: colOf[it.id], cols: maxCol + 1 };
+    }
+    return result;
+  };
+
+
+  const renderLesson = (lesson: Lesson, day: Date, col: number, cols: number) => {
     const ls = new Date(lesson.start_at);
     const minutesFromTop = (ls.getHours() - hStart) * 60 + ls.getMinutes();
     if (minutesFromTop < 0) return null;
     const top = (minutesFromTop * CELL_H) / 60;
     const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
     const isMay = lesson.teacher === "mayara";
+    const widthPct = 100 / cols;
+    const leftPct = col * widthPct;
     return (
       <button
         key={lesson.id}
         onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
-        style={{ top, height }}
-        className={`absolute left-0.5 right-0.5 z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 border-l-2 ${lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+        style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
+        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
       >
-        <div className={`font-semibold truncate pr-5 leading-tight ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
-        <div className="text-[10px] text-muted-foreground truncate pr-5 leading-tight">
+        <div className={`font-semibold truncate leading-tight ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
+        <div className="text-[10px] text-muted-foreground truncate leading-tight">
           {format(ls, "HH:mm")} · {lesson.subject}
         </div>
         {lesson.is_online ? (
@@ -170,6 +206,7 @@ export default function CalendarPage() {
           {/* day columns */}
           {days.map(d => {
             const dayLessons = filteredLessons.filter(l => isSameDay(new Date(l.start_at), d));
+            const layout = layoutDayLessons(dayLessons);
             return (
               <div key={d.toISOString()} className="flex-1 min-w-0 relative">
                 <div
@@ -218,11 +255,14 @@ export default function CalendarPage() {
                   {/* absolute-positioned lessons overlay */}
                   <div className="absolute inset-0 pointer-events-none">
                     <div className="relative w-full h-full">
-                      {dayLessons.map(l => (
-                        <div key={l.id} className="pointer-events-auto">
-                          {renderLesson(l, d)}
-                        </div>
-                      ))}
+                      {dayLessons.map(l => {
+                        const lay = layout[l.id] ?? { col: 0, cols: 1 };
+                        return (
+                          <div key={l.id} className="pointer-events-auto">
+                            {renderLesson(l, d, lay.col, lay.cols)}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
