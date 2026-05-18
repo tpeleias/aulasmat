@@ -18,11 +18,12 @@ const items = [
 ];
 
 export default function AdminLayout() {
-  const { session, isAdmin, loading, signOut } = useAuth();
+  const { session, isAdmin, role, loading, signOut } = useAuth();
   const defaultTeacher = useDefaultTeacher();
   const [quickOpen, setQuickOpen] = useState(false);
   if (loading) return null;
   if (!session) return <Navigate to="/auth" replace />;
+  if (role === "child") return <Navigate to="/meu-painel" replace />;
   if (!isAdmin) return (
     <div className="min-h-screen flex items-center justify-center p-6 text-center">
       <div><h2 className="text-xl font-semibold mb-2">Acesso restrito</h2><p className="text-muted-foreground">Sua conta não tem permissão de administrador.</p><Button className="mt-4" onClick={signOut}>Sair</Button></div>
