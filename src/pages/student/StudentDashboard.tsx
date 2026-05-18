@@ -6,12 +6,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Wallet, FolderOpen, ListChecks, MessageCircle, Copy, UserPlus, KeyRound } from "lucide-react";
+import { Calendar, Wallet, FolderOpen, ListChecks, Copy, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
+import { WhatsAppButton } from "@/components/WhatsAppButton";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -206,19 +207,6 @@ function StatCard({ icon: Ic, label, value, href, tone }: any) {
         <div className={`text-xl font-bold ${tone === "destructive" ? "text-destructive" : ""}`}>{value}</div>
       </Card>
     </Link>
-  );
-}
-
-export function WhatsAppButton({ teacher, settings, message }: { teacher: string; settings: any; message: string }) {
-  const num = teacher === "mayara" ? settings?.whatsapp_mayara : settings?.whatsapp_thiago;
-  if (!num) return null;
-  const clean = String(num).replace(/\D/g, "");
-  return (
-    <Button asChild size="sm" variant="outline" className="gap-1">
-      <a href={`https://wa.me/${clean}?text=${encodeURIComponent(message)}`} target="_blank" rel="noopener noreferrer">
-        <MessageCircle className="w-4 h-4" /> WhatsApp
-      </a>
-    </Button>
   );
 }
 
