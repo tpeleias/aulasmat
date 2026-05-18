@@ -132,22 +132,24 @@ export default function CalendarPage() {
   };
 
 
-  const renderLesson = (lesson: Lesson, day: Date) => {
+  const renderLesson = (lesson: Lesson, day: Date, col: number, cols: number) => {
     const ls = new Date(lesson.start_at);
     const minutesFromTop = (ls.getHours() - hStart) * 60 + ls.getMinutes();
     if (minutesFromTop < 0) return null;
     const top = (minutesFromTop * CELL_H) / 60;
     const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
     const isMay = lesson.teacher === "mayara";
+    const widthPct = 100 / cols;
+    const leftPct = col * widthPct;
     return (
       <button
         key={lesson.id}
         onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
-        style={{ top, height }}
-        className={`absolute left-0.5 right-0.5 z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 border-l-2 ${lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+        style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
+        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
       >
-        <div className={`font-semibold truncate pr-5 leading-tight ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
-        <div className="text-[10px] text-muted-foreground truncate pr-5 leading-tight">
+        <div className={`font-semibold truncate leading-tight ${isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
+        <div className="text-[10px] text-muted-foreground truncate leading-tight">
           {format(ls, "HH:mm")} · {lesson.subject}
         </div>
         {lesson.is_online ? (
