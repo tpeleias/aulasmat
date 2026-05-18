@@ -219,46 +219,51 @@ export default function CalendarPage() {
         <div className="bg-card rounded-xl shadow-[var(--shadow-card)] p-5">
           <div className="flex items-center gap-2 mb-4">
             <CalendarDays className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold">Próximas aulas</h2>
+            <h2 className="font-semibold">Próximas aulas — próximos 7 dias</h2>
             <span className="text-xs text-muted-foreground">({upcoming.length})</span>
           </div>
           {upcoming.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-8">Nenhuma aula agendada.</div>
+            <div className="text-sm text-muted-foreground text-center py-8">Nenhuma aula agendada nos próximos 7 dias.</div>
           ) : (
-            <ul className="divide-y divide-border">
-              {upcoming.map(l => {
-                const ls = new Date(l.start_at);
-                const isMay = l.teacher === "mayara";
-                const paid = l.payment_status === "pago";
-                return (
-                  <li key={l.id}>
-                    <button
-                      onClick={() => { setEditing(l); setDlgOpen(true); }}
-                      className="w-full flex items-center gap-3 py-3 px-2 hover:bg-accent rounded-md text-left transition-colors"
-                    >
-                      <span className={`shrink-0 w-5 h-5 rounded border flex items-center justify-center ${paid ? "bg-success/20 border-success/40" : "border-border"}`}>
-                        {paid && <Check className="w-3 h-3 text-success" />}
-                      </span>
-                      <div className="shrink-0 w-20 text-center">
-                        <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: ptBR })}</div>
-                        <div className="text-sm font-semibold leading-tight">{format(ls, "dd/MM")}</div>
-                        <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{l.student_name}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {l.subject ?? "—"} · {l.duration_minutes}min
-                          {l.is_online ? " · on-line" : l.address ? ` · ${l.address}` : ""}
-                        </div>
-                      </div>
-                      <span className={`shrink-0 text-[10px] px-2 py-0.5 rounded-full capitalize ${isMay ? "bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400" : "bg-primary/15 text-primary"}`}>
-                        {l.teacher}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="grid gap-4 md:grid-cols-2">
+              {upcomingByTeacher.map(group => (
+                <section key={group.teacher} className="rounded-lg border border-border bg-background/40 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-semibold capitalize">{group.label}</h3>
+                    <span className="text-xs text-muted-foreground">{group.items.length} aulas</span>
+                  </div>
+                  <ul className="divide-y divide-border">
+                    {group.items.map(l => {
+                      const ls = new Date(l.start_at);
+                      const isMay = l.teacher === "mayara";
+                      return (
+                        <li key={l.id}>
+                          <button
+                            onClick={() => { setEditing(l); setDlgOpen(true); }}
+                            className={`w-full border-l-2 py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="shrink-0 w-20">
+                                <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: ptBR })}</div>
+                                <div className="text-sm font-semibold leading-tight">{format(ls, "dd/MM")}</div>
+                                <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="font-medium truncate">{l.student_name}</div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {l.subject ?? "—"} · {l.duration_minutes}min
+                                  {l.is_online ? " · on-line" : l.address ? ` · ${l.address}` : ""}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              ))}
+            </div>
           )}
         </div>
       ) : (
