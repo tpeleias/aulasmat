@@ -77,6 +77,7 @@ export default function CalendarPage() {
   );
 
   const getBlockForCell = (day: Date, hour: number) => {
+    if (teacherFilter === "all") return null;
     const cellStart = new Date(day); cellStart.setHours(hour, 0, 0, 0);
     const cellEnd = addMinutes(cellStart, 60);
 
@@ -97,6 +98,39 @@ export default function CalendarPage() {
     if (recur) return { label: recur.title, blockId: recur.id, recurring: true };
     return null;
   };
+
+  // Lay out lessons side-by-side when they overlap.
+  // Returns map from lesson id => { col, cols }.
+  const layoutDayLessons = (dayLessons: Lesson[]) => {
+    const items = dayLessons
+      .map(l => {
+        const s = new Date(l.start_at).getTime();
+        return { id: l.id, start: s, end: s + l.duration_minutes * 60000 };
+      })
+      .sort((a, b) => a.start - b.start || a.end - b.end);
+
+    const colEnds: number[] = []; // end time per column
+    const colOf: Record<string, number> = {};
+    for (const it of items) {
+      let placed = -1;
+      for (let c = 0; c < colEnds.length; c++) {
+        if (colEnds[c] <= it.start) { placed = c; break; }
+      }
+      if (placed === -1) { placed = colEnds.length; colEnds.push(it.end); }
+      else colEnds[placed] = it.end;
+      colOf[it.id] = placed;
+    }
+
+    // For each item, compute the max concurrent columns among items it overlaps with.
+    const result: Record<string, { col: number; cols: number }> = {};
+    for (const it of items) {
+      const overlapping = items.filter(o => o.start < it.end && o.end > it.start);
+      const maxCol = Math.max(...overlapping.map(o => colOf[o.id]));
+      result[it.id] = { col: colOf[it.id], cols: maxCol + 1 };
+    }
+    return result;
+  };
+
 
   const renderLesson = (lesson: Lesson, day: Date) => {
     const ls = new Date(lesson.start_at);
