@@ -1,8 +1,8 @@
-import { Navigate, NavLink, Outlet } from "react-router-dom";
+import { Navigate, NavLink, Outlet, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus } from "lucide-react";
+import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch } from "lucide-react";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
