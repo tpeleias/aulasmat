@@ -3,7 +3,7 @@ import { addDays, addMinutes, format, getDay, isSameDay, startOfWeek } from "dat
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays, Check } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
