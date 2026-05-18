@@ -15,6 +15,7 @@ type Settings = {
   show_payment_info_to_students: boolean;
   whatsapp_thiago: string | null; whatsapp_mayara: string | null;
   allow_student_booking: boolean;
+  show_availability_to_students: boolean;
 };
 
 export default function SettingsPage() {
