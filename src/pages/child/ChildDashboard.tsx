@@ -15,12 +15,10 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    supabase
-      .from("lessons")
-      .select("id, start_at, subject, duration_minutes, teacher, status, class_summary")
-      .eq("student_name", student.student_name)
-      .order("start_at", { ascending: true })
-      .then(({ data }) => setLessons(data ?? []));
+    (supabase as any).rpc("get_child_lessons").then(({ data }: any) => {
+      const ordered = [...(data ?? [])].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+      setLessons(ordered);
+    });
     supabase.from("homework").select("id, title, deadline, status").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
   }, [student]);
 
