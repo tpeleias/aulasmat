@@ -521,6 +521,18 @@ export type Database = {
           start_at: string
         }[]
       }
+      get_child_lessons: {
+        Args: never
+        Returns: {
+          class_summary: string
+          duration_minutes: number
+          id: string
+          start_at: string
+          status: string
+          subject: string
+          teacher: string
+        }[]
+      }
       get_recurring_blocks: {
         Args: never
         Returns: {
