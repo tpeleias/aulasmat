@@ -6,13 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, CalendarPlus } from "lucide-react";
+import { Plus, Pencil, Trash2, Users, CalendarPlus, Settings2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
+import { StudentManageDialog } from "@/components/StudentManageDialog";
 
 type Student = {
-  id: string; student_name: string; guardian_name: string | null; address: string | null;
+  id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
 type Lesson = { student_name: string; start_at: string };
 type Tx = { student_name: string; guardian_name: string | null; amount: number };
@@ -27,6 +28,7 @@ export default function StudentsPage() {
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
+  const [manageFor, setManageFor] = useState<Student | null>(null);
   const defaultTeacher = useDefaultTeacher();
 
   const load = async () => {
@@ -120,8 +122,12 @@ export default function StudentsPage() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <Badge variant="secondary">{count} {count === 1 ? "aula realizada" : "aulas realizadas"}</Badge>
                   <Badge variant={bal >= 0 ? "default" : "destructive"}>Saldo: {fmt(bal)}</Badge>
+                  {st.user_id && <Badge variant="outline" className="gap-1"><Link2 className="w-3 h-3" /> conta</Badge>}
                   <Button size="sm" variant="default" className="gap-1" onClick={() => setScheduleFor(st)}>
                     <CalendarPlus className="w-4 h-4" /> Agendar
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setManageFor(st)}>
+                    <Settings2 className="w-4 h-4" /> Gerenciar
                   </Button>
                   <Button size="icon" variant="ghost" onClick={() => setEditing(st)}><Pencil className="w-4 h-4" /></Button>
                   <Button size="icon" variant="ghost" onClick={() => remove(st.id)}><Trash2 className="w-4 h-4" /></Button>
@@ -163,6 +169,13 @@ export default function StudentsPage() {
           address: scheduleFor.address,
         } : null}
         onSaved={() => { setScheduleFor(null); load(); }}
+      />
+
+      <StudentManageDialog
+        student={manageFor}
+        open={!!manageFor}
+        onOpenChange={v => !v && setManageFor(null)}
+        onChanged={load}
       />
     </div>
   );

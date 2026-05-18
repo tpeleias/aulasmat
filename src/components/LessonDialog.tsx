@@ -15,6 +15,7 @@ type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
   teacher: string; address?: string | null; is_online?: boolean;
+  status?: string; class_summary?: string | null;
 };
 
 const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
@@ -30,7 +31,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
     start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
-    teacher: baseTeacher, address: "", is_online: false,
+    teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
   const [busy, setBusy] = useState(false);
   const [recurring, setRecurring] = useState(false);
@@ -47,7 +48,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   useEffect(() => {
     if (lesson) {
-      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
+      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false, status: lesson.status ?? "agendada", class_summary: lesson.class_summary ?? "" });
     } else {
       setForm({
         student_name: initialStudent?.student_name ?? "",
@@ -58,6 +59,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
+        status: "agendada",
+        class_summary: "",
       });
       setRecurring(false);
       setRepeatCount(1);
@@ -260,6 +263,27 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </SelectContent>
             </Select>
           </div>
+          <div><Label>Situação da aula</Label>
+            <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="agendada">Agendada</SelectItem>
+                <SelectItem value="realizada">Realizada</SelectItem>
+                <SelectItem value="cancelada">Cancelada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.status === "realizada" && (
+            <div>
+              <Label>Resumo da aula (visível para o aluno)</Label>
+              <Textarea
+                value={form.class_summary ?? ""}
+                onChange={e => setForm({ ...form, class_summary: e.target.value })}
+                placeholder='Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."'
+                rows={3}
+              />
+            </div>
+          )}
           {!lesson?.id && (
             <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
