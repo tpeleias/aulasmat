@@ -4,16 +4,17 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
-import { computeFreeSlots, fmtTime } from "@/lib/availability";
+import { computeFreeSlots, fmtTime, pickScarcityCandidates } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, Clock, AlertCircle } from "lucide-react";
+import { Calendar, Clock, AlertCircle, Flame } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { capitalize } from "@/lib/balance";
 
-const DAYS_AHEAD = 7;
+const DAYS_AHEAD = 5;
 
 export default function StudentBooking() {
   const settings = useAppSettings();
@@ -31,20 +32,37 @@ export default function StudentBooking() {
     setLoading(true);
     const from = startOfDay(new Date());
     const to = addDays(from, DAYS_AHEAD);
-    const [busyR, recR] = await Promise.all([
+    const [busyR, recR, lessonsR] = await Promise.all([
       supabase.rpc("get_busy_ranges_by_teacher", { _from: from.toISOString(), _to: to.toISOString(), _teacher: teacher }),
       supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: teacher }),
+      supabase.from("lessons").select("start_at, duration_minutes").eq("teacher", teacher).gte("start_at", from.toISOString()).lt("start_at", to.toISOString()),
     ]);
-    const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
+    const busyRanges = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
+    const lessonRanges = (lessonsR.data ?? []).map((l: any) => ({
+      start: new Date(l.start_at),
+      end: new Date(new Date(l.start_at).getTime() + (l.duration_minutes ?? 60) * 60000),
+    }));
+    // Candidate pool ignores lessons so the scarcity "shop window" stays fixed
+    const blocksOnly = busyRanges.filter(b => !lessonRanges.some(l => l.start.getTime() === b.start.getTime() && l.end.getTime() === b.end.getTime()));
     const rec = (recR.data ?? []) as any[];
-    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, busy, rec);
+    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, busyRanges, rec);
+    const candidatesPool = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, blocksOnly, rec);
+    const s: any = settings;
     const now = new Date();
     const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
     for (let i = 0; i < DAYS_AHEAD; i++) {
       const day = addDays(from, i);
       const sameDay = (d: Date) => d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
-      const slots = free.filter(f => sameDay(f.start) && f.end > now);
-      grouped.push({ day, slots });
+      const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
+      const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
+      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+      const minN = isWeekend ? (s.scarcity_weekend_min ?? 3) : (s.scarcity_weekday_min ?? 1);
+      const maxN = isWeekend ? (s.scarcity_weekend_max ?? 7) : (s.scarcity_weekday_max ?? 3);
+      const picked = pickScarcityCandidates(day, dayCandidates, teacher, minN, maxN);
+      const visible = picked
+        .filter(start => freeStartTimes.has(start.getTime()))
+        .map(start => ({ start, end: new Date(start.getTime() + settings.slot_minutes * 60000) }));
+      grouped.push({ day, slots: visible });
     }
     setSlotsByDay(grouped);
     setLoading(false);
