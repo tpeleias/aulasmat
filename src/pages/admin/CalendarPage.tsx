@@ -18,8 +18,9 @@ const HEADER_H = 56; // px for the day header row
 
 export default function CalendarPage() {
   const defaultTeacher = useDefaultTeacher();
+  const { teachers } = useTeachers(true);
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [teacherFilter, setTeacherFilter] = useState<"thiago" | "mayara">("thiago");
+  const [teacherFilter, setTeacherFilter] = useState<string>("all");
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
