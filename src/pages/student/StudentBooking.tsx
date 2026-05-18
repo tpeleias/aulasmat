@@ -120,9 +120,16 @@ export default function StudentBooking() {
 
           {!loading && slotsByDay.map(({ day, slots }) => (
             <div key={day.toISOString()}>
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-              </h2>
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                  {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                </h2>
+                {slots.length > 0 && slots.length <= 2 && (
+                  <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
+                    <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                  </Badge>
+                )}
+              </div>
               {slots.length === 0 ? (
                 <Card className="p-3 text-xs text-muted-foreground">Sem horários livres.</Card>
               ) : (
