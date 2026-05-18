@@ -358,6 +358,9 @@ export type Database = {
       students: {
         Row: {
           address: string | null
+          child_must_change_password: boolean
+          child_user_id: string | null
+          child_username: string | null
           created_at: string
           guardian_name: string | null
           id: string
@@ -368,6 +371,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          child_must_change_password?: boolean
+          child_user_id?: string | null
+          child_username?: string | null
           created_at?: string
           guardian_name?: string | null
           id?: string
@@ -378,6 +384,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          child_must_change_password?: boolean
+          child_user_id?: string | null
+          child_username?: string | null
           created_at?: string
           guardian_name?: string | null
           id?: string
@@ -480,6 +489,9 @@ export type Database = {
         Args: never
         Returns: {
           address: string | null
+          child_must_change_password: boolean
+          child_user_id: string | null
+          child_username: string | null
           created_at: string
           guardian_name: string | null
           id: string
@@ -547,7 +559,7 @@ export type Database = {
       mark_past_lessons_realizada: { Args: never; Returns: number }
     }
     Enums: {
-      app_role: "admin" | "user" | "student"
+      app_role: "admin" | "user" | "student" | "child"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -675,7 +687,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "student"],
+      app_role: ["admin", "user", "student", "child"],
     },
   },
 } as const

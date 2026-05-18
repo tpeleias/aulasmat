@@ -1,94 +1,126 @@
-## Plano de implementação
+# Plano: Perfil do Aluno (filho), login por username e geradores de acesso
 
-Vou implementar 6 grandes mudanças. Como o escopo é grande, agrupo em fases claras.
+## Contexto
 
-### 1. Multi-professor (cadastro + escala)
+Hoje o sistema tem 2 papéis: `admin` (professor) e `student` (que na prática é o **responsável**, com acesso completo incluindo financeiro). Vamos adicionar um terceiro papel para o **aluno em si** (a criança/adolescente), com visão pedagógica restrita.
 
-**Banco:**
-- Nova tabela `teachers` (id, name, active, created_at). RLS: admins gerenciam, todos autenticados podem ler. Seed inicial com "Thiago" e "Mayara".
-- Coluna `teacher` em `lessons` e `blocks` continua sendo `text` (nome/slug). Migração: nada a remover, só nova tabela.
+Para não quebrar a base existente, vou **renomear conceitualmente** mantendo o enum como está:
+- `admin` → professor (sem mudança)
+- `student` → continua sendo o **responsável** (sem mudança no código existente)
+- novo papel `child` → o aluno em si (acesso restrito)
 
-**Frontend:**
-- Nova página `/admin/teachers` (CRUD simples: nome + ativo).
-- `LessonDialog`: carregar lista de `teachers` ativos no select.
-- `CalendarPage`: filtro vira dropdown dinâmico com opção "Todos" (mostra todos + cor por professor). Bloqueios já são por `teacher`, manter.
-- `BlocksPage`: select de professor puxa da nova tabela.
-- Item de menu "Professores" em `AdminLayout`.
+> Não vou reusar a palavra "aluno" no enum para evitar conflito com o role `student` já existente. Na UI tudo aparecerá como "Aluno" e "Responsável" em português.
 
-### 2. Agendamento por alunos (configurável)
+---
 
-**Banco:** nova coluna `settings.allow_student_booking boolean default true`.
+## 1. Banco de dados (migração)
 
-**Frontend:**
-- `SettingsPage`: toggle "Permitir que alunos agendem aulas diretamente".
-- Nova página `/aluno/agendar` que reusa lógica de disponibilidade (similar a `PublicAvailability`). Cria `lesson` com `student_name` do aluno logado e `payment_status='pendente'`, `status='agendada'`.
-- Adicionar policy RLS: `students insert own lessons` quando setting permitir. Como RLS não lê settings facilmente, fazer policy: `EXISTS (select 1 from students s where s.user_id = auth.uid() and s.student_name = lessons.student_name) AND (select allow_student_booking from settings where id=1)`.
-- Esconder botão/menu no portal do aluno quando setting desligada.
+- Adicionar valor `child` ao enum `app_role`.
+- Adicionar coluna `students.child_user_id uuid` (nullable) — vincula o aluno-criança à sua conta auth.
+- Adicionar coluna `students.child_username text` (nullable, único quando preenchido) — só para exibir/lembrar o username escolhido.
+- Adicionar coluna `students.child_must_change_password boolean default false`.
+- RLS: criar policies para o role `child` em:
+  - `lessons` (SELECT onde `student_name` corresponde ao seu registro via `child_user_id`)
+  - `student_materials` (SELECT próprio)
+  - `homework` (SELECT próprio)
+  - `homework_submissions` (SELECT e INSERT próprios)
+  - `students` (SELECT do próprio registro via `child_user_id`)
+  - **NÃO** dar acesso a `wallet_transactions` nem `settings.payment_*`.
 
-### 3. Lógica financeira
+---
 
-**Banco:**
-- Alterar trigger `sync_lesson_wallet`:
-  - INSERT: só cria transação `kind='lesson'` (negativa) se `status='realizada'`.
-  - UPDATE: se mudou para `realizada` → criar/atualizar transação; se saiu de `realizada` → remover.
-  - Manter atualização de valor/descrição quando já existe.
+## 2. Autenticação por username
 
-**Frontend (busca por "Crédito"):**
-- Substituir rótulos "Crédito"/"Adicionar crédito" → "Pagamento"/"Adicionar pagamento" em BillingPage, StudentBilling, etc.
-- Saldo: helper `formatBalance(value)` → `{ label: value >= 0 ? "Crédito Disponível" : "A pagar", amount: Math.abs(value) }`. Aplicar em BillingPage, StudentBilling, StudentDashboard, StudentsPage cards.
+Como o Supabase Auth exige email, vou usar sufixo invisível:
 
-### 4. Contas de alunos: senha
-
-**Banco:** coluna `students.must_change_password boolean default false`.
-
-**Edge function `link-student-account`:** quando cria usuário novo ou faz reset, marcar `must_change_password=true` no student.
-
-**Nova edge function `admin-reset-student-password`** (admin-only): recebe `student_id` + `new_password`, usa service role para `auth.admin.updateUserById`, marca `must_change_password=true`. Retorna senha gerada se não passada.
-
-**Frontend:**
-- `StudentManageDialog`: novo botão "Resetar senha" → mostra senha gerada copiável.
-- Aviso: por segurança não é possível "visualizar a senha atual" (senhas são hash). Em vez disso, oferecer reset rápido com senha gerada exibida ao admin.
-- `useAuth`: ao logar, se `students.must_change_password === true`, redirecionar para `/aluno/trocar-senha`.
-- Nova página `/aluno/trocar-senha`: form nova senha → `supabase.auth.updateUser({password})` + update `must_change_password=false`. Bloqueia outras rotas até concluir.
-
-### 5. Bug upload de tarefas
-
-Investigar `StudentHomework.tsx` — provável causa: caminho do arquivo não começa com `student_id/...` que as RLS do bucket esperam, ou `contentType` ausente para PDFs. Conferir policies do bucket `homework-submissions` na migração existente; ajustar storage policies para aceitar path `{student_id}/{homework_id}/file` e incluir `contentType` no upload.
-
-### 6. Status no painel do aluno
-
-`StudentLessons` / `StudentDashboard`: remover seção "Pendentes". Manter só "Próximas" (start_at > now()) e "Realizadas" (status='realizada' ou start_at < now()).
-
-### Estrutura técnica
-
-**Migrações (uma só):**
-```sql
-create table teachers (id uuid pk, name text unique, active bool default true, ...);
-alter table settings add column allow_student_booking boolean not null default true;
-alter table students add column must_change_password boolean not null default false;
--- replace sync_lesson_wallet trigger function
--- new RLS: students insert own lessons (with settings check via security definer fn)
--- adjust storage policies for homework-submissions / student-materials if needed
-insert into teachers (name) values ('Thiago'),('Mayara');
+```
+USERNAME_DOMAIN = "aluno.sistema.local"
+emailFromUsername("miguel.silva") → "miguel.silva@aluno.sistema.local"
 ```
 
-**Arquivos novos:**
-- `src/pages/admin/TeachersPage.tsx`
-- `src/pages/student/StudentBooking.tsx`
-- `src/pages/student/ChangePassword.tsx`
-- `src/hooks/useTeachers.ts`
-- `supabase/functions/admin-reset-student-password/index.ts`
+- Util novo: `src/lib/username.ts` com `toEmail(username)` e validador (regex `^[a-z0-9._-]{3,30}$`).
+- Tela de login (`/`): adicionar tab "Aluno" ao lado de "Entrar/Criar conta" que aceita username + senha e por baixo dos panos chama `signInWithPassword` com o email derivado.
+- Auto-confirmar email para essas contas (criadas via edge function com `email_confirm: true`, igual ao fluxo atual de `link-student-account`).
 
-**Arquivos editados:**
-- `App.tsx`, `AdminLayout.tsx`, `StudentLayout.tsx`
-- `LessonDialog.tsx`, `CalendarPage.tsx`, `BlocksPage.tsx`
-- `BillingPage.tsx`, `StudentBilling.tsx`, `StudentDashboard.tsx`, `StudentLessons.tsx`, `StudentsPage.tsx`
-- `SettingsPage.tsx`, `StudentManageDialog.tsx`
-- `useAuth.tsx` (redirect troca de senha)
-- `useStudent.ts` (expor must_change_password)
+---
 
-### Observação sobre "Visualizar senha atual"
+## 3. Roteamento e layout
 
-Senhas no Supabase são armazenadas com hash irreversível — não é tecnicamente possível mostrar a senha atual. Vou implementar **reset com senha gerada visível** (admin escolhe ou clica "Gerar") + cópia em um clique + obriga troca no próximo login. Isso atende a intenção sem comprometer segurança.
+- Novo `src/components/ChildLayout.tsx` — sidebar enxuta com: Início, Aulas, Materiais, Tarefas.
+- Novas rotas em `App.tsx` sob `/meu-painel`:
+  - `index` → `ChildDashboard` (resumo: próximas aulas)
+  - `aulas` → reusa `StudentLessons` mas filtrando pelos dados do aluno-criança
+  - `materiais` → reusa `StudentMaterials`
+  - `tarefas` → reusa `StudentHomework`
+- Atualizar `useAuth` para reconhecer role `child` e o `Auth.tsx` para redirecionar `child` para `/meu-painel`.
+- Atualizar `StudentLayout` (responsável) — sem mudanças de menu; continua com financeiro.
+- Adaptar `useStudent` para buscar `students` por `user_id` OU `child_user_id`, retornando uma flag `isChild` para os componentes esconderem qualquer link financeiro caso reaproveitemos hooks.
 
-Posso prosseguir?
+---
+
+## 4. Edge function `create-child-account`
+
+Nova função (`supabase/functions/create-child-account/index.ts`) que:
+- Aceita `{ student_id, username, password }`.
+- Autorização: admin (via `has_role`) **ou** responsável dono daquele `students.user_id`.
+- Converte username → email (`<username>@aluno.sistema.local`).
+- Cria usuário no Auth (`email_confirm: true`) ou retorna erro se já existir.
+- Faz upsert em `user_roles` com role `child`.
+- Atualiza `students` com `child_user_id`, `child_username`, `child_must_change_password = true`.
+- Retorna `{ ok, username }`.
+
+Configurar em `supabase/config.toml`:
+```
+[functions.create-child-account]
+verify_jwt = true
+```
+
+---
+
+## 5. UI dos geradores de acesso
+
+### a) Painel do responsável
+Em `StudentDashboard.tsx`, adicionar card **"Acesso do Aluno"**:
+- Se `student.child_user_id` não existir → form com inputs username + senha + botão "Gerar acesso".
+- Se já existir → mostrar o username e botão "Redefinir senha" (chama edge function existente adaptada, ou nova `reset-child-password`).
+
+### b) Painel admin
+Em `StudentManageDialog.tsx`, abaixo da seção atual de conta do responsável, adicionar bloco **"Acesso do aluno (filho)"** com os mesmos inputs e botão. Reusa a mesma edge function.
+
+---
+
+## 6. Troca de senha obrigatória
+
+- Reusar `ChangePassword.tsx`: quando role for `child` e `students.child_must_change_password = true`, redirecionar para `/trocar-senha` antes de liberar `/meu-painel`. Após troca, chamar edge function existente `clear-must-change-password` adaptada para também limpar `child_must_change_password` quando o caller for o aluno-criança.
+
+---
+
+## Arquivos afetados (estimativa)
+
+**Novos**
+- `supabase/migrations/<timestamp>_child_role.sql`
+- `supabase/functions/create-child-account/index.ts`
+- `src/lib/username.ts`
+- `src/components/ChildLayout.tsx`
+- `src/pages/child/ChildDashboard.tsx`
+
+**Editados**
+- `src/App.tsx` (rotas)
+- `src/pages/Auth.tsx` (tab aluno)
+- `src/hooks/useAuth.tsx` (role child)
+- `src/hooks/useStudent.ts` (lookup por child_user_id)
+- `src/pages/student/StudentDashboard.tsx` (card acesso do aluno)
+- `src/components/StudentManageDialog.tsx` (bloco acesso do aluno)
+- `src/pages/student/ChangePassword.tsx` (suporte child)
+- `supabase/functions/clear-must-change-password/index.ts` (suporte child)
+- `supabase/config.toml` (config nova function)
+
+---
+
+## Pontos a confirmar
+
+1. **Nome do papel no enum**: ok usar `child`? (UI sempre mostra "Aluno"). Se preferir, posso usar `kid` ou `alumni`.
+2. **Domínio sufixo**: `aluno.sistema.local` serve, ou prefere `@aulasmat.local`?
+3. **Reset de senha do aluno**: posso reusar o mesmo padrão (admin define nova senha + força troca no próximo login)?
+
+Se confirmar, implemento tudo em sequência.
