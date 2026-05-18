@@ -65,12 +65,14 @@ export default function CalendarPage() {
   };
 
   const filteredLessons = useMemo(
-    () => lessons.filter(l => l.teacher === teacherFilter),
+    () => teacherFilter === "all" ? lessons : lessons.filter(l => l.teacher === teacherFilter),
     [lessons, teacherFilter]
   );
 
   const teacherBlocks = useMemo(
-    () => blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
+    () => teacherFilter === "all"
+      ? blocks
+      : blocks.filter(b => (b as any).teacher === teacherFilter || (b as any).teacher === "both"),
     [blocks, teacherFilter]
   );
 
