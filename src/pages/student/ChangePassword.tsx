@@ -32,13 +32,25 @@ export default function ChangePassword() {
     if (pw !== confirm) { toast.error("As senhas não coincidem"); return; }
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
-    if (error) { setBusy(false); toast.error(error.message); return; }
-    if (student) {
-      await supabase.from("students").update({ must_change_password: false }).eq("id", student.id);
+    if (error) {
+      setBusy(false);
+      if ((error as any).code === "same_password" || /different from the old/i.test(error.message)) {
+        toast.error("Use uma senha diferente da temporária que você recebeu.");
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
+    const { error: fnErr } = await supabase.functions.invoke("clear-must-change-password");
+    if (fnErr) {
+      setBusy(false);
+      toast.error("Senha alterada, mas houve um erro ao liberar o acesso. Tente novamente.");
+      return;
     }
     setBusy(false);
     toast.success("Senha alterada!");
-    nav("/aluno", { replace: true });
+    // Hard reload so useStudent re-fetches the updated flag
+    window.location.replace("/aluno");
   };
 
   return (
