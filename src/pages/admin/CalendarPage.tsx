@@ -23,6 +23,7 @@ export default function CalendarPage() {
   const [teacherFilter, setTeacherFilter] = useState<string>("all");
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
   const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [upcoming, setUpcoming] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [exceptions, setExceptions] = useState<BlockException[]>([]);
   const [dlgOpen, setDlgOpen] = useState(false);
