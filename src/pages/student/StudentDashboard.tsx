@@ -113,7 +113,87 @@ export default function StudentDashboard() {
         ))}
         {past.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula realizada ainda.</p>}
       </Card>
+
+      <ChildAccessCard student={student} />
     </div>
+  );
+}
+
+function ChildAccessCard({ student }: { student: any }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [created, setCreated] = useState<string | null>(student?.child_username ?? null);
+  const [resetPw, setResetPw] = useState("");
+  const [showReset, setShowReset] = useState(false);
+
+  const create = async () => {
+    if (!isValidUsername(username)) { toast.error("Username inválido (3-30 caracteres: letras minúsculas, números, ponto, traço, underline)"); return; }
+    if (password.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("create-child-account", {
+      body: { student_id: student.id, username, password, action: "create" },
+    });
+    setBusy(false);
+    if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
+    toast.success(`Acesso criado para ${(data as any).username}`);
+    setCreated((data as any).username);
+    setUsername(""); setPassword("");
+  };
+
+  const reset = async () => {
+    if (resetPw.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("create-child-account", {
+      body: { student_id: student.id, password: resetPw, action: "reset" },
+    });
+    setBusy(false);
+    if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
+    toast.success("Senha redefinida. O aluno será solicitado a trocá-la no próximo acesso.");
+    setResetPw(""); setShowReset(false);
+  };
+
+  return (
+    <Card className="p-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <UserPlus className="w-4 h-4 text-primary" />
+        <h2 className="font-semibold">Acesso do aluno</h2>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Crie um login simples para o seu filho(a) acessar somente as aulas, materiais e tarefas (sem dados financeiros).
+      </p>
+
+      {created ? (
+        <div className="space-y-3">
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <div className="text-xs text-muted-foreground">Nome de usuário</div>
+            <div className="font-mono font-bold">{created}</div>
+          </div>
+          {!showReset ? (
+            <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowReset(true)}>
+              <KeyRound className="w-4 h-4" /> Redefinir senha
+            </Button>
+          ) : (
+            <div className="space-y-2 border-t border-border pt-3">
+              <div><Label>Nova senha</Label><Input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} minLength={6} /></div>
+              <div className="flex gap-2">
+                <Button onClick={reset} disabled={busy} size="sm">Salvar nova senha</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowReset(false); setResetPw(""); }}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div>
+            <Label>Nome de usuário</Label>
+            <Input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" />
+          </div>
+          <div><Label>Senha</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
+          <Button onClick={create} disabled={busy} className="gap-2"><UserPlus className="w-4 h-4" /> Gerar acesso</Button>
+        </div>
+      )}
+    </Card>
   );
 }
 
