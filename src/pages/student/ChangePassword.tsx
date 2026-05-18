@@ -27,30 +27,39 @@ export default function ChangePassword() {
   // If user doesn't need to change password, send them along
   if (student && !student.must_change_password) return <Navigate to="/aluno" replace />;
 
+  const releaseAccess = async () => {
+    const { error: fnErr } = await supabase.functions.invoke("clear-must-change-password");
+    if (fnErr) throw fnErr;
+    toast.success("Senha definida!");
+    window.location.replace("/aluno");
+  };
+
   const submit = async () => {
     if (pw.length < 6) { toast.error("Use pelo menos 6 caracteres"); return; }
     if (pw !== confirm) { toast.error("As senhas não coincidem"); return; }
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     if (error) {
-      setBusy(false);
       if ((error as any).code === "same_password" || /different from the old/i.test(error.message)) {
-        toast.error("Use uma senha diferente da temporária que você recebeu.");
+        try {
+          await releaseAccess();
+        } catch {
+          toast.error("Não foi possível liberar o acesso. Tente novamente.");
+        } finally {
+          setBusy(false);
+        }
       } else {
+        setBusy(false);
         toast.error(error.message);
       }
       return;
     }
-    const { error: fnErr } = await supabase.functions.invoke("clear-must-change-password");
-    if (fnErr) {
+    try {
+      await releaseAccess();
+    } catch {
       setBusy(false);
       toast.error("Senha alterada, mas houve um erro ao liberar o acesso. Tente novamente.");
-      return;
     }
-    setBusy(false);
-    toast.success("Senha alterada!");
-    // Hard reload so useStudent re-fetches the updated flag
-    window.location.replace("/aluno");
   };
 
   return (
