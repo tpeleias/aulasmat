@@ -48,7 +48,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   useEffect(() => {
     if (lesson) {
-      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false });
+      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false, status: lesson.status ?? "agendada", class_summary: lesson.class_summary ?? "" });
     } else {
       setForm({
         student_name: initialStudent?.student_name ?? "",
@@ -59,6 +59,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
+        status: "agendada",
+        class_summary: "",
       });
       setRecurring(false);
       setRepeatCount(1);
