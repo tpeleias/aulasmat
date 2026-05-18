@@ -255,11 +255,14 @@ export default function CalendarPage() {
                   {/* absolute-positioned lessons overlay */}
                   <div className="absolute inset-0 pointer-events-none">
                     <div className="relative w-full h-full">
-                      {dayLessons.map(l => (
-                        <div key={l.id} className="pointer-events-auto">
-                          {renderLesson(l, d)}
-                        </div>
-                      ))}
+                      {dayLessons.map(l => {
+                        const lay = layout[l.id] ?? { col: 0, cols: 1 };
+                        return (
+                          <div key={l.id} className="pointer-events-auto">
+                            {renderLesson(l, d, lay.col, lay.cols)}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
