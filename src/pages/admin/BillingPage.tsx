@@ -272,7 +272,34 @@ export default function BillingPage() {
                   </div>
                 </div>
                 {isExp && (
-                  <div className="mt-4 border-t border-border pt-3 space-y-1.5">
+                  <div className="mt-4 border-t border-border pt-3 space-y-3">
+                    {(() => {
+                      const next = upcomingByStudent[a.student.toLowerCase()] ?? [];
+                      if (next.length === 0) return null;
+                      return (
+                        <div className="rounded-md border border-border/60 bg-muted/30 p-3">
+                          <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-2">
+                            <CalendarClock className="w-3.5 h-3.5" />
+                            Próximas aulas agendadas ({next.length}) · não afetam o saldo
+                          </div>
+                          <ul className="space-y-1">
+                            {next.slice(0, 8).map(l => (
+                              <li key={l.id} className="flex items-center justify-between text-xs gap-2">
+                                <span className="text-foreground">
+                                  {format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
+                                  <span className="text-muted-foreground"> · {l.duration_minutes} min{l.subject ? ` · ${l.subject}` : ""}</span>
+                                </span>
+                                <Badge variant="outline" className="text-[10px] capitalize">{l.teacher}</Badge>
+                              </li>
+                            ))}
+                            {next.length > 8 && (
+                              <li className="text-[11px] text-muted-foreground italic">+ {next.length - 8} aula(s)…</li>
+                            )}
+                          </ul>
+                        </div>
+                      );
+                    })()}
+                    <div className="space-y-1.5">
                     {a.txs.map(t => {
                       const isLesson = t.kind === "lesson";
                       const editable = !isLesson;
