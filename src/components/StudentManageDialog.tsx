@@ -133,19 +133,37 @@ function MaterialsTab({ student }: { student: Student }) {
   useEffect(() => { load(); }, [student.id]);
 
   const upload = async (file: File) => {
-    if (!title.trim()) { toast.error("Dê um título ao material"); return; }
+    const finalTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
     setBusy(true);
-    const path = `${student.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
-    const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (upErr) { toast.error(upErr.message); setBusy(false); return; }
-    const { error } = await supabase.from("student_materials").insert({
-      student_id: student.id, title: title.trim(), file_path: path, file_type: file.type,
-    });
-    setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Material enviado"); setTitle(""); load(); }
-    if (fileRef.current) fileRef.current.value = "";
+    try {
+      const path = `${student.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (upErr) {
+        console.error("[materials] storage upload error", upErr);
+        toast.error(`Falha no upload: ${upErr.message}`);
+        return;
+      }
+      const { error } = await supabase.from("student_materials").insert({
+        student_id: student.id, title: finalTitle, file_path: path, file_type: file.type,
+      });
+      if (error) {
+        console.error("[materials] insert error", error);
+        toast.error(`Falha ao registrar: ${error.message}`);
+        return;
+      }
+      toast.success("Upload concluído com sucesso");
+      setTitle("");
+      load();
+    } catch (e: any) {
+      console.error("[materials] unexpected", e);
+      toast.error(`Erro inesperado: ${e?.message ?? String(e)}`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const remove = async (item: any) => {
