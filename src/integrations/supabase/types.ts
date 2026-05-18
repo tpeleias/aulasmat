@@ -121,9 +121,92 @@ export type Database = {
         }
         Relationships: []
       }
+      homework: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          deadline: string
+          description: string | null
+          id: string
+          status: string
+          student_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          deadline: string
+          description?: string | null
+          id?: string
+          status?: string
+          student_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          deadline?: string
+          description?: string | null
+          id?: string
+          status?: string
+          student_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      homework_submissions: {
+        Row: {
+          file_path: string
+          file_type: string | null
+          homework_id: string
+          id: string
+          student_note: string | null
+          submitted_at: string
+          teacher_feedback: string | null
+        }
+        Insert: {
+          file_path: string
+          file_type?: string | null
+          homework_id: string
+          id?: string
+          student_note?: string | null
+          submitted_at?: string
+          teacher_feedback?: string | null
+        }
+        Update: {
+          file_path?: string
+          file_type?: string | null
+          homework_id?: string
+          id?: string
+          student_note?: string | null
+          submitted_at?: string
+          teacher_feedback?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "homework_submissions_homework_id_fkey"
+            columns: ["homework_id"]
+            isOneToOne: false
+            referencedRelation: "homework"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lessons: {
         Row: {
           address: string | null
+          class_summary: string | null
           created_at: string
           duration_minutes: number
           guardian_name: string | null
@@ -134,6 +217,7 @@ export type Database = {
           payment_status: string
           price: number
           start_at: string
+          status: string
           student_name: string
           subject: string | null
           teacher: string
@@ -141,6 +225,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          class_summary?: string | null
           created_at?: string
           duration_minutes?: number
           guardian_name?: string | null
@@ -151,6 +236,7 @@ export type Database = {
           payment_status?: string
           price?: number
           start_at: string
+          status?: string
           student_name: string
           subject?: string | null
           teacher?: string
@@ -158,6 +244,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          class_summary?: string | null
           created_at?: string
           duration_minutes?: number
           guardian_name?: string | null
@@ -168,6 +255,7 @@ export type Database = {
           payment_status?: string
           price?: number
           start_at?: string
+          status?: string
           student_name?: string
           subject?: string | null
           teacher?: string
@@ -178,35 +266,88 @@ export type Database = {
       settings: {
         Row: {
           id: number
+          payment_link: string | null
+          pix_key: string | null
           scarcity_weekday_max: number
           scarcity_weekday_min: number
           scarcity_weekend_max: number
           scarcity_weekend_min: number
+          show_payment_info_to_students: boolean
           slot_minutes: number
+          whatsapp_mayara: string | null
+          whatsapp_thiago: string | null
           work_end: string
           work_start: string
         }
         Insert: {
           id?: number
+          payment_link?: string | null
+          pix_key?: string | null
           scarcity_weekday_max?: number
           scarcity_weekday_min?: number
           scarcity_weekend_max?: number
           scarcity_weekend_min?: number
+          show_payment_info_to_students?: boolean
           slot_minutes?: number
+          whatsapp_mayara?: string | null
+          whatsapp_thiago?: string | null
           work_end?: string
           work_start?: string
         }
         Update: {
           id?: number
+          payment_link?: string | null
+          pix_key?: string | null
           scarcity_weekday_max?: number
           scarcity_weekday_min?: number
           scarcity_weekend_max?: number
           scarcity_weekend_min?: number
+          show_payment_info_to_students?: boolean
           slot_minutes?: number
+          whatsapp_mayara?: string | null
+          whatsapp_thiago?: string | null
           work_end?: string
           work_start?: string
         }
         Relationships: []
+      }
+      student_materials: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_type: string | null
+          id: string
+          student_id: string
+          title: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_type?: string | null
+          id?: string
+          student_id: string
+          title: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_type?: string | null
+          id?: string
+          student_id?: string
+          title?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_materials_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       students: {
         Row: {
@@ -216,6 +357,7 @@ export type Database = {
           id: string
           student_name: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -224,6 +366,7 @@ export type Database = {
           id?: string
           student_name: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -232,6 +375,7 @@ export type Database = {
           id?: string
           student_name?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -302,6 +446,24 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      current_student: {
+        Args: never
+        Returns: {
+          address: string | null
+          created_at: string
+          guardian_name: string | null
+          id: string
+          student_name: string
+          updated_at: string
+          user_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "students"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       get_busy_ranges: {
         Args: { _from: string; _to: string }
         Returns: {
@@ -353,7 +515,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "student"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -481,7 +643,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "student"],
     },
   },
 } as const
