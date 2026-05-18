@@ -44,7 +44,18 @@ export default function StudentLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 hidden md:block border-t border-sidebar-border">
+        <div className="p-3 hidden md:block border-t border-sidebar-border space-y-2">
+          {settings?.show_availability_to_students && (
+            <>
+              <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Disponibilidade</div>
+              <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
+                <Link to="/disponibilidade/thiago" target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - Thiago</Link>
+              </Button>
+              <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
+                <Link to="/disponibilidade/mayara" target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - Mayara</Link>
+              </Button>
+            </>
+          )}
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
             <LogOut className="w-4 h-4" />Sair
           </Button>
