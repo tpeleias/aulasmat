@@ -19,7 +19,6 @@ Deno.serve(async (req) => {
     const anon = Deno.env.get("SUPABASE_ANON_KEY")!;
     const service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-    // Verify the caller
     const userClient = createClient(url, anon, { global: { headers: { Authorization: `Bearer ${token}` } } });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData.user) {
@@ -27,13 +26,23 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(url, service);
-    const { error } = await admin
+
+    // Clear flag for guardian-linked record
+    const { error: e1 } = await admin
       .from("students")
       .update({ must_change_password: false })
       .eq("user_id", userData.user.id);
+    if (e1) {
+      return new Response(JSON.stringify({ error: e1.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
 
-    if (error) {
-      return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // Clear flag for child-linked record (if any)
+    const { error: e2 } = await admin
+      .from("students")
+      .update({ child_must_change_password: false })
+      .eq("child_user_id", userData.user.id);
+    if (e2) {
+      return new Response(JSON.stringify({ error: e2.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

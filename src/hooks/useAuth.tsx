@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 
-type Role = "admin" | "student" | null;
+type Role = "admin" | "student" | "child" | null;
 type Ctx = {
   session: Session | null;
   user: User | null;
@@ -18,6 +18,7 @@ async function fetchRole(userId: string): Promise<Role> {
   const roles = (data ?? []).map((r: any) => r.role as string);
   if (roles.includes("admin")) return "admin";
   if (roles.includes("student")) return "student";
+  if (roles.includes("child")) return "child";
   return null;
 }
 
