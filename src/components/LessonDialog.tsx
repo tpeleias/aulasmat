@@ -15,6 +15,7 @@ type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
   teacher: string; address?: string | null; is_online?: boolean;
+  status?: string; class_summary?: string | null;
 };
 
 const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
