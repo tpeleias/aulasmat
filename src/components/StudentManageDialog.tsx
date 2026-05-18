@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Upload, Trash2, Link2, FileText, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
 type Student = { id: string; student_name: string; user_id: string | null };
 
