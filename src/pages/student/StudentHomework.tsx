@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, Download, Clock, AlertCircle } from "lucide-react";
 import { differenceInDays, isPast, format } from "date-fns";
 import { toast } from "sonner";
+import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
 export default function StudentHomework() {
   const { student } = useStudent();
