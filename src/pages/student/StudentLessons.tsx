@@ -21,22 +21,19 @@ export default function StudentLessons() {
   }, [student]);
 
   const now = new Date();
-  const upcoming = lessons.filter(l => new Date(l.start_at) >= now).reverse();
-  const past = lessons.filter(l => new Date(l.start_at) < now);
-  const pending = lessons.filter(l => l.payment_status === "pendente");
+  const upcoming = lessons.filter(l => new Date(l.start_at) >= now && l.status !== "realizada").reverse();
+  const past = lessons.filter(l => new Date(l.start_at) < now || l.status === "realizada");
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Minhas aulas</h1>
       <Tabs defaultValue="upcoming">
         <TabsList>
-          <TabsTrigger value="upcoming">Futuras ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="past">Realizadas ({past.length})</TabsTrigger>
-          <TabsTrigger value="pending">Pendentes ({pending.length})</TabsTrigger>
+          <TabsTrigger value="upcoming">Próximas aulas ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} /></TabsContent>
         <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary /></TabsContent>
-        <TabsContent value="pending"><LessonList lessons={pending} settings={settings} /></TabsContent>
       </Tabs>
     </div>
   );
