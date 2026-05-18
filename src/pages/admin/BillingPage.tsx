@@ -42,8 +42,11 @@ function accountLabel(t: { guardian_name: string | null; student_name: string })
   return g || `Aluno: ${t.student_name}`;
 }
 
+type StudentRow = { id: string; student_name: string; guardian_name: string | null };
+
 export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
+  const [students, setStudents] = useState<StudentRow[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -55,13 +58,29 @@ export default function BillingPage() {
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
-    const { data } = await supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false });
-    setTxs((data ?? []) as Tx[]);
+    const [tx, st] = await Promise.all([
+      supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
+      supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
+    ]);
+    setTxs((tx.data ?? []) as Tx[]);
+    setStudents((st.data ?? []) as StudentRow[]);
   };
   useEffect(() => { load(); }, []);
 
   const accounts = useMemo(() => {
     const map = new Map<string, { key: string; label: string; guardian: string | null; student: string; balance: number; txs: Tx[] }>();
+    // Seed with all known students so they remain visible even without transactions
+    for (const s of students) {
+      const k = accountKey(s);
+      if (!map.has(k)) {
+        map.set(k, {
+          key: k, label: accountLabel(s),
+          guardian: (s.guardian_name ?? "").trim() || null,
+          student: s.student_name,
+          balance: 0, txs: [],
+        });
+      }
+    }
     for (const t of txs) {
       const k = accountKey(t);
       const cur = map.get(k) ?? {
@@ -75,7 +94,7 @@ export default function BillingPage() {
       map.set(k, cur);
     }
     return [...map.values()].sort((a, b) => a.balance - b.balance);
-  }, [txs]);
+  }, [txs, students]);
 
   const totals = useMemo(() => {
     let received = 0, negative = 0;
