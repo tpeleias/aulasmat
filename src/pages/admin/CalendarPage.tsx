@@ -243,12 +243,11 @@ export default function CalendarPage() {
                   <ul className="divide-y divide-border">
                     {group.items.map(l => {
                       const ls = new Date(l.start_at);
-                      const isMay = l.teacher === "mayara";
                       return (
                         <li key={l.id}>
                           <button
                             onClick={() => { setEditing(l); setDlgOpen(true); }}
-                            className={`w-full border-l-2 py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent ${isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+                            className="w-full border-l-2 border-l-primary py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent"
                           >
                             <div className="flex items-start gap-3">
                               <div className="shrink-0 w-20">
