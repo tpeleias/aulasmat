@@ -263,6 +263,27 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </SelectContent>
             </Select>
           </div>
+          <div><Label>Situação da aula</Label>
+            <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="agendada">Agendada</SelectItem>
+                <SelectItem value="realizada">Realizada</SelectItem>
+                <SelectItem value="cancelada">Cancelada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {form.status === "realizada" && (
+            <div>
+              <Label>Resumo da aula (visível para o aluno)</Label>
+              <Textarea
+                value={form.class_summary ?? ""}
+                onChange={e => setForm({ ...form, class_summary: e.target.value })}
+                placeholder='Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."'
+                rows={3}
+              />
+            </div>
+          )}
           {!lesson?.id && (
             <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
