@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
 import { ExternalLink } from "lucide-react";
+import { useTeachers } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
