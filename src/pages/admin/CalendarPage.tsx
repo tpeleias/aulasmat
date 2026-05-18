@@ -196,7 +196,11 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Calendário</h1>
-          <p className="text-sm text-muted-foreground">{format(days[0], "dd 'de' MMM", { locale: ptBR })} — {format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}</p>
+          <p className="text-sm text-muted-foreground">
+            {teacherFilter === "all"
+              ? `Próximos 7 dias · ${format(new Date(), "dd 'de' MMM", { locale: ptBR })} — ${format(addDays(new Date(), 7), "dd 'de' MMM yyyy", { locale: ptBR })}`
+              : `${format(days[0], "dd 'de' MMM", { locale: ptBR })} — ${format(days[6], "dd 'de' MMM yyyy", { locale: ptBR })}`}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
@@ -209,9 +213,13 @@ export default function CalendarPage() {
               );
             })}
           </div>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
-          <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
-          <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
+          {teacherFilter !== "all" && (
+            <>
+              <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, -7))}><ChevronLeft className="w-4 h-4" /></Button>
+              <Button variant="outline" onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoje</Button>
+              <Button variant="outline" size="icon" onClick={() => setWeekStart(addDays(weekStart, 7))}><ChevronRight className="w-4 h-4" /></Button>
+            </>
+          )}
         </div>
       </div>
 
