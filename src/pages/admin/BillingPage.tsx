@@ -176,6 +176,25 @@ export default function BillingPage() {
     else { toast.success("Aula excluída"); load(); }
   };
 
+  const markLessonPaid = async (t: Tx) => {
+    if (!t.lesson_id) return;
+    const price = Math.abs(Number(t.amount));
+    setBusy(true);
+    const { error: e1 } = await supabase.from("lessons").update({ payment_status: "pago" }).eq("id", t.lesson_id);
+    if (e1) { setBusy(false); toast.error(e1.message); return; }
+    const { error: e2 } = await supabase.from("wallet_transactions").insert({
+      guardian_name: t.guardian_name,
+      student_name: t.student_name,
+      amount: price,
+      kind: "adjustment",
+      lesson_id: t.lesson_id,
+      description: `Pagamento — ${t.description ?? "aula"}`,
+    });
+    setBusy(false);
+    if (e2) toast.error(e2.message);
+    else { toast.success("Aula marcada como paga"); load(); }
+  };
+
   return (
     <div className="space-y-6">
       <div>
