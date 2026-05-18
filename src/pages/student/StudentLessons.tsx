@@ -11,7 +11,7 @@ import { WhatsAppButton } from "./StudentDashboard";
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentLessons() {
-  const { student } = useStudent();
+  const { student, isChild } = useStudent();
   const settings = useAppSettings();
   const [lessons, setLessons] = useState<any[]>([]);
 
@@ -32,14 +32,14 @@ export default function StudentLessons() {
           <TabsTrigger value="upcoming">Próximas aulas ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} /></TabsContent>
-        <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary /></TabsContent>
+        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={isChild} /></TabsContent>
+        <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={isChild} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function LessonList({ lessons, settings, showSummary }: any) {
+function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
   if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">Nada por aqui.</Card>;
   return (
     <div className="space-y-2">
@@ -51,9 +51,13 @@ function LessonList({ lessons, settings, showSummary }: any) {
               <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {l.teacher}</div>
             </div>
             <div className="flex items-center gap-2">
-              <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(l.price)} · {l.payment_status}</Badge>
+              {!hideFinancial && (
+                <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(l.price)} · {l.payment_status}</Badge>
+              )}
               <Badge variant="secondary">{l.status ?? "agendada"}</Badge>
-              <WhatsAppButton teacher={l.teacher} settings={settings} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+              {!hideFinancial && (
+                <WhatsAppButton teacher={l.teacher} settings={settings} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+              )}
             </div>
           </div>
           {showSummary && l.class_summary && (
