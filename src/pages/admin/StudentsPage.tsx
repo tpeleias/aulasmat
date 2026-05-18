@@ -28,6 +28,7 @@ export default function StudentsPage() {
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
+  const [manageFor, setManageFor] = useState<Student | null>(null);
   const defaultTeacher = useDefaultTeacher();
 
   const load = async () => {
