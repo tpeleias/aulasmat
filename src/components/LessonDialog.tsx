@@ -41,6 +41,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
 
+  const { teachers } = useTeachers(true);
+
   useEffect(() => {
     if (!open) return;
     supabase.from("students").select("id,student_name,guardian_name,address").order("student_name").then(({ data }) => {
