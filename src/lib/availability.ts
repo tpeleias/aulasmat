@@ -48,3 +48,38 @@ export function computeFreeSlots(
 export function fmtTime(d: Date) { return format(d, "HH:mm"); }
 export function fmtDate(d: Date) { return format(d, "dd/MM"); }
 export function fmtFull(d: Date) { return format(d, "EEEE, dd 'de' MMMM"); }
+
+// Deterministic seeded pseudo-random so the public/student "shop window" is stable per day/teacher
+export function seedRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return () => {
+    h += 0x6D2B79F5; let t = h;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+export function pickScarcityCandidates(
+  day: Date,
+  candidateStarts: Date[],
+  teacherKey: string,
+  minN: number,
+  maxN: number,
+): Date[] {
+  if (candidateStarts.length === 0) return [];
+  const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
+  const rand = seedRandom(`${teacherKey}|${dayKey}|${minN}-${maxN}`);
+  const lo = Math.max(1, Math.min(minN, maxN));
+  const hi = Math.max(lo, maxN);
+  const target = lo + Math.floor(rand() * (hi - lo + 1));
+  const count = Math.min(candidateStarts.length, target);
+  const indices = candidateStarts.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices.slice(0, count).map(i => candidateStarts[i]).sort((a, b) => a.getTime() - b.getTime());
+}
+
