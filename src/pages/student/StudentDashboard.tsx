@@ -4,16 +4,22 @@ import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Wallet, FolderOpen, ListChecks, MessageCircle, Copy } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Calendar, Wallet, FolderOpen, ListChecks, MessageCircle, Copy, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { isValidUsername, normalizeUsername } from "@/lib/username";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentDashboard() {
   const { student, loading } = useStudent();
+  const [reloadKey, setReloadKey] = useState(0);
+  const reload = () => setReloadKey(k => k + 1);
+
   const settings = useAppSettings();
   const [lessons, setLessons] = useState<any[]>([]);
   const [txs, setTxs] = useState<any[]>([]);
