@@ -15,6 +15,7 @@ type Settings = {
   show_payment_info_to_students: boolean;
   whatsapp_thiago: string | null; whatsapp_mayara: string | null;
   allow_student_booking: boolean;
+  show_availability_to_students: boolean;
 };
 
 export default function SettingsPage() {
@@ -25,6 +26,7 @@ export default function SettingsPage() {
     pix_key: "", payment_link: "", show_payment_info_to_students: false,
     whatsapp_thiago: "", whatsapp_mayara: "",
     allow_student_booking: true,
+    show_availability_to_students: false,
   });
   useEffect(() => {
     supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => data && setS({ ...s, ...(data as any) }));
@@ -86,6 +88,13 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">Quando desligado, o portal do aluno fica apenas para visualização.</p>
           </div>
           <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
+        </div>
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">Exibir disponibilidade dos professores ao responsável</Label>
+            <p className="text-xs text-muted-foreground">Mostra os links de agenda do Thiago e da Mayara no portal do aluno.</p>
+          </div>
+          <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
         </div>
       </Card>
 
