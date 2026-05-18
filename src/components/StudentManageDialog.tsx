@@ -133,19 +133,37 @@ function MaterialsTab({ student }: { student: Student }) {
   useEffect(() => { load(); }, [student.id]);
 
   const upload = async (file: File) => {
-    if (!title.trim()) { toast.error("Dê um título ao material"); return; }
+    const finalTitle = title.trim() || file.name.replace(/\.[^.]+$/, "");
     setBusy(true);
-    const path = `${student.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
-    const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file, {
-      contentType: file.type || "application/octet-stream",
-    });
-    if (upErr) { toast.error(upErr.message); setBusy(false); return; }
-    const { error } = await supabase.from("student_materials").insert({
-      student_id: student.id, title: title.trim(), file_path: path, file_type: file.type,
-    });
-    setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Material enviado"); setTitle(""); load(); }
-    if (fileRef.current) fileRef.current.value = "";
+    try {
+      const path = `${student.id}/${Date.now()}-${sanitizeFilename(file.name)}`;
+      const { error: upErr } = await supabase.storage.from("student-materials").upload(path, file, {
+        contentType: file.type || "application/octet-stream",
+        upsert: false,
+      });
+      if (upErr) {
+        console.error("[materials] storage upload error", upErr);
+        toast.error(`Falha no upload: ${upErr.message}`);
+        return;
+      }
+      const { error } = await supabase.from("student_materials").insert({
+        student_id: student.id, title: finalTitle, file_path: path, file_type: file.type,
+      });
+      if (error) {
+        console.error("[materials] insert error", error);
+        toast.error(`Falha ao registrar: ${error.message}`);
+        return;
+      }
+      toast.success("Upload concluído com sucesso");
+      setTitle("");
+      load();
+    } catch (e: any) {
+      console.error("[materials] unexpected", e);
+      toast.error(`Erro inesperado: ${e?.message ?? String(e)}`);
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
   };
 
   const remove = async (item: any) => {
@@ -163,9 +181,9 @@ function MaterialsTab({ student }: { student: Student }) {
   return (
     <div className="space-y-4">
       <Card className="p-4 space-y-3">
-        <div><Label>Título do material</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Lista de exercícios — equação 2º grau" /></div>
-        <input ref={fileRef} type="file" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-        <Button onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> Enviar arquivo</Button>
+        <div><Label>Título do material (opcional)</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Padrão: nome do arquivo" /></div>
+        <input ref={fileRef} type="file" hidden onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
+        <Button onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> {busy ? "Enviando..." : "Enviar arquivo"}</Button>
       </Card>
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum material.</p>}
