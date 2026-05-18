@@ -20,8 +20,11 @@ export default function StudentLessons() {
 
   useEffect(() => {
     if (!student) return;
-    const columns = hideFinancial ? "id, start_at, subject, duration_minutes, teacher, status, class_summary" : "*";
-    supabase.from("lessons").select(columns).eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+    if (hideFinancial) {
+      (supabase as any).rpc("get_child_lessons").then(({ data }: any) => setLessons(data ?? []));
+      return;
+    }
+    supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
   }, [student, hideFinancial]);
 
   const now = new Date();
