@@ -9,11 +9,14 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { GraduationCap } from "lucide-react";
+import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 
 export default function Auth() {
   const { session, role, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
+  const [childPw, setChildPw] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { document.title = "Acesso — Portal de Aulas"; }, []);
@@ -22,6 +25,7 @@ export default function Auth() {
   if (session) {
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "student") return <Navigate to="/aluno" replace />;
+    if (role === "child") return <Navigate to="/meu-painel" replace />;
     return <PendingScreen />;
   }
 
@@ -38,6 +42,20 @@ export default function Auth() {
     if (error) toast.error(error.message);
     else toast.success("Conta criada! Se for aluno, peça ao professor para vincular seu acesso.");
   };
+  const handleChildLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidUsername(username)) {
+      toast.error("Username inválido. Use 3-30 caracteres: letras, números, ponto, traço ou underline.");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: usernameToEmail(username),
+      password: childPw,
+    });
+    setBusy(false);
+    if (error) toast.error("Usuário ou senha incorretos.");
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "var(--gradient-subtle)" }}>
@@ -47,11 +65,12 @@ export default function Auth() {
             <GraduationCap className="text-primary-foreground" />
           </div>
           <h1 className="text-2xl font-bold">Portal de Aulas</h1>
-          <p className="text-sm text-muted-foreground text-center">Acesso de professores e alunos</p>
+          <p className="text-sm text-muted-foreground text-center">Acesso de professores, responsáveis e alunos</p>
         </div>
         <Tabs defaultValue="login">
-          <TabsList className="grid grid-cols-2 w-full">
+          <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="login">Entrar</TabsTrigger>
+            <TabsTrigger value="child">Aluno</TabsTrigger>
             <TabsTrigger value="signup">Criar conta</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
@@ -59,6 +78,19 @@ export default function Auth() {
               <div><Label>Email</Label><Input type="email" required value={email} onChange={e => setEmail(e.target.value)} /></div>
               <div><Label>Senha</Label><Input type="password" required value={password} onChange={e => setPassword(e.target.value)} /></div>
               <Button type="submit" className="w-full" disabled={busy}>Entrar</Button>
+            </form>
+          </TabsContent>
+          <TabsContent value="child">
+            <form onSubmit={handleChildLogin} className="space-y-4 mt-4">
+              <div>
+                <Label>Nome de usuário</Label>
+                <Input required value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" />
+              </div>
+              <div><Label>Senha</Label><Input type="password" required value={childPw} onChange={e => setChildPw(e.target.value)} /></div>
+              <Button type="submit" className="w-full" disabled={busy}>Entrar como aluno</Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Acesso criado pelo responsável ou professor.
+              </p>
             </form>
           </TabsContent>
           <TabsContent value="signup">

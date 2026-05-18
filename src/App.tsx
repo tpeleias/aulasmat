@@ -23,6 +23,8 @@ import StudentMaterials from "./pages/student/StudentMaterials";
 import StudentHomework from "./pages/student/StudentHomework";
 import StudentBooking from "./pages/student/StudentBooking";
 import ChangePassword from "./pages/student/ChangePassword";
+import ChildLayout from "./components/ChildLayout";
+import ChildDashboard from "./pages/child/ChildDashboard";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +56,12 @@ const App = () => (
               <Route path="aulas" element={<StudentLessons />} />
               <Route path="agendar" element={<StudentBooking />} />
               <Route path="financeiro" element={<StudentBilling />} />
+              <Route path="materiais" element={<StudentMaterials />} />
+              <Route path="tarefas" element={<StudentHomework />} />
+            </Route>
+            <Route path="/meu-painel" element={<ChildLayout />}>
+              <Route index element={<ChildDashboard />} />
+              <Route path="aulas" element={<StudentLessons />} />
               <Route path="materiais" element={<StudentMaterials />} />
               <Route path="tarefas" element={<StudentHomework />} />
             </Route>

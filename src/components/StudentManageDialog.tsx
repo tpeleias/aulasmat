@@ -12,8 +12,9 @@ import { Upload, Trash2, Link2, FileText, Plus, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
+import { isValidUsername, normalizeUsername } from "@/lib/username";
 
-type Student = { id: string; student_name: string; user_id: string | null };
+type Student = { id: string; student_name: string; user_id: string | null; child_user_id?: string | null; child_username?: string | null };
 
 export function StudentManageDialog({ student, open, onOpenChange, onChanged }: {
   student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void;
@@ -116,7 +117,82 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
           <Button onClick={link} disabled={busy} className="gap-2"><Link2 className="w-4 h-4" /> Vincular</Button>
         </Card>
       )}
+
+      <ChildAccessSection student={student} onChanged={onChanged} />
     </div>
+  );
+}
+
+function ChildAccessSection({ student, onChanged }: { student: Student; onChanged: () => void }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [resetPw, setResetPw] = useState("");
+  const [showReset, setShowReset] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const create = async () => {
+    if (!isValidUsername(username)) { toast.error("Username inválido (3-30 caracteres: letras minúsculas, números, ponto, traço, underline)"); return; }
+    if (password.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("create-child-account", {
+      body: { student_id: student.id, username, password, action: "create" },
+    });
+    setBusy(false);
+    if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
+    toast.success(`Acesso criado para ${(data as any).username}`);
+    setUsername(""); setPassword("");
+    onChanged();
+  };
+
+  const reset = async () => {
+    if (resetPw.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("create-child-account", {
+      body: { student_id: student.id, password: resetPw, action: "reset" },
+    });
+    setBusy(false);
+    if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
+    toast.success("Senha redefinida");
+    setResetPw(""); setShowReset(false);
+  };
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div>
+        <div className="text-sm font-medium mb-1">Acesso do aluno (filho)</div>
+        <p className="text-xs text-muted-foreground">
+          Login simples por username, com acesso restrito a aulas, materiais e tarefas (sem dados financeiros).
+        </p>
+      </div>
+      {student.child_username ? (
+        <div className="space-y-3">
+          <div className="rounded-md bg-muted p-3 text-sm">
+            <div className="text-xs text-muted-foreground">Nome de usuário</div>
+            <div className="font-mono font-bold">{student.child_username}</div>
+          </div>
+          {!showReset ? (
+            <Button variant="outline" size="sm" onClick={() => setShowReset(true)}>Redefinir senha</Button>
+          ) : (
+            <div className="space-y-2 border-t border-border pt-3">
+              <div><Label>Nova senha</Label><Input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} minLength={6} /></div>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={reset} disabled={busy}>Salvar</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setShowReset(false); setResetPw(""); }}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div>
+            <Label>Username</Label>
+            <Input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" />
+          </div>
+          <div><Label>Senha</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
+          <Button onClick={create} disabled={busy} size="sm">Gerar acesso do aluno</Button>
+        </div>
+      )}
+    </Card>
   );
 }
 
