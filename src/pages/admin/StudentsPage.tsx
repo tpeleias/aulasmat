@@ -170,6 +170,13 @@ export default function StudentsPage() {
         } : null}
         onSaved={() => { setScheduleFor(null); load(); }}
       />
+
+      <StudentManageDialog
+        student={manageFor}
+        open={!!manageFor}
+        onOpenChange={v => !v && setManageFor(null)}
+        onChanged={load}
+      />
     </div>
   );
 }
