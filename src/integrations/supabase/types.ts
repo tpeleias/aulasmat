@@ -265,6 +265,7 @@ export type Database = {
       }
       settings: {
         Row: {
+          allow_student_booking: boolean
           id: number
           payment_link: string | null
           pix_key: string | null
@@ -280,6 +281,7 @@ export type Database = {
           work_start: string
         }
         Insert: {
+          allow_student_booking?: boolean
           id?: number
           payment_link?: string | null
           pix_key?: string | null
@@ -295,6 +297,7 @@ export type Database = {
           work_start?: string
         }
         Update: {
+          allow_student_booking?: boolean
           id?: number
           payment_link?: string | null
           pix_key?: string | null
@@ -355,6 +358,7 @@ export type Database = {
           created_at: string
           guardian_name: string | null
           id: string
+          must_change_password: boolean
           student_name: string
           updated_at: string
           user_id: string | null
@@ -364,6 +368,7 @@ export type Database = {
           created_at?: string
           guardian_name?: string | null
           id?: string
+          must_change_password?: boolean
           student_name: string
           updated_at?: string
           user_id?: string | null
@@ -373,9 +378,31 @@ export type Database = {
           created_at?: string
           guardian_name?: string | null
           id?: string
+          must_change_password?: boolean
           student_name?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      teachers: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -453,6 +480,7 @@ export type Database = {
           created_at: string
           guardian_name: string | null
           id: string
+          must_change_password: boolean
           student_name: string
           updated_at: string
           user_id: string | null

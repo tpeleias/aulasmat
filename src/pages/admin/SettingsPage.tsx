@@ -14,6 +14,7 @@ type Settings = {
   pix_key: string | null; payment_link: string | null;
   show_payment_info_to_students: boolean;
   whatsapp_thiago: string | null; whatsapp_mayara: string | null;
+  allow_student_booking: boolean;
 };
 
 export default function SettingsPage() {
@@ -23,6 +24,7 @@ export default function SettingsPage() {
     scarcity_weekend_min: 3, scarcity_weekend_max: 7,
     pix_key: "", payment_link: "", show_payment_info_to_students: false,
     whatsapp_thiago: "", whatsapp_mayara: "",
+    allow_student_booking: true,
   });
   useEffect(() => {
     supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => data && setS({ ...s, ...(data as any) }));
@@ -73,6 +75,17 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">Mostra PIX e link de pagamento no portal do aluno.</p>
           </div>
           <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
+        </div>
+      </Card>
+
+      <Card className="p-5 space-y-3">
+        <h2 className="font-semibold text-sm uppercase text-muted-foreground">Portal do Aluno</h2>
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">Permitir que alunos agendem aulas diretamente</Label>
+            <p className="text-xs text-muted-foreground">Quando desligado, o portal do aluno fica apenas para visualização.</p>
+          </div>
+          <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
         </div>
       </Card>
 

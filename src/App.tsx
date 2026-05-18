@@ -14,12 +14,15 @@ import BillingPage from "./pages/admin/BillingPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import AuditPage from "./pages/admin/AuditPage";
 import StudentsPage from "./pages/admin/StudentsPage";
+import TeachersPage from "./pages/admin/TeachersPage";
 import StudentLayout from "./components/StudentLayout";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentLessons from "./pages/student/StudentLessons";
 import StudentBilling from "./pages/student/StudentBilling";
 import StudentMaterials from "./pages/student/StudentMaterials";
 import StudentHomework from "./pages/student/StudentHomework";
+import StudentBooking from "./pages/student/StudentBooking";
+import ChangePassword from "./pages/student/ChangePassword";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Navigate to="/" replace />} />
+            <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
@@ -40,6 +44,7 @@ const App = () => (
               <Route index element={<CalendarPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />
               <Route path="alunos" element={<StudentsPage />} />
+              <Route path="professores" element={<TeachersPage />} />
               <Route path="financeiro" element={<BillingPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
               <Route path="auditoria" element={<AuditPage />} />
@@ -47,6 +52,7 @@ const App = () => (
             <Route path="/aluno" element={<StudentLayout />}>
               <Route index element={<StudentDashboard />} />
               <Route path="aulas" element={<StudentLessons />} />
+              <Route path="agendar" element={<StudentBooking />} />
               <Route path="financeiro" element={<StudentBilling />} />
               <Route path="materiais" element={<StudentMaterials />} />
               <Route path="tarefas" element={<StudentHomework />} />

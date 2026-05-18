@@ -1,22 +1,28 @@
 import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
-import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks } from "lucide-react";
-
-const items = [
-  { to: "/aluno", label: "Início", icon: LayoutDashboard, end: true },
-  { to: "/aluno/aulas", label: "Aulas", icon: Calendar },
-  { to: "/aluno/financeiro", label: "Financeiro", icon: Wallet },
-  { to: "/aluno/materiais", label: "Materiais", icon: FolderOpen },
-  { to: "/aluno/tarefas", label: "Tarefas", icon: ListChecks },
-];
+import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus } from "lucide-react";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
-  if (loading) return null;
+  const { student, loading: stLoading } = useStudent();
+  const settings = useAppSettings();
+
+  if (loading || stLoading) return null;
   if (!session) return <Navigate to="/" replace />;
   if (role === "admin") return <Navigate to="/admin" replace />;
   if (role !== "student") return <Navigate to="/" replace />;
+  if (student?.must_change_password) return <Navigate to="/trocar-senha" replace />;
+
+  const items = [
+    { to: "/aluno", label: "Início", icon: LayoutDashboard, end: true },
+    { to: "/aluno/aulas", label: "Aulas", icon: Calendar },
+    ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: "Agendar", icon: CalendarPlus }] : []),
+    { to: "/aluno/financeiro", label: "Financeiro", icon: Wallet },
+    { to: "/aluno/materiais", label: "Materiais", icon: FolderOpen },
+    { to: "/aluno/tarefas", label: "Tarefas", icon: ListChecks },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-background">

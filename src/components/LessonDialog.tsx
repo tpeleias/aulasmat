@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
 import { ExternalLink } from "lucide-react";
+import { useTeachers } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -38,6 +40,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [repeatCount, setRepeatCount] = useState(5);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
+
+  const { teachers } = useTeachers(true);
 
   useEffect(() => {
     if (!open) return;
@@ -189,8 +193,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.teacher} onValueChange={setTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="thiago">Thiago</SelectItem>
-                  <SelectItem value="mayara">Mayara</SelectItem>
+                  {teachers.length === 0 && <SelectItem value="thiago">Thiago</SelectItem>}
+                  {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>

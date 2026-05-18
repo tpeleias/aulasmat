@@ -1,89 +1,94 @@
-Esta é uma evolução grande — vou descrever tudo que será implementado para você aprovar antes de eu começar a codar. O escopo é amplo, então prefiro alinhar primeiro para não retrabalhar.
+## Plano de implementação
 
-## 1. Login como tela inicial + redirecionamento por perfil
+Vou implementar 6 grandes mudanças. Como o escopo é grande, agrupo em fases claras.
 
-- `/` passa a ser a tela de login/cadastro (atualmente `/auth`).
-- Hoje só existe a role `admin`. Vou adicionar a role `student` no enum `app_role`.
-- No login:
-  - Se o usuário tem role `admin` → vai para `/admin` (calendário etc., como hoje).
-  - Se tem role `student` → vai para `/aluno` (novo dashboard).
-  - Sem role → tela "aguardando vinculação" pedindo para o professor liberar.
-- Vínculo aluno ⇄ conta:
-  - Adicionar coluna `user_id uuid` (nullable) na tabela `students`.
-  - Quando um responsável se cadastra, ele informa o e-mail. No painel admin, na lista de alunos, você poderá clicar em "Vincular conta" e escolher o e-mail/usuário; isso preenche `students.user_id` e cria a linha em `user_roles` com role `student`.
-  - Alternativa: você gera o acesso pelo admin (cria usuário via edge function `admin-create-user` já existente, vincula, e o aluno recebe a senha).
+### 1. Multi-professor (cadastro + escala)
 
-## 2. Dashboard do aluno (`/aluno`)
+**Banco:**
+- Nova tabela `teachers` (id, name, active, created_at). RLS: admins gerenciam, todos autenticados podem ler. Seed inicial com "Thiago" e "Mayara".
+- Coluna `teacher` em `lessons` e `blocks` continua sendo `text` (nome/slug). Migração: nada a remover, só nova tabela.
 
-Layout limpo com 4 seções:
+**Frontend:**
+- Nova página `/admin/teachers` (CRUD simples: nome + ativo).
+- `LessonDialog`: carregar lista de `teachers` ativos no select.
+- `CalendarPage`: filtro vira dropdown dinâmico com opção "Todos" (mostra todos + cor por professor). Bloqueios já são por `teacher`, manter.
+- `BlocksPage`: select de professor puxa da nova tabela.
+- Item de menu "Professores" em `AdminLayout`.
 
-- **Aulas**: lista filtrada por `students.user_id` (via `student_name` vinculado), separada em abas: Futuras / Realizadas / Pendentes de pagamento.
-- **Financeiro**: saldo atual + extrato (lê `wallet_transactions` filtrando pelo aluno/responsável vinculado). Mostra pacotes adquiridos, aulas debitadas e pendentes.
-- **Materiais**: documentos enviados pelo professor para esse aluno (download).
-- **Tarefas**: lista de homework com contador de prazo e botão de envio.
+### 2. Agendamento por alunos (configurável)
 
-Também terá botão "Falar no WhatsApp" com link dinâmico para o professor daquela aula (número configurado em settings do professor).
+**Banco:** nova coluna `settings.allow_student_booking boolean default true`.
 
-## 3. Diário de classe (resumo da aula)
+**Frontend:**
+- `SettingsPage`: toggle "Permitir que alunos agendem aulas diretamente".
+- Nova página `/aluno/agendar` que reusa lógica de disponibilidade (similar a `PublicAvailability`). Cria `lesson` com `student_name` do aluno logado e `payment_status='pendente'`, `status='agendada'`.
+- Adicionar policy RLS: `students insert own lessons` quando setting permitir. Como RLS não lê settings facilmente, fazer policy: `EXISTS (select 1 from students s where s.user_id = auth.uid() and s.student_name = lessons.student_name) AND (select allow_student_booking from settings where id=1)`.
+- Esconder botão/menu no portal do aluno quando setting desligada.
 
-- Adicionar campos `status` (`agendada` / `realizada` / `cancelada`) e `class_summary text` em `lessons`.
-- No `LessonDialog`, quando admin marca como "realizada", o campo de sumário fica visível.
-- O aluno enxerga o sumário na timeline das aulas realizadas dele.
+### 3. Lógica financeira
 
-## 4. Materiais (upload de arquivos)
+**Banco:**
+- Alterar trigger `sync_lesson_wallet`:
+  - INSERT: só cria transação `kind='lesson'` (negativa) se `status='realizada'`.
+  - UPDATE: se mudou para `realizada` → criar/atualizar transação; se saiu de `realizada` → remover.
+  - Manter atualização de valor/descrição quando já existe.
 
-- Criar bucket privado `student-materials` no Cloud Storage.
-- Nova tabela `student_materials` (student_id, title, file_path, uploaded_by, created_at).
-- RLS: admin pode tudo; aluno só vê materiais onde `student_id` corresponde ao seu `students.user_id`.
-- Política do storage: admin pode upload/delete; aluno só pode ler arquivos do seu próprio caminho (`{student_id}/...`).
-- Tela no admin (dentro do CRM do aluno) para anexar PDFs/imagens.
+**Frontend (busca por "Crédito"):**
+- Substituir rótulos "Crédito"/"Adicionar crédito" → "Pagamento"/"Adicionar pagamento" em BillingPage, StudentBilling, etc.
+- Saldo: helper `formatBalance(value)` → `{ label: value >= 0 ? "Crédito Disponível" : "A pagar", amount: Math.abs(value) }`. Aplicar em BillingPage, StudentBilling, StudentDashboard, StudentsPage cards.
 
-## 5. Tarefas (Homework Tracker)
+### 4. Contas de alunos: senha
 
-- Tabela `homework` (student_id, title, description, deadline, status, created_by).
-- Tabela `homework_submissions` (homework_id, file_path, submitted_at, feedback).
-- Bucket `homework-submissions` (privado).
-- Admin: cria/edita tarefas por aluno.
-- Aluno: vê contador de prazo (`Faltam X dias` / `Entrega hoje` / `Atrasado`), faz upload da resolução.
-- Admin: corrige (campo de feedback opcional).
+**Banco:** coluna `students.must_change_password boolean default false`.
 
-## 6. Configurações de pagamento
+**Edge function `link-student-account`:** quando cria usuário novo ou faz reset, marcar `must_change_password=true` no student.
 
-- Adicionar em `settings`: `pix_key text`, `payment_link text`, `show_payment_info_to_students bool`.
-- Tela de Configurações do admin ganha esses campos + toggle.
-- Se toggle ligado, a seção financeira do aluno mostra a chave PIX (com botão "copiar") e o link de pagamento (botão "Pagar agora").
+**Nova edge function `admin-reset-student-password`** (admin-only): recebe `student_id` + `new_password`, usa service role para `auth.admin.updateUserById`, marca `must_change_password=true`. Retorna senha gerada se não passada.
 
-## 7. Comunicação (WhatsApp)
+**Frontend:**
+- `StudentManageDialog`: novo botão "Resetar senha" → mostra senha gerada copiável.
+- Aviso: por segurança não é possível "visualizar a senha atual" (senhas são hash). Em vez disso, oferecer reset rápido com senha gerada exibida ao admin.
+- `useAuth`: ao logar, se `students.must_change_password === true`, redirecionar para `/aluno/trocar-senha`.
+- Nova página `/aluno/trocar-senha`: form nova senha → `supabase.auth.updateUser({password})` + update `must_change_password=false`. Bloqueia outras rotas até concluir.
 
-- Adicionar `whatsapp text` por professor — solução simples: duas chaves em `settings` (`whatsapp_thiago`, `whatsapp_mayara`).
-- Botão no dashboard do aluno e em cada card de aula: abre `https://wa.me/<numero>?text=...` com contexto pré-preenchido.
+### 5. Bug upload de tarefas
 
-## Mudanças técnicas resumidas
+Investigar `StudentHomework.tsx` — provável causa: caminho do arquivo não começa com `student_id/...` que as RLS do bucket esperam, ou `contentType` ausente para PDFs. Conferir policies do bucket `homework-submissions` na migração existente; ajustar storage policies para aceitar path `{student_id}/{homework_id}/file` e incluir `contentType` no upload.
 
-- **Migrations**: novo enum value `student`, colunas em `students` e `lessons`, novas tabelas `student_materials`, `homework`, `homework_submissions`, novas colunas em `settings`, dois buckets de storage + policies.
-- **Edge function**: reuso da `admin-create-user` para criar contas de alunos pelo admin.
-- **Frontend**:
-  - Novo layout `StudentLayout` + páginas `/aluno`, `/aluno/aulas`, `/aluno/financeiro`, `/aluno/materiais`, `/aluno/tarefas`.
-  - Atualização do `App.tsx` (rota raiz vira login; redirecionamento por role).
-  - Atualização do `useAuth` para expor a role do usuário (admin/student/none).
-  - Atualizações no CRM de alunos (vincular conta, anexar materiais, criar tarefas).
-  - Atualização do `LessonDialog` com status e sumário da aula.
-  - Atualização do `SettingsPage` com PIX/link/toggle.
+### 6. Status no painel do aluno
 
-## Sugestão de execução em fases
+`StudentLessons` / `StudentDashboard`: remover seção "Pendentes". Manter só "Próximas" (start_at > now()) e "Realizadas" (status='realizada' ou start_at < now()).
 
-Como é bastante coisa, sugiro fatiar em entregas (cada fase já fica usável):
+### Estrutura técnica
 
-1. **Fase 1 — Fundação**: roles `student`, vínculo de conta no CRM, login redirecionando por role, `StudentLayout` com Dashboard de aulas + financeiro (read-only).
-2. **Fase 2 — Diário de classe + WhatsApp**: status/sumário na aula, botão WhatsApp, leitura no portal do aluno.
-3. **Fase 3 — Materiais**: bucket, tabela, upload no admin, download no aluno.
-4. **Fase 4 — Homework Tracker**: tarefas, prazos, entregas, feedback.
-5. **Fase 5 — Configurações de pagamento**: PIX, link, toggle, exibição no aluno.
+**Migrações (uma só):**
+```sql
+create table teachers (id uuid pk, name text unique, active bool default true, ...);
+alter table settings add column allow_student_booking boolean not null default true;
+alter table students add column must_change_password boolean not null default false;
+-- replace sync_lesson_wallet trigger function
+-- new RLS: students insert own lessons (with settings check via security definer fn)
+-- adjust storage policies for homework-submissions / student-materials if needed
+insert into teachers (name) values ('Thiago'),('Mayara');
+```
 
-## Perguntas rápidas antes de começar
+**Arquivos novos:**
+- `src/pages/admin/TeachersPage.tsx`
+- `src/pages/student/StudentBooking.tsx`
+- `src/pages/student/ChangePassword.tsx`
+- `src/hooks/useTeachers.ts`
+- `supabase/functions/admin-reset-student-password/index.ts`
 
-1. Confirma fatiar em 5 fases (entrego e você valida cada uma) ou prefere que eu mande tudo de uma vez?
-2. Para o cadastro do aluno: prefere **só você criar as contas** pelo admin, ou **deixar cadastro público** + você aprovar/vincular depois?
-3. Os números de WhatsApp do Thiago e da Mayara — quer que eu deixe campos vazios em Configurações para você preencher, ou já tem os números para eu colocar como default?
+**Arquivos editados:**
+- `App.tsx`, `AdminLayout.tsx`, `StudentLayout.tsx`
+- `LessonDialog.tsx`, `CalendarPage.tsx`, `BlocksPage.tsx`
+- `BillingPage.tsx`, `StudentBilling.tsx`, `StudentDashboard.tsx`, `StudentLessons.tsx`, `StudentsPage.tsx`
+- `SettingsPage.tsx`, `StudentManageDialog.tsx`
+- `useAuth.tsx` (redirect troca de senha)
+- `useStudent.ts` (expor must_change_password)
 
-Me responda esses pontos (ou apenas "pode começar pela Fase 1" / "manda tudo") que eu já parto para a implementação.
+### Observação sobre "Visualizar senha atual"
+
+Senhas no Supabase são armazenadas com hash irreversível — não é tecnicamente possível mostrar a senha atual. Vou implementar **reset com senha gerada visível** (admin escolhe ou clica "Gerar") + cópia em um clique + obriga troca no próximo login. Isso atende a intenção sem comprometer segurança.
+
+Posso prosseguir?

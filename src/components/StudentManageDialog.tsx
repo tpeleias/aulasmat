@@ -47,6 +47,7 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [newPw, setNewPw] = useState<string | null>(null);
 
   const link = async () => {
     if (!email.trim()) { toast.error("Informe o e-mail"); return; }
@@ -55,12 +56,8 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
       body: { student_id: student.id, email: email.trim(), password: password || undefined },
     });
     setBusy(false);
-    if (error || (data as any)?.error) {
-      toast.error((data as any)?.error || error?.message || "Erro ao vincular");
-    } else {
-      toast.success("Conta vinculada");
-      onChanged();
-    }
+    if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Erro ao vincular");
+    else { toast.success("Conta vinculada. O aluno deverá trocar a senha no primeiro acesso."); onChanged(); }
   };
 
   const unlink = async () => {
@@ -69,21 +66,49 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
     if (error) toast.error(error.message); else { toast.success("Desvinculado"); onChanged(); }
   };
 
+  const resetPassword = async () => {
+    if (!confirm("Gerar uma nova senha provisória? O aluno deverá trocá-la no próximo acesso.")) return;
+    setBusy(true); setNewPw(null);
+    const { data, error } = await supabase.functions.invoke("admin-reset-student-password", {
+      body: { student_id: student.id },
+    });
+    setBusy(false);
+    if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Erro ao resetar");
+    else { setNewPw((data as any).password); toast.success("Senha redefinida"); }
+  };
+
   return (
     <div className="space-y-4">
       {student.user_id ? (
-        <Card className="p-4 flex items-center justify-between gap-2">
-          <div>
-            <div className="text-sm font-medium">Conta vinculada</div>
-            <div className="text-xs text-muted-foreground font-mono">{student.user_id}</div>
+        <Card className="p-4 space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-sm font-medium">Conta vinculada</div>
+              <div className="text-xs text-muted-foreground font-mono break-all">{student.user_id}</div>
+            </div>
+            <Button variant="destructive" size="sm" onClick={unlink}>Desvincular</Button>
           </div>
-          <Button variant="destructive" size="sm" onClick={unlink}>Desvincular</Button>
+          <div className="border-t border-border pt-3 space-y-2">
+            <p className="text-xs text-muted-foreground">
+              Por segurança, senhas são armazenadas com hash e não podem ser visualizadas. Em vez disso, gere uma nova senha provisória — o aluno será forçado a trocá-la no próximo login.
+            </p>
+            <Button onClick={resetPassword} disabled={busy} variant="outline" size="sm">Resetar senha</Button>
+            {newPw && (
+              <div className="rounded-md bg-muted p-3 text-sm flex items-center justify-between gap-2">
+                <div>
+                  <div className="text-xs text-muted-foreground">Nova senha provisória</div>
+                  <div className="font-mono font-bold">{newPw}</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(newPw); toast.success("Copiada"); }}>Copiar</Button>
+              </div>
+            )}
+          </div>
         </Card>
       ) : (
         <Card className="p-4 space-y-3">
           <div>
             <div className="text-sm font-medium mb-1">Vincular conta de acesso</div>
-            <p className="text-xs text-muted-foreground">Informe o e-mail do aluno/responsável. Se ainda não existir, defina uma senha temporária para criar a conta.</p>
+            <p className="text-xs text-muted-foreground">Informe o e-mail do aluno/responsável. Se ainda não existir, defina uma senha temporária para criar a conta — ele será forçado a trocá-la no primeiro acesso.</p>
           </div>
           <div><Label>E-mail</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
           <div><Label>Senha temporária (opcional, só para criar)</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
