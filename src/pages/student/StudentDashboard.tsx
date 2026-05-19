@@ -27,9 +27,18 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
-    supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
-    supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    const loadLessons = () => supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+    const loadTxs = () => supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
+    const loadHw = () => supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    loadLessons(); loadTxs(); loadHw();
+
+    const channel = supabase
+      .channel(`student-dash-${student.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "lessons", filter: `student_name=eq.${student.student_name}` }, loadLessons)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `student_name=eq.${student.student_name}` }, loadTxs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "homework", filter: `student_id=eq.${student.id}` }, loadHw)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [student]);
 
   const now = new Date();
