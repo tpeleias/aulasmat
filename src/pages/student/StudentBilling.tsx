@@ -35,15 +35,7 @@ export default function StudentBilling() {
       {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
         <Card className="p-5 space-y-3 border-primary/40">
           <h2 className="font-semibold">Como pagar</h2>
-          {settings.pix_key && (
-            <div className="flex items-center justify-between gap-2 p-3 bg-muted rounded">
-              <div><div className="text-xs text-muted-foreground">Chave PIX</div><div className="font-mono break-all">{settings.pix_key}</div></div>
-              <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(settings.pix_key!); toast.success("PIX copiado"); }}><Copy className="w-4 h-4" /></Button>
-            </div>
-          )}
-          {settings.payment_link && (
-            <Button asChild className="w-full"><a href={settings.payment_link} target="_blank" rel="noopener noreferrer">Pagar pelo link</a></Button>
-          )}
+          <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
         </Card>
       )}
 
