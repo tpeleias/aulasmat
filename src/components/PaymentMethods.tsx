@@ -48,7 +48,7 @@ export function PaymentMethods({ pixKey, paymentLink, compact }: Props) {
       {paymentLink && (
         <Card className="p-4 space-y-3 border-primary/30 bg-card">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-lg bg-foreground flex items-center justify-center p-1">
+            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center p-1">
               <img src={infinitepayLogo} alt="InfinitePay" className="w-full h-full object-contain" />
             </div>
             <div>
