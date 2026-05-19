@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Wallet, FolderOpen, ListChecks, Copy, UserPlus, KeyRound } from "lucide-react";
+import { Calendar, Wallet, FolderOpen, ListChecks, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { PaymentMethods } from "@/components/PaymentMethods";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -26,9 +27,18 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
-    supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
-    supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    const loadLessons = () => supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+    const loadTxs = () => supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
+    const loadHw = () => supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    loadLessons(); loadTxs(); loadHw();
+
+    const channel = supabase
+      .channel(`student-dash-${student.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "lessons", filter: `student_name=eq.${student.student_name}` }, loadLessons)
+      .on("postgres_changes", { event: "*", schema: "public", table: "wallet_transactions", filter: `student_name=eq.${student.student_name}` }, loadTxs)
+      .on("postgres_changes", { event: "*", schema: "public", table: "homework", filter: `student_id=eq.${student.id}` }, loadHw)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [student]);
 
   const now = new Date();
@@ -49,7 +59,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Olá, {student.student_name.split(" ")[0]} 👋</h1>
+        <h1 className="text-2xl font-bold">Olá, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
         <p className="text-sm text-muted-foreground">Aqui está um resumo das suas aulas e tarefas.</p>
       </div>
 
@@ -83,18 +93,8 @@ export default function StudentDashboard() {
               <Badge variant="destructive">{fmt(l.price)}</Badge>
             </div>
           ))}
-          {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
-            <div className="rounded-md bg-muted p-3 space-y-2 text-sm">
-              {settings.pix_key && (
-                <div className="flex items-center justify-between gap-2">
-                  <div><div className="text-xs text-muted-foreground">Chave PIX</div><div className="font-mono">{settings.pix_key}</div></div>
-                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(settings.pix_key!); toast.success("PIX copiado"); }}><Copy className="w-4 h-4" /></Button>
-                </div>
-              )}
-              {settings.payment_link && (
-                <Button asChild className="w-full"><a href={settings.payment_link} target="_blank" rel="noopener noreferrer">Pagar pelo link</a></Button>
-              )}
-            </div>
+          {settings?.show_payment_info_to_students && (
+            <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
           )}
         </Card>
       )}
