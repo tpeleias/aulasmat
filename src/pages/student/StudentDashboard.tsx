@@ -93,18 +93,8 @@ export default function StudentDashboard() {
               <Badge variant="destructive">{fmt(l.price)}</Badge>
             </div>
           ))}
-          {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
-            <div className="rounded-md bg-muted p-3 space-y-2 text-sm">
-              {settings.pix_key && (
-                <div className="flex items-center justify-between gap-2">
-                  <div><div className="text-xs text-muted-foreground">Chave PIX</div><div className="font-mono">{settings.pix_key}</div></div>
-                  <Button size="sm" variant="outline" onClick={() => { navigator.clipboard.writeText(settings.pix_key!); toast.success("PIX copiado"); }}><Copy className="w-4 h-4" /></Button>
-                </div>
-              )}
-              {settings.payment_link && (
-                <Button asChild className="w-full"><a href={settings.payment_link} target="_blank" rel="noopener noreferrer">Pagar pelo link</a></Button>
-              )}
-            </div>
+          {settings?.show_payment_info_to_students && (
+            <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
           )}
         </Card>
       )}
