@@ -70,6 +70,19 @@ export default function ChildDashboard() {
         )}
       </Card>
 
+      <Card className="p-5 space-y-3">
+        <h2 className="font-semibold">Próximas aulas</h2>
+        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>}
+        {upcoming.slice(0, 8).map(l => (
+          <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
+            <div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+            </div>
+          </div>
+        ))}
+      </Card>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/meu-painel/materiais" />
         <StatCard icon={ListChecks} label="Tarefas" value={dueHomework.length} href="/meu-painel/tarefas" />
