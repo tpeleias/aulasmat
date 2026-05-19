@@ -6,13 +6,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Calendar, Wallet, FolderOpen, ListChecks, Copy, UserPlus, KeyRound } from "lucide-react";
+import { Calendar, Wallet, FolderOpen, ListChecks, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { PaymentMethods } from "@/components/PaymentMethods";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
