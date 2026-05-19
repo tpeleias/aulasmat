@@ -59,7 +59,7 @@ export default function StudentDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Olá, {student.student_name.split(" ")[0]} 👋</h1>
+        <h1 className="text-2xl font-bold">Olá, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
         <p className="text-sm text-muted-foreground">Aqui está um resumo das suas aulas e tarefas.</p>
       </div>
 
