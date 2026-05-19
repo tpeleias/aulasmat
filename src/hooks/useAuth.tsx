@@ -17,8 +17,10 @@ async function fetchRole(userId: string): Promise<Role> {
   const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
   const roles = (data ?? []).map((r: any) => r.role as string);
   if (roles.includes("admin")) return "admin";
-  if (roles.includes("student")) return "student";
+  // child takes precedence over student so a user accidentally holding both roles
+  // (auto-assigned 'student' from handle_new_user + 'child' added afterwards) lands on the child view.
   if (roles.includes("child")) return "child";
+  if (roles.includes("student")) return "student";
   return null;
 }
 

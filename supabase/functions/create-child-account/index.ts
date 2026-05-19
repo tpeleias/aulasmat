@@ -71,6 +71,8 @@ Deno.serve(async (req) => {
       }
 
       await admin.from("user_roles").upsert({ user_id: target.id, role: "child" }, { onConflict: "user_id,role" });
+      // Ensure the child account doesn't also carry the auto-assigned 'student' role.
+      await admin.from("user_roles").delete().eq("user_id", target.id).eq("role", "student");
 
       const { error: upErr } = await admin.from("students")
         .update({ child_user_id: target.id, child_username: usernameRaw, child_must_change_password: true })
