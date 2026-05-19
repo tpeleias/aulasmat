@@ -15,11 +15,19 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    (supabase as any).rpc("get_child_lessons").then(({ data }: any) => {
+    const loadLessons = () => (supabase as any).rpc("get_child_lessons").then(({ data }: any) => {
       const ordered = [...(data ?? [])].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
       setLessons(ordered);
     });
-    supabase.from("homework").select("id, title, deadline, status").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    const loadHw = () => supabase.from("homework").select("id, title, deadline, status").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
+    loadLessons(); loadHw();
+
+    const channel = supabase
+      .channel(`child-dash-${student.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "lessons", filter: `student_name=eq.${student.student_name}` }, loadLessons)
+      .on("postgres_changes", { event: "*", schema: "public", table: "homework", filter: `student_id=eq.${student.id}` }, loadHw)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [student]);
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
