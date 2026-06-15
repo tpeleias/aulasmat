@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users, Plus, UserCog } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
+import ThemeToggle from "@/components/ThemeToggle";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 const items = [
@@ -59,6 +60,7 @@ export default function AdminLayout() {
           <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Links públicos</div>
           <Button onClick={() => copyLink("/disponibilidade/thiago", "do Thiago")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Thiago</Button>
           <Button onClick={() => copyLink("/disponibilidade/mayara", "da Mayara")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Mayara</Button>
+          <ThemeToggle />
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
         </div>
       </aside>

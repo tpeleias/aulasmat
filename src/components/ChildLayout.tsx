@@ -2,6 +2,7 @@ import { Navigate, NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudent } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 import { GraduationCap, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks } from "lucide-react";
 
 export default function ChildLayout() {
@@ -46,6 +47,7 @@ export default function ChildLayout() {
           ))}
         </nav>
         <div className="p-3 hidden md:block border-t border-sidebar-border">
+          <ThemeToggle />
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
             <LogOut className="w-4 h-4" />Sair
           </Button>

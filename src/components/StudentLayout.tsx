@@ -2,6 +2,7 @@ import { Navigate, NavLink, Outlet, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/ThemeToggle";
 import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch } from "lucide-react";
 
 export default function StudentLayout() {
@@ -57,6 +58,7 @@ export default function StudentLayout() {
               </Button>
             </>
           )}
+          <ThemeToggle />
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
             <LogOut className="w-4 h-4" />Sair
           </Button>
