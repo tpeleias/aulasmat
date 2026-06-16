@@ -250,9 +250,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.package_type} onValueChange={setPackage}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single">Avulsa — R$ 220</SelectItem>
-                  <SelectItem value="pack5">Pacote 5 — R$ 210/aula</SelectItem>
-                  <SelectItem value="pack10">Pacote 10 — R$ 200/aula</SelectItem>
+                  <SelectItem value="single">Avulsa — R$ 220/h</SelectItem>
+                  <SelectItem value="pack5">Pacote 5 — R$ 210/h</SelectItem>
+                  <SelectItem value="pack10">Pacote 10 — R$ 200/h</SelectItem>
                 </SelectContent>
               </Select>
             </div>
