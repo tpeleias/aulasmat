@@ -59,7 +59,7 @@ function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
             </div>
             <div className="flex items-center gap-2">
               {!hideFinancial && (
-                <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(l.price)} · {l.payment_status}</Badge>
+                <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
               )}
               <Badge variant="secondary">{l.status ?? "agendada"}</Badge>
               {!hideFinancial && (
