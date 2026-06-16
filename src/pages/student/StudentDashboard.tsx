@@ -90,7 +90,7 @@ export default function StudentDashboard() {
           {pending.slice(0, 5).map(l => (
             <div key={l.id} className="flex items-center justify-between text-sm border-t border-border pt-2 first:border-0 first:pt-0">
               <span>{format(new Date(l.start_at), "dd/MM HH:mm")}</span>
-              <Badge variant="destructive">{fmt(l.price)}</Badge>
+              <Badge variant="destructive">{fmt(Number(l.price) * Number(l.duration_minutes) / 60)}</Badge>
             </div>
           ))}
           {settings?.show_payment_info_to_students && (
