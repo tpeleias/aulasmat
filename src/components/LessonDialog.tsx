@@ -267,7 +267,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <Collapsible className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
-              <button className="flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
+              <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
                 <span>Detalhes adicionais (valor, status e observações)</span>
                 <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
               </button>
