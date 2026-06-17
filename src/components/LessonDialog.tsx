@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, ChevronDown } from "lucide-react";
 import { useTeachers } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 
@@ -256,46 +257,62 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Valor por hora (R$/h)</Label>
-              <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
-              <div className="text-xs text-muted-foreground mt-1">
-                Total da aula: <strong className="text-foreground">
+            <div className="flex items-end">
+              <span className="text-xs text-muted-foreground">
+                Total: <strong className="text-foreground">
                   {(form.price * form.duration_minutes / 60).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </strong> ({form.duration_minutes} min)
+              </span>
+            </div>
+          </div>
+          <Collapsible className="rounded-md border border-border bg-muted/30">
+            <CollapsibleTrigger asChild>
+              <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
+                <span>Detalhes adicionais (valor, status e observações)</span>
+                <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="p-3 pt-0 space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Valor por hora (R$/h)</Label>
+                  <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+                </div>
+                <div>
+                  <Label>Status pagamento</Label>
+                  <Select value={form.payment_status} onValueChange={v => setForm({ ...form, payment_status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pendente">Pendente</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
-          </div>
-          <div><Label>Status pagamento</Label>
-            <Select value={form.payment_status} onValueChange={v => setForm({ ...form, payment_status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="pago">Pago</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div><Label>Situação da aula</Label>
-            <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="agendada">Agendada</SelectItem>
-                <SelectItem value="realizada">Realizada</SelectItem>
-                <SelectItem value="cancelada">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {form.status === "realizada" && (
-            <div>
-              <Label>Resumo da aula (visível para o aluno)</Label>
-              <Textarea
-                value={form.class_summary ?? ""}
-                onChange={e => setForm({ ...form, class_summary: e.target.value })}
-                placeholder='Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."'
-                rows={3}
-              />
-            </div>
-          )}
+              <div><Label>Situação da aula</Label>
+                <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="agendada">Agendada</SelectItem>
+                    <SelectItem value="realizada">Realizada</SelectItem>
+                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.status === "realizada" && (
+                <div>
+                  <Label>Resumo da aula (visível para o aluno)</Label>
+                  <Textarea
+                    value={form.class_summary ?? ""}
+                    onChange={e => setForm({ ...form, class_summary: e.target.value })}
+                    placeholder='Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."'
+                    rows={3}
+                  />
+                </div>
+              )}
+              <div><Label>Observações</Label><Textarea value={form.notes ?? ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
+            </CollapsibleContent>
+          </Collapsible>
           {!lesson?.id && (
             <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
@@ -315,7 +332,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {conflictMsg && <div className="text-xs text-destructive">{conflictMsg}</div>}
             </div>
           )}
-          <div><Label>Observações</Label><Textarea value={form.notes ?? ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
         </div>
         <DialogFooter className="gap-2">
           {lesson?.id && <Button variant="destructive" onClick={remove}>Excluir</Button>}
