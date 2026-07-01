@@ -86,3 +86,18 @@
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
 }
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #seating-print-area,
+  #seating-print-area * {
+    visibility: visible;
+  }
+  #seating-print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}
