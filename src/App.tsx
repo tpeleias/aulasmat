@@ -8,7 +8,6 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import PublicAvailability from "./pages/PublicAvailability";
-import SeatingMap from "./pages/SeatingMap";
 import AdminLayout from "./components/AdminLayout";
 import CalendarPage from "./pages/admin/CalendarPage";
 import BlocksPage from "./pages/admin/BlocksPage";
@@ -45,7 +44,6 @@ const App = () => (
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
-            <Route path="/mapa-sala" element={<SeatingMap />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<CalendarPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />

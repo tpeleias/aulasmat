@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Navigate, Link } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -104,11 +104,6 @@ export default function Auth() {
             </form>
           </TabsContent>
         </Tabs>
-        <p className="text-center mt-4">
-          <Link to="/mapa-sala" className="text-xs text-muted-foreground underline">
-            Mapa de sala de aula
-          </Link>
-        </p>
       </Card>
     </div>
   );
