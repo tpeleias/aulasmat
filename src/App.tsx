@@ -42,6 +42,7 @@ const App = () => (
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Navigate to="/" replace />} />
             <Route path="/trocar-senha" element={<ChangePassword />} />
+            <Route path="/inicio" element={<PublicHome />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
