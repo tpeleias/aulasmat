@@ -8,6 +8,7 @@ import { ThemeProvider } from "@/hooks/useTheme";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import PublicAvailability from "./pages/PublicAvailability";
+import PublicHome from "./pages/PublicHome";
 import AdminLayout from "./components/AdminLayout";
 import CalendarPage from "./pages/admin/CalendarPage";
 import BlocksPage from "./pages/admin/BlocksPage";
