@@ -104,6 +104,12 @@ export default function Auth() {
             </form>
           </TabsContent>
         </Tabs>
+        <p className="text-center text-xs text-muted-foreground mt-6">
+          Ainda não é aluno?{" "}
+          <Link to="/inicio" className="underline underline-offset-2 hover:text-foreground">
+            Veja os horários disponíveis
+          </Link>
+        </p>
       </Card>
     </div>
   );
