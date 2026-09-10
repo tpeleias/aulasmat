@@ -2,7 +2,6 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:minWidth="250dp"
     android:minHeight="180dp"
-    android:updatePeriodicMillis="1800000"
     android:initialLayout="@layout/widget_lessons"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen">
