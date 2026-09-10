@@ -7,6 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "luc
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { syncUpcomingLessonsWidget } from "@/lib/widgetSync";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -67,7 +68,9 @@ export default function CalendarPage() {
     setLessons((l.data ?? []) as Lesson[]);
     setBlocks((b.data ?? []) as Block[]);
     setExceptions((ex.data ?? []) as BlockException[]);
-    setUpcoming((up.data ?? []) as Lesson[]);
+    const upcomingLessons = (up.data ?? []) as Lesson[];
+    setUpcoming(upcomingLessons);
+    syncUpcomingLessonsWidget(upcomingLessons);
   }, [weekStart]);
 
   useEffect(() => { load(); }, [load]);
