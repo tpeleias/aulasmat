@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, addMinutes, format, getDay, isSameDay, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,11 @@ type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
 const CELL_H = 52; // px per hour
 const HEADER_H = 56; // px for the day header row
+const LONG_PRESS_MS = 500;
+
+function openWaze(address: string) {
+  window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
+}
 
 export default function CalendarPage() {
   const defaultTeacher = useDefaultTeacher();
@@ -83,6 +88,40 @@ export default function CalendarPage() {
 
   const hours = useMemo(() => Array.from({ length: hEnd - hStart }, (_, i) => hStart + i), [hStart, hEnd]);
   const slotMin = settings.slot_minutes;
+
+  const pressTimer = useRef<number | null>(null);
+  const longPressFired = useRef(false);
+
+  const openEditFor = (lesson: Lesson) => {
+    setEditing(lesson);
+    setDlgOpen(true);
+  };
+
+  const handlePressStart = (lesson: Lesson) => {
+    longPressFired.current = false;
+    pressTimer.current = window.setTimeout(() => {
+      longPressFired.current = true;
+      openEditFor(lesson);
+    }, LONG_PRESS_MS);
+  };
+
+  const cancelPressTimer = () => {
+    if (pressTimer.current !== null) {
+      window.clearTimeout(pressTimer.current);
+      pressTimer.current = null;
+    }
+  };
+
+  const handlePressEnd = (lesson: Lesson) => {
+    const wasLongPress = longPressFired.current;
+    cancelPressTimer();
+    if (wasLongPress) return;
+    if (!lesson.is_online && lesson.address) {
+      openWaze(lesson.address);
+    } else {
+      openEditFor(lesson);
+    }
+  };
 
   const skipRecurringForDay = async (blockId: string, day: Date) => {
     const dateStr = format(day, "yyyy-MM-dd");
@@ -345,8 +384,12 @@ export default function CalendarPage() {
                       return (
                         <li key={l.id}>
                           <button
-                            onClick={() => { setEditing(l); setDlgOpen(true); }}
-                            className="w-full border-l-2 border-l-primary py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent"
+                            onPointerDown={() => handlePressStart(l)}
+                            onPointerUp={() => handlePressEnd(l)}
+                            onPointerLeave={cancelPressTimer}
+                            onPointerCancel={cancelPressTimer}
+                            onContextMenu={(e) => e.preventDefault()}
+                            className="w-full border-l-2 border-l-primary py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent select-none"
                           >
                             <div className="flex items-start gap-3">
                               <div className="shrink-0 w-20">
