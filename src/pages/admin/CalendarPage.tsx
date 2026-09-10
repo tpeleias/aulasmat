@@ -31,6 +31,25 @@ export default function CalendarPage() {
   const [slotStart, setSlotStart] = useState<Date | undefined>(undefined);
 
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
+  const [mobileDayIndex, setMobileDayIndex] = useState(0);
+
+  useEffect(() => {
+    const todayIdx = days.findIndex(d => isSameDay(d, new Date()));
+    setMobileDayIndex(todayIdx >= 0 ? todayIdx : 0);
+  }, [days]);
+
+  const goToMobileDay = (delta: number) => {
+    const newIndex = mobileDayIndex + delta;
+    if (newIndex < 0) {
+      setWeekStart(addDays(weekStart, -7));
+      setMobileDayIndex(6);
+    } else if (newIndex > 6) {
+      setWeekStart(addDays(weekStart, 7));
+      setMobileDayIndex(0);
+    } else {
+      setMobileDayIndex(newIndex);
+    }
+  };
 
   const load = useCallback(async () => {
     const from = weekStart.toISOString();
@@ -191,6 +210,83 @@ export default function CalendarPage() {
     );
   };
 
+  const renderTimeGutter = () => (
+    <div className="w-[56px] md:w-[70px] shrink-0">
+      <div style={{ height: HEADER_H }} className="border-b border-r border-border" />
+      {hours.map(h => (
+        <div key={h} style={{ height: CELL_H }} className="border-b border-r border-border text-[10px] md:text-[11px] text-muted-foreground text-right pr-1 md:pr-2 pt-1">
+          {String(h).padStart(2, "0")}:00
+        </div>
+      ))}
+    </div>
+  );
+
+  const renderDayColumn = (d: Date) => {
+    const dayLessons = filteredLessons.filter(l => isSameDay(new Date(l.start_at), d));
+    const layout = layoutDayLessons(dayLessons);
+    return (
+      <div key={d.toISOString()} className="flex-1 min-w-0 relative">
+        <div
+          style={{ height: HEADER_H }}
+          className={`border-b border-border p-2 text-center text-xs ${isSameDay(d, new Date()) ? "bg-accent text-accent-foreground font-semibold" : ""}`}
+        >
+          <div className="uppercase">{format(d, "EEE", { locale: ptBR })}</div>
+          <div className="text-base font-semibold">{format(d, "dd")}</div>
+        </div>
+
+        {/* hour cells (for clicks + blocks) */}
+        <div className="relative">
+          {hours.map(h => {
+            const block = getBlockForCell(d, h);
+            if (block) {
+              return (
+                <div
+                  key={h}
+                  style={{ height: CELL_H, backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}
+                  className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
+                >
+                  <div className="truncate">{block.label}</div>
+                  {block.recurring && (
+                    <button
+                      onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(block.blockId!, d); }}
+                      className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
+                      title="Liberar somente este dia"
+                    >Liberar este dia</button>
+                  )}
+                </div>
+              );
+            }
+            const cellStart = new Date(d); cellStart.setHours(h, 0, 0, 0);
+            return (
+              <button
+                key={h}
+                style={{ height: CELL_H }}
+                onClick={() => { setEditing(null); setSlotStart(cellStart); setDlgOpen(true); }}
+                className="w-full border-b border-l border-border p-1.5 text-xs hover:bg-accent group"
+              >
+                <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />
+              </button>
+            );
+          })}
+
+          {/* absolute-positioned lessons overlay */}
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="relative w-full h-full">
+              {dayLessons.map(l => {
+                const lay = layout[l.id] ?? { col: 0, cols: 1 };
+                return (
+                  <div key={l.id} className="pointer-events-auto">
+                    {renderLesson(l, d, lay.col, lay.cols)}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
@@ -274,84 +370,28 @@ export default function CalendarPage() {
           )}
         </div>
       ) : (
-      <div className="bg-card rounded-xl shadow-[var(--shadow-card)] overflow-x-auto">
-        <div className="min-w-[800px] flex">
-          {/* time gutter */}
-          <div className="w-[70px] shrink-0">
-            <div style={{ height: HEADER_H }} className="border-b border-r border-border" />
-            {hours.map(h => (
-              <div key={h} style={{ height: CELL_H }} className="border-b border-r border-border text-[11px] text-muted-foreground text-right pr-2 pt-1">
-                {String(h).padStart(2, "0")}:00
-              </div>
-            ))}
+      <div className="bg-card rounded-xl shadow-[var(--shadow-card)]">
+        {/* Mobile: one day at a time, no horizontal scroll */}
+        <div className="md:hidden">
+          <div className="flex items-center justify-between border-b border-border p-1.5">
+            <Button variant="ghost" size="icon" onClick={() => goToMobileDay(-1)}><ChevronLeft className="w-4 h-4" /></Button>
+            <div className="text-sm font-semibold capitalize text-center">
+              {format(days[mobileDayIndex], "EEEE, dd 'de' MMM", { locale: ptBR })}
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => goToMobileDay(1)}><ChevronRight className="w-4 h-4" /></Button>
           </div>
+          <div className="flex">
+            {renderTimeGutter()}
+            {renderDayColumn(days[mobileDayIndex])}
+          </div>
+        </div>
 
-          {/* day columns */}
-          {days.map(d => {
-            const dayLessons = filteredLessons.filter(l => isSameDay(new Date(l.start_at), d));
-            const layout = layoutDayLessons(dayLessons);
-            return (
-              <div key={d.toISOString()} className="flex-1 min-w-0 relative">
-                <div
-                  style={{ height: HEADER_H }}
-                  className={`border-b border-border p-2 text-center text-xs ${isSameDay(d, new Date()) ? "bg-accent text-accent-foreground font-semibold" : ""}`}
-                >
-                  <div className="uppercase">{format(d, "EEE", { locale: ptBR })}</div>
-                  <div className="text-base font-semibold">{format(d, "dd")}</div>
-                </div>
-
-                {/* hour cells (for clicks + blocks) */}
-                <div className="relative">
-                  {hours.map(h => {
-                    const block = getBlockForCell(d, h);
-                    if (block) {
-                      return (
-                        <div
-                          key={h}
-                          style={{ height: CELL_H, backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, hsl(var(--border)) 4px, hsl(var(--border)) 5px)" }}
-                          className="border-b border-l border-border p-1.5 text-xs bg-muted text-muted-foreground group relative"
-                        >
-                          <div className="truncate">{block.label}</div>
-                          {block.recurring && (
-                            <button
-                              onClick={() => { if (confirm(`Liberar este horário em ${format(d, "dd/MM")}? A regra recorrente continua valendo nas outras semanas.`)) skipRecurringForDay(block.blockId!, d); }}
-                              className="absolute inset-0 opacity-0 hover:opacity-100 hover:bg-background/80 flex items-center justify-center text-[10px] text-destructive font-medium"
-                              title="Liberar somente este dia"
-                            >Liberar este dia</button>
-                          )}
-                        </div>
-                      );
-                    }
-                    const cellStart = new Date(d); cellStart.setHours(h, 0, 0, 0);
-                    return (
-                      <button
-                        key={h}
-                        style={{ height: CELL_H }}
-                        onClick={() => { setEditing(null); setSlotStart(cellStart); setDlgOpen(true); }}
-                        className="w-full border-b border-l border-border p-1.5 text-xs hover:bg-accent group"
-                      >
-                        <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />
-                      </button>
-                    );
-                  })}
-
-                  {/* absolute-positioned lessons overlay */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <div className="relative w-full h-full">
-                      {dayLessons.map(l => {
-                        const lay = layout[l.id] ?? { col: 0, cols: 1 };
-                        return (
-                          <div key={l.id} className="pointer-events-auto">
-                            {renderLesson(l, d, lay.col, lay.cols)}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+        {/* Desktop/tablet: full week grid */}
+        <div className="hidden md:block overflow-x-auto">
+          <div className="min-w-[800px] flex">
+            {renderTimeGutter()}
+            {days.map(d => renderDayColumn(d))}
+          </div>
         </div>
       </div>
       )}
