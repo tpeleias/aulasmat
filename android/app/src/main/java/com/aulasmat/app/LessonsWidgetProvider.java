@@ -1,12 +1,15 @@
 package com.aulasmat.app;
 
+import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.os.SystemClock;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -18,6 +21,7 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
     private static final int MAX_ROWS = 4;
     private static final String PREFS_GROUP = "AulasMatPrefs";
     private static final String PREFS_KEY = "upcoming_lessons_widget";
+    private static final long REFRESH_INTERVAL_MILLIS = 30 * 60 * 1000L;
 
     private static final int[] ROW_CONTAINER_IDS = { R.id.row1_container, R.id.row2_container, R.id.row3_container, R.id.row4_container };
     private static final int[] ROW_TIME_IDS = { R.id.row1_time, R.id.row2_time, R.id.row3_time, R.id.row4_time };
@@ -29,6 +33,44 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
         for (int appWidgetId : appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId);
         }
+    }
+
+    @Override
+    public void onEnabled(Context context) {
+        // updatePeriodicMillis in the widget's XML config fails to compile in this
+        // project's toolchain, so periodic refresh is scheduled here instead as a
+        // safety net independent of the app explicitly asking for a refresh.
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager != null) {
+            alarmManager.setInexactRepeating(
+                AlarmManager.ELAPSED_REALTIME,
+                SystemClock.elapsedRealtime() + REFRESH_INTERVAL_MILLIS,
+                REFRESH_INTERVAL_MILLIS,
+                getRefreshPendingIntent(context)
+            );
+        }
+    }
+
+    @Override
+    public void onDisabled(Context context) {
+        AlarmManager alarmManager = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
+        if (alarmManager != null) {
+            alarmManager.cancel(getRefreshPendingIntent(context));
+        }
+    }
+
+    private PendingIntent getRefreshPendingIntent(Context context) {
+        Intent intent = new Intent(context, LessonsWidgetProvider.class);
+        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        ComponentName component = new ComponentName(context, LessonsWidgetProvider.class);
+        int[] ids = AppWidgetManager.getInstance(context).getAppWidgetIds(component);
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+        return PendingIntent.getBroadcast(
+            context,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 
     private void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
