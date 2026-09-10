@@ -356,10 +356,12 @@ export default function CalendarPage() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">{l.student_name}</div>
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {l.subject ?? "—"} · {l.duration_minutes}min
-                                  {l.is_online ? " · on-line" : l.address ? ` · ${l.address}` : ""}
+                                <div className="text-xs text-muted-foreground">
+                                  {l.subject ?? "—"} · {l.duration_minutes}min{l.is_online ? " · on-line" : ""}
                                 </div>
+                                {!l.is_online && l.address && (
+                                  <div className="text-xs text-muted-foreground break-words">{l.address}</div>
+                                )}
                               </div>
                             </div>
                           </button>
