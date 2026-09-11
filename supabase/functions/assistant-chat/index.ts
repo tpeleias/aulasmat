@@ -21,11 +21,24 @@ function teacherSlug(name: string) {
 const tools = [
   {
     name: "find_students",
-    description: "Busca alunos pelo nome (do aluno ou do responsável). Use antes de criar/editar uma aula quando o nome não for exato, para confirmar qual aluno é.",
+    description: "Busca alunos já cadastrados pelo nome (do aluno ou do responsável). OBRIGATÓRIO chamar antes de create_lesson ou de update_lesson que troque o aluno — nunca crie uma aula usando um nome digitado pelo usuário sem antes checar aqui se já existe um cadastro parecido.",
     input_schema: {
       type: "object",
-      properties: { query: { type: "string", description: "Parte do nome do aluno ou responsável" } },
+      properties: { query: { type: "string", description: "Parte do nome do aluno ou responsável (ex: só o primeiro nome, para pegar variações/apelidos)" } },
       required: ["query"],
+    },
+  },
+  {
+    name: "create_student",
+    description: "Cadastra um novo aluno. Só chame depois de já ter usado find_students e confirmado com o usuário que é de fato um aluno novo (não um cadastro existente com nome parecido).",
+    input_schema: {
+      type: "object",
+      properties: {
+        student_name: { type: "string" },
+        guardian_name: { type: "string", description: "Nome do responsável, se houver" },
+        address: { type: "string" },
+      },
+      required: ["student_name"],
     },
   },
   {
@@ -186,6 +199,15 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       if (error) throw error;
       return data;
     }
+    case "create_student": {
+      const { data, error } = await admin.from("students").insert({
+        student_name: input.student_name,
+        guardian_name: input.guardian_name ?? null,
+        address: input.address ?? null,
+      }).select().single();
+      if (error) throw error;
+      return data;
+    }
     case "list_teachers": {
       const { data, error } = await admin.from("teachers").select("name, active").eq("active", true);
       if (error) throw error;
@@ -331,10 +353,16 @@ Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpreta
 Regras importantes:
 - Preço e duração padrão: toda aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Nunca invente um valor diferente de 220/hora por conta própria.
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
-- Se o nome de um aluno ou professor estiver ambíguo, use find_students / list_teachers para confirmar antes de agir.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
 - Ao criar uma aula, um débito na carteira do aluno/responsável é criado automaticamente pelo valor da aula - não é preciso registrar isso manualmente.
-- Seja direto e conciso nas respostas, em português do Brasil.`;
+- Seja direto e conciso nas respostas, em português do Brasil.
+
+Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou editar uma aula):
+1. Sempre chame find_students com o nome (ou parte dele, ex: só o primeiro nome) que o usuário mencionou — mesmo que pareça óbvio ou exato. Nomes digitados por voz/mensagem frequentemente vêm incompletos ou abreviados (ex: usuário diz "Testinho", cadastro é "Testinho Jr").
+2. Resultado com exatamente 1 aluno cujo nome bate (igual, abreviado ou variação clara do que foi dito): use o student_name e guardian_name EXATOS como estão cadastrados (não o texto que o usuário digitou). Mencione isso ao confirmar (ex: "vou marcar com o Testinho Jr, é esse?").
+3. Resultado com 2 ou mais alunos que podem corresponder (ex: dois "Miguel"): PARE e pergunte ao usuário qual deles é, listando nome + responsável de cada opção. Não crie nem edite nada até a resposta.
+4. Resultado vazio (nenhum cadastro parecido): avise o usuário que não achou esse aluno cadastrado e pergunte se é um aluno novo. Se ele confirmar que sim, colete os dados (nome completo, responsável se houver) e chame create_student antes de criar a aula. Nunca cadastre um aluno novo sem confirmação explícita — pode ser só um erro de digitação de um aluno que já existe.
+5. Nunca chame create_lesson ou update_lesson (trocando aluno) usando um nome que não veio de find_students (já existente) ou de create_student (recém-criado).`;
 
     let convo = [...messages];
     let finalText = "";
