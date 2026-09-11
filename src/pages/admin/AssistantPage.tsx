@@ -1,11 +1,14 @@
 import { useRef, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
 
 type ChatMessage = { role: "user" | "model" | "function"; parts: any[] };
+
+const STORAGE_KEY = "assistant_chat_messages";
 
 function displayText(parts: any[]): string {
   if (!Array.isArray(parts)) return "";
@@ -15,8 +18,29 @@ function displayText(parts: any[]): string {
     .join("\n");
 }
 
+function loadStoredMessages(): ChatMessage[] {
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function extractErrorMessage(e: any): Promise<string> {
+  if (e instanceof FunctionsHttpError) {
+    try {
+      const body = await e.context.json();
+      if (body?.error) return body.error;
+    } catch {
+      // context wasn't JSON - fall through to generic message
+    }
+  }
+  return e?.message ?? "Erro ao falar com o assistente.";
+}
+
 export default function AssistantPage() {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +49,14 @@ export default function AssistantPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, busy]);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch {
+      // storage full/unavailable - conversation just won't persist across tabs
+    }
+  }, [messages]);
 
   const send = async () => {
     const text = input.trim();
@@ -42,10 +74,15 @@ export default function AssistantPage() {
       if (data?.error) throw new Error(data.error);
       setMessages(data.messages as ChatMessage[]);
     } catch (e: any) {
-      setError(e?.message ?? "Erro ao falar com o assistente.");
+      setError(await extractErrorMessage(e));
     } finally {
       setBusy(false);
     }
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    setError(null);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -59,11 +96,18 @@ export default function AssistantPage() {
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">Assistente</h1>
-        <p className="text-sm text-muted-foreground">
-          Converse pra marcar aulas, editar, registrar pagamentos e consultar o financeiro.
-        </p>
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Assistente</h1>
+          <p className="text-sm text-muted-foreground">
+            Converse pra marcar aulas, editar, registrar pagamentos e consultar o financeiro.
+          </p>
+        </div>
+        {messages.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={clearChat} className="shrink-0">
+            Limpar
+          </Button>
+        )}
       </div>
 
       <ScrollArea className="flex-1 rounded-xl border border-border bg-card p-4">

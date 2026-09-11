@@ -358,7 +358,16 @@ Regras importantes:
 
       const result = await resp.json();
       const candidate = result.candidates?.[0];
-      const parts = candidate?.content?.parts ?? [];
+
+      if (!candidate) {
+        const reason = result.promptFeedback?.blockReason ?? "desconhecido";
+        return json({ error: `O Gemini não retornou resposta (motivo: ${reason}). Tente reformular a mensagem.` }, 502);
+      }
+
+      const parts = candidate.content?.parts ?? [];
+      if (candidate.finishReason && candidate.finishReason !== "STOP" && parts.length === 0) {
+        return json({ error: `Resposta interrompida pelo Gemini (motivo: ${candidate.finishReason}). Tente reformular a mensagem.` }, 502);
+      }
       convo.push({ role: "model", parts });
 
       const functionCalls = parts.filter((p: any) => p.functionCall);
