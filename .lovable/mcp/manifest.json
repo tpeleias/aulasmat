@@ -1,0 +1,394 @@
+{
+  "version": 1,
+  "sdk_version": "2.0.4",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://htjvaozfovfiotvkmgsx.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "site-aulas",
+      "version": "0.1.0",
+      "title": "Site - Aulas"
+    },
+    "tools": [
+      {
+        "name": "list_students",
+        "title": "Listar alunos",
+        "description": "Lista os alunos visíveis para o usuário conectado, com filtro opcional por nome.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "query": {
+              "description": "Parte do nome do aluno ou responsável.",
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_teachers",
+        "title": "Listar professores",
+        "description": "Lista os professores ativos e seus identificadores de agenda.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_lessons",
+        "title": "Consultar aulas",
+        "description": "Consulta aulas visíveis ao usuário conectado dentro de um período.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Data/hora inicial em ISO 8601."
+            },
+            "to": {
+              "type": "string",
+              "description": "Data/hora final em ISO 8601."
+            },
+            "studentName": {
+              "type": "string"
+            },
+            "teacher": {
+              "description": "Identificador do professor, como thiago ou mayara.",
+              "type": "string"
+            },
+            "status": {
+              "description": "Situação da aula, como agendada, realizada ou cancelada.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "from",
+            "to"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_lesson",
+        "title": "Criar aula",
+        "description": "Cria uma aula após o usuário confirmar aluno, professor, horário, duração e valor por hora.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "studentName": {
+              "type": "string"
+            },
+            "guardianName": {
+              "type": "string"
+            },
+            "teacher": {
+              "type": "string"
+            },
+            "startAt": {
+              "type": "string"
+            },
+            "durationMinutes": {
+              "type": "number"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "hourlyPrice": {
+              "type": "number"
+            },
+            "packageType": {
+              "type": "string"
+            },
+            "isOnline": {
+              "type": "boolean"
+            },
+            "address": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "studentName",
+            "teacher",
+            "startAt",
+            "durationMinutes",
+            "hourlyPrice"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "update_lesson",
+        "title": "Atualizar aula",
+        "description": "Atualiza os campos informados de uma aula existente após confirmação do usuário.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "lessonId": {
+              "type": "string"
+            },
+            "studentName": {
+              "type": "string"
+            },
+            "guardianName": {
+              "type": "string"
+            },
+            "teacher": {
+              "type": "string"
+            },
+            "startAt": {
+              "type": "string"
+            },
+            "durationMinutes": {
+              "type": "number"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "hourlyPrice": {
+              "type": "number"
+            },
+            "isOnline": {
+              "type": "boolean"
+            },
+            "address": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string"
+            },
+            "paymentStatus": {
+              "type": "string"
+            },
+            "notes": {
+              "type": "string"
+            },
+            "classSummary": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "lessonId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "delete_lesson",
+        "title": "Excluir aula",
+        "description": "Exclui definitivamente uma aula após confirmação explícita do usuário.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "lessonId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "lessonId"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_wallet_balance",
+        "title": "Consultar saldo",
+        "description": "Consulta saldo e lançamentos financeiros visíveis ao usuário conectado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "studentName": {
+              "type": "string"
+            },
+            "guardianName": {
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "add_wallet_credit",
+        "title": "Registrar crédito",
+        "description": "Registra um pagamento ou ajuste positivo após confirmação do usuário.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "studentName": {
+              "type": "string"
+            },
+            "guardianName": {
+              "type": "string"
+            },
+            "amount": {
+              "type": "number"
+            },
+            "kind": {
+              "type": "string"
+            },
+            "description": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "studentName",
+            "amount"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_blocks",
+        "title": "Consultar bloqueios",
+        "description": "Lista os bloqueios de agenda visíveis ao usuário conectado.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "teacher": {
+              "type": "string"
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "create_block",
+        "title": "Criar bloqueio",
+        "description": "Cria uma indisponibilidade pontual ou recorrente após confirmação do usuário.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "teacher": {
+              "type": "string"
+            },
+            "title": {
+              "type": "string"
+            },
+            "blockType": {
+              "type": "string"
+            },
+            "weekday": {
+              "type": "number"
+            },
+            "startTime": {
+              "type": "string"
+            },
+            "endTime": {
+              "type": "string"
+            },
+            "startAt": {
+              "type": "string"
+            },
+            "endAt": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "teacher",
+            "title",
+            "blockType"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "delete_block",
+        "title": "Excluir bloqueio",
+        "description": "Exclui um bloqueio de agenda após confirmação explícita do usuário.",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
+          "type": "object",
+          "properties": {
+            "blockId": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "blockId"
+          ]
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

@@ -27,6 +27,7 @@ import StudentBooking from "./pages/student/StudentBooking";
 import ChangePassword from "./pages/student/ChangePassword";
 import ChildLayout from "./components/ChildLayout";
 import ChildDashboard from "./pages/child/ChildDashboard";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const queryClient = new QueryClient();
 
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<CalendarPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />
