@@ -5,7 +5,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const CLAUDE_MODEL = "claude-sonnet-5";
+const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOOL_ITERATIONS = 8;
 
 const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
@@ -16,33 +17,33 @@ function teacherSlug(name: string) {
     .toLowerCase().trim().replace(/\s+/g, "-");
 }
 
-// ---- Tool definitions (Gemini functionDeclarations schema - OpenAPI subset, UPPERCASE types) ----
-const functionDeclarations = [
+// ---- Tool definitions (Claude Messages API tool schema - JSON Schema input_schema) ----
+const tools = [
   {
     name: "find_students",
     description: "Busca alunos pelo nome (do aluno ou do responsável). Use antes de criar/editar uma aula quando o nome não for exato, para confirmar qual aluno é.",
-    parameters: {
-      type: "OBJECT",
-      properties: { query: { type: "STRING", description: "Parte do nome do aluno ou responsável" } },
+    input_schema: {
+      type: "object",
+      properties: { query: { type: "string", description: "Parte do nome do aluno ou responsável" } },
       required: ["query"],
     },
   },
   {
     name: "list_teachers",
     description: "Lista os professores ativos. Retorna nome e o 'slug' que deve ser usado no campo teacher das outras ferramentas.",
-    parameters: { type: "OBJECT", properties: {} },
+    input_schema: { type: "object", properties: {} },
   },
   {
     name: "list_lessons",
     description: "Lista aulas dentro de um período, opcionalmente filtrando por aluno, professor ou status.",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        from: { type: "STRING", description: "Data/hora ISO 8601 inicial (inclusive)" },
-        to: { type: "STRING", description: "Data/hora ISO 8601 final (exclusive)" },
-        student_name: { type: "STRING" },
-        teacher: { type: "STRING", description: "Slug do professor (ex: thiago, mayara)" },
-        status: { type: "STRING", enum: ["agendada", "cancelada", "realizada"] },
+        from: { type: "string", description: "Data/hora ISO 8601 inicial (inclusive)" },
+        to: { type: "string", description: "Data/hora ISO 8601 final (exclusive)" },
+        student_name: { type: "string" },
+        teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
+        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
       },
       required: ["from", "to"],
     },
@@ -50,20 +51,20 @@ const functionDeclarations = [
   {
     name: "create_lesson",
     description: "Cria uma nova aula agendada. Um lançamento de débito na carteira do aluno/responsável é criado automaticamente. Antes de chamar, confirme com o usuário o resumo da aula (aluno, data/hora, professor, valor).",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        student_name: { type: "STRING" },
-        guardian_name: { type: "STRING", description: "Nome do responsável, se houver (usado para agrupar a carteira)" },
-        teacher: { type: "STRING", description: "Slug do professor (ex: thiago, mayara)" },
-        start_at: { type: "STRING", description: "Data/hora ISO 8601 de início" },
-        duration_minutes: { type: "NUMBER", description: "Padrão 60 se não especificado" },
-        subject: { type: "STRING", description: "Ex: Matemática, Química, Ciências" },
-        price: { type: "NUMBER", description: "Valor da aula em reais" },
-        package_type: { type: "STRING", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
-        is_online: { type: "BOOLEAN", description: "Padrão false" },
-        address: { type: "STRING", description: "Endereço da aula presencial (com complemento/apto se houver)" },
-        notes: { type: "STRING" },
+        student_name: { type: "string" },
+        guardian_name: { type: "string", description: "Nome do responsável, se houver (usado para agrupar a carteira)" },
+        teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
+        start_at: { type: "string", description: "Data/hora ISO 8601 de início" },
+        duration_minutes: { type: "number", description: "Padrão 60 se não especificado" },
+        subject: { type: "string", description: "Ex: Matemática, Química, Ciências" },
+        price: { type: "number", description: "Valor da aula em reais" },
+        package_type: { type: "string", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
+        is_online: { type: "boolean", description: "Padrão false" },
+        address: { type: "string", description: "Endereço da aula presencial (com complemento/apto se houver)" },
+        notes: { type: "string" },
       },
       required: ["student_name", "teacher", "start_at", "duration_minutes", "price"],
     },
@@ -71,21 +72,21 @@ const functionDeclarations = [
   {
     name: "update_lesson",
     description: "Edita uma aula existente. Envie apenas os campos que devem mudar. Confirme com o usuário antes de chamar.",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        lesson_id: { type: "STRING" },
-        student_name: { type: "STRING" },
-        guardian_name: { type: "STRING" },
-        teacher: { type: "STRING" },
-        start_at: { type: "STRING" },
-        duration_minutes: { type: "NUMBER" },
-        subject: { type: "STRING" },
-        price: { type: "NUMBER" },
-        is_online: { type: "BOOLEAN" },
-        address: { type: "STRING" },
-        status: { type: "STRING", enum: ["agendada", "cancelada", "realizada"] },
-        notes: { type: "STRING" },
+        lesson_id: { type: "string" },
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
+        teacher: { type: "string" },
+        start_at: { type: "string" },
+        duration_minutes: { type: "number" },
+        subject: { type: "string" },
+        price: { type: "number" },
+        is_online: { type: "boolean" },
+        address: { type: "string" },
+        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
+        notes: { type: "string" },
       },
       required: ["lesson_id"],
     },
@@ -93,34 +94,34 @@ const functionDeclarations = [
   {
     name: "delete_lesson",
     description: "Exclui definitivamente uma aula (e o lançamento de débito correspondente na carteira). Sempre confirme com o usuário antes de chamar - ação irreversível.",
-    parameters: {
-      type: "OBJECT",
-      properties: { lesson_id: { type: "STRING" } },
+    input_schema: {
+      type: "object",
+      properties: { lesson_id: { type: "string" } },
       required: ["lesson_id"],
     },
   },
   {
     name: "get_wallet_balance",
     description: "Consulta o saldo da carteira de um aluno/responsável e seus últimos lançamentos.",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        student_name: { type: "STRING" },
-        guardian_name: { type: "STRING" },
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
       },
     },
   },
   {
     name: "add_wallet_credit",
     description: "Registra um pagamento/crédito na carteira (pacote de aulas ou ajuste manual). Confirme valor e conta com o usuário antes de chamar.",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        student_name: { type: "STRING" },
-        guardian_name: { type: "STRING" },
-        amount: { type: "NUMBER", description: "Valor positivo em reais" },
-        kind: { type: "STRING", enum: ["package", "adjustment"], description: "Padrão package" },
-        description: { type: "STRING" },
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
+        amount: { type: "number", description: "Valor positivo em reais" },
+        kind: { type: "string", enum: ["package", "adjustment"], description: "Padrão package" },
+        description: { type: "string" },
       },
       required: ["student_name", "amount"],
     },
@@ -128,11 +129,11 @@ const functionDeclarations = [
   {
     name: "mark_lesson_paid",
     description: "Marca uma aula como paga. Se via_package=false (padrão), também credita o valor na carteira (pagamento avulso). Se via_package=true, apenas marca como paga sem mexer no saldo (porque já foi pago via pacote antes).",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        lesson_id: { type: "STRING" },
-        via_package: { type: "BOOLEAN", description: "Padrão false" },
+        lesson_id: { type: "string" },
+        via_package: { type: "boolean", description: "Padrão false" },
       },
       required: ["lesson_id"],
     },
@@ -140,25 +141,25 @@ const functionDeclarations = [
   {
     name: "list_blocks",
     description: "Lista bloqueios de horário (indisponibilidade) de um professor.",
-    parameters: {
-      type: "OBJECT",
-      properties: { teacher: { type: "STRING", description: "Slug do professor" } },
+    input_schema: {
+      type: "object",
+      properties: { teacher: { type: "string", description: "Slug do professor" } },
     },
   },
   {
     name: "create_block",
     description: "Cria um bloqueio de horário (indisponibilidade). Recorrente (toda semana no mesmo dia/horário) ou pontual (uma data específica). Confirme com o usuário antes de chamar.",
-    parameters: {
-      type: "OBJECT",
+    input_schema: {
+      type: "object",
       properties: {
-        teacher: { type: "STRING", description: "Slug do professor, ou 'both' para ambos" },
-        title: { type: "STRING" },
-        block_type: { type: "STRING", enum: ["recurring", "one_off"] },
-        weekday: { type: "NUMBER", description: "0=domingo ... 6=sábado, obrigatório se recurring" },
-        start_time: { type: "STRING", description: "HH:MM, obrigatório se recurring" },
-        end_time: { type: "STRING", description: "HH:MM, obrigatório se recurring" },
-        start_at: { type: "STRING", description: "ISO 8601, obrigatório se one_off" },
-        end_at: { type: "STRING", description: "ISO 8601, obrigatório se one_off" },
+        teacher: { type: "string", description: "Slug do professor, ou 'both' para ambos" },
+        title: { type: "string" },
+        block_type: { type: "string", enum: ["recurring", "one_off"] },
+        weekday: { type: "number", description: "0=domingo ... 6=sábado, obrigatório se recurring" },
+        start_time: { type: "string", description: "HH:MM, obrigatório se recurring" },
+        end_time: { type: "string", description: "HH:MM, obrigatório se recurring" },
+        start_at: { type: "string", description: "ISO 8601, obrigatório se one_off" },
+        end_at: { type: "string", description: "ISO 8601, obrigatório se one_off" },
       },
       required: ["teacher", "title", "block_type"],
     },
@@ -166,9 +167,9 @@ const functionDeclarations = [
   {
     name: "delete_block",
     description: "Remove um bloqueio de horário.",
-    parameters: {
-      type: "OBJECT",
-      properties: { block_id: { type: "STRING" } },
+    input_schema: {
+      type: "object",
+      properties: { block_id: { type: "string" } },
       required: ["block_id"],
     },
   },
@@ -305,9 +306,9 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const geminiKey = Deno.env.get("GEMINI_API_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!geminiKey) return json({ error: "GEMINI_API_KEY não configurada nas secrets da função." }, 500);
+    if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY não configurada nas secrets da função." }, 500);
 
     const userClient = createClient(url, anonKey, { global: { headers: { Authorization: auth } } });
     const { data: { user }, error: uErr } = await userClient.auth.getUser();
@@ -317,7 +318,7 @@ Deno.serve(async (req) => {
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
 
-    // `contents` in Gemini's own wire format: [{ role: "user"|"model"|"function", parts: [...] }]
+    // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
     const { messages } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
 
@@ -338,55 +339,54 @@ Regras importantes:
     let finalText = "";
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const resp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            system_instruction: { parts: [{ text: systemPrompt }] },
-            contents: convo,
-            tools: [{ functionDeclarations }],
-          }),
+      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": ANTHROPIC_VERSION,
         },
-      );
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 4096,
+          system: systemPrompt,
+          messages: convo,
+          tools,
+          output_config: { effort: "low" },
+        }),
+      });
 
       if (!resp.ok) {
         const errBody = await resp.text();
-        return json({ error: `Erro da API do Gemini: ${resp.status} ${errBody}` }, 502);
+        return json({ error: `Erro da API da Claude: ${resp.status} ${errBody}` }, 502);
       }
 
       const result = await resp.json();
-      const candidate = result.candidates?.[0];
 
-      if (!candidate) {
-        const reason = result.promptFeedback?.blockReason ?? "desconhecido";
-        return json({ error: `O Gemini não retornou resposta (motivo: ${reason}). Tente reformular a mensagem.` }, 502);
+      if (result.stop_reason === "refusal") {
+        const reason = result.stop_details?.category ?? "desconhecido";
+        return json({ error: `A Claude recusou a resposta (motivo: ${reason}). Tente reformular a mensagem.` }, 502);
       }
 
-      const parts = candidate.content?.parts ?? [];
-      if (candidate.finishReason && candidate.finishReason !== "STOP" && parts.length === 0) {
-        return json({ error: `Resposta interrompida pelo Gemini (motivo: ${candidate.finishReason}). Tente reformular a mensagem.` }, 502);
-      }
-      convo.push({ role: "model", parts });
+      const content = result.content ?? [];
+      convo.push({ role: "assistant", content });
 
-      const functionCalls = parts.filter((p: any) => p.functionCall);
-      if (functionCalls.length === 0) {
-        finalText = parts.filter((p: any) => typeof p.text === "string").map((p: any) => p.text).join("\n");
+      const toolUses = content.filter((b: any) => b.type === "tool_use");
+      if (result.stop_reason !== "tool_use" || toolUses.length === 0) {
+        finalText = content.filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n");
         break;
       }
 
-      const functionResponseParts = [];
-      for (const p of functionCalls) {
-        const { name, args } = p.functionCall;
+      const toolResults = [];
+      for (const block of toolUses) {
         try {
-          const output = await executeTool(admin, name, args ?? {});
-          functionResponseParts.push({ functionResponse: { name, response: { name, content: output } } });
+          const output = await executeTool(admin, block.name, block.input ?? {});
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(output) });
         } catch (e: any) {
-          functionResponseParts.push({ functionResponse: { name, response: { name, content: { error: String(e?.message ?? e) } } } });
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ error: String(e?.message ?? e) }), is_error: true });
         }
       }
-      convo.push({ role: "function", parts: functionResponseParts });
+      convo.push({ role: "user", content: toolResults });
     }
 
     return json({ reply: finalText, messages: convo });

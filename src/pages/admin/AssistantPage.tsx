@@ -6,15 +6,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
 
-type ChatMessage = { role: "user" | "model" | "function"; parts: any[] };
+type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
 const STORAGE_KEY = "assistant_chat_messages";
 
-function displayText(parts: any[]): string {
-  if (!Array.isArray(parts)) return "";
-  return parts
-    .filter((p) => typeof p?.text === "string")
-    .map((p) => p.text)
+function displayText(content: any[]): string {
+  if (!Array.isArray(content)) return "";
+  return content
+    .filter((b) => b?.type === "text" && typeof b.text === "string")
+    .map((b) => b.text)
     .join("\n");
 }
 
@@ -63,7 +63,7 @@ export default function AssistantPage() {
     if (!text || busy) return;
     setError(null);
     setInput("");
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", parts: [{ text }] }];
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: [{ type: "text", text }] }];
     setMessages(nextMessages);
     setBusy(true);
     try {
@@ -92,7 +92,7 @@ export default function AssistantPage() {
     }
   };
 
-  const visibleMessages = messages.filter((m) => displayText(m.parts).trim().length > 0);
+  const visibleMessages = messages.filter((m) => displayText(m.content).trim().length > 0);
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
@@ -130,7 +130,7 @@ export default function AssistantPage() {
                     m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
                 >
-                  {displayText(m.parts)}
+                  {displayText(m.content)}
                 </div>
                 {m.role === "user" && (
                   <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center">
