@@ -1,25 +1,28 @@
-# Plano: Integrações com agentes (MCP)
+# Plano: Trocar Lovable Cloud pelo Supabase externo
 
-## O que será criado
+## Estado confirmado
 
-- Um servidor MCP protegido por login para o **Site - Aulas**.
-- Ferramentas para consultar alunos, professores, aulas, bloqueios e cobranças.
-- Ferramentas administrativas para criar/editar aulas, registrar pagamentos e gerenciar bloqueios, respeitando as permissões já existentes.
-- Uma tela segura de autorização para conectar ChatGPT, Claude, Lovable e outros clientes compatíveis.
+O app aponta atualmente para o projeto gerenciado pelo Lovable Cloud nas três configurações de conexão do frontend. O projeto externo informado tem outro identificador, URL e chave pública.
 
-## Arquivos e áreas afetadas
+## Troca de conexão
 
-- `src/lib/mcp/tools/*`: uma ferramenta MCP por arquivo.
-- `src/lib/mcp/index.ts`: catálogo e proteção OAuth do servidor.
-- `src/lib/mcp/supabase.ts`: acesso ao banco usando a identidade conectada.
-- `src/pages/OAuthConsent.tsx`: aprovação ou recusa da conexão.
-- `src/App.tsx` e `src/pages/Auth.tsx`: rota de autorização e retorno correto após login.
-- `vite.config.ts` e dependências: geração automática da função MCP.
-- `supabase/functions/mcp/index.ts`: arquivo gerado e publicado automaticamente.
+1. Desconectar o Lovable Cloud atual em **Cloud → Advanced → Disconnect**.
+2. Autorizar a conexão com sua conta Supabase pela interface do editor e selecionar exatamente o projeto `dqfzuviwejlobrwebyum`.
+3. Confirmar que a integração atualizou a URL, a chave pública e o identificador usados pelo app.
+4. Não executar migrations, comandos SQL, cópias de dados ou deploys de funções.
+5. Validar somente leitura e autenticação: abrir o app, entrar com uma conta existente e conferir uma consulta simples já suportada pelo schema externo.
 
-## Segurança e validação
+## Credenciais
 
-- Cada chamada será autenticada; nenhuma ferramenta usará acesso administrativo oculto.
-- As regras de acesso do banco continuarão valendo para o usuário conectado.
-- Ações destrutivas serão identificadas para que o agente solicite confirmação.
-- O catálogo MCP será validado, a função será publicada e o endpoint será testado.
+- A chave pública fornecida é suficiente para o frontend.
+- Não será solicitada nem usada a `service_role` nesta troca, pois não haverá operação administrativa direta no banco nem deploy de função.
+- A autorização da sua conta Supabase será feita pela interface do editor; nenhuma credencial privada será colocada no código.
+
+## Limite de escopo
+
+- Nenhum schema, dado, trigger, função, cron job, política ou Edge Function será criado, alterado ou sobrescrito.
+- A implementação das integrações MCP fica pausada até a nova conexão estar validada.
+
+## Aviso obrigatório
+
+Desconectar o Lovable Cloud é irreversível e apaga permanentemente os dados, arquivos e funções hospedados na instância gerenciada atual. O processo só deve avançar após confirmar que o projeto externo contém a cópia completa e operacional.
