@@ -5,17 +5,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
 
-type ChatMessage = { role: "user" | "assistant"; content: any };
+type ChatMessage = { role: "user" | "model" | "function"; parts: any[] };
 
-function displayText(content: any): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) {
-    return content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("\n");
-  }
-  return "";
+function displayText(parts: any[]): string {
+  if (!Array.isArray(parts)) return "";
+  return parts
+    .filter((p) => typeof p?.text === "string")
+    .map((p) => p.text)
+    .join("\n");
 }
 
 export default function AssistantPage() {
@@ -34,7 +31,7 @@ export default function AssistantPage() {
     if (!text || busy) return;
     setError(null);
     setInput("");
-    const nextMessages: ChatMessage[] = [...messages, { role: "user", content: text }];
+    const nextMessages: ChatMessage[] = [...messages, { role: "user", parts: [{ text }] }];
     setMessages(nextMessages);
     setBusy(true);
     try {
@@ -58,7 +55,7 @@ export default function AssistantPage() {
     }
   };
 
-  const visibleMessages = messages.filter((m) => displayText(m.content).trim().length > 0);
+  const visibleMessages = messages.filter((m) => displayText(m.parts).trim().length > 0);
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
@@ -79,7 +76,7 @@ export default function AssistantPage() {
           <div className="space-y-4">
             {visibleMessages.map((m, i) => (
               <div key={i} className={`flex gap-2 ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                {m.role === "assistant" && (
+                {m.role !== "user" && (
                   <div className="shrink-0 w-7 h-7 rounded-full bg-primary/15 flex items-center justify-center">
                     <Bot className="w-4 h-4 text-primary" />
                   </div>
@@ -89,7 +86,7 @@ export default function AssistantPage() {
                     m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
                 >
-                  {displayText(m.content)}
+                  {displayText(m.parts)}
                 </div>
                 {m.role === "user" && (
                   <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center">

@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ANTHROPIC_MODEL = "claude-opus-5";
+const GEMINI_MODEL = "gemini-2.5-flash";
 const MAX_TOOL_ITERATIONS = 8;
 
 const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
@@ -16,33 +16,33 @@ function teacherSlug(name: string) {
     .toLowerCase().trim().replace(/\s+/g, "-");
 }
 
-// ---- Tool definitions (Anthropic Messages API tool schema) ----
-const tools = [
+// ---- Tool definitions (Gemini functionDeclarations schema - OpenAPI subset, UPPERCASE types) ----
+const functionDeclarations = [
   {
     name: "find_students",
     description: "Busca alunos pelo nome (do aluno ou do responsável). Use antes de criar/editar uma aula quando o nome não for exato, para confirmar qual aluno é.",
-    input_schema: {
-      type: "object",
-      properties: { query: { type: "string", description: "Parte do nome do aluno ou responsável" } },
+    parameters: {
+      type: "OBJECT",
+      properties: { query: { type: "STRING", description: "Parte do nome do aluno ou responsável" } },
       required: ["query"],
     },
   },
   {
     name: "list_teachers",
     description: "Lista os professores ativos. Retorna nome e o 'slug' que deve ser usado no campo teacher das outras ferramentas.",
-    input_schema: { type: "object", properties: {}, required: [] },
+    parameters: { type: "OBJECT", properties: {} },
   },
   {
     name: "list_lessons",
     description: "Lista aulas dentro de um período, opcionalmente filtrando por aluno, professor ou status.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        from: { type: "string", description: "Data/hora ISO 8601 inicial (inclusive)" },
-        to: { type: "string", description: "Data/hora ISO 8601 final (exclusive)" },
-        student_name: { type: "string" },
-        teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
-        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
+        from: { type: "STRING", description: "Data/hora ISO 8601 inicial (inclusive)" },
+        to: { type: "STRING", description: "Data/hora ISO 8601 final (exclusive)" },
+        student_name: { type: "STRING" },
+        teacher: { type: "STRING", description: "Slug do professor (ex: thiago, mayara)" },
+        status: { type: "STRING", enum: ["agendada", "cancelada", "realizada"] },
       },
       required: ["from", "to"],
     },
@@ -50,20 +50,20 @@ const tools = [
   {
     name: "create_lesson",
     description: "Cria uma nova aula agendada. Um lançamento de débito na carteira do aluno/responsável é criado automaticamente. Antes de chamar, confirme com o usuário o resumo da aula (aluno, data/hora, professor, valor).",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        student_name: { type: "string" },
-        guardian_name: { type: "string", description: "Nome do responsável, se houver (usado para agrupar a carteira)" },
-        teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
-        start_at: { type: "string", description: "Data/hora ISO 8601 de início" },
-        duration_minutes: { type: "number", default: 60 },
-        subject: { type: "string", description: "Ex: Matemática, Química, Ciências" },
-        price: { type: "number", description: "Valor da aula em reais" },
-        package_type: { type: "string", enum: ["avulsa", "pacote"], default: "avulsa" },
-        is_online: { type: "boolean", default: false },
-        address: { type: "string", description: "Endereço da aula presencial (com complemento/apto se houver)" },
-        notes: { type: "string" },
+        student_name: { type: "STRING" },
+        guardian_name: { type: "STRING", description: "Nome do responsável, se houver (usado para agrupar a carteira)" },
+        teacher: { type: "STRING", description: "Slug do professor (ex: thiago, mayara)" },
+        start_at: { type: "STRING", description: "Data/hora ISO 8601 de início" },
+        duration_minutes: { type: "NUMBER", description: "Padrão 60 se não especificado" },
+        subject: { type: "STRING", description: "Ex: Matemática, Química, Ciências" },
+        price: { type: "NUMBER", description: "Valor da aula em reais" },
+        package_type: { type: "STRING", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
+        is_online: { type: "BOOLEAN", description: "Padrão false" },
+        address: { type: "STRING", description: "Endereço da aula presencial (com complemento/apto se houver)" },
+        notes: { type: "STRING" },
       },
       required: ["student_name", "teacher", "start_at", "duration_minutes", "price"],
     },
@@ -71,21 +71,21 @@ const tools = [
   {
     name: "update_lesson",
     description: "Edita uma aula existente. Envie apenas os campos que devem mudar. Confirme com o usuário antes de chamar.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        lesson_id: { type: "string" },
-        student_name: { type: "string" },
-        guardian_name: { type: "string" },
-        teacher: { type: "string" },
-        start_at: { type: "string" },
-        duration_minutes: { type: "number" },
-        subject: { type: "string" },
-        price: { type: "number" },
-        is_online: { type: "boolean" },
-        address: { type: "string" },
-        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
-        notes: { type: "string" },
+        lesson_id: { type: "STRING" },
+        student_name: { type: "STRING" },
+        guardian_name: { type: "STRING" },
+        teacher: { type: "STRING" },
+        start_at: { type: "STRING" },
+        duration_minutes: { type: "NUMBER" },
+        subject: { type: "STRING" },
+        price: { type: "NUMBER" },
+        is_online: { type: "BOOLEAN" },
+        address: { type: "STRING" },
+        status: { type: "STRING", enum: ["agendada", "cancelada", "realizada"] },
+        notes: { type: "STRING" },
       },
       required: ["lesson_id"],
     },
@@ -93,35 +93,34 @@ const tools = [
   {
     name: "delete_lesson",
     description: "Exclui definitivamente uma aula (e o lançamento de débito correspondente na carteira). Sempre confirme com o usuário antes de chamar - ação irreversível.",
-    input_schema: {
-      type: "object",
-      properties: { lesson_id: { type: "string" } },
+    parameters: {
+      type: "OBJECT",
+      properties: { lesson_id: { type: "STRING" } },
       required: ["lesson_id"],
     },
   },
   {
     name: "get_wallet_balance",
     description: "Consulta o saldo da carteira de um aluno/responsável e seus últimos lançamentos.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        student_name: { type: "string" },
-        guardian_name: { type: "string" },
+        student_name: { type: "STRING" },
+        guardian_name: { type: "STRING" },
       },
-      required: [],
     },
   },
   {
     name: "add_wallet_credit",
     description: "Registra um pagamento/crédito na carteira (pacote de aulas ou ajuste manual). Confirme valor e conta com o usuário antes de chamar.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        student_name: { type: "string" },
-        guardian_name: { type: "string" },
-        amount: { type: "number", description: "Valor positivo em reais" },
-        kind: { type: "string", enum: ["package", "adjustment"], default: "package" },
-        description: { type: "string" },
+        student_name: { type: "STRING" },
+        guardian_name: { type: "STRING" },
+        amount: { type: "NUMBER", description: "Valor positivo em reais" },
+        kind: { type: "STRING", enum: ["package", "adjustment"], description: "Padrão package" },
+        description: { type: "STRING" },
       },
       required: ["student_name", "amount"],
     },
@@ -129,11 +128,11 @@ const tools = [
   {
     name: "mark_lesson_paid",
     description: "Marca uma aula como paga. Se via_package=false (padrão), também credita o valor na carteira (pagamento avulso). Se via_package=true, apenas marca como paga sem mexer no saldo (porque já foi pago via pacote antes).",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        lesson_id: { type: "string" },
-        via_package: { type: "boolean", default: false },
+        lesson_id: { type: "STRING" },
+        via_package: { type: "BOOLEAN", description: "Padrão false" },
       },
       required: ["lesson_id"],
     },
@@ -141,26 +140,25 @@ const tools = [
   {
     name: "list_blocks",
     description: "Lista bloqueios de horário (indisponibilidade) de um professor.",
-    input_schema: {
-      type: "object",
-      properties: { teacher: { type: "string", description: "Slug do professor" } },
-      required: [],
+    parameters: {
+      type: "OBJECT",
+      properties: { teacher: { type: "STRING", description: "Slug do professor" } },
     },
   },
   {
     name: "create_block",
     description: "Cria um bloqueio de horário (indisponibilidade). Recorrente (toda semana no mesmo dia/horário) ou pontual (uma data específica). Confirme com o usuário antes de chamar.",
-    input_schema: {
-      type: "object",
+    parameters: {
+      type: "OBJECT",
       properties: {
-        teacher: { type: "string", description: "Slug do professor, ou 'both' para ambos" },
-        title: { type: "string" },
-        block_type: { type: "string", enum: ["recurring", "one_off"] },
-        weekday: { type: "number", description: "0=domingo ... 6=sábado, obrigatório se recurring" },
-        start_time: { type: "string", description: "HH:MM, obrigatório se recurring" },
-        end_time: { type: "string", description: "HH:MM, obrigatório se recurring" },
-        start_at: { type: "string", description: "ISO 8601, obrigatório se one_off" },
-        end_at: { type: "string", description: "ISO 8601, obrigatório se one_off" },
+        teacher: { type: "STRING", description: "Slug do professor, ou 'both' para ambos" },
+        title: { type: "STRING" },
+        block_type: { type: "STRING", enum: ["recurring", "one_off"] },
+        weekday: { type: "NUMBER", description: "0=domingo ... 6=sábado, obrigatório se recurring" },
+        start_time: { type: "STRING", description: "HH:MM, obrigatório se recurring" },
+        end_time: { type: "STRING", description: "HH:MM, obrigatório se recurring" },
+        start_at: { type: "STRING", description: "ISO 8601, obrigatório se one_off" },
+        end_at: { type: "STRING", description: "ISO 8601, obrigatório se one_off" },
       },
       required: ["teacher", "title", "block_type"],
     },
@@ -168,9 +166,9 @@ const tools = [
   {
     name: "delete_block",
     description: "Remove um bloqueio de horário.",
-    input_schema: {
-      type: "object",
-      properties: { block_id: { type: "string" } },
+    parameters: {
+      type: "OBJECT",
+      properties: { block_id: { type: "STRING" } },
       required: ["block_id"],
     },
   },
@@ -307,9 +305,9 @@ Deno.serve(async (req) => {
     const url = Deno.env.get("SUPABASE_URL")!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY");
 
-    if (!anthropicKey) return json({ error: "ANTHROPIC_API_KEY não configurada nas secrets da função." }, 500);
+    if (!geminiKey) return json({ error: "GEMINI_API_KEY não configurada nas secrets da função." }, 500);
 
     const userClient = createClient(url, anonKey, { global: { headers: { Authorization: auth } } });
     const { data: { user }, error: uErr } = await userClient.auth.getUser();
@@ -319,6 +317,7 @@ Deno.serve(async (req) => {
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
 
+    // `contents` in Gemini's own wire format: [{ role: "user"|"model"|"function", parts: [...] }]
     const { messages } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
 
@@ -339,46 +338,46 @@ Regras importantes:
     let finalText = "";
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": anthropicKey,
-          "anthropic-version": "2023-06-01",
+      const resp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${geminiKey}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            system_instruction: { parts: [{ text: systemPrompt }] },
+            contents: convo,
+            tools: [{ functionDeclarations }],
+          }),
         },
-        body: JSON.stringify({
-          model: ANTHROPIC_MODEL,
-          max_tokens: 4096,
-          system: systemPrompt,
-          messages: convo,
-          tools,
-        }),
-      });
+      );
 
       if (!resp.ok) {
         const errBody = await resp.text();
-        return json({ error: `Erro da API do Claude: ${resp.status} ${errBody}` }, 502);
+        return json({ error: `Erro da API do Gemini: ${resp.status} ${errBody}` }, 502);
       }
 
       const result = await resp.json();
-      convo.push({ role: "assistant", content: result.content });
+      const candidate = result.candidates?.[0];
+      const parts = candidate?.content?.parts ?? [];
+      convo.push({ role: "model", parts });
 
-      if (result.stop_reason !== "tool_use") {
-        finalText = (result.content ?? []).filter((b: any) => b.type === "text").map((b: any) => b.text).join("\n");
+      const functionCalls = parts.filter((p: any) => p.functionCall);
+      if (functionCalls.length === 0) {
+        finalText = parts.filter((p: any) => typeof p.text === "string").map((p: any) => p.text).join("\n");
         break;
       }
 
-      const toolUses = (result.content ?? []).filter((b: any) => b.type === "tool_use");
-      const toolResults = [];
-      for (const tu of toolUses) {
+      const functionResponseParts = [];
+      for (const p of functionCalls) {
+        const { name, args } = p.functionCall;
         try {
-          const output = await executeTool(admin, tu.name, tu.input);
-          toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: JSON.stringify(output) });
+          const output = await executeTool(admin, name, args ?? {});
+          functionResponseParts.push({ functionResponse: { name, response: { name, content: output } } });
         } catch (e: any) {
-          toolResults.push({ type: "tool_result", tool_use_id: tu.id, content: String(e?.message ?? e), is_error: true });
+          functionResponseParts.push({ functionResponse: { name, response: { name, content: { error: String(e?.message ?? e) } } } });
         }
       }
-      convo.push({ role: "user", content: toolResults });
+      convo.push({ role: "function", parts: functionResponseParts });
     }
 
     return json({ reply: finalText, messages: convo });
