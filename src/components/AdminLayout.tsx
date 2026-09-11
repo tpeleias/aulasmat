@@ -6,6 +6,7 @@ import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon,
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
+import UpdateBanner from "@/components/UpdateBanner";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 
 const items = [
@@ -38,7 +39,9 @@ export default function AdminLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+    <div className="min-h-screen flex flex-col bg-background">
+      <UpdateBanner />
+      <div className="flex flex-col md:flex-row flex-1">
       <aside className="md:w-60 md:min-h-screen bg-sidebar text-sidebar-foreground flex md:flex-col">
         <div className="p-5 hidden md:flex items-center gap-2 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
@@ -66,6 +69,7 @@ export default function AdminLayout() {
         </div>
       </aside>
       <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet /></main>
+      </div>
       <Button
         onClick={() => setQuickOpen(true)}
         size="lg"
