@@ -17,6 +17,7 @@ import SettingsPage from "./pages/admin/SettingsPage";
 import AuditPage from "./pages/admin/AuditPage";
 import StudentsPage from "./pages/admin/StudentsPage";
 import TeachersPage from "./pages/admin/TeachersPage";
+import AssistantPage from "./pages/admin/AssistantPage";
 import StudentLayout from "./components/StudentLayout";
 import StudentDashboard from "./pages/student/StudentDashboard";
 import StudentLessons from "./pages/student/StudentLessons";
@@ -51,6 +52,7 @@ const App = () => (
               <Route path="bloqueios" element={<BlocksPage />} />
               <Route path="alunos" element={<StudentsPage />} />
               <Route path="professores" element={<TeachersPage />} />
+              <Route path="assistente" element={<AssistantPage />} />
               <Route path="financeiro" element={<BillingPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
               <Route path="auditoria" element={<AuditPage />} />
