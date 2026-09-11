@@ -12,6 +12,7 @@ import { ptBR } from "date-fns/locale";
 import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2, CheckCircle2, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
+import { accountKey, accountLabel } from "@/lib/balance";
 
 type Tx = {
   id: string;
@@ -32,15 +33,6 @@ const PACKAGES = [
 ];
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-
-function accountKey(t: { guardian_name: string | null; student_name: string }) {
-  const g = (t.guardian_name ?? "").trim();
-  return g ? `g:${g.toLowerCase()}` : `s:${t.student_name.toLowerCase()}`;
-}
-function accountLabel(t: { guardian_name: string | null; student_name: string }) {
-  const g = (t.guardian_name ?? "").trim();
-  return g || `Aluno: ${t.student_name}`;
-}
 
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 

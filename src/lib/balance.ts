@@ -16,3 +16,17 @@ export function describeBalance(raw: number): BalanceDisplay {
 }
 
 export const capitalize = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s);
+
+export function accountKey(t: { guardian_name: string | null; student_name: string }) {
+  const g = (t.guardian_name ?? "").trim();
+  return g ? `g:${g.toLowerCase()}` : `s:${t.student_name.toLowerCase()}`;
+}
+
+export function accountLabel(t: { guardian_name: string | null; student_name: string }) {
+  const g = (t.guardian_name ?? "").trim();
+  return g || `Aluno: ${t.student_name}`;
+}
+
+export function lessonAmount(price: number, durationMinutes: number) {
+  return Math.round(price * durationMinutes / 60 * 100) / 100;
+}
