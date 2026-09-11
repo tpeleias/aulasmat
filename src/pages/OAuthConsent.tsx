@@ -17,6 +17,11 @@ type OAuthAuthorizationApi = {
   denyAuthorization: (id: string) => Promise<{ data: AuthorizationDetails | null; error: { message: string } | null }>;
 };
 
+function authorizationData(value: unknown): AuthorizationDetails | null {
+  if (!value || typeof value !== "object") return null;
+  return value as AuthorizationDetails;
+}
+
 export default function OAuthConsent() {
   const [params] = useSearchParams();
   const authorizationId = params.get("authorization_id") ?? "";
@@ -36,9 +41,10 @@ export default function OAuthConsent() {
         window.location.href = `/?next=${encodeURIComponent(next)}`;
         return;
       }
-      const { data, error: loadError } = await oauth.getAuthorizationDetails(authorizationId);
+      const { data: rawData, error: loadError } = await oauth.getAuthorizationDetails(authorizationId);
       if (!active) return;
       if (loadError) { setError(loadError.message); return; }
+      const data = authorizationData(rawData);
       const immediate = data?.redirect_url ?? data?.redirect_to;
       if (immediate && !data?.client) { window.location.href = immediate; return; }
       setDetails(data);
@@ -49,10 +55,11 @@ export default function OAuthConsent() {
 
   const decide = async (approve: boolean) => {
     setBusy(true);
-    const { data, error: decisionError } = approve
+    const { data: rawData, error: decisionError } = approve
       ? await oauth.approveAuthorization(authorizationId)
       : await oauth.denyAuthorization(authorizationId);
     if (decisionError) { setError(decisionError.message); setBusy(false); return; }
+    const data = authorizationData(rawData);
     const target = data?.redirect_url ?? data?.redirect_to;
     if (!target) { setError("A autorização não retornou um destino válido."); setBusy(false); return; }
     window.location.href = target;
