@@ -273,21 +273,12 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3 pt-0 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Valor por hora (R$/h)</Label>
-                  <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Status pagamento</Label>
-                  <Select value={form.payment_status} onValueChange={v => setForm({ ...form, payment_status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="pago">Pago</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Valor por hora (R$/h)</Label>
+                <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Pagamento é marcado na página Cobrança (isso mantém a carteira correta).
+                </p>
               </div>
               <div><Label>Situação da aula</Label>
                 <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
