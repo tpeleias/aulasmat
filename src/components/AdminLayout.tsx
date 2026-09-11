@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Navigate, NavLink, Outlet } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
+import AnimatedOutlet from "@/components/AnimatedOutlet";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, History, Users, Plus, UserCog, Bot } from "lucide-react";
@@ -68,7 +69,7 @@ export default function AdminLayout() {
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><Outlet /></main>
+      <main className="flex-1 p-4 md:p-8 max-w-[1400px] w-full mx-auto"><AnimatedOutlet /></main>
       </div>
       <Button
         onClick={() => setQuickOpen(true)}

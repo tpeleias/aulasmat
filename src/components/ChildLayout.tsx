@@ -1,8 +1,9 @@
-import { Navigate, NavLink, Outlet } from "react-router-dom";
+import { Navigate, NavLink } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudent } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
+import AnimatedOutlet from "@/components/AnimatedOutlet";
 import { GraduationCap, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks } from "lucide-react";
 
 export default function ChildLayout() {
@@ -53,7 +54,7 @@ export default function ChildLayout() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-[1200px] w-full mx-auto"><Outlet /></main>
+      <main className="flex-1 p-4 md:p-8 max-w-[1200px] w-full mx-auto"><AnimatedOutlet /></main>
     </div>
   );
 }
