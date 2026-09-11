@@ -1,7 +1,7 @@
-import { ToolError, type ToolContext } from "@lovable.dev/mcp-js";
+import { ToolError, type JsonValueInput, type ToolContext, type ToolHandlerResult } from "@lovable.dev/mcp-js";
 import { supabaseForUser } from "./supabase";
 
-export function textResult(value: unknown) {
+export function textResult(value: JsonValueInput): ToolHandlerResult {
   return {
     content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
     structuredContent: value,

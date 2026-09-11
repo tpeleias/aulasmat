@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,12 +12,18 @@ import { GraduationCap } from "lucide-react";
 import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 
 export default function Auth() {
+  const [searchParams] = useSearchParams();
   const { session, role, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
   const [childPw, setChildPw] = useState("");
   const [busy, setBusy] = useState(false);
+
+  const safeNext = (() => {
+    const next = searchParams.get("next");
+    return next?.startsWith("/") && !next.startsWith("//") ? next : null;
+  })();
 
   useEffect(() => { document.title = "Acesso — Portal de Aulas"; }, []);
 
@@ -34,10 +40,14 @@ export default function Auth() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
     if (error) toast.error(error.message);
+    else if (safeNext) window.location.href = safeNext;
   };
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault(); setBusy(true);
-    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/" } });
+    const emailRedirectTo = safeNext
+      ? `${window.location.origin}${safeNext}`
+      : `${window.location.origin}/`;
+    const { error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo } });
     setBusy(false);
     if (error) toast.error(error.message);
     else toast.success("Conta criada! Se for aluno, peça ao professor para vincular seu acesso.");
