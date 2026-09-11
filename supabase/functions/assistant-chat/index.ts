@@ -58,15 +58,15 @@ const tools = [
         guardian_name: { type: "string", description: "Nome do responsável, se houver (usado para agrupar a carteira)" },
         teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
         start_at: { type: "string", description: "Data/hora ISO 8601 de início" },
-        duration_minutes: { type: "number", description: "Padrão 60 se não especificado" },
+        duration_minutes: { type: "number", description: "Em minutos. Se não especificado pelo usuário, use 60 (padrão)." },
         subject: { type: "string", description: "Ex: Matemática, Química, Ciências" },
-        price: { type: "number", description: "Valor da aula em reais" },
+        price: { type: "number", description: "Valor da aula POR HORA em reais (R$/h) — não é o total da aula, o débito na carteira é calculado como price × duração/60. Se não especificado pelo usuário, use 220 (padrão)." },
         package_type: { type: "string", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
         is_online: { type: "boolean", description: "Padrão false" },
         address: { type: "string", description: "Endereço da aula presencial (com complemento/apto se houver)" },
         notes: { type: "string" },
       },
-      required: ["student_name", "teacher", "start_at", "duration_minutes", "price"],
+      required: ["student_name", "teacher", "start_at"],
     },
   },
   {
@@ -82,7 +82,7 @@ const tools = [
         start_at: { type: "string" },
         duration_minutes: { type: "number" },
         subject: { type: "string" },
-        price: { type: "number" },
+        price: { type: "number", description: "Valor POR HORA em reais (R$/h), não o total da aula" },
         is_online: { type: "boolean" },
         address: { type: "string" },
         status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
@@ -206,9 +206,9 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
         guardian_name: input.guardian_name ?? null,
         teacher: input.teacher,
         start_at: input.start_at,
-        duration_minutes: input.duration_minutes,
+        duration_minutes: input.duration_minutes ?? 60,
         subject: input.subject ?? null,
-        price: input.price,
+        price: input.price ?? 220,
         package_type: input.package_type ?? "avulsa",
         is_online: !!input.is_online,
         address: input.address ?? null,
@@ -329,6 +329,7 @@ Deno.serve(async (req) => {
 Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
 Regras importantes:
+- Preço e duração padrão: toda aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Nunca invente um valor diferente de 220/hora por conta própria.
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
 - Se o nome de um aluno ou professor estiver ambíguo, use find_students / list_teachers para confirmar antes de agir.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
