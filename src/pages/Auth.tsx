@@ -109,6 +109,8 @@ export default function Auth() {
                 <Input
                   type={signup ? "email" : "text"}
                   required
+                  name="username"
+                  id="login-username"
                   autoComplete={signup ? "email" : "username"}
                   inputMode={signup ? "email" : "text"}
                   autoCapitalize="none"
@@ -119,7 +121,7 @@ export default function Auth() {
                 />
               </Field>
               <Field label="Senha">
-                <Input type="password" required minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />
+                <Input type="password" required name="password" id="login-password" minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />
               </Field>
               <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
@@ -141,10 +143,10 @@ export default function Auth() {
           ) : (
             <form onSubmit={submitChild} className="space-y-4">
               <Field label="Nome de usuário">
-                <Input required value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" autoComplete="username" className="h-12 rounded-xl" />
+                <Input required name="username" id="child-username" value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" autoComplete="username" className="h-12 rounded-xl" />
               </Field>
               <Field label="Senha">
-                <Input type="password" required autoComplete="current-password" value={childPw} onChange={e => setChildPw(e.target.value)} className="h-12 rounded-xl" />
+                <Input type="password" required name="password" id="child-password" autoComplete="current-password" value={childPw} onChange={e => setChildPw(e.target.value)} className="h-12 rounded-xl" />
               </Field>
               <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
