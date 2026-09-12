@@ -11,11 +11,12 @@ import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { StudentManageDialog } from "@/components/StudentManageDialog";
+import { accountKey } from "@/lib/balance";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
-type Lesson = { student_name: string; start_at: string };
+type Lesson = { student_name: string; guardian_name: string | null; start_at: string };
 type Tx = { student_name: string; guardian_name: string | null; amount: number };
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -34,7 +35,7 @@ export default function StudentsPage() {
   const load = async () => {
     const [{ data: s }, { data: l }, { data: t }] = await Promise.all([
       supabase.from("students").select("*").order("student_name"),
-      supabase.from("lessons").select("student_name,start_at").lt("start_at", new Date().toISOString()),
+      supabase.from("lessons").select("student_name,guardian_name,start_at").lt("start_at", new Date().toISOString()),
       supabase.from("wallet_transactions").select("student_name,guardian_name,amount"),
     ]);
     setStudents((s ?? []) as Student[]);
@@ -46,7 +47,7 @@ export default function StudentsPage() {
   const stats = useMemo(() => {
     const lessonCount = new Map<string, number>();
     for (const l of lessons) {
-      const k = norm(l.student_name);
+      const k = accountKey(l);
       lessonCount.set(k, (lessonCount.get(k) ?? 0) + 1);
     }
     const balByStudent = new Map<string, number>();
@@ -107,7 +108,7 @@ export default function StudentsPage() {
           <Card className="p-8 text-center text-muted-foreground">Nenhum aluno cadastrado ainda.</Card>
         )}
         {students.map(st => {
-          const count = stats.lessonCount.get(norm(st.student_name)) ?? 0;
+          const count = stats.lessonCount.get(accountKey(st)) ?? 0;
           const bal = balanceFor(st);
           return (
             <Card key={st.id} className="p-4">

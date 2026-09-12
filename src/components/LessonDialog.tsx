@@ -73,13 +73,24 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     }
   }, [lesson, slotStart, open, baseTeacher, initialStudent]);
 
+  const studentOptionLabel = (s: { student_name: string; guardian_name: string | null }) => {
+    const dupes = students.filter(o => o.student_name.toLowerCase() === s.student_name.toLowerCase());
+    if (dupes.length <= 1) return s.student_name;
+    return `${s.student_name} (${s.guardian_name || "sem responsável"})`;
+  };
+
   const pickStudent = (name: string) => {
-    const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());
+    const trimmed = name.trim().toLowerCase();
+    // Exact match on the disambiguated label (picked from the dropdown) takes priority.
+    const byLabel = students.find(s => studentOptionLabel(s).toLowerCase() === trimmed);
+    const byNameMatches = students.filter(s => s.student_name.toLowerCase() === trimmed);
+    // Only auto-fill from a bare name match when it's unambiguous - never guess between duplicates.
+    const match = byLabel ?? (byNameMatches.length === 1 ? byNameMatches[0] : undefined);
     setForm(f => ({
       ...f,
-      student_name: name,
-      guardian_name: match?.guardian_name ?? f.guardian_name,
-      address: match?.address ?? f.address,
+      student_name: match ? match.student_name : name,
+      guardian_name: match ? (match.guardian_name ?? "") : f.guardian_name,
+      address: match ? (match.address ?? "") : f.address,
       is_online: match?.address ? false : f.is_online,
     }));
   };
@@ -209,7 +220,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               />
               <datalist id="students-list">
                 {students.map(s => (
-                  <option key={s.id} value={s.student_name}>{s.guardian_name ? `Resp.: ${s.guardian_name}` : ""}</option>
+                  <option key={s.id} value={studentOptionLabel(s)} />
                 ))}
               </datalist>
             </div>
