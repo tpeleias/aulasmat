@@ -74,10 +74,10 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="flex min-h-full flex-col bg-background">
       <UpdateBanner />
-      <div className="flex flex-col md:flex-row flex-1">
-        <aside className="hidden md:flex md:w-60 md:min-h-screen bg-sidebar text-sidebar-foreground md:flex-col">
+      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+        <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
               <GraduationCap className="w-5 h-5 text-primary-foreground" />
@@ -98,7 +98,7 @@ export default function AdminLayout() {
           </div>
         </aside>
 
-        <main className="flex-1 w-full max-w-[1400px] mx-auto p-4 md:p-8 pb-[calc(6.5rem+env(safe-area-inset-bottom))] md:pb-8">
+        <main className="flex min-h-0 flex-1 flex-col w-full max-w-[1400px] mx-auto p-4 md:p-8 pb-[6.5rem] md:pb-8">
           <AnimatedOutlet />
         </main>
       </div>

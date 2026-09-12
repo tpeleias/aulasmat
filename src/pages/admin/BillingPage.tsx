@@ -176,7 +176,7 @@ export default function BillingPage() {
       _amount: value,
       _kind: isVoucherOnly ? "voucher" : q.kind,
       _description: desc.trim() || (value < 0 ? "Ajuste" : "Pagamento"),
-      _voucher: isVoucherOnly ? 0 : voucherValue,
+      _voucher: voucherValue,
       _voucher_description: isVoucherOnly ? (desc.trim() || "Voucher") : `Voucher ${q.label.toLowerCase()}`,
     });
     setBusy(false);

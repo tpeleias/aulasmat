@@ -110,7 +110,7 @@ export default function AssistantPage() {
   const visibleMessages = messages.filter((m) => displayText(m.content).trim().length > 0);
 
   return (
-    <div className="flex flex-col h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom))] md:h-[calc(100vh-4rem)]">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Assistente</h1>
