@@ -13,11 +13,12 @@ import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet,
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
-import { computeStatements, daysOpen, isOverdue, type LedgerTx, type LedgerLesson, type AccountStatement } from "@/lib/billing";
+import { computeStatements, daysOpen, isOverdue, sortAccounts, ACCOUNT_SORTS, type AccountSort, type LedgerTx, type LedgerLesson, type AccountStatement } from "@/lib/billing";
 import { haptics } from "@/lib/haptics";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
+import SortMenu, { useSortPreference } from "@/components/SortMenu";
 
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
@@ -59,6 +60,7 @@ export default function BillingPage() {
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [sort, setSort] = useSortPreference<AccountSort>("billing", ACCOUNT_SORTS, "owed");
 
   const [payFor, setPayFor] = useState<Account | null>(null);
   const [quick, setQuick] = useState("all");
@@ -114,10 +116,10 @@ export default function BillingPage() {
       if (!cur || l.start_at < cur.start_at) nextByKey.set(k, l);
     }
 
-    return [...byKey.values()]
-      .map(s => ({ ...s, txs: txsByKey.get(s.key) ?? [], nextLesson: nextByKey.get(s.key) ?? null }))
-      .sort((a, b) => b.owed - a.owed || a.label.localeCompare(b.label));
-  }, [txs, students, lessons]);
+    const merged = [...byKey.values()]
+      .map(s => ({ ...s, txs: txsByKey.get(s.key) ?? [], nextLesson: nextByKey.get(s.key) ?? null }));
+    return sortAccounts(merged, sort);
+  }, [txs, students, lessons, sort]);
 
   const totals = useMemo(() => ({
     received: txs.reduce((s, t) => s + (Number(t.amount) > 0 ? Number(t.amount) : 0), 0),
@@ -240,6 +242,15 @@ export default function BillingPage() {
             {totals.overdue > 0 && <div className="text-xs text-destructive">{totals.overdue} conta{totals.overdue > 1 ? "s" : ""} em atraso</div>}
           </Card>
         </div>
+
+        {!loading && accounts.length > 0 && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              {accounts.length} conta{accounts.length > 1 ? "s" : ""}
+            </span>
+            <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
+          </div>
+        )}
 
         {loading ? (
           <ListSkeleton rows={4} />

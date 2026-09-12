@@ -108,3 +108,37 @@ export function daysOpen(oldestOpenDate: string | null, now = new Date()): numbe
 }
 
 export const isOverdue = (s: AccountStatement) => s.owed > 0 && daysOpen(s.oldestOpenDate) > OVERDUE_AFTER_DAYS;
+
+// ---- Ordering (shared by Cobrança and Organização) ----
+
+export type AccountSort = "owed" | "overdue" | "name" | "credit";
+
+export const ACCOUNT_SORTS: { key: AccountSort; label: string }[] = [
+  { key: "owed", label: "Maior dívida" },
+  { key: "overdue", label: "Atraso mais antigo" },
+  { key: "name", label: "Nome (A–Z)" },
+  { key: "credit", label: "Maior crédito" },
+];
+
+const byName = (a: AccountStatement, b: AccountStatement) => a.label.localeCompare(b.label, "pt-BR");
+
+export function sortAccounts<T extends AccountStatement>(accounts: T[], sort: AccountSort): T[] {
+  const list = [...accounts];
+  switch (sort) {
+    case "overdue":
+      // Whoever has been waiting longest comes first; accounts with nothing open go last.
+      return list.sort((a, b) => {
+        if (!a.oldestOpenDate && !b.oldestOpenDate) return byName(a, b);
+        if (!a.oldestOpenDate) return 1;
+        if (!b.oldestOpenDate) return -1;
+        return a.oldestOpenDate.localeCompare(b.oldestOpenDate) || b.owed - a.owed;
+      });
+    case "name":
+      return list.sort(byName);
+    case "credit":
+      // Balance is positive when the family is ahead and negative when behind.
+      return list.sort((a, b) => b.balance - a.balance || byName(a, b));
+    default:
+      return list.sort((a, b) => b.owed - a.owed || byName(a, b));
+  }
+}

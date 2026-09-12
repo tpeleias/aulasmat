@@ -8,12 +8,13 @@ import { ptBR } from "date-fns/locale";
 import { RefreshCw, Copy, MapPin, CalendarDays, AlertCircle, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { fmtMoney, capitalize } from "@/lib/balance";
-import { computeStatements, daysOpen, isOverdue, type LedgerTx, type LedgerLesson, type OpenItem } from "@/lib/billing";
+import { computeStatements, daysOpen, isOverdue, sortAccounts, ACCOUNT_SORTS, type AccountSort, type LedgerTx, type LedgerLesson, type OpenItem } from "@/lib/billing";
 import { syncBillingWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
 import PullToRefresh from "@/components/PullToRefresh";
+import SortMenu, { useSortPreference } from "@/components/SortMenu";
 
 type UpcomingLesson = {
   id: string; student_name: string; start_at: string; duration_minutes: number;
@@ -63,6 +64,8 @@ export default function OrganizationPage() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [payment, setPayment] = useState<PaymentInfo>({ pixKey: null, paymentLink: null });
+  const PENDING_SORTS = ACCOUNT_SORTS.filter(o => o.key !== "credit");
+  const [sort, setSort] = useSortPreference<AccountSort>("organizacao", PENDING_SORTS, "owed");
 
   const load = async () => {
     setLoading(true);
@@ -87,7 +90,7 @@ export default function OrganizationPage() {
   };
   useEffect(() => { load(); }, []);
 
-  const pending = useMemo(() => computeStatements(txs, lessonInfo).filter(s => s.owed > 0), [txs, lessonInfo]);
+  const pending = useMemo(() => sortAccounts(computeStatements(txs, lessonInfo).filter(s => s.owed > 0), sort), [txs, lessonInfo, sort]);
   const totalOwed = useMemo(() => pending.reduce((s, a) => s + a.owed, 0), [pending]);
 
   useEffect(() => {
@@ -128,7 +131,12 @@ export default function OrganizationPage() {
         <div>
           <h2 className="font-semibold mb-3 flex items-center justify-between">
             <span className="flex items-center gap-2"><AlertCircle className="w-4 h-4 text-primary" /> Pendências de pagamento</span>
-            {!loading && pending.length > 0 && <span className="text-sm font-normal text-muted-foreground">{fmtMoney(totalOwed)} no total</span>}
+            {!loading && pending.length > 0 && (
+              <span className="flex items-center gap-2">
+                <span className="text-sm font-normal text-muted-foreground">{fmtMoney(totalOwed)} no total</span>
+                <SortMenu value={sort} options={PENDING_SORTS} onChange={setSort} />
+              </span>
+            )}
           </h2>
           {loading ? (
             <ListSkeleton rows={3} tall />

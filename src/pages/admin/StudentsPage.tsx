@@ -14,6 +14,7 @@ import StudentSheet, { type SheetLesson } from "@/components/StudentSheet";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
 import PullToRefresh from "@/components/PullToRefresh";
+import SortMenu, { useSortPreference } from "@/components/SortMenu";
 import { accountKey, fmtMoney } from "@/lib/balance";
 import { computeStatements, isOverdue, type LedgerTx } from "@/lib/billing";
 import { haptics } from "@/lib/haptics";
@@ -22,6 +23,15 @@ type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
 type Lesson = SheetLesson & { student_name: string; guardian_name: string | null };
+
+type StudentSort = "name" | "owed" | "next" | "lessons";
+
+const STUDENT_SORTS: { key: StudentSort; label: string }[] = [
+  { key: "name", label: "Nome (A–Z)" },
+  { key: "owed", label: "Maior valor em aberto" },
+  { key: "next", label: "Próxima aula" },
+  { key: "lessons", label: "Mais aulas" },
+];
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("");
 
@@ -32,6 +42,7 @@ export default function StudentsPage() {
   const [txs, setTxs] = useState<LedgerTx[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useSortPreference<StudentSort>("alunos", STUDENT_SORTS, "name");
   const [selected, setSelected] = useState<Student | null>(null);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,11 +74,48 @@ export default function StudentsPage() {
     return map;
   }, [lessons]);
 
+  // Start of the next scheduled lesson per account, for the "Próxima aula" order.
+  const nextByAccount = useMemo(() => {
+    const nowIso = new Date().toISOString();
+    const map = new Map<string, string>();
+    for (const l of lessons) {
+      if (l.status !== "agendada" || l.start_at < nowIso) continue;
+      const k = accountKey(l);
+      const cur = map.get(k);
+      if (!cur || l.start_at < cur) map.set(k, l.start_at);
+    }
+    return map;
+  }, [lessons]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter(s => s.student_name.toLowerCase().includes(q) || (s.guardian_name ?? "").toLowerCase().includes(q));
-  }, [students, query]);
+    const found = q
+      ? students.filter(s => s.student_name.toLowerCase().includes(q) || (s.guardian_name ?? "").toLowerCase().includes(q))
+      : [...students];
+
+    const byName = (a: Student, b: Student) => a.student_name.localeCompare(b.student_name, "pt-BR");
+    const owedOf = (s: Student) => statements.get(accountKey(s))?.owed ?? 0;
+
+    switch (sort) {
+      case "owed":
+        return found.sort((a, b) => owedOf(b) - owedOf(a) || byName(a, b));
+      case "lessons":
+        return found.sort((a, b) =>
+          (lessonsByAccount.get(accountKey(b))?.length ?? 0) - (lessonsByAccount.get(accountKey(a))?.length ?? 0) || byName(a, b));
+      case "next":
+        // Who you see soonest comes first; students with nothing booked go last.
+        return found.sort((a, b) => {
+          const na = nextByAccount.get(accountKey(a));
+          const nb = nextByAccount.get(accountKey(b));
+          if (!na && !nb) return byName(a, b);
+          if (!na) return 1;
+          if (!nb) return -1;
+          return na.localeCompare(nb);
+        });
+      default:
+        return found.sort(byName);
+    }
+  }, [students, query, sort, statements, lessonsByAccount, nextByAccount]);
 
   const save = async () => {
     if (!editing?.student_name?.trim()) { toast.error("Nome do aluno obrigatório"); return; }
@@ -107,9 +155,12 @@ export default function StudentsPage() {
           </Button>
         </div>
 
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar aluno ou responsável" className="h-11 rounded-xl pl-9" />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar aluno ou responsável" className="h-11 rounded-xl pl-9" />
+          </div>
+          <SortMenu value={sort} options={STUDENT_SORTS} onChange={setSort} className="h-11" />
         </div>
 
         {loading ? (
