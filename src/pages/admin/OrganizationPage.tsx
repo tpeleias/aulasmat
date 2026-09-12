@@ -24,11 +24,27 @@ function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
 
-function buildCollectionMessage(items: OpenItem[], totalOwed: number) {
+type PaymentInfo = { pixKey: string | null; paymentLink: string | null };
+
+// The Pix key and the payment link come from Configurações, so changing them there
+// changes every message. Whatever is missing simply drops out, leaving no empty block.
+function buildCollectionMessage(items: OpenItem[], totalOwed: number, payment: PaymentInfo) {
   const lines = items
     .map(i =>
       `• ${format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} — ${i.student} — ${i.detail} — ${fmtMoney(i.amount)}${i.partial ? " (saldo restante)" : ""}`
     ).join("\n");
+
+  const pix = payment.pixKey?.trim();
+  const link = payment.paymentLink?.trim();
+  const ways = [
+    pix && `💠 Pix — chave CPF ${pix}`,
+    link && `🔗 InfinitePay — ${link}\nNa loja dá pra pagar com Google Pay, cartão de crédito ou Pix, e no cartão aceitamos parcelamento em até 12x.`,
+  ].filter(Boolean) as string[];
+
+  const howToPay = ways.length
+    ? `\nVocê pode pagar do jeito que for mais fácil pra você:\n\n${ways.join("\n\n")}\n`
+    : "";
+
   return `Oi! Tudo bem? 😊
 
 Passando pra fechar as aulas já realizadas que ainda estão em aberto:
@@ -36,8 +52,8 @@ Passando pra fechar as aulas já realizadas que ainda estão em aberto:
 ${lines}
 
 Total em aberto: ${fmtMoney(totalOwed)}
-
-Pode ser via Pix quando for possível? Qualquer dúvida me chama. Obrigado! 🙏`;
+${howToPay}
+Depois é só mandar o comprovante que a gente dá baixa por aqui. Qualquer problema, nos avise! Estamos à disposição pra conversar. Obrigado! 🙏`;
 }
 
 export default function OrganizationPage() {
@@ -46,12 +62,13 @@ export default function OrganizationPage() {
   const [upcoming, setUpcoming] = useState<UpcomingLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [payment, setPayment] = useState<PaymentInfo>({ pixKey: null, paymentLink: null });
 
   const load = async () => {
     setLoading(true);
     const nowIso = new Date().toISOString();
     const weekAheadIso = addDays(new Date(), 7).toISOString();
-    const [tx, done, up] = await Promise.all([
+    const [tx, done, up, cfg] = await Promise.all([
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
       supabase.from("lessons").select("id, student_name, start_at, duration_minutes, subject, teacher").eq("status", "realizada"),
       supabase.from("lessons")
@@ -59,10 +76,12 @@ export default function OrganizationPage() {
         .eq("status", "agendada")
         .gte("start_at", nowIso).lte("start_at", weekAheadIso)
         .order("start_at"),
+      supabase.from("settings").select("pix_key, payment_link").maybeSingle(),
     ]);
     setTxs((tx.data ?? []) as LedgerTx[]);
     setLessonInfo((done.data ?? []) as LedgerLesson[]);
     setUpcoming((up.data ?? []) as UpcomingLesson[]);
+    setPayment({ pixKey: cfg.data?.pix_key ?? null, paymentLink: cfg.data?.payment_link ?? null });
     setLoading(false);
     setLastUpdated(new Date());
   };
@@ -85,7 +104,7 @@ export default function OrganizationPage() {
   }, [upcoming]);
 
   const copyMessage = (acc: { label: string; owed: number; items: OpenItem[] }) => {
-    navigator.clipboard.writeText(buildCollectionMessage(acc.items, acc.owed));
+    navigator.clipboard.writeText(buildCollectionMessage(acc.items, acc.owed, payment));
     haptics.success();
     toast.success(`Mensagem de cobrança de ${acc.label} copiada`);
   };
