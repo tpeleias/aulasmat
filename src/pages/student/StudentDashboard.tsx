@@ -14,7 +14,8 @@ import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { PaymentMethods } from "@/components/PaymentMethods";
-import { scopeToAccount } from "@/lib/balance";
+import { scopeToAccount, fmtMoney } from "@/lib/balance";
+import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -47,9 +48,17 @@ export default function StudentDashboard() {
   const now = new Date();
   const upcoming = lessons.filter(l => new Date(l.start_at) >= now);
   const past = lessons.filter(l => new Date(l.start_at) < now);
-  const pending = lessons.filter(l => l.payment_status === "pendente");
-  const balance = useMemo(() => txs.reduce((s, t) => s + Number(t.amount), 0), [txs]);
   const dueHomework = homework.filter(h => h.status !== "entregue");
+
+  // What is actually owed comes from the ledger: only lessons already given and not yet
+  // covered by money received. A lesson still to come is not a pending payment.
+  const statement = useMemo(() => {
+    const realized = lessons.filter(l => l.status === "realizada") as LedgerLesson[];
+    return computeStatements(txs as LedgerTx[], realized)[0] ?? null;
+  }, [txs, lessons]);
+  const owed = statement?.owed ?? 0;
+  const credit = statement && statement.balance > 0 ? statement.balance : 0;
+  const openItems = statement?.items ?? [];
 
   if (loading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
   if (!student) return (
@@ -68,7 +77,13 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Calendar} label="Próximas aulas" value={upcoming.length} href="/aluno/aulas" />
-        <StatCard icon={Wallet} label="Saldo" value={fmt(balance)} href="/aluno/financeiro" tone={balance < 0 ? "destructive" : "default"} />
+        <StatCard
+          icon={Wallet}
+          label={owed > 0 ? "Em aberto" : "Crédito"}
+          value={fmt(owed > 0 ? owed : credit)}
+          href="/aluno/financeiro"
+          tone={owed > 0 ? "destructive" : "default"}
+        />
         <StatCard icon={ListChecks} label="Tarefas pendentes" value={dueHomework.length} href="/aluno/tarefas" />
         <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/aluno/materiais" />
       </div>
@@ -87,18 +102,31 @@ export default function StudentDashboard() {
         ))}
       </Card>
 
-      {pending.length > 0 && (
+      {owed > 0 && (
         <Card className="p-5 space-y-3 border-destructive/40">
-          <h2 className="font-semibold text-destructive">Pagamentos pendentes</h2>
-          {pending.slice(0, 5).map(l => (
-            <div key={l.id} className="flex items-center justify-between text-sm border-t border-border pt-2 first:border-0 first:pt-0">
-              <span>{format(new Date(l.start_at), "dd/MM HH:mm")}</span>
-              <Badge variant="destructive">{fmt(Number(l.price) * Number(l.duration_minutes) / 60)}</Badge>
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold text-destructive">Aulas em aberto</h2>
+            <span className="text-sm font-bold text-destructive tabular-nums">{fmtMoney(owed)}</span>
+          </div>
+          {openItems.slice(0, 6).map(i => (
+            <div key={i.id} className="flex items-center justify-between gap-2 text-sm border-t border-border pt-2 first:border-0 first:pt-0">
+              <span>{format(new Date(i.date), "dd/MM HH:mm")}<span className="text-muted-foreground"> · {i.detail}</span></span>
+              <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
             </div>
           ))}
           {settings?.show_payment_info_to_students && (
             <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
           )}
+        </Card>
+      )}
+
+      {owed === 0 && credit > 0 && (
+        <Card className="p-5 border-success/40">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="font-semibold">Crédito disponível</h2>
+            <span className="text-sm font-bold tabular-nums">{fmtMoney(credit)}</span>
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">Vale para as próximas aulas. Nada em aberto por aqui.</p>
         </Card>
       )}
 
