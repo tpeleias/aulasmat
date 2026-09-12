@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { scopeToAccount } from "@/lib/balance";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -24,7 +25,8 @@ export default function StudentLessons() {
       (supabase as any).rpc("get_child_lessons").then(({ data }: any) => setLessons(data ?? []));
       return;
     }
-    supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+    scopeToAccount(supabase.from("lessons").select("*"), student)
+      .order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
   }, [student, hideFinancial]);
 
   const now = new Date();

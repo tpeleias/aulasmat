@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { PaymentMethods } from "@/components/PaymentMethods";
+import { scopeToAccount } from "@/lib/balance";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -27,8 +28,10 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    const loadLessons = () => supabase.from("lessons").select("*").eq("student_name", student.student_name).order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
-    const loadTxs = () => supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
+    const loadLessons = () => scopeToAccount(supabase.from("lessons").select("*"), student)
+      .order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+    const loadTxs = () => scopeToAccount(supabase.from("wallet_transactions").select("*"), student)
+      .order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
     const loadHw = () => supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
     loadLessons(); loadTxs(); loadHw();
 

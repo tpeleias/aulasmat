@@ -138,9 +138,16 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
     await ensureStudent();
 
+    // Names are the key that ties a lesson to its student record and wallet - stray
+    // whitespace silently orphans the lesson from the cadastro.
+    const names = {
+      student_name: form.student_name.trim(),
+      guardian_name: (form.guardian_name ?? "").trim() || null,
+    };
+
     if (lesson?.id || !recurring || repeatCount <= 1) {
       const { id: _ignore, ...rest } = form as any;
-      const payload = { ...rest, start_at: new Date(form.start_at).toISOString() };
+      const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = lesson?.id
         ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
         : await supabase.from("lessons").insert(payload);
@@ -165,7 +172,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
-      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, start_at: occ.toISOString() }); }
+      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {

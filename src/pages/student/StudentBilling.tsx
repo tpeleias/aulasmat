@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { PaymentMethods } from "@/components/PaymentMethods";
+import { scopeToAccount } from "@/lib/balance";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -15,7 +16,8 @@ export default function StudentBilling() {
 
   useEffect(() => {
     if (!student) return;
-    supabase.from("wallet_transactions").select("*").eq("student_name", student.student_name).order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
+    scopeToAccount(supabase.from("wallet_transactions").select("*"), student)
+      .order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
   }, [student]);
 
   const balance = useMemo(() => txs.reduce((s, t) => s + Number(t.amount), 0), [txs]);

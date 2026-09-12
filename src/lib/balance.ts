@@ -27,6 +27,11 @@ export function accountLabel(t: { guardian_name: string | null; student_name: st
   return g || `Aluno: ${t.student_name}`;
 }
 
-export function lessonAmount(price: number, durationMinutes: number) {
-  return Math.round(price * durationMinutes / 60 * 100) / 100;
+// Narrows a lessons/wallet_transactions query to a single account. Matching on
+// student_name alone lets two students who share a first name read each other's rows.
+export function scopeToAccount<T>(query: T, account: { student_name: string; guardian_name: string | null }): T {
+  const q = query as any;
+  const guardian = (account.guardian_name ?? "").trim();
+  const scoped = q.eq("student_name", account.student_name);
+  return (guardian ? scoped.eq("guardian_name", guardian) : scoped.is("guardian_name", null)) as T;
 }

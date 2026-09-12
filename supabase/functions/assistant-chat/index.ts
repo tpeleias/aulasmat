@@ -188,6 +188,38 @@ const tools = [
   },
 ];
 
+// A credit filed under the wrong guardian silently lands in a different wallet than the
+// lesson debits, so always resolve a name to exactly one cadastro before touching money.
+async function resolveAccount(
+  admin: ReturnType<typeof createClient>,
+  studentName?: string,
+  guardianName?: string,
+): Promise<{ student_name: string; guardian_name: string | null } | { error: string }> {
+  if (!studentName && !guardianName) return { error: "Informe o aluno ou o responsável." };
+
+  let q = admin.from("students").select("student_name, guardian_name");
+  if (studentName) q = q.ilike("student_name", `%${studentName.trim()}%`);
+  if (guardianName) q = q.ilike("guardian_name", `%${guardianName.trim()}%`);
+  const { data, error } = await q;
+  if (error) throw error;
+
+  const matches = data ?? [];
+  if (matches.length === 1) {
+    return {
+      student_name: matches[0].student_name,
+      guardian_name: (matches[0].guardian_name ?? "").trim() || null,
+    };
+  }
+  if (matches.length === 0) {
+    return { error: `Nenhum aluno cadastrado corresponde a "${studentName ?? guardianName}". Confirme o nome com find_students.` };
+  }
+  return {
+    error: `Mais de um cadastro corresponde a "${studentName ?? guardianName}": ${matches
+      .map((m: any) => `${m.student_name} (resp.: ${m.guardian_name ?? "sem responsável"})`)
+      .join("; ")}. Pergunte ao usuário qual é antes de prosseguir.`,
+  };
+}
+
 async function executeTool(admin: ReturnType<typeof createClient>, name: string, input: any) {
   switch (name) {
     case "find_students": {
@@ -201,9 +233,9 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
     }
     case "create_student": {
       const { data, error } = await admin.from("students").insert({
-        student_name: input.student_name,
-        guardian_name: input.guardian_name ?? null,
-        address: input.address ?? null,
+        student_name: (input.student_name ?? "").trim(),
+        guardian_name: (input.guardian_name ?? "").trim() || null,
+        address: (input.address ?? "").trim() || null,
       }).select().single();
       if (error) throw error;
       return data;
@@ -223,9 +255,16 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       return data;
     }
     case "create_lesson": {
+      // Without the guardian the lesson lands in a separate wallet from the student's
+      // other lessons, so fill it in from the cadastro whenever the name is unambiguous.
+      let guardian = (input.guardian_name ?? "").trim() || null;
+      if (!guardian) {
+        const account = await resolveAccount(admin, input.student_name);
+        if (!("error" in account)) guardian = account.guardian_name;
+      }
       const { data, error } = await admin.from("lessons").insert({
-        student_name: input.student_name,
-        guardian_name: input.guardian_name ?? null,
+        student_name: (input.student_name ?? "").trim(),
+        guardian_name: guardian,
         teacher: input.teacher,
         start_at: input.start_at,
         duration_minutes: input.duration_minutes ?? 60,
@@ -251,19 +290,24 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       return { ok: true };
     }
     case "get_wallet_balance": {
-      let q = admin.from("wallet_transactions").select("*").order("created_at", { ascending: false });
-      if (input.guardian_name) q = q.eq("guardian_name", input.guardian_name);
-      else if (input.student_name) q = q.ilike("student_name", `%${input.student_name}%`);
+      const account = await resolveAccount(admin, input.student_name, input.guardian_name);
+      if ("error" in account) return account;
+      let q = admin.from("wallet_transactions").select("*")
+        .eq("student_name", account.student_name)
+        .order("created_at", { ascending: false });
+      q = account.guardian_name ? q.eq("guardian_name", account.guardian_name) : q.is("guardian_name", null);
       const { data, error } = await q;
       if (error) throw error;
       const rows = data ?? [];
       const balance = rows.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-      return { balance, recent_transactions: rows.slice(0, 15) };
+      return { account, balance, recent_transactions: rows.slice(0, 15) };
     }
     case "add_wallet_credit": {
+      const account = await resolveAccount(admin, input.student_name, input.guardian_name);
+      if ("error" in account) return account;
       const { data, error } = await admin.from("wallet_transactions").insert({
-        student_name: input.student_name,
-        guardian_name: input.guardian_name ?? null,
+        student_name: account.student_name,
+        guardian_name: account.guardian_name,
         amount: Math.abs(input.amount),
         kind: input.kind ?? "package",
         description: input.description ?? null,
@@ -278,10 +322,12 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       const { error: uErr } = await admin.from("lessons").update({ payment_status: "pago" }).eq("id", input.lesson_id);
       if (uErr) throw uErr;
       if (!input.via_package) {
+        // price is the hourly rate; the debit was price × duration / 60, so the credit must match it.
+        const owed = Math.round(Number(lesson.price) * Number(lesson.duration_minutes) / 60 * 100) / 100;
         const { error: cErr } = await admin.from("wallet_transactions").insert({
           guardian_name: lesson.guardian_name,
           student_name: lesson.student_name,
-          amount: Math.abs(Number(lesson.price)),
+          amount: Math.abs(owed),
           kind: "adjustment",
           lesson_id: lesson.id,
           description: `Pagamento — aula em ${lesson.start_at}`,

@@ -7,14 +7,20 @@ import { format, addDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { RefreshCw, Copy, MapPin, CalendarDays, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { fmtMoney, accountKey, accountLabel, lessonAmount, capitalize } from "@/lib/balance";
+import { fmtMoney, accountKey, accountLabel, capitalize } from "@/lib/balance";
 
-type Tx = { guardian_name: string | null; student_name: string; amount: number };
-
-type PendingLesson = {
-  id: string; student_name: string; guardian_name: string | null;
-  start_at: string; duration_minutes: number; price: number; subject: string | null; teacher: string;
+type Tx = {
+  id: string; guardian_name: string | null; student_name: string; amount: number;
+  kind: string; lesson_id: string | null; description: string | null; created_at: string;
 };
+
+type LessonInfo = {
+  id: string; student_name: string; start_at: string;
+  duration_minutes: number; subject: string | null; teacher: string;
+};
+
+// One outstanding charge: a lesson (or a manual debit) with the part still unpaid.
+type OpenItem = { id: string; date: string; student: string; detail: string; amount: number; partial: boolean };
 
 type UpcomingLesson = {
   id: string; student_name: string; start_at: string; duration_minutes: number;
@@ -25,12 +31,10 @@ function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
 
-function buildCollectionMessage(label: string, lessons: PendingLesson[], totalOwed: number) {
-  const lines = lessons
-    .slice()
-    .sort((a, b) => a.start_at.localeCompare(b.start_at))
-    .map(l =>
-      `• ${format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} — ${l.student_name} — ${l.subject ?? "Aula"} (${l.duration_minutes} min) — ${fmtMoney(lessonAmount(l.price, l.duration_minutes))}`
+function buildCollectionMessage(label: string, items: OpenItem[], totalOwed: number) {
+  const lines = items
+    .map(i =>
+      `• ${format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} — ${i.student} — ${i.detail} — ${fmtMoney(i.amount)}${i.partial ? " (saldo restante)" : ""}`
     ).join("\n");
   return `Oi! Tudo bem? 😊
 
@@ -45,7 +49,7 @@ Pode ser via Pix quando for possível? Qualquer dúvida me chama. Obrigado! 🙏
 
 export default function OrganizationPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
-  const [pendingLessons, setPendingLessons] = useState<PendingLesson[]>([]);
+  const [lessonInfo, setLessonInfo] = useState<LessonInfo[]>([]);
   const [upcoming, setUpcoming] = useState<UpcomingLesson[]>([]);
   const [loading, setLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -55,11 +59,11 @@ export default function OrganizationPage() {
     const nowIso = new Date().toISOString();
     const weekAheadIso = addDays(new Date(), 7).toISOString();
     const [tx, pend, up] = await Promise.all([
-      supabase.from("wallet_transactions").select("guardian_name, student_name, amount"),
+      supabase.from("wallet_transactions")
+        .select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
       supabase.from("lessons")
-        .select("id, student_name, guardian_name, start_at, duration_minutes, price, subject, teacher")
-        .eq("status", "realizada").eq("payment_status", "pendente")
-        .order("start_at"),
+        .select("id, student_name, start_at, duration_minutes, subject, teacher")
+        .eq("status", "realizada"),
       supabase.from("lessons")
         .select("id, student_name, start_at, duration_minutes, teacher, subject, address, is_online")
         .eq("status", "agendada")
@@ -67,37 +71,57 @@ export default function OrganizationPage() {
         .order("start_at"),
     ]);
     setTxs((tx.data ?? []) as Tx[]);
-    setPendingLessons((pend.data ?? []) as PendingLesson[]);
+    setLessonInfo((pend.data ?? []) as LessonInfo[]);
     setUpcoming((up.data ?? []) as UpcomingLesson[]);
     setLoading(false);
     setLastUpdated(new Date());
   };
   useEffect(() => { load(); }, []);
 
-  // Balances mirror BillingPage's logic — the wallet ledger is the source of truth for how much is owed.
-  const balances = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; balance: number }>();
+  // The wallet ledger is the single source of truth. Credits pay off the oldest charges
+  // first, so what's listed always adds up to exactly what the balance says is owed —
+  // lessons.payment_status is a separate flag that can disagree and is deliberately ignored here.
+  const pendingByAccount = useMemo(() => {
+    const lessonById = new Map(lessonInfo.map(l => [l.id, l]));
+    const accounts = new Map<string, { key: string; label: string; credits: number; charges: OpenItem[] }>();
+
     for (const t of txs) {
       const k = accountKey(t);
-      const cur = map.get(k) ?? { key: k, label: accountLabel(t), balance: 0 };
-      cur.balance += Number(t.amount);
-      map.set(k, cur);
+      const acc = accounts.get(k) ?? { key: k, label: accountLabel(t), credits: 0, charges: [] };
+      const amount = Number(t.amount);
+      if (amount >= 0) {
+        acc.credits += amount;
+      } else {
+        const lesson = t.lesson_id ? lessonById.get(t.lesson_id) : undefined;
+        acc.charges.push({
+          id: t.id,
+          date: lesson?.start_at ?? t.created_at,
+          student: lesson?.student_name ?? t.student_name,
+          detail: lesson
+            ? `${lesson.subject ?? "Aula"} (${lesson.duration_minutes} min)`
+            : (t.description ?? "Lançamento"),
+          amount: -amount,
+          partial: false,
+        });
+      }
+      accounts.set(k, acc);
     }
-    return map;
-  }, [txs]);
 
-  const pendingByAccount = useMemo(() => {
-    const map = new Map<string, { key: string; label: string; owed: number; lessons: PendingLesson[] }>();
-    for (const l of pendingLessons) {
-      const k = accountKey(l);
-      const bal = balances.get(k);
-      if (!bal || bal.balance >= 0) continue; // only flag accounts that actually owe money overall
-      const cur = map.get(k) ?? { key: k, label: accountLabel(l), owed: -bal.balance, lessons: [] };
-      cur.lessons.push(l);
-      map.set(k, cur);
+    const result: { key: string; label: string; owed: number; items: OpenItem[] }[] = [];
+    for (const acc of accounts.values()) {
+      let pool = acc.credits;
+      const items: OpenItem[] = [];
+      for (const charge of acc.charges.sort((a, b) => a.date.localeCompare(b.date))) {
+        const covered = Math.min(pool, charge.amount);
+        pool -= covered;
+        const remaining = Math.round((charge.amount - covered) * 100) / 100;
+        if (remaining > 0) items.push({ ...charge, amount: remaining, partial: covered > 0 });
+      }
+      const owed = Math.round(items.reduce((s, i) => s + i.amount, 0) * 100) / 100;
+      if (owed > 0) result.push({ key: acc.key, label: acc.label, owed, items });
     }
-    return [...map.values()].sort((a, b) => b.owed - a.owed);
-  }, [pendingLessons, balances]);
+    return result.sort((a, b) => b.owed - a.owed);
+  }, [txs, lessonInfo]);
 
   const upcomingByDay = useMemo(() => {
     const map = new Map<string, UpcomingLesson[]>();
@@ -108,8 +132,8 @@ export default function OrganizationPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [upcoming]);
 
-  const copyMessage = (acc: { label: string; owed: number; lessons: PendingLesson[] }) => {
-    const msg = buildCollectionMessage(acc.label, acc.lessons, acc.owed);
+  const copyMessage = (acc: { label: string; owed: number; items: OpenItem[] }) => {
+    const msg = buildCollectionMessage(acc.label, acc.items, acc.owed);
     navigator.clipboard.writeText(msg);
     toast.success(`Mensagem de cobrança de ${acc.label} copiada`);
   };
@@ -142,7 +166,7 @@ export default function OrganizationPage() {
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <div>
                     <div className="font-semibold text-lg">{acc.label}</div>
-                    <div className="text-xs text-muted-foreground">{acc.lessons.length} aula(s) realizada(s) sem pagamento registrado</div>
+                    <div className="text-xs text-muted-foreground">{acc.items.length} lançamento(s) em aberto</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="text-right">
@@ -155,14 +179,17 @@ export default function OrganizationPage() {
                   </div>
                 </div>
                 <ul className="mt-3 border-t border-border pt-3 space-y-1">
-                  {acc.lessons.map(l => (
-                    <li key={l.id} className="flex items-center justify-between text-sm gap-2">
+                  {acc.items.map(i => (
+                    <li key={i.id} className="flex items-center justify-between text-sm gap-2">
                       <span className="text-muted-foreground">
-                        {format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
-                        <span className="text-foreground"> · {l.student_name}</span>
-                        {l.subject && <span> · {l.subject}</span>}
+                        {format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
+                        <span className="text-foreground"> · {i.student}</span>
+                        <span> · {i.detail}</span>
                       </span>
-                      <span className="font-medium shrink-0">{fmtMoney(lessonAmount(l.price, l.duration_minutes))}</span>
+                      <span className="font-medium shrink-0">
+                        {fmtMoney(i.amount)}
+                        {i.partial && <span className="text-xs text-muted-foreground font-normal"> restante</span>}
+                      </span>
                     </li>
                   ))}
                 </ul>
