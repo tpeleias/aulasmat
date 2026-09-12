@@ -53,7 +53,7 @@ ${lines}
 
 Total em aberto: ${fmtMoney(totalOwed)}
 ${howToPay}
-Depois é só mandar o comprovante que a gente dá baixa por aqui. Qualquer problema, nos avise! Estamos à disposição pra conversar. Obrigado! 🙏`;
+Depois é só mandar o comprovante que a gente dá baixa por aqui. Qualquer problema, nos avise! Estamos à disposição pra conversar. Obrigado! 🤓`;
 }
 
 export default function OrganizationPage() {
