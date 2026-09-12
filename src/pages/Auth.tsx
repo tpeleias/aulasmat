@@ -57,7 +57,7 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-background md:flex md:items-center md:justify-center md:bg-sidebar">
+    <div className="flex-1 bg-background md:flex md:items-center md:justify-center md:bg-sidebar">
       <div className="mx-auto w-full md:max-w-md md:overflow-hidden md:rounded-[2rem] md:bg-background md:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
         {/* Hero */}
         <div className="relative overflow-hidden bg-sidebar px-6 pb-16 pt-14 text-sidebar-foreground md:pt-12">
@@ -152,7 +152,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function PendingScreen() {
   const { signOut, user } = useAuth();
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-background p-6">
+    <div className="flex flex-1 items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><GraduationCap className="h-6 w-6" /></div>
         <h2 className="text-xl font-semibold">Conta aguardando liberação</h2>

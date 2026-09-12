@@ -23,7 +23,7 @@ export default function ChangePassword() {
   }, []);
 
   const { role } = useAuth();
-  if (authLoading || stLoading) return <div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
+  if (authLoading || stLoading) return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
   if (!session) return <Navigate to="/" replace />;
   const isChild = role === "child";
   const destination = isChild ? "/meu-painel" : "/aluno";
@@ -67,7 +67,7 @@ export default function ChangePassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="flex flex-1 items-center justify-center p-4 bg-background">
       <Card className="max-w-md w-full p-6 space-y-4">
         <div className="flex items-center gap-2">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>

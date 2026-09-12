@@ -4,7 +4,7 @@ import { GraduationCap, Calendar, Wallet, Link2 } from "lucide-react";
 
 export default function Index() {
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--gradient-subtle)" }}>
+    <div className="flex flex-1 flex-col" style={{ background: "var(--gradient-subtle)" }}>
       <header className="px-4 py-5 border-b border-border bg-card">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-2">

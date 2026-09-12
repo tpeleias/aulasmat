@@ -6,4 +6,5 @@
     <string name="custom_url_scheme">com.aulasmat.app</string>
     <string name="widget_description">Próximas aulas, com atalhos para o assistente e para marcar aula</string>
     <string name="widget_billing_description">Quanto há a receber e quem está em aberto</string>
+    <string name="widget_assistant_description">Abre o assistente pronto para digitar, com atalhos rápidos</string>
 </resources>

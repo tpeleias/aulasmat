@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { haptics } from "@/lib/haptics";
 import { FunctionsHttpError } from "@supabase/supabase-js";
@@ -49,6 +49,7 @@ export default function AssistantPage() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // The home screen hands over a suggestion via router state.
   useEffect(() => {
@@ -59,6 +60,19 @@ export default function AssistantPage() {
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [location.state]);
+
+  // The home-screen widget opens this page with a question ready (?q=) or just asks for
+  // the keyboard (?focus=1). The parameters are cleared so a reload starts clean.
+  useEffect(() => {
+    const q = searchParams.get("q");
+    const focus = searchParams.get("focus");
+    if (!q && !focus) return;
+    if (q) setInput(q);
+    setTimeout(() => inputRef.current?.focus(), 80);
+    searchParams.delete("q");
+    searchParams.delete("focus");
+    setSearchParams(searchParams, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });

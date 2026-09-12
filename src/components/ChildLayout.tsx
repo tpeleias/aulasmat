@@ -28,7 +28,7 @@ export default function ChildLayout() {
   ];
 
   return (
-    <div className="flex min-h-full flex-col md:flex-row bg-background">
+    <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>

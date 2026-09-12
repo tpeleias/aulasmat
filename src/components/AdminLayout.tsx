@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, NavLink, useSearchParams } from "react-router-dom";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
@@ -36,7 +36,6 @@ export default function AdminLayout() {
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const location = useLocation();
   useNativeRoute();
 
   // Widgets deep-link to "/admin?new=1" to jump straight into scheduling.
@@ -52,7 +51,7 @@ export default function AdminLayout() {
   if (!session) return <Navigate to="/auth" replace />;
   if (role === "child") return <Navigate to="/meu-painel" replace />;
   if (!isAdmin) return (
-    <div className="min-h-screen flex items-center justify-center p-6 text-center">
+    <div className="flex flex-1 items-center justify-center p-6 text-center">
       <div><h2 className="text-xl font-semibold mb-2">Acesso restrito</h2><p className="text-muted-foreground">Sua conta não tem permissão de administrador.</p><Button className="mt-4" onClick={signOut}>Sair</Button></div>
     </div>
   );
@@ -74,7 +73,7 @@ export default function AdminLayout() {
   );
 
   return (
-    <div className="flex min-h-full flex-col bg-background">
+    <div className="flex flex-1 flex-col bg-background">
       <UpdateBanner />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
@@ -98,27 +97,21 @@ export default function AdminLayout() {
           </div>
         </aside>
 
-        <main className="flex min-h-0 flex-1 flex-col w-full max-w-[1400px] mx-auto p-4 md:p-8 pb-[6.5rem] md:pb-8">
+        <main className="flex min-h-0 flex-1 flex-col w-full max-w-[1400px] mx-auto p-4 md:p-8 pb-20 md:pb-8">
           <AnimatedOutlet />
         </main>
       </div>
-
-      {/* The assistant screen has its own send button in the same corner. */}
-      {location.pathname !== "/admin/assistente" && (
-        <Button
-          onClick={() => { haptics.tap(); setQuickOpen(true); }}
-          size="lg"
-          className="fixed right-4 z-40 h-12 gap-2 rounded-full px-4 shadow-lg md:bottom-6 md:right-6 md:h-14 md:px-5"
-          style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}
-        >
-          <Plus className="w-5 h-5" /> Nova aula
-        </Button>
-      )}
 
       <BottomNav
         items={primary}
         more={(close) => (
           <div className="space-y-4">
+            <Button
+              className="h-12 w-full justify-start gap-2 rounded-2xl"
+              onClick={() => { haptics.tap(); close(); setQuickOpen(true); }}
+            >
+              <Plus className="h-4 w-4" /> Nova aula
+            </Button>
             <div className="grid grid-cols-2 gap-2">
               {secondary.map(it => (
                 <NavLink key={it.to} to={it.to} onClick={() => { haptics.tap(); close(); }}

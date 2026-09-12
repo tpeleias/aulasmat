@@ -80,7 +80,7 @@ export default function PublicAvailability({ teacher }: Props) {
   }, [teacher, title]);
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--gradient-subtle)" }}>
+    <div className="flex-1" style={{ background: "var(--gradient-subtle)" }}>
       <header className="bg-card border-b border-border">
         <div className="max-w-3xl mx-auto px-4 py-6 flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
