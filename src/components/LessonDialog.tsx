@@ -23,7 +23,10 @@ type Lesson = {
 
 const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
 
-const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
+// Every lesson is charged at the list price. The package discount is not a cheaper lesson:
+// it is a voucher credited on the Cobrança page, which keeps the ledger closing at zero.
+const LIST_PRICE = 220;
+const PACKAGE_LABEL: Record<string, string> = { single: "Avulsa", pack5: "Pacote 5 aulas", pack10: "Pacote 10 aulas" };
 
 export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, defaultTeacher, initialStudent }: {
   open: boolean; onOpenChange: (v: boolean) => void; slotStart?: Date; lesson?: Lesson | null; onSaved: () => void;
@@ -33,7 +36,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const baseTeacher = defaultTeacher || "thiago";
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
-    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+    start_at: "", duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
     teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
   const [busy, setBusy] = useState(false);
@@ -60,7 +63,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         guardian_name: initialStudent?.guardian_name ?? "",
         subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
-        duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+        duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
@@ -104,7 +107,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   }));
 
   const setPackage = (pkg: string) => {
-    setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+    setForm(f => ({ ...f, package_type: pkg }));
     if (!lesson?.id) {
       if (pkg === "pack5") { setRecurring(true); setRepeatCount(5); }
       else if (pkg === "pack10") { setRecurring(true); setRepeatCount(10); }
@@ -270,9 +273,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.package_type} onValueChange={setPackage}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single">Avulsa — R$ 220/h</SelectItem>
-                  <SelectItem value="pack5">Pacote 5 — R$ 210/h</SelectItem>
-                  <SelectItem value="pack10">Pacote 10 — R$ 200/h</SelectItem>
+                  <SelectItem value="single">{PACKAGE_LABEL.single}</SelectItem>
+                  <SelectItem value="pack5">{PACKAGE_LABEL.pack5}</SelectItem>
+                  <SelectItem value="pack10">{PACKAGE_LABEL.pack10}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -283,6 +286,10 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 </strong> ({form.duration_minutes} min)
               </span>
             </div>
+          </div>
+          <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+            Toda aula entra pelo valor cheio (R$ {LIST_PRICE}/h). O desconto do pacote é lançado
+            como <strong className="text-foreground">voucher</strong> na Cobrança ao registrar o pagamento.
           </div>
           <Collapsible className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>

@@ -73,7 +73,7 @@ const tools = [
         start_at: { type: "string", description: "Data/hora ISO 8601 de início" },
         duration_minutes: { type: "number", description: "Em minutos. Se não especificado pelo usuário, use 60 (padrão)." },
         subject: { type: "string", description: "Ex: Matemática, Química, Ciências" },
-        price: { type: "number", description: "Valor da aula POR HORA em reais (R$/h) — não é o total da aula, o débito na carteira é calculado como price × duração/60. Se não especificado pelo usuário, use 220 (padrão)." },
+        price: { type: "number", description: "Valor da aula POR HORA em reais (R$/h) — não é o total da aula, o débito na carteira é calculado como price × duração/60. Use sempre 220, inclusive para aluno de pacote (o desconto do pacote entra como voucher no financeiro)." },
         package_type: { type: "string", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
         is_online: { type: "boolean", description: "Padrão false" },
         address: { type: "string", description: "Endereço da aula presencial (com complemento/apto se houver)" },
@@ -126,15 +126,17 @@ const tools = [
   },
   {
     name: "add_wallet_credit",
-    description: "Registra dinheiro recebido de um responsável/aluno (Pix, pacote, etc.). As aulas em aberto da conta são quitadas automaticamente, das mais antigas para as mais novas; o que sobrar fica como crédito. É a ÚNICA forma de marcar aulas como pagas. Confirme valor e conta com o usuário antes de chamar.",
+    description: "Registra dinheiro recebido de um responsável/aluno (Pix, pacote, etc.) e, se for o caso, o voucher de desconto junto. As aulas em aberto da conta são quitadas automaticamente, das mais antigas para as mais novas; o que sobrar fica como crédito. É a ÚNICA forma de marcar aulas como pagas. Confirme valor e conta com o usuário antes de chamar.",
     input_schema: {
       type: "object",
       properties: {
         student_name: { type: "string" },
         guardian_name: { type: "string" },
-        amount: { type: "number", description: "Valor positivo em reais" },
+        amount: { type: "number", description: "Dinheiro recebido, valor positivo em reais. Use 0 para lançar só um voucher." },
         kind: { type: "string", enum: ["package", "adjustment"], description: "Padrão package" },
         description: { type: "string" },
+        voucher_amount: { type: "number", description: "Voucher de desconto lançado junto, em reais (crédito, sempre positivo). Pacote de 10 aulas: 200. Pacote de 5 aulas: 50. Sem pacote: 0." },
+        voucher_description: { type: "string", description: "Motivo do voucher, ex: 'Voucher pacote 10 aulas'" },
       },
       required: ["student_name", "amount"],
     },
@@ -293,15 +295,21 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
     case "add_wallet_credit": {
       const account = await resolveAccount(admin, input.student_name, input.guardian_name);
       if ("error" in account) return account;
-      const { data, error } = await admin.from("wallet_transactions").insert({
-        student_name: account.student_name,
-        guardian_name: account.guardian_name,
-        amount: Math.abs(input.amount),
-        kind: input.kind ?? "package",
-        description: input.description ?? null,
-      }).select().single();
+      const money = Math.abs(Number(input.amount ?? 0));
+      const voucher = Math.abs(Number(input.voucher_amount ?? 0));
+      if (money === 0 && voucher === 0) return { error: "Informe o valor recebido ou o valor do voucher." };
+      // Money and voucher are written in one transaction so a package is never half-registered.
+      const { data, error } = await admin.rpc("register_payment", {
+        _student: account.student_name,
+        _guardian: account.guardian_name,
+        _amount: money,
+        _kind: input.kind ?? "package",
+        _description: input.description ?? null,
+        _voucher: voucher,
+        _voucher_description: input.voucher_description ?? null,
+      });
       if (error) throw error;
-      return data;
+      return { account, received: money, voucher, ids: data };
     }
     case "list_blocks": {
       let q = admin.from("blocks").select("*");
@@ -364,10 +372,12 @@ Deno.serve(async (req) => {
 Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
 Regras importantes:
-- Preço e duração padrão: toda aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Nunca invente um valor diferente de 220/hora por conta própria.
+- Preço e duração padrão: TODA aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Isso vale inclusive para alunos de pacote — nunca lance uma aula com valor menor por causa de pacote.
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
-- Financeiro: toda aula realizada vira uma cobrança automática. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
+- Financeiro: toda aula realizada vira uma cobrança automática pelo valor cheio. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
+- Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. Pacote de 10 aulas: amount 2000 e voucher_amount 200 (10 x R$220 = R$2.200 = R$2.000 + R$200). Pacote de 5 aulas: amount 1050 e voucher_amount 50 (5 x R$220 = R$1.100 = R$1.050 + R$50). Assim a conta fecha exata e não sobra diferença.
+- Voucher avulso (desconto ou cortesia combinada pelo professor): add_wallet_credit com amount 0 e voucher_amount igual ao desconto. Voucher é sempre crédito para o aluno, nunca cobrança.
 - Seja direto e conciso nas respostas, em português do Brasil.
 
 Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou editar uma aula):

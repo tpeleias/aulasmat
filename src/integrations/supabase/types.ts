@@ -569,6 +569,30 @@ export type Database = {
         Returns: boolean
       }
       mark_past_lessons_realizada: { Args: never; Returns: number }
+      recompute_payment_status: {
+        Args: { _guardian: string; _student: string }
+        Returns: undefined
+      }
+      register_payment: {
+        Args: {
+          _amount: number
+          _description?: string
+          _guardian: string
+          _kind?: string
+          _student: string
+          _voucher?: number
+          _voucher_description?: string
+        }
+        Returns: Json
+      }
+      student_account_matches: {
+        Args: {
+          _child?: boolean
+          _guardian_name: string
+          _student_name: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "student" | "child"

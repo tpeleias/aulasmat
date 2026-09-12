@@ -19,22 +19,39 @@ import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
 
-type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" };
+type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null };
 
 type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null };
 
-const QUICK = [
-  { key: "all", label: "Quitar tudo", kind: "adjustment" as const },
-  { key: "pack10", label: "Pacote 10 aulas", amount: 2000, kind: "package" as const },
-  { key: "pack5", label: "Pacote 5 aulas", amount: 1050, kind: "package" as const },
-  { key: "single", label: "1 aula avulsa", amount: 220, kind: "adjustment" as const },
-  { key: "custom", label: "Outro valor", kind: "adjustment" as const },
+// Lessons are always charged at the list price (R$220/h). A package is the money received
+// plus a voucher for the discount, so 10 x R$220 = R$2.200 is closed by R$2.000 + R$200.
+const LIST_PRICE = 220;
+
+type QuickOption = {
+  key: string;
+  label: string;
+  amount?: number;
+  voucher?: number;
+  kind: "package" | "adjustment" | "voucher";
+  hint?: string;
+};
+
+const QUICK: QuickOption[] = [
+  { key: "all", label: "Quitar tudo", kind: "adjustment" },
+  { key: "pack10", label: "Pacote 10 aulas", amount: 2000, voucher: 200, kind: "package", hint: "R$ 2.000 + voucher R$ 200" },
+  { key: "pack5", label: "Pacote 5 aulas", amount: 1050, voucher: 50, kind: "package", hint: "R$ 1.050 + voucher R$ 50" },
+  { key: "single", label: "1 aula avulsa", amount: LIST_PRICE, kind: "adjustment" },
+  { key: "voucher", label: "Voucher (desconto)", kind: "voucher", hint: "crédito sem dinheiro" },
+  { key: "custom", label: "Outro valor", kind: "adjustment" },
 ];
 
 const kindLabel = (t: Tx) =>
-  t.kind === "lesson" ? "Aula" : t.kind === "package" ? "Pacote" : Number(t.amount) >= 0 ? "Pagamento" : "Ajuste";
+  t.kind === "lesson" ? "Aula"
+    : t.kind === "package" ? "Pacote"
+      : t.kind === "voucher" ? "Voucher"
+        : Number(t.amount) >= 0 ? "Pagamento" : "Ajuste";
 
 export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
@@ -47,6 +64,7 @@ export default function BillingPage() {
   const [quick, setQuick] = useState("all");
   const [amount, setAmount] = useState<string>("");
   const [desc, setDesc] = useState("");
+  const [voucher, setVoucher] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
 
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -108,6 +126,16 @@ export default function BillingPage() {
   }), [txs, accounts]);
 
   // ---- Register payment ----
+  const quickOption = QUICK.find(x => x.key === quick) ?? QUICK[0];
+  const isVoucherOnly = quickOption.kind === "voucher";
+  const rawValue = Number(String(amount).replace(",", "."));
+  const payValue = isVoucherOnly ? 0 : (Number.isFinite(rawValue) ? rawValue : 0);
+  const voucherValue = isVoucherOnly
+    ? (Number.isFinite(rawValue) ? rawValue : 0)
+    : Number(String(voucher || "0").replace(",", ".")) || 0;
+  const creditValue = Math.round((payValue + voucherValue) * 100) / 100;
+  const leftover = payFor ? Math.round((creditValue - payFor.owed) * 100) / 100 : 0;
+
   const openPay = (a: Account) => {
     haptics.tap();
     setPayFor(a);
@@ -115,6 +143,7 @@ export default function BillingPage() {
     setQuick(first);
     setAmount(String(first === "all" ? a.owed : 2000));
     setDesc(first === "all" ? "Pagamento" : "Pacote 10 aulas");
+    setVoucher(first === "all" ? "" : "200");
     setAllowNegative(false);
   };
 
@@ -122,28 +151,38 @@ export default function BillingPage() {
     if (!payFor) return;
     setQuick(key);
     const q = QUICK.find(x => x.key === key)!;
+    setVoucher(q.voucher ? String(q.voucher) : "");
     if (key === "all") { setAmount(String(payFor.owed)); setDesc("Pagamento"); }
-    else if (key === "custom") { setAmount(""); setDesc(""); }
+    else if (key === "custom" || key === "voucher") { setAmount(""); setDesc(key === "voucher" ? "Voucher" : ""); }
     else { setAmount(String(q.amount)); setDesc(q.label); }
   };
 
   const submitPay = async () => {
     if (!payFor) return;
-    const value = Number(String(amount).replace(",", "."));
-    if (!Number.isFinite(value) || value === 0 || (value < 0 && !allowNegative)) { toast.error("Informe um valor válido"); return; }
-    const q = QUICK.find(x => x.key === quick)!;
+    const q = quickOption;
+    const value = payValue;
+
+    if (isVoucherOnly) {
+      if (!(voucherValue > 0)) { toast.error("Informe o valor do voucher"); return; }
+    } else {
+      if (!Number.isFinite(value) || value === 0 || (value < 0 && !allowNegative)) { toast.error("Informe um valor válido"); return; }
+      if (voucherValue < 0) { toast.error("Voucher inválido"); return; }
+    }
+
     setBusy(true);
-    const { error } = await supabase.from("wallet_transactions").insert({
-      guardian_name: payFor.guardian,
-      student_name: payFor.student,
-      amount: value,
-      kind: value < 0 ? "adjustment" : q.kind,
-      description: desc.trim() || (value < 0 ? "Ajuste" : "Pagamento"),
+    const { error } = await supabase.rpc("register_payment", {
+      _student: payFor.student,
+      _guardian: payFor.guardian,
+      _amount: value,
+      _kind: isVoucherOnly ? "voucher" : q.kind,
+      _description: desc.trim() || (value < 0 ? "Ajuste" : "Pagamento"),
+      _voucher: isVoucherOnly ? 0 : voucherValue,
+      _voucher_description: isVoucherOnly ? (desc.trim() || "Voucher") : `Voucher ${q.label.toLowerCase()}`,
     });
     setBusy(false);
     if (error) { haptics.warning(); toast.error(error.message); return; }
     haptics.success();
-    toast.success(value < 0 ? "Ajuste registrado" : "Pagamento registrado");
+    toast.success(isVoucherOnly ? "Voucher lançado" : value < 0 ? "Ajuste registrado" : "Pagamento registrado");
     setPayFor(null);
     load();
   };
@@ -179,8 +218,6 @@ export default function BillingPage() {
     if (error) toast.error(error.message); else { haptics.success(); toast.success("Aula excluída"); load(); }
   };
 
-  const payValue = Number(String(amount).replace(",", "."));
-  const leftover = payFor && Number.isFinite(payValue) ? Math.round((payValue - payFor.owed) * 100) / 100 : 0;
 
   return (
     <PullToRefresh onRefresh={load}>
@@ -345,37 +382,56 @@ export default function BillingPage() {
                     className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${quick === q.key ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
                     <div className="font-medium">{q.label}</div>
                     <div className="text-xs text-muted-foreground">
-                      {q.key === "all" ? fmtMoney(payFor.owed) : q.key === "custom" ? "digite abaixo" : fmtMoney(q.amount!)}
+                      {q.key === "all" ? fmtMoney(payFor.owed)
+                        : q.hint ? q.hint
+                          : q.key === "custom" ? "digite abaixo" : fmtMoney(q.amount!)}
                     </div>
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-[1fr_2fr] gap-3">
                 <div>
-                  <Label>Valor (R$)</Label>
+                  <Label>{isVoucherOnly ? "Voucher (R$)" : "Valor (R$)"}</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={amount} onChange={e => setAmount(e.target.value)} />
                 </div>
                 <div>
                   <Label>Descrição</Label>
-                  <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder="Ex.: Pix de setembro" />
+                  <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder={isVoucherOnly ? "Ex.: desconto combinado" : "Ex.: Pix de setembro"} />
                 </div>
               </div>
-              {Number.isFinite(payValue) && payValue > 0 && (
+              {!isVoucherOnly && (
+                <div>
+                  <Label>Voucher junto (R$)</Label>
+                  <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Desconto do pacote em crédito, já que as aulas entram a R$ {LIST_PRICE}/h.
+                    Pacote de 10 → R$ 200. Pacote de 5 → R$ 50.
+                  </p>
+                </div>
+              )}
+              {creditValue > 0 && (
                 <div className="flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>
+                    {voucherValue > 0 && payValue > 0
+                      ? `${fmtMoney(payValue)} recebidos + ${fmtMoney(voucherValue)} de voucher = ${fmtMoney(creditValue)} de crédito. `
+                      : voucherValue > 0
+                        ? `${fmtMoney(voucherValue)} de crédito, sem entrada de dinheiro. `
+                        : ""}
                     {payFor.owed <= 0
-                      ? `Fica como crédito de ${fmtMoney(payValue)} para as próximas aulas.`
+                      ? `Fica como crédito para as próximas aulas.`
                       : leftover >= 0
                         ? `Quita todas as aulas em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`
                         : `Quita as aulas mais antigas; ficam ${fmtMoney(-leftover)} em aberto.`}
                   </span>
                 </div>
               )}
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Checkbox checked={allowNegative} onCheckedChange={v => setAllowNegative(v === true)} />
-                Ajuste ou estorno (permitir valor negativo)
-              </label>
+              {!isVoucherOnly && (
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Checkbox checked={allowNegative} onCheckedChange={v => setAllowNegative(v === true)} />
+                  Ajuste ou estorno (permitir valor negativo)
+                </label>
+              )}
             </div>
           )}
           <DialogFooter>
