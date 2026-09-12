@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
+import ChatMarkdown from "@/components/ChatMarkdown";
 
 type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
@@ -155,11 +156,11 @@ export default function AssistantPage() {
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-xl px-3.5 py-2.5 text-sm whitespace-pre-wrap break-words ${
+                  className={`max-w-[80%] rounded-xl px-3.5 py-2.5 text-sm break-words ${
                     m.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted"
                   }`}
                 >
-                  {displayText(m.content)}
+                  <ChatMarkdown tone={m.role === "user" ? "user" : "assistant"}>{displayText(m.content)}</ChatMarkdown>
                 </div>
                 {m.role === "user" && (
                   <div className="shrink-0 w-7 h-7 rounded-full bg-muted flex items-center justify-center">
