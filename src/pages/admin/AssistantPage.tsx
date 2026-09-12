@@ -1,5 +1,7 @@
 import { useRef, useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { haptics } from "@/lib/haptics";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -45,6 +47,18 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const location = useLocation();
+
+  // The home screen hands over a suggestion via router state.
+  useEffect(() => {
+    const prefill = (location.state as { prefill?: string } | null)?.prefill;
+    if (typeof prefill === "string") {
+      setInput(prefill);
+      window.history.replaceState({}, "");
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,6 +75,7 @@ export default function AssistantPage() {
   const send = async () => {
     const text = input.trim();
     if (!text || busy) return;
+    haptics.tap();
     setError(null);
     setInput("");
     const nextMessages: ChatMessage[] = [...messages, { role: "user", content: [{ type: "text", text }] }];
@@ -95,7 +110,7 @@ export default function AssistantPage() {
   const visibleMessages = messages.filter((m) => displayText(m.content).trim().length > 0);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] md:h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-[calc(100dvh-8.5rem-env(safe-area-inset-bottom))] md:h-[calc(100vh-4rem)]">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Assistente</h1>
@@ -153,14 +168,15 @@ export default function AssistantPage() {
 
       <div className="mt-3 flex gap-2 items-end">
         <Textarea
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Escreva sua mensagem..."
-          className="min-h-[44px] max-h-32 resize-none"
+          className="min-h-[44px] max-h-32 resize-none rounded-xl"
           disabled={busy}
         />
-        <Button onClick={send} disabled={busy || !input.trim()} size="icon" className="shrink-0">
+        <Button onClick={send} disabled={busy || !input.trim()} size="icon" className="h-11 w-11 shrink-0 rounded-xl">
           <Send className="w-4 h-4" />
         </Button>
       </div>

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/billing_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_card"
+    android:padding="14dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="A RECEBER"
+        android:textColor="#99FFFFFF"
+        android:textSize="10sp"
+        android:letterSpacing="0.08" />
+
+    <TextView
+        android:id="@+id/billing_total"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#FFFFFF"
+        android:textStyle="bold"
+        android:textSize="24sp"
+        android:maxLines="1" />
+
+    <TextView
+        android:id="@+id/billing_subtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#B3FFFFFF"
+        android:textSize="11sp"
+        android:paddingBottom="8dp"
+        android:maxLines="1"
+        android:ellipsize="end" />
+
+    <TextView android:id="@+id/debtor1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+    <TextView android:id="@+id/debtor2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+    <TextView android:id="@+id/debtor3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+
+</LinearLayout>

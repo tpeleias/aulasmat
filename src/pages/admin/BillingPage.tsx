@@ -13,6 +13,10 @@ import { Plus, Wallet, ChevronDown, ChevronRight, Pencil, Trash2, CheckCircle2, 
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel } from "@/lib/balance";
+import { computeStatements, daysOpen, isOverdue, type LedgerLesson } from "@/lib/billing";
+import { haptics } from "@/lib/haptics";
+import ListSkeleton from "@/components/ListSkeleton";
+import PullToRefresh from "@/components/PullToRefresh";
 
 type Tx = {
   id: string;
@@ -40,6 +44,8 @@ export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessonPay, setLessonPay] = useState<Record<string, string>>({});
+  const [doneLessons, setDoneLessons] = useState<LedgerLesson[]>([]);
+  const [loading, setLoading] = useState(true);
   const [upcoming, setUpcoming] = useState<{ id: string; student_name: string; guardian_name: string | null; start_at: string; duration_minutes: number; teacher: string; subject: string | null }[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
@@ -56,7 +62,7 @@ export default function BillingPage() {
     const [tx, st, ls, up] = await Promise.all([
       supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
-      supabase.from("lessons").select("id, payment_status"),
+      supabase.from("lessons").select("id, payment_status, status, student_name, start_at, duration_minutes, subject, teacher"),
       supabase.from("lessons")
         .select("id, student_name, guardian_name, start_at, duration_minutes, teacher, subject")
         .eq("status", "agendada")
@@ -67,8 +73,11 @@ export default function BillingPage() {
     setStudents((st.data ?? []) as StudentRow[]);
     setUpcoming((up.data ?? []) as any[]);
     const map: Record<string, string> = {};
-    for (const l of (ls.data ?? []) as { id: string; payment_status: string }[]) map[l.id] = l.payment_status;
+    const all = (ls.data ?? []) as (LedgerLesson & { payment_status: string; status: string })[];
+    for (const l of all) map[l.id] = l.payment_status;
     setLessonPay(map);
+    setDoneLessons(all.filter(l => l.status === "realizada"));
+    setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
@@ -110,17 +119,18 @@ export default function BillingPage() {
     return [...map.values()].sort((a, b) => a.balance - b.balance);
   }, [txs, students]);
 
+  // Ledger-derived view of each account: what's owed, and for how long.
+  const statements = useMemo(() => new Map(computeStatements(txs, doneLessons).map(s => [s.key, s])), [txs, doneLessons]);
+
   const totals = useMemo(() => {
-    let received = 0, negative = 0;
+    let received = 0, owed = 0;
     for (const t of txs) {
       const amt = Number(t.amount);
       if ((t.kind === "package" || t.kind === "adjustment") && amt > 0) received += amt;
     }
-    for (const a of accounts) {
-      if (a.balance < 0) negative += a.balance;
-    }
-    return { received, negative };
-  }, [txs, accounts]);
+    for (const s of statements.values()) owed += s.owed;
+    return { received, owed };
+  }, [txs, statements]);
 
   const openCredit = (a: { guardian: string | null; student: string }) => {
     setCreditFor({ guardian: a.guardian, student: a.student });
@@ -141,8 +151,8 @@ export default function BillingPage() {
       description: pkg === "custom" ? (customDesc || "Ajuste de crédito") : def.label,
     });
     setBusy(false);
-    if (error) toast.error(error.message);
-    else { toast.success("Pagamento registrado"); setCreditFor(null); load(); }
+    if (error) { haptics.warning(); toast.error(error.message); }
+    else { haptics.success(); toast.success("Pagamento registrado"); setCreditFor(null); load(); }
   };
 
   const openEdit = (t: Tx) => {
@@ -191,7 +201,7 @@ export default function BillingPage() {
     const { error } = await supabase.from("lessons").update({ payment_status: "pago" }).eq("id", t.lesson_id);
     setBusy(false);
     if (error) toast.error(error.message);
-    else { toast.success("Aula marcada como paga via pacote"); load(); }
+    else { haptics.success(); toast.success("Aula marcada como paga via pacote"); load(); }
   };
 
   const markLessonPaid = async (t: Tx) => {
@@ -210,56 +220,76 @@ export default function BillingPage() {
     });
     setBusy(false);
     if (e2) toast.error(e2.message);
-    else { toast.success("Aula marcada como paga"); load(); }
+    else { haptics.success(); toast.success("Aula marcada como paga"); load(); }
   };
 
   return (
+    <PullToRefresh onRefresh={load}>
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Carteira & Cobrança</h1>
         <p className="text-sm text-muted-foreground">Saldo de cada responsável/aluno. Pacotes adicionam crédito; aulas descontam.</p>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
-        <Card className="p-5">
-          <div className="text-xs text-muted-foreground uppercase">Total recebido</div>
-          <div className="text-3xl font-bold text-success mt-1">{fmt(totals.received)}</div>
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
+        <Card className="rounded-2xl p-4 md:p-5">
+          <div className="text-xs text-muted-foreground uppercase">Recebido</div>
+          <div className="mt-1 text-2xl md:text-3xl font-bold tabular-nums text-success">{fmt(totals.received)}</div>
         </Card>
-        <Card className="p-5">
-          <div className="text-xs text-muted-foreground uppercase">A cobrar (saldo negativo)</div>
-          <div className="text-3xl font-bold text-destructive mt-1">{fmt(Math.abs(totals.negative))}</div>
+        <Card className="rounded-2xl p-4 md:p-5">
+          <div className="text-xs text-muted-foreground uppercase">A receber</div>
+          <div className="mt-1 text-2xl md:text-3xl font-bold tabular-nums">{fmt(totals.owed)}</div>
         </Card>
       </div>
 
       <div>
-        <h2 className="font-semibold mb-3">Saldos por responsável</h2>
-        {accounts.length === 0 && (
-          <Card className="p-8 text-center text-muted-foreground">Nenhum lançamento ainda.</Card>
+        <h2 className="font-semibold mb-3">Contas</h2>
+        {loading ? <ListSkeleton rows={4} /> : accounts.length === 0 && (
+          <Card className="rounded-2xl p-8 text-center text-muted-foreground">Nenhum lançamento ainda.</Card>
         )}
         <div className="space-y-3">
-          {accounts.map(a => {
+          {!loading && accounts.map(a => {
             const isExp = !!expanded[a.key];
-            const balanceClass = a.balance < 0 ? "text-destructive" : a.balance > 0 ? "text-success" : "text-muted-foreground";
+            const s = statements.get(a.key);
+            const owed = s?.owed ?? 0;
+            const credit = a.balance > 0 ? a.balance : 0;
+            const overdue = s ? isOverdue(s) : false;
             return (
-              <Card key={a.key} className="p-5">
+              <Card key={a.key} className="rounded-2xl p-4 md:p-5">
                 <div className="flex items-start justify-between gap-3 flex-wrap">
                   <button
-                    className="flex items-center gap-2 text-left"
-                    onClick={() => setExpanded(e => ({ ...e, [a.key]: !isExp }))}
+                    className="flex items-center gap-2 text-left min-w-0"
+                    onClick={() => { haptics.tap(); setExpanded(e => ({ ...e, [a.key]: !isExp })); }}
                   >
-                    {isExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                    <div>
-                      <div className="font-semibold text-lg">{a.label}</div>
-                      <div className="text-xs text-muted-foreground">Aluno: {a.student} · {a.txs.length} lançamento(s)</div>
+                    {isExp ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                    <div className="min-w-0">
+                      <div className="font-semibold text-lg truncate">{a.label}</div>
+                      <div className="text-xs text-muted-foreground truncate">Aluno: {a.student} · {a.txs.length} lançamento(s)</div>
                     </div>
                   </button>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 ml-auto">
                     <div className="text-right">
-                      <div className="text-xs text-muted-foreground uppercase">Saldo</div>
-                      <div className={`text-2xl font-bold ${balanceClass}`}>{fmt(a.balance)}</div>
+                      {credit > 0 ? (
+                        <>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Crédito</div>
+                          <div className="text-xl font-bold tabular-nums text-success">{fmt(credit)}</div>
+                        </>
+                      ) : owed > 0 ? (
+                        <>
+                          <div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                            {overdue ? `Em atraso · ${daysOpen(s!.oldestOpenDate)} dias` : "A receber"}
+                          </div>
+                          <div className={`text-xl font-bold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmt(owed)}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Situação</div>
+                          <div className="text-base font-medium text-muted-foreground">Em dia</div>
+                        </>
+                      )}
                     </div>
-                    <Button size="sm" onClick={() => openCredit(a)}>
-                      <Plus className="w-3 h-3 mr-1" /> Adicionar Pacote/Pagamento
+                    <Button size="sm" variant="secondary" className="h-9 gap-1 rounded-xl" onClick={() => { haptics.tap(); openCredit(a); }} title="Registrar pacote ou pagamento">
+                      <Plus className="w-4 h-4" /> Pagamento
                     </Button>
                   </div>
                 </div>
@@ -418,5 +448,6 @@ export default function BillingPage() {
         onSaved={load}
       />
     </div>
+    </PullToRefresh>
   );
 }

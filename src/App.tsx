@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import PublicAvailability from "./pages/PublicAvailability";
 import PublicHome from "./pages/PublicHome";
 import AdminLayout from "./components/AdminLayout";
+import HomePage from "./pages/admin/HomePage";
 import CalendarPage from "./pages/admin/CalendarPage";
 import OrganizationPage from "./pages/admin/OrganizationPage";
 import BlocksPage from "./pages/admin/BlocksPage";
@@ -51,7 +52,8 @@ const App = () => (
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
             <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<CalendarPage />} />
+              <Route index element={<HomePage />} />
+              <Route path="agenda" element={<CalendarPage />} />
               <Route path="organizacao" element={<OrganizationPage />} />
               <Route path="bloqueios" element={<BlocksPage />} />
               <Route path="alunos" element={<StudentsPage />} />

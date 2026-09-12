@@ -16,6 +16,10 @@ import android.widget.RemoteViews;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
+
 public class LessonsWidgetProvider extends AppWidgetProvider {
 
     private static final int MAX_ROWS = 4;
@@ -25,6 +29,7 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
 
     private static final int[] ROW_CONTAINER_IDS = { R.id.row1_container, R.id.row2_container, R.id.row3_container, R.id.row4_container };
     private static final int[] ROW_TIME_IDS = { R.id.row1_time, R.id.row2_time, R.id.row3_time, R.id.row4_time };
+    private static final int[] ROW_DAY_IDS = { R.id.row1_day, R.id.row2_day, R.id.row3_day, R.id.row4_day };
     private static final int[] ROW_NAME_IDS = { R.id.row1_name, R.id.row2_name, R.id.row3_name, R.id.row4_name };
     private static final int[] ROW_ADDRESS_IDS = { R.id.row1_address, R.id.row2_address, R.id.row3_address, R.id.row4_address };
 
@@ -76,14 +81,15 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
     private void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_lessons);
 
-        Intent openApp = new Intent(context, MainActivity.class);
-        PendingIntent openAppPending = PendingIntent.getActivity(
-            context,
-            appWidgetId,
-            openApp,
-            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-        views.setOnClickPendingIntent(R.id.widget_title, openAppPending);
+        int base = appWidgetId * 100;
+        PendingIntent openAgenda = WidgetIntents.openRoute(context, "/admin/agenda", base + 1);
+        views.setOnClickPendingIntent(R.id.widget_header, openAgenda);
+        views.setOnClickPendingIntent(R.id.widget_empty, openAgenda);
+        views.setOnClickPendingIntent(R.id.action_assistant, WidgetIntents.openRoute(context, "/admin/assistente", base + 2));
+        views.setOnClickPendingIntent(R.id.action_new_lesson, WidgetIntents.openRoute(context, "/admin?new=1", base + 3));
+
+        String today = new SimpleDateFormat("EEE d MMM", new Locale("pt", "BR")).format(new Date());
+        views.setTextViewText(R.id.widget_date, today);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_GROUP, Context.MODE_PRIVATE);
         String json = prefs.getString(PREFS_KEY, null);
@@ -114,16 +120,20 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
 
             views.setViewVisibility(ROW_CONTAINER_IDS[i], View.VISIBLE);
 
+            String day = lesson.optString("day", "");
             String time = lesson.optString("time", "");
             String student = lesson.optString("student", "");
             String subject = lesson.optString("subject", "");
             String address = lesson.optString("address", "");
+            String teacher = lesson.optString("teacher", "");
             boolean isOnline = lesson.optBoolean("isOnline", false);
 
             views.setTextViewText(ROW_TIME_IDS[i], time);
+            views.setTextViewText(ROW_DAY_IDS[i], day);
+            views.setTextViewText(ROW_NAME_IDS[i], subject.isEmpty() ? student : student + " · " + subject);
 
-            String nameLabel = subject.isEmpty() ? student : student + " · " + subject;
-            views.setTextViewText(ROW_NAME_IDS[i], nameLabel);
+            int rowBackground = "mayara".equals(teacher) ? R.drawable.widget_row_alt : R.drawable.widget_row;
+            views.setInt(ROW_CONTAINER_IDS[i], "setBackgroundResource", rowBackground);
 
             String addressLabel = isOnline ? "Online" : address;
             if (addressLabel.isEmpty()) {
@@ -137,13 +147,13 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
                 Intent waze = new Intent(Intent.ACTION_VIEW, Uri.parse("https://waze.com/ul?q=" + Uri.encode(address) + "&navigate=yes"));
                 PendingIntent wazePending = PendingIntent.getActivity(
                     context,
-                    appWidgetId * 10 + i + 1,
+                    base + 10 + i,
                     waze,
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
                 );
                 views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], wazePending);
             } else {
-                views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], openAppPending);
+                views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], openAgenda);
             }
         }
 

@@ -4,5 +4,6 @@
     <string name="title_activity_main">Aulas</string>
     <string name="package_name">com.aulasmat.app</string>
     <string name="custom_url_scheme">com.aulasmat.app</string>
-    <string name="widget_description">Mostra suas próximas aulas agendadas</string>
+    <string name="widget_description">Próximas aulas, com atalhos para o assistente e para marcar aula</string>
+    <string name="widget_billing_description">Quanto há a receber e quem está em aberto</string>
 </resources>
