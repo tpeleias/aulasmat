@@ -31,6 +31,7 @@ import StudentBooking from "./pages/student/StudentBooking";
 import ChangePassword from "./pages/student/ChangePassword";
 import ChildLayout from "./components/ChildLayout";
 import ChildDashboard from "./pages/child/ChildDashboard";
+import AndroidBackButton from "./components/AndroidBackButton";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <AndroidBackButton />
           <Routes>
             <Route path="/" element={<Auth />} />
             <Route path="/auth" element={<Navigate to="/" replace />} />

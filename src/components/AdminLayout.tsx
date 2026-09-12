@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, useSearchParams } from "react-router-dom";
+import { Navigate, NavLink, useLocation, useSearchParams } from "react-router-dom";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
@@ -17,13 +17,13 @@ import { haptics } from "@/lib/haptics";
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
   { to: "/admin/agenda", label: "Agenda", icon: Calendar },
-  { to: "/admin/alunos", label: "Alunos", icon: Users },
+  { to: "/admin/assistente", label: "Assistente", icon: Bot },
   { to: "/admin/financeiro", label: "Cobrança", icon: Wallet },
 ];
 
 const secondary: NavItem[] = [
+  { to: "/admin/alunos", label: "Alunos", icon: Users },
   { to: "/admin/organizacao", label: "Organização", icon: ClipboardList },
-  { to: "/admin/assistente", label: "Assistente", icon: Bot },
   { to: "/admin/professores", label: "Professores", icon: UserCog },
   { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
   { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },
@@ -36,6 +36,7 @@ export default function AdminLayout() {
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   useNativeRoute();
 
   // Widgets deep-link to "/admin?new=1" to jump straight into scheduling.
@@ -102,14 +103,17 @@ export default function AdminLayout() {
         </main>
       </div>
 
-      <Button
-        onClick={() => { haptics.tap(); setQuickOpen(true); }}
-        size="lg"
-        className="fixed right-4 z-40 h-12 gap-2 rounded-full px-4 shadow-lg md:bottom-6 md:right-6 md:h-14 md:px-5"
-        style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}
-      >
-        <Plus className="w-5 h-5" /> Nova aula
-      </Button>
+      {/* The assistant screen has its own send button in the same corner. */}
+      {location.pathname !== "/admin/assistente" && (
+        <Button
+          onClick={() => { haptics.tap(); setQuickOpen(true); }}
+          size="lg"
+          className="fixed right-4 z-40 h-12 gap-2 rounded-full px-4 shadow-lg md:bottom-6 md:right-6 md:h-14 md:px-5"
+          style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <Plus className="w-5 h-5" /> Nova aula
+        </Button>
+      )}
 
       <BottomNav
         items={primary}
