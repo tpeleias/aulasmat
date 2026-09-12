@@ -33,12 +33,26 @@ export default function Auth() {
   }
 
   const submitAccount = async (e: React.FormEvent) => {
-    e.preventDefault(); setBusy(true);
+    e.preventDefault();
+    const typed = email.trim();
+    // A guardian without an e-mail signs in with a username, which auth stores as an
+    // address on an internal domain. Anything without "@" is treated as a username.
+    const isUsername = !typed.includes("@");
+    if (isUsername && !isValidUsername(typed)) {
+      toast.error("Informe um e-mail válido ou um nome de usuário (3-30 caracteres).");
+      return;
+    }
+    if (signup && isUsername) {
+      toast.error("Para criar uma conta é preciso um e-mail. Peça ao professor um acesso por usuário.");
+      return;
+    }
+    const loginEmail = isUsername ? usernameToEmail(typed) : typed;
+    setBusy(true);
     const { error } = signup
-      ? await supabase.auth.signUp({ email, password, options: { emailRedirectTo: window.location.origin + "/" } })
-      : await supabase.auth.signInWithPassword({ email, password });
+      ? await supabase.auth.signUp({ email: loginEmail, password, options: { emailRedirectTo: window.location.origin + "/" } })
+      : await supabase.auth.signInWithPassword({ email: loginEmail, password });
     setBusy(false);
-    if (error) { haptics.warning(); toast.error(signup ? error.message : "E-mail ou senha incorretos."); return; }
+    if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? "Usuário ou senha incorretos." : "E-mail ou senha incorretos."); return; }
     haptics.success();
     if (signup) toast.success("Conta criada! Se for responsável, peça ao professor para vincular seu acesso.");
   };
@@ -91,8 +105,18 @@ export default function Auth() {
 
           {mode === "account" ? (
             <form onSubmit={submitAccount} className="space-y-4">
-              <Field label="E-mail">
-                <Input type="email" required autoComplete="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} className="h-12 rounded-xl" />
+              <Field label={signup ? "E-mail" : "E-mail ou usuário"}>
+                <Input
+                  type={signup ? "email" : "text"}
+                  required
+                  autoComplete={signup ? "email" : "username"}
+                  inputMode={signup ? "email" : "text"}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  value={email}
+                  onChange={e => setEmail(signup ? e.target.value : e.target.value.trimStart())}
+                  className="h-12 rounded-xl"
+                />
               </Field>
               <Field label="Senha">
                 <Input type="password" required minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />

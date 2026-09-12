@@ -18,7 +18,8 @@ import { haptics } from "@/lib/haptics";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null;
-  user_id: string | null; child_user_id: string | null; child_username: string | null;
+  user_id: string | null; guardian_username: string | null;
+  child_user_id: string | null; child_username: string | null;
 };
 
 type Visibility = {
@@ -52,7 +53,7 @@ export default function AccessPage() {
 
   const load = async () => {
     const [{ data: st }, { data: cfg }] = await Promise.all([
-      supabase.from("students").select("id, student_name, guardian_name, user_id, child_user_id, child_username").order("student_name"),
+      supabase.from("students").select("id, student_name, guardian_name, user_id, guardian_username, child_user_id, child_username").order("student_name"),
       supabase.from("settings").select("allow_student_booking, show_availability_to_students, show_payment_info_to_students").eq("id", 1).maybeSingle(),
     ]);
     setStudents((st ?? []) as Student[]);
@@ -91,7 +92,8 @@ export default function AccessPage() {
       "",
       `Link: ${window.location.origin}/`,
     ];
-    if (s.user_id) lines.push("Entre em “Responsável · Aluno” com o seu e-mail.");
+    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Professor / Responsável”).`);
+    else if (s.user_id) lines.push("Entre na aba “Professor / Responsável” com o seu e-mail.");
     if (s.child_username) lines.push(`Acesso do aluno: usuário ${s.child_username}.`);
     if (password.trim()) lines.push(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`);
     lines.push("", "Por lá você vê as próximas aulas, o que está em aberto, os materiais e as tarefas.");
@@ -172,7 +174,9 @@ export default function AccessPage() {
 
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant={s.user_id ? "default" : "outline"} className="rounded-full text-[10px]">
-                    {s.user_id ? "Responsável com acesso" : "Responsável sem acesso"}
+                    {s.guardian_username
+                      ? `Responsável: ${s.guardian_username}`
+                      : s.user_id ? "Responsável por e-mail" : "Responsável sem acesso"}
                   </Badge>
                   <Badge variant={s.child_user_id ? "default" : "outline"} className="rounded-full text-[10px]">
                     {s.child_username ? `Aluno: ${s.child_username}` : "Aluno sem acesso"}

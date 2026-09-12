@@ -5,6 +5,11 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// Not every family has an e-mail they check, so a guardian can also get a username.
+// Auth still needs an address, so the username becomes one on an internal domain.
+const USERNAME_DOMAIN = "aluno.sistema.local";
+const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -21,16 +26,43 @@ Deno.serve(async (req) => {
     const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
 
-    const { student_id, email, password } = await req.json();
-    if (!student_id || !email) return json({ error: "student_id e email obrigatórios" }, 400);
+    const { student_id, email, username, password } = await req.json();
+    if (!student_id) return json({ error: "student_id obrigatório" }, 400);
+    if (!email && !username) return json({ error: "Informe o e-mail ou o nome de usuário" }, 400);
+
+    let loginEmail: string = email;
+    let guardianUsername: string | null = null;
+
+    if (username) {
+      const uname = String(username).trim().toLowerCase();
+      if (!USERNAME_RE.test(uname)) {
+        return json({ error: "Usuário inválido. Use 3-30 caracteres: letras minúsculas, números, ponto, traço ou underline." }, 400);
+      }
+      if (!password || String(password).length < 6) {
+        return json({ error: "Defina uma senha de ao menos 6 caracteres para o acesso por usuário." }, 400);
+      }
+      // The same name must never serve two logins: a guardian taking a student's username
+      // would inherit a portal that shows money.
+      const [{ data: asChild }, { data: asGuardian }] = await Promise.all([
+        admin.from("students").select("id").ilike("child_username", uname).maybeSingle(),
+        admin.from("students").select("id").ilike("guardian_username", uname).maybeSingle(),
+      ]);
+      if (asChild || asGuardian) return json({ error: "Esse nome de usuário já está em uso." }, 400);
+
+      loginEmail = `${uname}@${USERNAME_DOMAIN}`;
+      guardianUsername = uname;
+    }
 
     // Find or create auth user
     const { data: existing } = await admin.auth.admin.listUsers();
-    let targetUser = existing.users.find(u => u.email?.toLowerCase() === String(email).toLowerCase());
+    let targetUser = existing.users.find(u => u.email?.toLowerCase() === String(loginEmail).toLowerCase());
     let created = false;
+    if (targetUser && guardianUsername) {
+      return json({ error: "Já existe uma conta com esse nome de usuário." }, 400);
+    }
     if (!targetUser) {
       if (!password) return json({ error: "Usuário não existe. Informe uma senha temporária para criar a conta." }, 400);
-      const { data: c, error: cErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+      const { data: c, error: cErr } = await admin.auth.admin.createUser({ email: loginEmail, password, email_confirm: true });
       if (cErr || !c.user) return json({ error: cErr?.message || "erro ao criar usuário" }, 400);
       targetUser = c.user;
       created = true;
@@ -41,11 +73,11 @@ Deno.serve(async (req) => {
 
     // Link student row + force password change on first login when we just set the password
     const { error: linkErr } = await admin.from("students")
-      .update({ user_id: targetUser.id, must_change_password: created })
+      .update({ user_id: targetUser.id, must_change_password: created, guardian_username: guardianUsername })
       .eq("id", student_id);
     if (linkErr) return json({ error: linkErr.message }, 400);
 
-    return json({ ok: true, user_id: targetUser.id, email });
+    return json({ ok: true, user_id: targetUser.id, email: loginEmail, username: guardianUsername });
   } catch (e: any) {
     return json({ error: e?.message || String(e) }, 500);
   }

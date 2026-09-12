@@ -363,6 +363,7 @@ export type Database = {
           child_username: string | null
           created_at: string
           guardian_name: string | null
+          guardian_username: string | null
           id: string
           must_change_password: boolean
           student_name: string
@@ -376,6 +377,7 @@ export type Database = {
           child_username?: string | null
           created_at?: string
           guardian_name?: string | null
+          guardian_username?: string | null
           id?: string
           must_change_password?: boolean
           student_name: string
@@ -389,6 +391,7 @@ export type Database = {
           child_username?: string | null
           created_at?: string
           guardian_name?: string | null
+          guardian_username?: string | null
           id?: string
           must_change_password?: boolean
           student_name?: string
