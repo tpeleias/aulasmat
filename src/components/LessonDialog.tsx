@@ -146,7 +146,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     };
 
     if (lesson?.id || !recurring || repeatCount <= 1) {
-      const { id: _ignore, ...rest } = form as any;
+      // payment_status is derived from the wallet by the database; never send it back.
+      const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = lesson?.id
         ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
@@ -172,7 +173,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
-      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
+      else { const { id: _i, payment_status: _ps, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {

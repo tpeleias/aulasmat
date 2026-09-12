@@ -126,7 +126,7 @@ const tools = [
   },
   {
     name: "add_wallet_credit",
-    description: "Registra um pagamento/crédito na carteira (pacote de aulas ou ajuste manual). Confirme valor e conta com o usuário antes de chamar.",
+    description: "Registra dinheiro recebido de um responsável/aluno (Pix, pacote, etc.). As aulas em aberto da conta são quitadas automaticamente, das mais antigas para as mais novas; o que sobrar fica como crédito. É a ÚNICA forma de marcar aulas como pagas. Confirme valor e conta com o usuário antes de chamar.",
     input_schema: {
       type: "object",
       properties: {
@@ -137,18 +137,6 @@ const tools = [
         description: { type: "string" },
       },
       required: ["student_name", "amount"],
-    },
-  },
-  {
-    name: "mark_lesson_paid",
-    description: "Marca uma aula como paga. Se via_package=false (padrão), também credita o valor na carteira (pagamento avulso). Se via_package=true, apenas marca como paga sem mexer no saldo (porque já foi pago via pacote antes).",
-    input_schema: {
-      type: "object",
-      properties: {
-        lesson_id: { type: "string" },
-        via_package: { type: "boolean", description: "Padrão false" },
-      },
-      required: ["lesson_id"],
     },
   },
   {
@@ -315,27 +303,6 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       if (error) throw error;
       return data;
     }
-    case "mark_lesson_paid": {
-      const { data: lesson, error: lErr } = await admin.from("lessons").select("*").eq("id", input.lesson_id).maybeSingle();
-      if (lErr) throw lErr;
-      if (!lesson) throw new Error("Aula não encontrada");
-      const { error: uErr } = await admin.from("lessons").update({ payment_status: "pago" }).eq("id", input.lesson_id);
-      if (uErr) throw uErr;
-      if (!input.via_package) {
-        // price is the hourly rate; the debit was price × duration / 60, so the credit must match it.
-        const owed = Math.round(Number(lesson.price) * Number(lesson.duration_minutes) / 60 * 100) / 100;
-        const { error: cErr } = await admin.from("wallet_transactions").insert({
-          guardian_name: lesson.guardian_name,
-          student_name: lesson.student_name,
-          amount: Math.abs(owed),
-          kind: "adjustment",
-          lesson_id: lesson.id,
-          description: `Pagamento — aula em ${lesson.start_at}`,
-        });
-        if (cErr) throw cErr;
-      }
-      return { ok: true };
-    }
     case "list_blocks": {
       let q = admin.from("blocks").select("*");
       if (input.teacher) q = q.eq("teacher", input.teacher);
@@ -400,7 +367,7 @@ Regras importantes:
 - Preço e duração padrão: toda aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Nunca invente um valor diferente de 220/hora por conta própria.
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
-- Ao criar uma aula, um débito na carteira do aluno/responsável é criado automaticamente pelo valor da aula - não é preciso registrar isso manualmente.
+- Financeiro: toda aula realizada vira uma cobrança automática. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
 - Seja direto e conciso nas respostas, em português do Brasil.
 
 Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou editar uma aula):
