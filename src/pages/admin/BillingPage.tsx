@@ -40,7 +40,7 @@ export default function BillingPage() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessonPay, setLessonPay] = useState<Record<string, string>>({});
-  const [upcoming, setUpcoming] = useState<{ id: string; student_name: string; start_at: string; duration_minutes: number; teacher: string; subject: string | null }[]>([]);
+  const [upcoming, setUpcoming] = useState<{ id: string; student_name: string; guardian_name: string | null; start_at: string; duration_minutes: number; teacher: string; subject: string | null }[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [creditFor, setCreditFor] = useState<{ guardian: string | null; student: string } | null>(null);
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -58,7 +58,7 @@ export default function BillingPage() {
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, payment_status"),
       supabase.from("lessons")
-        .select("id, student_name, start_at, duration_minutes, teacher, subject")
+        .select("id, student_name, guardian_name, start_at, duration_minutes, teacher, subject")
         .eq("status", "agendada")
         .gte("start_at", nowIso)
         .order("start_at"),
@@ -72,10 +72,10 @@ export default function BillingPage() {
   };
   useEffect(() => { load(); }, []);
 
-  const upcomingByStudent = useMemo(() => {
+  const upcomingByAccount = useMemo(() => {
     const map: Record<string, typeof upcoming> = {};
     for (const l of upcoming) {
-      const k = l.student_name.toLowerCase();
+      const k = accountKey(l);
       (map[k] ||= []).push(l);
     }
     return map;
@@ -266,7 +266,7 @@ export default function BillingPage() {
                 {isExp && (
                   <div className="mt-4 border-t border-border pt-3 space-y-3">
                     {(() => {
-                      const next = upcomingByStudent[a.student.toLowerCase()] ?? [];
+                      const next = upcomingByAccount[a.key] ?? [];
                       if (next.length === 0) return null;
                       return (
                         <div className="rounded-md border border-border/60 bg-muted/30 p-3">
@@ -296,15 +296,15 @@ export default function BillingPage() {
                       const isLesson = t.kind === "lesson";
                       const editable = !isLesson;
                       return (
-                        <div key={t.id} className="flex items-center justify-between text-sm gap-3">
+                        <div key={t.id} className="flex flex-wrap items-center justify-between text-sm gap-x-3 gap-y-1.5">
                           <div className="flex items-center gap-2 min-w-0">
                             <Wallet className="w-3 h-3 text-muted-foreground shrink-0" />
-                            <Badge variant="outline" className="text-[10px] capitalize">{t.kind === "package" ? "pacote" : isLesson ? "aula" : "ajuste"}</Badge>
+                            <Badge variant="outline" className="text-[10px] capitalize shrink-0">{t.kind === "package" ? "pacote" : isLesson ? "aula" : "ajuste"}</Badge>
                             <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
-                            <span className="text-muted-foreground text-xs whitespace-nowrap">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
+                            <span className="text-muted-foreground text-xs whitespace-nowrap shrink-0">{format(new Date(t.created_at), "dd/MM HH:mm", { locale: ptBR })}</span>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`font-semibold ${Number(t.amount) < 0 ? "text-destructive" : "text-success"}`}>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`font-semibold whitespace-nowrap ${Number(t.amount) < 0 ? "text-destructive" : "text-success"}`}>
                               {Number(t.amount) > 0 ? "+" : ""}{fmt(Number(t.amount))}
                             </span>
                             {editable ? (
