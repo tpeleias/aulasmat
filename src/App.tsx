@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
 import PublicAvailability from "./pages/PublicAvailability";
 import PublicHome from "./pages/PublicHome";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/admin/HomePage";
 import CalendarPage from "./pages/admin/CalendarPage";
@@ -51,6 +52,7 @@ const App = () => (
             <Route path="/auth" element={<Navigate to="/" replace />} />
             <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/inicio" element={<PublicHome />} />
+            <Route path="/privacidade" element={<PrivacyPolicy />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
             <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />

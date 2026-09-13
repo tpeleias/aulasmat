@@ -7,8 +7,10 @@ android {
         applicationId "com.aulasmat.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // The store refuses a build whose versionCode is not higher than the last one,
+        // so CI passes the run number in; a local build stays at 1.
+        versionCode System.getenv("ANDROID_VERSION_CODE") ? System.getenv("ANDROID_VERSION_CODE").toInteger() : 1
+        versionName System.getenv("ANDROID_VERSION_NAME") ?: "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -17,6 +19,17 @@ android {
         }
     }
     signingConfigs {
+        // The upload key lives only in CI secrets: the file is written at build time and
+        // never committed. Without it, a release build simply stays unsigned.
+        release {
+            def keystore = System.getenv("ANDROID_KEYSTORE_PATH")
+            if (keystore) {
+                storeFile file(keystore)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
         debug {
             // Committed keystore (android/debug.keystore) so every build shares the same
             // signature and updates install cleanly over the previous version. Relying on
@@ -34,6 +47,9 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (System.getenv("ANDROID_KEYSTORE_PATH")) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

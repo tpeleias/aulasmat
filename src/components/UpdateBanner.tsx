@@ -12,7 +12,8 @@ export default function UpdateBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    if (!Capacitor.isNativePlatform() || __BUILD_SHA__ === "dev") return;
+    // A build installed from the Play Store updates through the store.
+    if (!Capacitor.isNativePlatform() || __BUILD_SHA__ === "dev" || __DISTRIBUTION__ === "play") return;
 
     fetch(RELEASE_API_URL)
       .then((r) => (r.ok ? r.json() : null))

@@ -7,6 +7,8 @@ import { componentTagger } from "lovable-tagger";
 export default defineConfig(({ mode }) => ({
   define: {
     __BUILD_SHA__: JSON.stringify(process.env.GITHUB_SHA ?? "dev"),
+    // "play" for store builds: they update through the Play Store, not through GitHub.
+    __DISTRIBUTION__: JSON.stringify(process.env.APP_DISTRIBUTION ?? "direct"),
   },
   server: {
     host: "::",
