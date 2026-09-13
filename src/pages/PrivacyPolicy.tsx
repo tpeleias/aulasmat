@@ -5,7 +5,7 @@ import { GraduationCap } from "lucide-react";
 // The Play Console requires a public privacy policy URL, and it has to describe what the
 // app really does. This is a draft written from the app's actual behaviour: read it,
 // fill in the contact e-mail, and change anything that does not match how you work.
-const CONTACT = "[preencha com seu e-mail de contato]";
+const CONTACT = "thiagopeleias@gmail.com";
 const UPDATED_AT = "13 de setembro de 2026";
 
 export default function PrivacyPolicy() {
