@@ -82,7 +82,7 @@ export default function AdminLayout() {
             <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
               <GraduationCap className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div><div className="font-semibold text-sm">Aulas</div><div className="text-xs text-sidebar-foreground/60">Professor</div></div>
+            <div><div className="font-semibold text-sm">Portal de Aulas</div><div className="text-xs text-sidebar-foreground/60">Professor</div></div>
           </div>
           <nav className="flex flex-col gap-1 p-3 flex-1">
             {primary.map(sidebarLink)}

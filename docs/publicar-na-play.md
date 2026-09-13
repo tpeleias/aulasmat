@@ -44,7 +44,7 @@ sobe sozinho e a loja nunca recusa por versão repetida.
 
 ## 4. Criar o app no Play Console
 
-- Nome: Aulas. Pacote: `com.aulasmat.app` (não dá para mudar depois).
+- Nome: Portal de Aulas. Pacote: `com.aulasmat.app` (não dá para mudar depois).
 - Política de privacidade: `https://SEU-DOMINIO/privacidade`. A página já existe
   no app, mas **preencha o e-mail de contato** em `src/pages/PrivacyPolicy.tsx`
   antes de apontar a loja para ela.

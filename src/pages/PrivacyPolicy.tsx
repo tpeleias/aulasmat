@@ -9,7 +9,7 @@ const CONTACT = "[preencha com seu e-mail de contato]";
 const UPDATED_AT = "13 de setembro de 2026";
 
 export default function PrivacyPolicy() {
-  useEffect(() => { document.title = "Privacidade — Aulas"; }, []);
+  useEffect(() => { document.title = "Privacidade — Portal de Aulas"; }, []);
 
   return (
     <div className="flex-1 bg-background">
@@ -18,7 +18,7 @@ export default function PrivacyPolicy() {
           <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
             <GraduationCap className="h-4 w-4 text-primary-foreground" />
           </span>
-          Aulas
+          Portal de Aulas
         </Link>
 
         <h1 className="text-2xl font-bold">Política de privacidade</h1>
@@ -28,7 +28,7 @@ export default function PrivacyPolicy() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base">O que é este app</h2>
             <p>
-              O Aulas organiza as aulas particulares dadas por um professor: agenda, cadastro de
+              O Portal de Aulas organiza as aulas particulares dadas por um professor: agenda, cadastro de
               alunos, cobrança e materiais. Ele é usado pelo professor e pelas famílias atendidas.
               Não há publicidade e nenhum dado é vendido.
             </p>

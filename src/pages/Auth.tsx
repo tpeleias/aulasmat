@@ -22,7 +22,7 @@ export default function Auth() {
   const [childPw, setChildPw] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { document.title = "Acesso — Aulas"; }, []);
+  useEffect(() => { document.title = "Acesso — Portal de Aulas"; }, []);
 
   if (loading) return null;
   if (session) {
@@ -82,7 +82,7 @@ export default function Auth() {
               <GraduationCap className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <div className="text-2xl font-bold tracking-tight">Aulas</div>
+              <div className="text-2xl font-bold tracking-tight">Portal de Aulas</div>
               <div className="text-sm text-sidebar-foreground/70">Agenda, alunos e cobrança</div>
             </div>
           </div>
