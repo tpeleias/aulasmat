@@ -1,0 +1,5 @@
+# The app is a single-page app: every route (/privacidade, /admin, /aluno, ...) is
+# handled by React Router inside index.html, not by a separate file per route. Without
+# this rule, Netlify looks for a real file at that path and returns its own 404 for
+# anything besides the exact root URL.
+/*   /index.html   200
