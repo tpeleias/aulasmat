@@ -1,30 +1,49 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Users, CalendarPlus, Settings2, Link2 } from "lucide-react";
+import { Plus, Users, ChevronRight, Search, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { StudentManageDialog } from "@/components/StudentManageDialog";
+import StudentSheet, { type SheetLesson } from "@/components/StudentSheet";
+import EmptyState from "@/components/EmptyState";
+import ListSkeleton from "@/components/ListSkeleton";
+import PullToRefresh from "@/components/PullToRefresh";
+import SortMenu, { useSortPreference } from "@/components/SortMenu";
+import { accountKey, fmtMoney } from "@/lib/balance";
+import { computeStatements, isOverdue, type LedgerTx } from "@/lib/billing";
+import { haptics } from "@/lib/haptics";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
-type Lesson = { student_name: string; start_at: string };
-type Tx = { student_name: string; guardian_name: string | null; amount: number };
+type Lesson = SheetLesson & { student_name: string; guardian_name: string | null };
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const norm = (s?: string | null) => (s ?? "").trim().toLowerCase();
+type StudentSort = "name" | "owed" | "next" | "lessons";
+
+const STUDENT_SORTS: { key: StudentSort; label: string }[] = [
+  { key: "name", label: "Nome (A–Z)" },
+  { key: "owed", label: "Maior valor em aberto" },
+  { key: "next", label: "Próxima aula" },
+  { key: "lessons", label: "Mais aulas" },
+];
+
+const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("");
 
 export default function StudentsPage() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
-  const [txs, setTxs] = useState<Tx[]>([]);
+  const [txs, setTxs] = useState<LedgerTx[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useSortPreference<StudentSort>("alunos", STUDENT_SORTS, "name");
+  const [selected, setSelected] = useState<Student | null>(null);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
@@ -34,39 +53,69 @@ export default function StudentsPage() {
   const load = async () => {
     const [{ data: s }, { data: l }, { data: t }] = await Promise.all([
       supabase.from("students").select("*").order("student_name"),
-      supabase.from("lessons").select("student_name,start_at").lt("start_at", new Date().toISOString()),
-      supabase.from("wallet_transactions").select("student_name,guardian_name,amount"),
+      supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status"),
+      supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
     ]);
     setStudents((s ?? []) as Student[]);
     setLessons((l ?? []) as Lesson[]);
-    setTxs((t ?? []) as Tx[]);
+    setTxs((t ?? []) as LedgerTx[]);
+    setLoading(false);
   };
   useEffect(() => { load(); }, []);
 
-  const stats = useMemo(() => {
-    const lessonCount = new Map<string, number>();
-    for (const l of lessons) {
-      const k = norm(l.student_name);
-      lessonCount.set(k, (lessonCount.get(k) ?? 0) + 1);
-    }
-    const balByStudent = new Map<string, number>();
-    const balByGuardian = new Map<string, number>();
-    for (const t of txs) {
-      const g = norm(t.guardian_name);
-      if (g) balByGuardian.set(g, (balByGuardian.get(g) ?? 0) + Number(t.amount));
-      else {
-        const s = norm(t.student_name);
-        balByStudent.set(s, (balByStudent.get(s) ?? 0) + Number(t.amount));
-      }
-    }
-    return { lessonCount, balByStudent, balByGuardian };
-  }, [lessons, txs]);
+  const statements = useMemo(() => {
+    const done = lessons.filter(l => l.status === "realizada");
+    return new Map(computeStatements(txs, done).map(s => [s.key, s]));
+  }, [txs, lessons]);
 
-  const balanceFor = (st: Student) => {
-    const g = norm(st.guardian_name);
-    if (g && stats.balByGuardian.has(g)) return stats.balByGuardian.get(g)!;
-    return stats.balByStudent.get(norm(st.student_name)) ?? 0;
-  };
+  const lessonsByAccount = useMemo(() => {
+    const map = new Map<string, Lesson[]>();
+    for (const l of lessons) (map.get(accountKey(l)) ?? map.set(accountKey(l), []).get(accountKey(l))!).push(l);
+    return map;
+  }, [lessons]);
+
+  // Start of the next scheduled lesson per account, for the "Próxima aula" order.
+  const nextByAccount = useMemo(() => {
+    const nowIso = new Date().toISOString();
+    const map = new Map<string, string>();
+    for (const l of lessons) {
+      if (l.status !== "agendada" || l.start_at < nowIso) continue;
+      const k = accountKey(l);
+      const cur = map.get(k);
+      if (!cur || l.start_at < cur) map.set(k, l.start_at);
+    }
+    return map;
+  }, [lessons]);
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const found = q
+      ? students.filter(s => s.student_name.toLowerCase().includes(q) || (s.guardian_name ?? "").toLowerCase().includes(q))
+      : [...students];
+
+    const byName = (a: Student, b: Student) => a.student_name.localeCompare(b.student_name, "pt-BR");
+    const owedOf = (s: Student) => statements.get(accountKey(s))?.owed ?? 0;
+
+    switch (sort) {
+      case "owed":
+        return found.sort((a, b) => owedOf(b) - owedOf(a) || byName(a, b));
+      case "lessons":
+        return found.sort((a, b) =>
+          (lessonsByAccount.get(accountKey(b))?.length ?? 0) - (lessonsByAccount.get(accountKey(a))?.length ?? 0) || byName(a, b));
+      case "next":
+        // Who you see soonest comes first; students with nothing booked go last.
+        return found.sort((a, b) => {
+          const na = nextByAccount.get(accountKey(a));
+          const nb = nextByAccount.get(accountKey(b));
+          if (!na && !nb) return byName(a, b);
+          if (!na) return 1;
+          if (!nb) return -1;
+          return na.localeCompare(nb);
+        });
+      default:
+        return found.sort(byName);
+    }
+  }, [students, query, sort, statements, lessonsByAccount, nextByAccount]);
 
   const save = async () => {
     if (!editing?.student_name?.trim()) { toast.error("Nome do aluno obrigatório"); return; }
@@ -80,81 +129,120 @@ export default function StudentsPage() {
       ? await supabase.from("students").update(payload).eq("id", editing.id)
       : await supabase.from("students").insert(payload);
     setBusy(false);
-    if (error) toast.error(error.message);
-    else { toast.success("Aluno salvo"); setEditing(null); load(); }
+    if (error) { haptics.warning(); toast.error(error.message); }
+    else { haptics.success(); toast.success("Aluno salvo"); setEditing(null); setSelected(null); load(); }
   };
 
   const remove = async (id: string) => {
     if (!confirm("Excluir este aluno do cadastro? (Não afeta aulas existentes)")) return;
     const { error } = await supabase.from("students").delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("Aluno excluído"); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success("Aluno excluído"); setSelected(null); load(); }
   };
 
+  const selectedStatement = selected ? statements.get(accountKey(selected)) : undefined;
+  const selectedLessons = selected ? (lessonsByAccount.get(accountKey(selected)) ?? []) : [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Alunos</h1>
-          <p className="text-sm text-muted-foreground">Cadastro de clientes com histórico e saldo.</p>
+    <PullToRefresh onRefresh={load}>
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Alunos</h1>
+            <p className="text-sm text-muted-foreground">{students.length} cadastrado{students.length === 1 ? "" : "s"}</p>
+          </div>
+          <Button className="rounded-xl gap-1.5" onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
+            <Plus className="w-4 h-4" /> Novo
+          </Button>
         </div>
-        <Button onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}>
-          <Plus className="w-4 h-4 mr-1" /> Novo aluno
-        </Button>
+
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar aluno ou responsável" className="h-11 rounded-xl pl-9" />
+          </div>
+          <SortMenu value={sort} options={STUDENT_SORTS} onChange={setSort} className="h-11" />
+        </div>
+
+        {loading ? (
+          <ListSkeleton rows={5} />
+        ) : students.length === 0 ? (
+          <EmptyState icon={Users} title="Nenhum aluno cadastrado" description="Cadastre o primeiro aluno para começar a agendar."
+            action={<Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> Novo aluno</Button>} />
+        ) : visible.length === 0 ? (
+          <EmptyState icon={Search} title="Nada encontrado" description={`Nenhum aluno ou responsável com "${query}".`} />
+        ) : (
+          <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
+            {visible.map(st => {
+              const s = statements.get(accountKey(st));
+              const owed = s?.owed ?? 0;
+              const credit = s && s.balance > 0 ? s.balance : 0;
+              const overdue = s ? isOverdue(s) : false;
+              return (
+                <li key={st.id}>
+                  <button
+                    onClick={() => { haptics.tap(); setSelected(st); }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40 active:bg-muted/60"
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                      {initials(st.student_name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="truncate font-medium">{st.student_name}</span>
+                        {st.user_id && <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      </div>
+                      <div className="truncate text-xs text-muted-foreground">
+                        {st.guardian_name ? `Resp.: ${st.guardian_name}` : "Sem responsável"}
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {credit > 0 ? (
+                        <><div className="font-semibold tabular-nums text-success">{fmtMoney(credit)}</div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">crédito</div></>
+                      ) : owed > 0 ? (
+                        <><div className={`font-semibold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(owed)}</div><div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>{overdue ? "em atraso" : "a receber"}</div></>
+                      ) : (
+                        <div className="text-xs text-muted-foreground">Em dia</div>
+                      )}
+                    </div>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
-      <div className="grid gap-3">
-        {students.length === 0 && (
-          <Card className="p-8 text-center text-muted-foreground">Nenhum aluno cadastrado ainda.</Card>
-        )}
-        {students.map(st => {
-          const count = stats.lessonCount.get(norm(st.student_name)) ?? 0;
-          const bal = balanceFor(st);
-          return (
-            <Card key={st.id} className="p-4">
-              <div className="flex flex-col md:flex-row md:items-center gap-3 md:gap-4">
-                <div className="flex-1 min-w-0">
-                  <div className="font-semibold">{st.student_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {st.guardian_name ? `Resp.: ${st.guardian_name}` : "Sem responsável"}
-                    {st.address ? ` · ${st.address}` : ""}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="secondary">{count} {count === 1 ? "aula realizada" : "aulas realizadas"}</Badge>
-                  <Badge variant={bal >= 0 ? "default" : "destructive"}>Saldo: {fmt(bal)}</Badge>
-                  {st.user_id && <Badge variant="outline" className="gap-1"><Link2 className="w-3 h-3" /> conta</Badge>}
-                  <Button size="sm" variant="default" className="gap-1" onClick={() => setScheduleFor(st)}>
-                    <CalendarPlus className="w-4 h-4" /> Agendar
-                  </Button>
-                  <Button size="sm" variant="outline" className="gap-1" onClick={() => setManageFor(st)}>
-                    <Settings2 className="w-4 h-4" /> Gerenciar
-                  </Button>
-                  <Button size="icon" variant="ghost" onClick={() => setEditing(st)}><Pencil className="w-4 h-4" /></Button>
-                  <Button size="icon" variant="ghost" onClick={() => remove(st.id)}><Trash2 className="w-4 h-4" /></Button>
-                </div>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+      <StudentSheet
+        student={selected}
+        lessons={selectedLessons}
+        statement={selectedStatement}
+        open={!!selected}
+        onOpenChange={v => !v && setSelected(null)}
+        onSchedule={() => { const s = selected!; setSelected(null); setScheduleFor(s); }}
+        onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
+        onEdit={() => { const s = selected!; setSelected(null); setEditing(s); }}
+        onDelete={() => remove(selected!.id)}
+        onBilling={() => navigate("/admin/financeiro")}
+      />
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
-        <DialogContent>
+        <DialogContent className="rounded-2xl">
           <DialogHeader><DialogTitle>{editing?.id ? "Editar aluno" : "Novo aluno"}</DialogTitle></DialogHeader>
           <div className="grid gap-3">
             <div><Label>Nome do aluno</Label>
-              <Input value={editing?.student_name ?? ""} onChange={e => setEditing(p => ({ ...p!, student_name: e.target.value }))} />
+              <Input className="h-11 rounded-xl" value={editing?.student_name ?? ""} onChange={e => setEditing(p => ({ ...p!, student_name: e.target.value }))} />
             </div>
             <div><Label>Responsável</Label>
-              <Input value={editing?.guardian_name ?? ""} onChange={e => setEditing(p => ({ ...p!, guardian_name: e.target.value }))} />
+              <Input className="h-11 rounded-xl" value={editing?.guardian_name ?? ""} onChange={e => setEditing(p => ({ ...p!, guardian_name: e.target.value }))} />
             </div>
             <div><Label>Endereço</Label>
-              <Input value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder="Rua, número, bairro, cidade" />
+              <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder="Rua, número, bairro, cidade" />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button onClick={save} disabled={busy}>Salvar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setEditing(null)}>Cancelar</Button>
+            <Button className="rounded-xl" onClick={save} disabled={busy}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -177,6 +265,6 @@ export default function StudentsPage() {
         onOpenChange={v => !v && setManageFor(null)}
         onChanged={load}
       />
-    </div>
+    </PullToRefresh>
   );
 }

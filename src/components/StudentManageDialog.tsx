@@ -14,7 +14,7 @@ import { format } from "date-fns";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 
-type Student = { id: string; student_name: string; user_id: string | null; child_user_id?: string | null; child_username?: string | null };
+type Student = { id: string; student_name: string; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
 
 export function StudentManageDialog({ student, open, onOpenChange, onChanged }: {
   student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void;
@@ -46,20 +46,32 @@ export function StudentManageDialog({ student, open, onOpenChange, onChanged }: 
 }
 
 function AccountTab({ student, onChanged }: { student: Student; onChanged: () => void }) {
+  const [byUsername, setByUsername] = useState(false);
   const [email, setEmail] = useState("");
+  const [guardianUser, setGuardianUser] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [newPw, setNewPw] = useState<string | null>(null);
 
   const link = async () => {
-    if (!email.trim()) { toast.error("Informe o e-mail"); return; }
+    // Families without an e-mail they actually read get a username instead; the server
+    // refuses one that already belongs to a student or to another guardian.
+    const body = byUsername
+      ? { student_id: student.id, username: guardianUser, password }
+      : { student_id: student.id, email: email.trim(), password: password || undefined };
+
+    if (byUsername) {
+      if (!isValidUsername(guardianUser)) { toast.error("Usuário inválido (3-30 caracteres: letras minúsculas, números, ponto, traço ou underline)"); return; }
+      if (password.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    } else if (!email.trim()) {
+      toast.error("Informe o e-mail"); return;
+    }
+
     setBusy(true);
-    const { data, error } = await supabase.functions.invoke("link-student-account", {
-      body: { student_id: student.id, email: email.trim(), password: password || undefined },
-    });
+    const { data, error } = await supabase.functions.invoke("link-student-account", { body });
     setBusy(false);
     if (error || (data as any)?.error) toast.error((data as any)?.error || error?.message || "Erro ao vincular");
-    else { toast.success("Conta vinculada. O aluno deverá trocar a senha no primeiro acesso."); onChanged(); }
+    else { toast.success("Conta vinculada. A senha deverá ser trocada no primeiro acesso."); onChanged(); }
   };
 
   const unlink = async () => {
@@ -86,7 +98,9 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
           <div className="flex items-center justify-between gap-2">
             <div>
               <div className="text-sm font-medium">Conta vinculada</div>
-              <div className="text-xs text-muted-foreground font-mono break-all">{student.user_id}</div>
+              <div className="text-xs text-muted-foreground font-mono break-all">
+                {student.guardian_username ? `usuário: ${student.guardian_username}` : student.user_id}
+              </div>
             </div>
             <Button variant="destructive" size="sm" onClick={unlink}>Desvincular</Button>
           </div>
@@ -109,12 +123,32 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
       ) : (
         <Card className="p-4 space-y-3">
           <div>
-            <div className="text-sm font-medium mb-1">Vincular conta de acesso</div>
-            <p className="text-xs text-muted-foreground">Informe o e-mail do aluno/responsável. Se ainda não existir, defina uma senha temporária para criar a conta — ele será forçado a trocá-la no primeiro acesso.</p>
+            <div className="text-sm font-medium mb-1">Criar acesso do responsável</div>
+            <p className="text-xs text-muted-foreground">
+              Por e-mail, se a família usa um. Por nome de usuário, quando não usa: funciona igual, só não serve para recuperar senha sozinho.
+            </p>
           </div>
-          <div><Label>E-mail</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
-          <div><Label>Senha temporária (opcional, só para criar)</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
-          <Button onClick={link} disabled={busy} className="gap-2"><Link2 className="w-4 h-4" /> Vincular</Button>
+
+          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted text-xs">
+            <button type="button" onClick={() => setByUsername(false)} className={`px-3 py-1 rounded ${!byUsername ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>E-mail</button>
+            <button type="button" onClick={() => setByUsername(true)} className={`px-3 py-1 rounded ${byUsername ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Usuário</button>
+          </div>
+
+          {byUsername ? (
+            <>
+              <div>
+                <Label>Nome de usuário</Label>
+                <Input value={guardianUser} onChange={e => setGuardianUser(normalizeUsername(e.target.value))} placeholder="ex: flavia.miguel" autoCapitalize="none" autoCorrect="off" />
+              </div>
+              <div><Label>Senha</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
+            </>
+          ) : (
+            <>
+              <div><Label>E-mail</Label><Input type="email" value={email} onChange={e => setEmail(e.target.value)} /></div>
+              <div><Label>Senha temporária (opcional, só para criar)</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
+            </>
+          )}
+          <Button onClick={link} disabled={busy} className="gap-2"><Link2 className="w-4 h-4" /> Criar acesso</Button>
         </Card>
       )}
 

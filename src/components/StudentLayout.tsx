@@ -1,14 +1,18 @@
-import { Navigate, NavLink, Outlet, Link } from "react-router-dom";
+import { Navigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
-import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch } from "lucide-react";
+import AnimatedOutlet from "@/components/AnimatedOutlet";
+import BottomNav, { type NavItem } from "@/components/BottomNav";
+import { useTheme } from "@/hooks/useTheme";
+import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
   const settings = useAppSettings();
+  const { theme, toggleTheme } = useTheme();
 
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/" replace />;
@@ -17,7 +21,7 @@ export default function StudentLayout() {
   if (role !== "student") return <Navigate to="/" replace />;
   if (student?.must_change_password) return <Navigate to="/trocar-senha" replace />;
 
-  const items = [
+  const items: NavItem[] = [
     { to: "/aluno", label: "Início", icon: LayoutDashboard, end: true },
     { to: "/aluno/aulas", label: "Aulas", icon: Calendar },
     ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: "Agendar", icon: CalendarPlus }] : []),
@@ -25,17 +29,19 @@ export default function StudentLayout() {
     { to: "/aluno/materiais", label: "Materiais", icon: FolderOpen },
     { to: "/aluno/tarefas", label: "Tarefas", icon: ListChecks },
   ];
+  const tabs = items.slice(0, 4);
+  const overflow = items.slice(4);
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row bg-background">
-      <aside className="md:w-60 md:min-h-screen bg-sidebar text-sidebar-foreground flex md:flex-col">
-        <div className="p-5 hidden md:flex items-center gap-2 border-b border-sidebar-border">
+    <div className="flex flex-1 flex-col md:flex-row bg-background">
+      <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
+        <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
             <GraduationCap className="w-5 h-5 text-primary-foreground" />
           </div>
           <div><div className="font-semibold text-sm">Portal</div><div className="text-xs text-sidebar-foreground/60">Aluno</div></div>
         </div>
-        <nav className="flex md:flex-col gap-1 p-2 md:p-3 flex-1 overflow-x-auto">
+        <nav className="flex flex-col gap-1 p-3 flex-1">
           {items.map(it => (
             <NavLink key={it.to} to={it.to} end={it.end}
               className={({ isActive }) =>
@@ -46,7 +52,7 @@ export default function StudentLayout() {
             </NavLink>
           ))}
         </nav>
-        <div className="p-3 hidden md:block border-t border-sidebar-border space-y-2">
+        <div className="p-3 border-t border-sidebar-border space-y-2">
           {settings?.show_availability_to_students && (
             <>
               <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Disponibilidade</div>
@@ -64,7 +70,39 @@ export default function StudentLayout() {
           </Button>
         </div>
       </aside>
-      <main className="flex-1 p-4 md:p-8 max-w-[1200px] w-full mx-auto"><Outlet /></main>
+      <main className="flex min-h-0 flex-1 flex-col w-full max-w-[1200px] mx-auto p-4 md:p-8 pb-[5.5rem] md:pb-8"><AnimatedOutlet /></main>
+
+      <BottomNav
+        items={tabs}
+        more={(close) => (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-2">
+              {overflow.map(it => (
+                <NavLink key={it.to} to={it.to} onClick={close}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
+                      isActive ? "bg-primary/10 text-primary" : "bg-muted/60 hover:bg-muted"
+                    }`}>
+                  <it.icon className="h-4 w-4" />{it.label}
+                </NavLink>
+              ))}
+              {settings?.show_availability_to_students && (
+                <>
+                  <Link to="/disponibilidade/thiago" target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda Thiago</Link>
+                  <Link to="/disponibilidade/mayara" target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda Mayara</Link>
+                </>
+              )}
+            </div>
+            <div className="flex items-center justify-between border-t border-border pt-3">
+              <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
+                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {theme === "dark" ? "Modo claro" : "Modo escuro"}
+              </Button>
+              <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
+            </div>
+          </div>
+        )}
+      />
     </div>
   );
 }

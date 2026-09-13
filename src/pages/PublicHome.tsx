@@ -49,7 +49,7 @@ export default function PublicHome() {
     slug === "mayara" ? settings?.whatsapp_mayara : slug === "thiago" ? settings?.whatsapp_thiago : null;
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: "var(--gradient-subtle)" }}>
+    <div className="flex flex-1 flex-col" style={{ background: "var(--gradient-subtle)" }}>
       <header className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">

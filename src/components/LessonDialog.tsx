@@ -23,7 +23,10 @@ type Lesson = {
 
 const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
 
-const PACKAGE_PRICES: Record<string, number> = { single: 220, pack5: 210, pack10: 200 };
+// Every lesson is charged at the list price. The package discount is not a cheaper lesson:
+// it is a voucher credited on the Cobrança page, which keeps the ledger closing at zero.
+const LIST_PRICE = 220;
+const PACKAGE_LABEL: Record<string, string> = { single: "Avulsa", pack5: "Pacote 5 aulas", pack10: "Pacote 10 aulas" };
 
 export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, defaultTeacher, initialStudent }: {
   open: boolean; onOpenChange: (v: boolean) => void; slotStart?: Date; lesson?: Lesson | null; onSaved: () => void;
@@ -33,7 +36,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const baseTeacher = defaultTeacher || "thiago";
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
-    start_at: "", duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+    start_at: "", duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
     teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
   const [busy, setBusy] = useState(false);
@@ -60,7 +63,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         guardian_name: initialStudent?.guardian_name ?? "",
         subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
-        duration_minutes: 60, price: 220, package_type: "single", payment_status: "pendente", notes: "",
+        duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
@@ -73,13 +76,24 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     }
   }, [lesson, slotStart, open, baseTeacher, initialStudent]);
 
+  const studentOptionLabel = (s: { student_name: string; guardian_name: string | null }) => {
+    const dupes = students.filter(o => o.student_name.toLowerCase() === s.student_name.toLowerCase());
+    if (dupes.length <= 1) return s.student_name;
+    return `${s.student_name} (${s.guardian_name || "sem responsável"})`;
+  };
+
   const pickStudent = (name: string) => {
-    const match = students.find(s => s.student_name.toLowerCase() === name.trim().toLowerCase());
+    const trimmed = name.trim().toLowerCase();
+    // Exact match on the disambiguated label (picked from the dropdown) takes priority.
+    const byLabel = students.find(s => studentOptionLabel(s).toLowerCase() === trimmed);
+    const byNameMatches = students.filter(s => s.student_name.toLowerCase() === trimmed);
+    // Only auto-fill from a bare name match when it's unambiguous - never guess between duplicates.
+    const match = byLabel ?? (byNameMatches.length === 1 ? byNameMatches[0] : undefined);
     setForm(f => ({
       ...f,
-      student_name: name,
-      guardian_name: match?.guardian_name ?? f.guardian_name,
-      address: match?.address ?? f.address,
+      student_name: match ? match.student_name : name,
+      guardian_name: match ? (match.guardian_name ?? "") : f.guardian_name,
+      address: match ? (match.address ?? "") : f.address,
       is_online: match?.address ? false : f.is_online,
     }));
   };
@@ -93,7 +107,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   }));
 
   const setPackage = (pkg: string) => {
-    setForm(f => ({ ...f, package_type: pkg, price: PACKAGE_PRICES[pkg] ?? f.price }));
+    setForm(f => ({ ...f, package_type: pkg }));
     if (!lesson?.id) {
       if (pkg === "pack5") { setRecurring(true); setRepeatCount(5); }
       else if (pkg === "pack10") { setRecurring(true); setRepeatCount(10); }
@@ -127,9 +141,17 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
     await ensureStudent();
 
+    // Names are the key that ties a lesson to its student record and wallet - stray
+    // whitespace silently orphans the lesson from the cadastro.
+    const names = {
+      student_name: form.student_name.trim(),
+      guardian_name: (form.guardian_name ?? "").trim() || null,
+    };
+
     if (lesson?.id || !recurring || repeatCount <= 1) {
-      const { id: _ignore, ...rest } = form as any;
-      const payload = { ...rest, start_at: new Date(form.start_at).toISOString() };
+      // payment_status is derived from the wallet by the database; never send it back.
+      const { id: _ignore, payment_status: _ps, ...rest } = form as any;
+      const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = lesson?.id
         ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
         : await supabase.from("lessons").insert(payload);
@@ -154,7 +176,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, "dd/MM HH:mm"));
-      else { const { id: _i, ...rest } = form as any; toInsert.push({ ...rest, start_at: occ.toISOString() }); }
+      else { const { id: _i, payment_status: _ps, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {
@@ -209,7 +231,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               />
               <datalist id="students-list">
                 {students.map(s => (
-                  <option key={s.id} value={s.student_name}>{s.guardian_name ? `Resp.: ${s.guardian_name}` : ""}</option>
+                  <option key={s.id} value={studentOptionLabel(s)} />
                 ))}
               </datalist>
             </div>
@@ -251,9 +273,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.package_type} onValueChange={setPackage}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single">Avulsa — R$ 220/h</SelectItem>
-                  <SelectItem value="pack5">Pacote 5 — R$ 210/h</SelectItem>
-                  <SelectItem value="pack10">Pacote 10 — R$ 200/h</SelectItem>
+                  <SelectItem value="single">{PACKAGE_LABEL.single}</SelectItem>
+                  <SelectItem value="pack5">{PACKAGE_LABEL.pack5}</SelectItem>
+                  <SelectItem value="pack10">{PACKAGE_LABEL.pack10}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -265,6 +287,10 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </span>
             </div>
           </div>
+          <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+            Toda aula entra pelo valor cheio (R$ {LIST_PRICE}/h). O desconto do pacote é lançado
+            como <strong className="text-foreground">voucher</strong> na Cobrança ao registrar o pagamento.
+          </div>
           <Collapsible className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
@@ -273,21 +299,12 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3 pt-0 space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <Label>Valor por hora (R$/h)</Label>
-                  <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
-                </div>
-                <div>
-                  <Label>Status pagamento</Label>
-                  <Select value={form.payment_status} onValueChange={v => setForm({ ...form, payment_status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pendente">Pendente</SelectItem>
-                      <SelectItem value="pago">Pago</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div>
+                <Label>Valor por hora (R$/h)</Label>
+                <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Pagamento é marcado na página Cobrança (isso mantém a carteira correta).
+                </p>
               </div>
               <div><Label>Situação da aula</Label>
                 <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
