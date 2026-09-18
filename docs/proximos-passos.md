@@ -6,29 +6,30 @@ um chat inteiro. Atualize/apague itens conforme forem resolvidos.
 
 ## Fila de itens pequenos (prontos para implementar)
 
-1. **Ícone "A" ao salvar o site na tela de início do iPhone/iPad**
-   Causa confirmada: `index.html` só declara `favicon.ico`. O Safari usa a
-   primeira letra do título quando não há `apple-touch-icon`. Falta gerar um
-   PNG 180×180 (mesma arte do ícone da Play Store) e adicionar a tag
-   `<link rel="apple-touch-icon" href="...">`.
+Os 3 itens abaixo foram implementados (typecheck, lint no nível já existente
+no projeto, testes e build de produção passando):
 
-2. **Editar aula recorrente: perguntar "só esta" ou "esta e as futuras"**
-   Hoje não existe conceito de série no banco — cada linha de `lessons` é
-   solta, sem link para as demais do mesmo aluno/horário. Duas opções:
-   - **Inferir** (mais simples): ao editar, buscar outras aulas do mesmo
-     aluno/professor/dia da semana/horário nas próximas semanas e oferecer o
-     "aplicar a todas" com base nisso.
-   - **Explícito** (mais robusto, mais trabalho): dar às aulas um vínculo de
-     série no momento da criação, do jeito que `blocks` já faz para
-     bloqueios recorrentes (`block_type = 'recurring'`, `weekday`).
-   Recomendação: começar pela inferência, é o suficiente para o caso de uso.
+1. ~~Ícone "A" ao salvar o site na tela de início do iPhone/iPad~~ — feito.
+   Gerado `public/apple-touch-icon.png` (180×180, arte do `ic_launcher.png`
+   composta sobre o fundo `#20232B`) e adicionada a tag
+   `<link rel="apple-touch-icon">` em `index.html`.
 
-3. **Aula cancelada aparece em vermelho na agenda**
-   Confirmado: `CalendarPage.tsx` (~linha 274) não tem nenhum tratamento para
-   `status === "cancelada"` — ela renderiza igual a uma aula normal (mesma
-   cor azul/rosa por professor). Ajustar a expressão de classe para priorizar
-   `status === "cancelada"` → `bg-destructive/…`, com tachado no nome.
-   Mudança pontual, só CSS/JSX, sem tocar banco.
+2. ~~Editar aula recorrente: perguntar "só esta" ou "esta e as futuras"~~ — feito.
+   Implementada a via de **inferência** em `LessonDialog.tsx`: ao salvar a
+   edição de uma aula existente, busca outras aulas do mesmo aluno/professor,
+   ainda `agendada`, no mesmo dia da semana e horário, com data futura. Se
+   achar alguma, pergunta (via `confirm()`) se aplica a alteração só a esta
+   ou a esta e às futuras; ao aplicar a todas, reaplica o novo horário
+   (hora:minuto) mantendo a data de cada ocorrência, e não toca em
+   `status`/`class_summary`/`payment_status` de cada uma.
+
+3. ~~Aula cancelada aparece em vermelho na agenda~~ — feito.
+   `CalendarPage.tsx`: `status === "cancelada"` agora prioriza
+   `bg-destructive/15` / `border-l-destructive`, com nome tachado
+   (`line-through`).
+
+Pendente (deixado para depois, a pedido do Thiago): um 4º item ainda não
+escrito neste arquivo — perguntar a ele qual é antes de seguir.
 
 ## Linha de fundo: abrir para outras empresas (SaaS)
 
