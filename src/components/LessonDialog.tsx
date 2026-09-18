@@ -134,6 +134,29 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     else toast.success(`Aluno "${name}" cadastrado automaticamente`);
   };
 
+  // "Série" é inferida, não gravada no banco: outras aulas do mesmo aluno/professor,
+  // mesmo dia da semana e horário, ainda agendadas e no futuro em relação a esta.
+  const findFutureSeriesMatches = async (base: Lesson): Promise<{ id: string; start_at: string }[]> => {
+    if (!base.id) return [];
+    const { data, error } = await supabase
+      .from("lessons")
+      .select("id,start_at")
+      .eq("student_name", base.student_name)
+      .eq("teacher", base.teacher)
+      .eq("status", "agendada")
+      .neq("id", base.id)
+      .gt("start_at", base.start_at)
+      .order("start_at");
+    if (error || !data) return [];
+    const baseDate = new Date(base.start_at);
+    const baseWeekday = baseDate.getDay();
+    const baseTime = format(baseDate, "HH:mm");
+    return (data as { id: string; start_at: string }[]).filter(r => {
+      const d = new Date(r.start_at);
+      return d.getDay() === baseWeekday && format(d, "HH:mm") === baseTime;
+    });
+  };
+
   const save = async () => {
     if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
     setBusy(true);
@@ -148,13 +171,48 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       guardian_name: (form.guardian_name ?? "").trim() || null,
     };
 
-    if (lesson?.id || !recurring || repeatCount <= 1) {
+    if (lesson?.id) {
+      const futureMatches = await findFutureSeriesMatches(lesson);
+      const applyToAll = futureMatches.length > 0 && confirm(
+        `Esta aula parece fazer parte de uma série: mesmo aluno, professor, dia da semana e horário se repetem em ${futureMatches.length} aula(s) futura(s).\n\nOK = aplicar esta alteração a esta e às futuras.\nCancelar = alterar só esta aula.`
+      );
+
       // payment_status is derived from the wallet by the database; never send it back.
       const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
-      const { error } = lesson?.id
-        ? await supabase.from("lessons").update(payload).eq("id", lesson.id)
-        : await supabase.from("lessons").insert(payload);
+      const { error } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
+      if (error) { setBusy(false); toast.error(error.message); return; }
+
+      if (applyToAll) {
+        // status/class_summary/start_at ficam de fora: são específicos de cada aula,
+        // só o horário (hora:minuto) é reaplicado, mantendo a data de cada ocorrência.
+        const { id: _i2, payment_status: _ps2, status: _st, class_summary: _cs, start_at: _sa, ...futureRest } = form as any;
+        const newTime = format(new Date(form.start_at), "HH:mm");
+        const timeChanged = newTime !== format(new Date(lesson.start_at), "HH:mm");
+        for (const m of futureMatches) {
+          let start = m.start_at;
+          if (timeChanged) {
+            const d = new Date(m.start_at);
+            const [hh, mm] = newTime.split(":").map(Number);
+            d.setHours(hh, mm, 0, 0);
+            start = d.toISOString();
+          }
+          const { error: futureError } = await supabase.from("lessons").update({ ...futureRest, ...names, start_at: start }).eq("id", m.id);
+          if (futureError) toast.error(`Aula futura não atualizada: ${futureError.message}`);
+        }
+      }
+
+      setBusy(false);
+      toast.success(applyToAll ? `Aula salva e aplicada a ${futureMatches.length} aula(s) futura(s)` : "Aula salva");
+      onOpenChange(false); onSaved();
+      return;
+    }
+
+    if (!recurring || repeatCount <= 1) {
+      // payment_status is derived from the wallet by the database; never send it back.
+      const { id: _ignore, payment_status: _ps, ...rest } = form as any;
+      const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
+      const { error } = await supabase.from("lessons").insert(payload);
       setBusy(false);
       if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
       return;
