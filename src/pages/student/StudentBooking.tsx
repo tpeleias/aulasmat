@@ -9,6 +9,11 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { lessonErrorMessage } from "@/lib/lessonErrors";
 import { toast } from "sonner";
 import { Calendar, Clock, AlertCircle, Flame } from "lucide-react";
 import { Navigate } from "react-router-dom";
@@ -24,6 +29,8 @@ export default function StudentBooking() {
   const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Horário escolhido esperando confirmação. Antes, um toque já criava a aula.
+  const [pending, setPending] = useState<{ start: Date; end: Date } | null>(null);
 
   useEffect(() => { if (!teacher && teachers[0]) setTeacher(teachers[0].name); }, [teachers, teacher]);
 
@@ -68,8 +75,10 @@ export default function StudentBooking() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start]);
 
-  const book = async (start: Date) => {
-    if (!student) return;
+  const book = async () => {
+    if (!student || !pending) return;
+    const start = pending.start;
+    setPending(null);
     setBusy(true);
     const { error } = await supabase.from("lessons").insert({
       student_name: student.student_name,
@@ -85,9 +94,18 @@ export default function StudentBooking() {
       status: "agendada",
       is_online: !student.address,
     });
+    if (error) {
+      setBusy(false);
+      toast.error(lessonErrorMessage(error));
+      load();
+      return;
+    }
+    toast.success("Aula agendada! O professor receberá o aviso.");
+    // Só libera os botões depois que a lista terminar de recarregar. Antes, o
+    // horário recém-marcado continuava na tela por um instante, e um segundo
+    // toque nele marcava a mesma aula de novo.
+    await load();
     setBusy(false);
-    if (error) toast.error(error.message);
-    else { toast.success("Aula agendada! O professor receberá o aviso."); load(); }
   };
 
   if (settings && !settings.allow_student_booking) {
@@ -138,7 +156,7 @@ export default function StudentBooking() {
                       key={s.start.toISOString()}
                       variant="outline"
                       disabled={busy}
-                      onClick={() => book(s.start)}
+                      onClick={() => setPending(s)}
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="flex items-center gap-1 text-sm font-semibold"><Clock className="w-3 h-3" />{fmtTime(s.start)}</span>
@@ -151,6 +169,31 @@ export default function StudentBooking() {
           ))}
         </>
       )}
+
+      <AlertDialog open={!!pending} onOpenChange={open => { if (!open) setPending(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar agendamento?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Você está marcando uma aula com <strong>{capitalize(teacher)}</strong>:</p>
+                {pending && (
+                  <p className="text-foreground font-medium">
+                    {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                    <br />
+                    das {fmtTime(pending.start)} às {fmtTime(pending.end)}
+                  </p>
+                )}
+                <p>O professor será avisado assim que você confirmar.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={book}>Confirmar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

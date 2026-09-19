@@ -178,6 +178,15 @@ const tools = [
   },
 ];
 
+// A constraint lessons_sem_sobreposicao (23P01) impede duas aulas no mesmo horário do
+// mesmo professor. A mensagem crua do Postgres não serve para o assistente repetir ao
+// professor, então vira um texto que ele pode ler em voz alta.
+function slotConflict(error: { code?: string; message?: string }): { error: string } | null {
+  const conflito = error.code === "23P01" || (error.message ?? "").includes("lessons_sem_sobreposicao");
+  if (!conflito) return null;
+  return { error: "Esse horário já está ocupado para este professor. Escolha outro horário ou cancele a aula que já está lá." };
+}
+
 // A credit filed under the wrong guardian silently lands in a different wallet than the
 // lesson debits, so always resolve a name to exactly one cadastro before touching money.
 // Named for the student it resolves, not for accountId: "account" means the company
@@ -276,7 +285,10 @@ async function executeTool(admin: ReturnType<typeof createClient>, accountId: st
         address: input.address ?? null,
         notes: input.notes ?? null,
       }).select().single();
-      if (error) throw error;
+      // O banco recusa duas aulas no mesmo horário do mesmo professor. Devolver
+      // isso como resultado, e não como exceção, deixa o assistente explicar o
+      // conflito ao professor em vez de estourar a conversa.
+      if (error) return slotConflict(error) ?? { error: error.message };
       return data;
     }
     case "update_lesson": {
@@ -285,7 +297,7 @@ async function executeTool(admin: ReturnType<typeof createClient>, accountId: st
       const { lesson_id, ...fields } = input;
       const { data, error } = await admin.from("lessons").update(fields)
         .eq("id", lesson_id).eq("account_id", accountId).select().single();
-      if (error) throw error;
+      if (error) return slotConflict(error) ?? { error: error.message };
       return data;
     }
     case "delete_lesson": {
