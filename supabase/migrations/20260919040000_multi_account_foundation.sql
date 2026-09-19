@@ -382,9 +382,11 @@ CREATE POLICY "anon reads settings" ON public.settings
   USING (account_id = public.public_account_id());
 
 DROP POLICY IF EXISTS "anyone reads teachers" ON public.teachers;
+DROP POLICY IF EXISTS "anon reads teachers" ON public.teachers;
 CREATE POLICY "anon reads teachers" ON public.teachers
   FOR SELECT TO anon
   USING (account_id = public.public_account_id());
+DROP POLICY IF EXISTS "authenticated reads teachers" ON public.teachers;
 CREATE POLICY "authenticated reads teachers" ON public.teachers
   FOR SELECT TO authenticated
   USING (account_id = public.current_account_id());
