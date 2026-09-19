@@ -252,9 +252,41 @@ O que ficou, além de apagar as credenciais no Play Console:
   Era isso que deixava marcar o mesmo horário duas vezes em 3 segundos
 - `src/lib/lessonErrors.ts` traduz o erro 23P01 do Postgres, que é ilegível
 
-Antes do próximo `.aab`: Play Console → Testes → Relatório de pré-lançamento →
-Configurações → apagar as credenciais de conta de teste. Ou apontá-las para uma
-empresa descartável, nunca para a de produção.
+**Onde ficam as credenciais** (corrigindo um palpite errado): não é em Testes →
+Relatório de pré-lançamento → Configurações, que estava vazio e marcado para
+não usar credenciais. É em **Conteúdo do app → Acesso ao app**, onde o Google
+obriga a informar um login quando o app tem tela de entrada. Essas credenciais
+**não podem ser apagadas**: sem elas o revisor não vê o app e a submissão pode
+ser recusada. O certo é apontá-las para uma empresa descartável.
+
+Não deu para determinar se o robô pegou a senha do "Acesso ao app" ou se
+simplesmente adivinhou (o login era `teste`, no estilo `testex`/`testex`; o
+crawler preenche campos com palavras genéricas). Os dois caminhos pedem a mesma
+correção, então a causa exata ficou sem resposta de propósito.
+
+**A empresa "Demonstração"** foi criada para isso: slug `demo`, dois professores
+fictícios (ana, bruno), um aluno fictício e 4 aulas, para a tela não parecer
+quebrada na revisão. Login `demo`, e a senha está no Play Console em Acesso ao
+app. Verificado: esse login enxerga 4 aulas fictícias e nada da produção.
+
+Cuidado ao criar login novo por SQL: o gatilho `handle_new_user` joga todo
+usuário novo na empresa pública, que é a de produção. É preciso realocar o
+`user_roles` na mesma transação, senão o login nasce dentro da empresa real.
+
+**`allow_student_booking` está DESLIGADO na empresa de produção.** Foi o que
+cortou o sangramento: mesmo depois da trava contra sobreposição, o robô criou
+mais 23 aulas, porque a trava impede duplicata e não impede varredura. Desligar
+não custou nada — o histórico mostra que nenhum aluno de verdade jamais marcou
+aula pelo portal (as 118 aulas reais vieram de admin ou do assistente). Para
+religar: Configurações → Portal do Aluno → "Permitir que alunos agendem aulas
+diretamente".
+
+**Não houve vazamento.** Verificado com as regras de acesso do login do robô:
+ele lê só o próprio cadastro e a lista de professores. Zero aulas, zero
+financeiro, zero nomes de outros alunos.
+
+Pendente: trocar a senha do login `teste` (ou desativá-lo) depois que o Play
+Console estiver apontando para o `demo`.
 
 ### Ainda não decidido
 
