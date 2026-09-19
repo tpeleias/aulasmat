@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
 import { LessonDialog } from "@/components/LessonDialog";
+import { LessonRequests } from "@/components/LessonRequests";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { fmtMoney, capitalize } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
@@ -55,7 +56,10 @@ export default function HomePage() {
     const dayEnd = startOfDay(addDays(now, 1)).toISOString();
     const [t, n, w, d] = await Promise.all([
       supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
-        .gte("start_at", dayStart).lt("start_at", dayEnd).neq("status", "cancelada").order("start_at"),
+        // Tudo que é aula de verdade hoje, inclusive as já realizadas - o que sai
+        // são as descartadas e os pedidos sem resposta, que não são compromisso.
+        .gte("start_at", dayStart).lt("start_at", dayEnd)
+        .not("status", "in", "(cancelada,recusada,solicitada)").order("start_at"),
       supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
         .gte("start_at", now.toISOString()).eq("status", "agendada").order("start_at").limit(1),
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
@@ -93,6 +97,8 @@ export default function HomePage() {
           <p className="text-sm text-muted-foreground capitalize">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
           <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {capitalize(teacher)}</h1>
         </header>
+
+        <LessonRequests onChanged={load} />
 
         <section>
           <SectionTitle icon={CalendarDays} title="Hoje" action={<Link to="/admin/agenda" className="text-sm text-primary">Agenda</Link>} />

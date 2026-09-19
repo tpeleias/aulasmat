@@ -75,7 +75,7 @@ export default function StudentBooking() {
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start]);
 
-  const book = async () => {
+  const request = async () => {
     if (!student || !pending) return;
     const start = pending.start;
     setPending(null);
@@ -91,7 +91,9 @@ export default function StudentBooking() {
       package_type: "single",
       payment_status: "pendente",
       teacher,
-      status: "agendada",
+      // Pedido, não aula. Quem promove para "agendada" é o professor, e o banco
+      // não aceita outro status vindo daqui (política students insert own lessons).
+      status: "solicitada",
       is_online: !student.address,
     });
     if (error) {
@@ -100,10 +102,10 @@ export default function StudentBooking() {
       load();
       return;
     }
-    toast.success("Aula agendada! O professor receberá o aviso.");
+    toast.success("Pedido enviado! O professor vai avaliar e você recebe a resposta por aqui.");
     // Só libera os botões depois que a lista terminar de recarregar. Antes, o
-    // horário recém-marcado continuava na tela por um instante, e um segundo
-    // toque nele marcava a mesma aula de novo.
+    // horário recém-pedido continuava na tela por um instante, e um segundo
+    // toque nele mandava o mesmo pedido de novo.
     await load();
     setBusy(false);
   };
@@ -115,8 +117,11 @@ export default function StudentBooking() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Calendar className="w-6 h-6" /> Agendar aula</h1>
-        <p className="text-sm text-muted-foreground">Escolha o professor e um horário livre.</p>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Calendar className="w-6 h-6" /> Solicitar aula</h1>
+        <p className="text-sm text-muted-foreground">
+          Escolha o professor e um horário livre. O pedido vai para o professor aprovar — a aula
+          só entra na agenda depois disso.
+        </p>
       </div>
 
       {teachers.length === 0 ? (
@@ -173,10 +178,10 @@ export default function StudentBooking() {
       <AlertDialog open={!!pending} onOpenChange={open => { if (!open) setPending(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar agendamento?</AlertDialogTitle>
+            <AlertDialogTitle>Deseja solicitar este horário?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>Você está marcando uma aula com <strong>{capitalize(teacher)}</strong>:</p>
+                <p>Você vai pedir uma aula com <strong>{capitalize(teacher)}</strong>:</p>
                 {pending && (
                   <p className="text-foreground font-medium">
                     {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -184,13 +189,16 @@ export default function StudentBooking() {
                     das {fmtTime(pending.start)} às {fmtTime(pending.end)}
                   </p>
                 )}
-                <p>O professor será avisado assim que você confirmar.</p>
+                <p>
+                  O horário fica reservado enquanto o professor não responde, e a aula
+                  entra na agenda só depois que ele aprovar.
+                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={book}>Confirmar</AlertDialogAction>
+            <AlertDialogAction onClick={request}>Solicitar horário</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

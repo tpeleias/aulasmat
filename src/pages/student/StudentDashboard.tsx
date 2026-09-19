@@ -16,6 +16,7 @@ import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
+import { isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -46,7 +47,14 @@ export default function StudentDashboard() {
   }, [student]);
 
   const now = new Date();
-  const upcoming = lessons.filter(l => new Date(l.start_at) >= now);
+  const future = lessons.filter(l => new Date(l.start_at) >= now);
+  // "Próximas aulas" conta só o que está de fato marcado. Um pedido ainda não
+  // respondido não é aula, e uma recusada ou cancelada nunca foi - antes as três
+  // entravam na contagem e a família via "3 próximas aulas" tendo uma.
+  const upcoming = future.filter(l => l.status === "agendada" || !l.status);
+  // Os pedidos e as respostas ficam juntos: é por aqui que a família descobre
+  // que o professor aprovou ou recusou.
+  const requests = future.filter(l => isRequest(l.status) || l.status === "recusada");
   const past = lessons.filter(l => new Date(l.start_at) < now);
   const dueHomework = homework.filter(h => h.status !== "entregue");
 
@@ -87,6 +95,21 @@ export default function StudentDashboard() {
         <StatCard icon={ListChecks} label="Tarefas pendentes" value={dueHomework.length} href="/aluno/tarefas" />
         <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/aluno/materiais" />
       </div>
+
+      {requests.length > 0 && (
+        <Card className="p-5 space-y-3">
+          <h2 className="font-semibold">Seus pedidos</h2>
+          {requests.map(l => (
+            <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
+              <div>
+                <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
+                <div className="text-xs text-muted-foreground">{l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+              </div>
+              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+            </div>
+          ))}
+        </Card>
+      )}
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold">Próximas aulas</h2>
@@ -136,7 +159,7 @@ export default function StudentDashboard() {
           <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">{format(new Date(l.start_at), "dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-              <Badge variant={l.status === "realizada" ? "default" : "secondary"}>{l.status ?? "agendada"}</Badge>
+              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
             </div>
             {l.class_summary && (
               <div className="text-xs text-muted-foreground mt-1 italic">📝 {l.class_summary}</div>

@@ -56,14 +56,14 @@ const tools = [
         to: { type: "string", description: "Data/hora ISO 8601 final (exclusive)" },
         student_name: { type: "string" },
         teacher: { type: "string", description: "Slug do professor (ex: thiago, mayara)" },
-        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
+        status: { type: "string", enum: ["solicitada", "agendada", "realizada", "recusada", "cancelada"] },
       },
       required: ["from", "to"],
     },
   },
   {
     name: "create_lesson",
-    description: "Cria uma nova aula agendada. Um lançamento de débito na carteira do aluno/responsável é criado automaticamente. Antes de chamar, confirme com o usuário o resumo da aula (aluno, data/hora, professor, valor).",
+    description: "Cria uma nova aula JÁ AGENDADA (aula criada pelo professor não passa por aprovação; só o pedido feito pelo aluno no portal nasce como 'solicitada'). Um lançamento de débito na carteira do aluno/responsável é criado automaticamente. Antes de chamar, confirme com o usuário o resumo da aula (aluno, data/hora, professor, valor).",
     input_schema: {
       type: "object",
       properties: {
@@ -98,7 +98,7 @@ const tools = [
         price: { type: "number", description: "Valor POR HORA em reais (R$/h), não o total da aula" },
         is_online: { type: "boolean" },
         address: { type: "string" },
-        status: { type: "string", enum: ["agendada", "cancelada", "realizada"] },
+        status: { type: "string", enum: ["solicitada", "agendada", "realizada", "recusada", "cancelada"], description: "Para responder um pedido do aluno: 'agendada' aprova, 'recusada' recusa e devolve o horário para a vitrine." },
         notes: { type: "string" },
       },
       required: ["lesson_id"],
@@ -414,6 +414,7 @@ Regras importantes:
 - Financeiro: toda aula realizada vira uma cobrança automática pelo valor cheio. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
 - Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. Pacote de 10 aulas: amount 2000 e voucher_amount 200 (10 x R$220 = R$2.200 = R$2.000 + R$200). Pacote de 5 aulas: amount 1050 e voucher_amount 50 (5 x R$220 = R$1.100 = R$1.050 + R$50). Assim a conta fecha exata e não sobra diferença.
 - Voucher avulso (desconto ou cortesia combinada pelo professor): add_wallet_credit com amount 0 e voucher_amount igual ao desconto. Voucher é sempre crédito para o aluno, nunca cobrança.
+- Solicitações de aula: quando o aluno pede um horário pelo portal, a aula nasce com status "solicitada" e só entra na agenda depois que o professor aprova. Para responder, use update_lesson com status "agendada" (aprova) ou "recusada" (recusa e libera o horário). Um pedido "solicitada" já reserva o horário, então não sugira marcar outra aula em cima dele. Nunca aprove ou recuse sem o professor confirmar na conversa.
 - Seja direto e conciso nas respostas, em português do Brasil.
 
 Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou editar uma aula):

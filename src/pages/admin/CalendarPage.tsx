@@ -8,6 +8,7 @@ import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { teacherColor } from "@/lib/teacherColors";
+import { isDiscarded, isRequest } from "@/lib/lessonStatus";
 import { capitalize } from "@/lib/balance";
 import { syncUpcomingLessonsWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
@@ -270,7 +271,10 @@ export default function CalendarPage() {
     const top = (minutesFromTop * CELL_H) / 60;
     const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
     const color = teacherColor(lesson.teacher, teacherSlugs);
-    const isCancelled = lesson.status === "cancelada";
+    // Cancelada/recusada saem riscadas em vermelho; pedido sem resposta fica com
+    // borda tracejada, porque não é aula até o professor aprovar.
+    const isCancelled = isDiscarded(lesson.status);
+    const isPending = isRequest(lesson.status);
     const widthPct = 100 / cols;
     const leftPct = col * widthPct;
     return (
@@ -278,11 +282,11 @@ export default function CalendarPage() {
         key={lesson.id}
         onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
-        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : lesson.payment_status === "pago" ? "bg-success/20" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
+        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : isPending ? "bg-muted/60 border border-dashed" : lesson.payment_status === "pago" ? "bg-success/20" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
       >
         <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
         <div className="text-[10px] text-muted-foreground truncate leading-tight">
-          {format(ls, "HH:mm")} · {lesson.subject}
+          {isPending ? `${format(ls, "HH:mm")} · pedido` : `${format(ls, "HH:mm")} · ${lesson.subject ?? "Aula"}`}
         </div>
         {lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>

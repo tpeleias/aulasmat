@@ -5,6 +5,7 @@ import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2 } from "
 import { format, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtMoney, capitalize } from "@/lib/balance";
+import { isDiscarded, statusLabel } from "@/lib/lessonStatus";
 import type { AccountStatement } from "@/lib/billing";
 import { daysOpen, isOverdue } from "@/lib/billing";
 
@@ -38,7 +39,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
     .filter(l => l.status === "agendada" && isFuture(new Date(l.start_at)))
     .sort((a, b) => a.start_at.localeCompare(b.start_at))[0];
   const recent = lessons
-    .filter(l => l.status !== "cancelada")
+    .filter(l => !isDiscarded(l.status))
     .sort((a, b) => b.start_at.localeCompare(a.start_at))
     .slice(0, 5);
 
@@ -92,7 +93,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
                     <div className="font-medium capitalize">{format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</div>
                     <div className="truncate text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · {capitalize(l.teacher)}</div>
                   </div>
-                  <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{l.status}</Badge>
+                  <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{statusLabel(l.status)}</Badge>
                 </li>
               ))}
             </ul>

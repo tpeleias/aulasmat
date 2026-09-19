@@ -381,8 +381,13 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
+                    {/* "Solicitada" fica na lista para o professor poder responder o
+                        pedido aqui também, e não só pela tela Hoje - ele chega neste
+                        diálogo clicando no pedido na agenda. */}
+                    <SelectItem value="solicitada">Solicitada (aguardando você)</SelectItem>
                     <SelectItem value="agendada">Agendada</SelectItem>
                     <SelectItem value="realizada">Realizada</SelectItem>
+                    <SelectItem value="recusada">Recusada</SelectItem>
                     <SelectItem value="cancelada">Cancelada</SelectItem>
                   </SelectContent>
                 </Select>

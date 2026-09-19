@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { scopeToAccount } from "@/lib/balance";
+import { isDiscarded, isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -30,6 +31,8 @@ export default function StudentLessons() {
   }, [student, hideFinancial]);
 
   const now = new Date();
+  // A aba de cima junta o que está marcado e o que ainda é pedido, porque é
+  // onde a família procura a resposta do professor.
   const upcoming = lessons.filter(l => new Date(l.start_at) >= now && l.status !== "realizada").reverse();
   const past = lessons.filter(l => new Date(l.start_at) < now || l.status === "realizada");
 
@@ -38,7 +41,7 @@ export default function StudentLessons() {
       <h1 className="text-2xl font-bold">Minhas aulas</h1>
       <Tabs defaultValue="upcoming">
         <TabsList>
-          <TabsTrigger value="upcoming">Próximas aulas ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="upcoming">Próximas e pedidos ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} /></TabsContent>
@@ -60,10 +63,13 @@ function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
               <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {l.teacher}</div>
             </div>
             <div className="flex items-center gap-2">
-              {!hideFinancial && (
+              {/* Pedido sem resposta, recusado ou cancelado não tem cobrança para
+                  mostrar - exibir valor ali fazia parecer que a família devia
+                  por uma aula que ninguém confirmou. */}
+              {!hideFinancial && !isRequest(l.status) && !isDiscarded(l.status) && (
                 <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
               )}
-              <Badge variant="secondary">{l.status ?? "agendada"}</Badge>
+              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
               {!hideFinancial && (
                 <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
               )}
