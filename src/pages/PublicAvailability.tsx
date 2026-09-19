@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { computeFreeSlots, fmtTime, pickScarcityCandidates } from "@/lib/availability";
+import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
@@ -47,12 +47,12 @@ export default function PublicAvailability() {
         : supabase.from("lessons").select("start_at, duration_minutes")
       ).gte("start_at", from.toISOString()).lt("start_at", to.toISOString());
       const [settingsR, busyR, recR, lessonsR] = await Promise.all([
-        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").maybeSingle(),
+        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity").maybeSingle(),
         busyCall,
         recCall,
         lessonsCall,
       ]);
-      const s: any = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity_weekday_min: 1, scarcity_weekday_max: 3, scarcity_weekend_min: 3, scarcity_weekend_max: 7 };
+      const s: any = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity: SCARCITY_DEFAULT };
       const busy = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
       const lessonRanges = (lessonsR.data ?? []).map((l: any) => ({
         start: new Date(l.start_at),
@@ -71,8 +71,7 @@ export default function PublicAvailability() {
         const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
         const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-        const minN = isWeekend ? (s.scarcity_weekend_min ?? 3) : (s.scarcity_weekday_min ?? 1);
-        const maxN = isWeekend ? (s.scarcity_weekend_max ?? 7) : (s.scarcity_weekday_max ?? 3);
+        const { min: minN, max: maxN } = scarcityFor(day, s.scarcity);
         const picked = pickScarcityCandidates(day, dayCandidates, teacher ?? "all", minN, maxN);
         // Once a picked slot is booked it simply disappears — no replacement is shown
         const visible = picked

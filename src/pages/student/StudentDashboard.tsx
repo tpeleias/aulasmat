@@ -97,7 +97,7 @@ export default function StudentDashboard() {
               <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
             </div>
-            <WhatsAppButton teacher={l.teacher} settings={settings} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
           </div>
         ))}
       </Card>

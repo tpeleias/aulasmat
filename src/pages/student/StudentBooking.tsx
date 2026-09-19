@@ -4,7 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
-import { computeFreeSlots, fmtTime, pickScarcityCandidates } from "@/lib/availability";
+import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -56,8 +56,7 @@ export default function StudentBooking() {
       const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
       const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-      const minN = isWeekend ? (s.scarcity_weekend_min ?? 3) : (s.scarcity_weekday_min ?? 1);
-      const maxN = isWeekend ? (s.scarcity_weekend_max ?? 7) : (s.scarcity_weekday_max ?? 3);
+      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity);
       const picked = pickScarcityCandidates(day, dayCandidates, teacher, minN, maxN);
       const visible = picked
         .filter(start => freeStartTimes.has(start.getTime()))

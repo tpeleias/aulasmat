@@ -18,7 +18,6 @@ import OrganizationPage from "./pages/admin/OrganizationPage";
 import BlocksPage from "./pages/admin/BlocksPage";
 import BillingPage from "./pages/admin/BillingPage";
 import SettingsPage from "./pages/admin/SettingsPage";
-import AuditPage from "./pages/admin/AuditPage";
 import StudentsPage from "./pages/admin/StudentsPage";
 import TeachersPage from "./pages/admin/TeachersPage";
 import AssistantPage from "./pages/admin/AssistantPage";
@@ -66,7 +65,6 @@ const App = () => (
               <Route path="financeiro" element={<BillingPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
               <Route path="acessos" element={<AccessPage />} />
-              <Route path="auditoria" element={<AuditPage />} />
             </Route>
             <Route path="/aluno" element={<StudentLayout />}>
               <Route index element={<StudentDashboard />} />
