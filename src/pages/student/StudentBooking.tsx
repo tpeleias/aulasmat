@@ -56,7 +56,7 @@ export default function StudentBooking() {
       const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
       const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
       const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity);
+      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teachers.find(t => t.name === teacher)?.scarcity);
       const picked = pickScarcityCandidates(day, dayCandidates, teacher, minN, maxN);
       const visible = picked
         .filter(start => freeStartTimes.has(start.getTime()))
