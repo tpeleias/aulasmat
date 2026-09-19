@@ -9,13 +9,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null; teacher: string };
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-const TEACHER_LABEL: Record<string, string> = { thiago: "Thiago", mayara: "Mayara", both: "Ambos" };
-
 export default function BlocksPage() {
+  const { teachers } = useTeachers(true);
+  // "both" continua sendo o valor gravado para "vale para todos os professores".
+  const teacherLabel = (slug: string) =>
+    slug === "both"
+      ? "Todos"
+      : capitalize(teachers.find(t => teacherSlug(t.name) === slug)?.name ?? slug);
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [recForm, setRecForm] = useState({ title: "Escola", weekday: 1, start_time: "07:00", end_time: "13:00", teacher: "both" });
   const [oneForm, setOneForm] = useState({ title: "Lazer", start_at: "", end_at: "", teacher: "both" });
@@ -53,9 +59,10 @@ export default function BlocksPage() {
                 <Select value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">Ambos</SelectItem>
-                    <SelectItem value="thiago">Thiago</SelectItem>
-                    <SelectItem value="mayara">Mayara</SelectItem>
+                    <SelectItem value="both">Todos</SelectItem>
+                    {teachers.map(t => (
+                      <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -75,7 +82,7 @@ export default function BlocksPage() {
             {recurring.map(b => (
               <Card key={b.id} className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{TEACHER_LABEL[b.teacher] ?? b.teacher}</span></div>
+                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
                   <div className="text-sm text-muted-foreground">{WEEKDAYS[b.weekday ?? 0]} · {b.start_time?.slice(0,5)} – {b.end_time?.slice(0,5)}</div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>
@@ -93,9 +100,10 @@ export default function BlocksPage() {
                 <Select value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">Ambos</SelectItem>
-                    <SelectItem value="thiago">Thiago</SelectItem>
-                    <SelectItem value="mayara">Mayara</SelectItem>
+                    <SelectItem value="both">Todos</SelectItem>
+                    {teachers.map(t => (
+                      <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -109,7 +117,7 @@ export default function BlocksPage() {
             {oneOffs.map(b => (
               <Card key={b.id} className="p-4 flex items-center justify-between">
                 <div>
-                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{TEACHER_LABEL[b.teacher] ?? b.teacher}</span></div>
+                  <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
                   <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), "dd/MM/yyyy HH:mm")} – {b.end_at && format(new Date(b.end_at), "dd/MM HH:mm")}</div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>

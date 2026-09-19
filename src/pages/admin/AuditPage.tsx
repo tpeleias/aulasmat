@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -50,6 +51,8 @@ function pickScarcityCandidates(day: Date, candidateStarts: Date[], teacherKey: 
 }
 
 export default function AuditPage() {
+  const { teachers } = useTeachers(true);
+  const teacherSlugs = useMemo(() => teachers.map(t => teacherSlug(t.name)), [teachers]);
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   // Per-teacher pre-computed picked slot times for the next 5 days (only blocks, no lessons — same logic as public page)
@@ -70,9 +73,9 @@ export default function AuditPage() {
       const s: Settings = (settingsR.data as Settings) ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity_weekday_min: 1, scarcity_weekday_max: 3, scarcity_weekend_min: 3, scarcity_weekend_max: 7 };
       setSettings(s);
 
-      const teachers: ("thiago" | "mayara")[] = ["thiago", "mayara"];
+      const teacherList = teacherSlugs;
       const map: Record<string, Set<number>> = {};
-      await Promise.all(teachers.map(async (t) => {
+      await Promise.all(teacherList.map(async (t) => {
         const [recR, blocksR] = await Promise.all([
           supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: t }),
           supabase.from("blocks").select("*").eq("block_type", "one_off").or(`teacher.eq.${t},teacher.eq.both`),
@@ -97,7 +100,7 @@ export default function AuditPage() {
       setPickedByTeacher(map);
       setLoading(false);
     })();
-  }, []);
+  }, [teacherSlugs]);
 
   const horizonEnd = useMemo(() => addDays(startOfDay(new Date()), 5), []);
   const horizonStart = useMemo(() => startOfDay(new Date()), []);

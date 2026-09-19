@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { format, addWeeks } from "date-fns";
 import { ExternalLink, ChevronDown } from "lucide-react";
-import { useTeachers } from "@/hooks/useTeachers";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 
 type Lesson = {
@@ -21,7 +21,6 @@ type Lesson = {
   status?: string; class_summary?: string | null;
 };
 
-const DEFAULT_SUBJECT: Record<string, string> = { thiago: "Matemática", mayara: "Química" };
 
 // Every lesson is charged at the list price. The package discount is not a cheaper lesson:
 // it is a voucher credited on the Cobrança page, which keeps the ledger closing at zero.
@@ -33,9 +32,15 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   defaultTeacher?: string;
   initialStudent?: { student_name: string; guardian_name?: string | null; address?: string | null } | null;
 }) {
-  const baseTeacher = defaultTeacher || "thiago";
+  const { teachers } = useTeachers(true);
+  // A matéria que já vem preenchida sai do cadastro do professor, não de uma
+  // lista de nomes escrita no código.
+  const subjectOf = (slug: string) =>
+    teachers.find(t => teacherSlug(t.name) === slug)?.subject ?? "";
+  const knownSubjects = teachers.map(t => t.subject).filter(Boolean) as string[];
+  const baseTeacher = defaultTeacher || "";
   const [form, setForm] = useState<Lesson>({
-    student_name: "", guardian_name: "", subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
+    student_name: "", guardian_name: "", subject: "",
     start_at: "", duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
     teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
@@ -44,8 +49,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [repeatCount, setRepeatCount] = useState(5);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
-
-  const { teachers } = useTeachers(true);
 
   useEffect(() => {
     if (!open) return;
@@ -61,7 +64,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       setForm({
         student_name: initialStudent?.student_name ?? "",
         guardian_name: initialStudent?.guardian_name ?? "",
-        subject: DEFAULT_SUBJECT[baseTeacher] ?? "Matemática",
+        subject: subjectOf(baseTeacher),
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
         duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
         teacher: baseTeacher,
@@ -101,8 +104,10 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const setTeacher = (t: string) => setForm(f => ({
     ...f,
     teacher: t,
-    subject: !f.subject || f.subject === DEFAULT_SUBJECT.thiago || f.subject === DEFAULT_SUBJECT.mayara
-      ? DEFAULT_SUBJECT[t] ?? f.subject
+    // Só troca a matéria se ela ainda for a sugestão automática de algum
+    // professor - uma matéria digitada à mão pelo usuário é preservada.
+    subject: !f.subject || knownSubjects.includes(f.subject)
+      ? (subjectOf(t) || f.subject)
       : f.subject,
   }));
 
@@ -274,7 +279,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Select value={form.teacher} onValueChange={setTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {teachers.length === 0 && <SelectItem value="thiago">Thiago</SelectItem>}
                   {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
                 </SelectContent>
               </Select>

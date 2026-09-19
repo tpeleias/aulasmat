@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "luc
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { teacherColor } from "@/lib/teacherColors";
+import { capitalize } from "@/lib/balance";
 import { syncUpcomingLessonsWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import { useTapGuard } from "@/lib/tapGuard";
@@ -75,6 +77,9 @@ export default function CalendarPage() {
     () => Array.from({ length: dayCount }, (_, i) => addDays(anchor, i)),
     [anchor, dayCount]
   );
+
+  // A posição nesta lista é o que define a cor de cada professor na agenda.
+  const teacherSlugs = useMemo(() => teachers.map(t => teacherSlug(t.name)), [teachers]);
 
   const chooseDayCount = (count: DayCount) => {
     setDayCount(count);
@@ -264,7 +269,7 @@ export default function CalendarPage() {
     if (minutesFromTop < 0) return null;
     const top = (minutesFromTop * CELL_H) / 60;
     const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
-    const isMay = lesson.teacher === "mayara";
+    const color = teacherColor(lesson.teacher, teacherSlugs);
     const isCancelled = lesson.status === "cancelada";
     const widthPct = 100 / cols;
     const leftPct = col * widthPct;
@@ -273,9 +278,9 @@ export default function CalendarPage() {
         key={lesson.id}
         onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
-        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : lesson.payment_status === "pago" ? "bg-success/20" : isMay ? "bg-fuchsia-500/15" : "bg-primary/15"} ${isCancelled ? "border-l-destructive" : isMay ? "border-l-fuchsia-500" : "border-l-primary"}`}
+        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : lesson.payment_status === "pago" ? "bg-success/20" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
       >
-        <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : isMay ? "text-fuchsia-700 dark:text-fuchsia-400" : "text-primary"}`}>{lesson.student_name}</div>
+        <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
         <div className="text-[10px] text-muted-foreground truncate leading-tight">
           {format(ls, "HH:mm")} · {lesson.subject}
         </div>
@@ -520,8 +525,15 @@ export default function CalendarPage() {
       )}
 
       <div className="flex gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-primary/15 border-l-2 border-primary"></span>Thiago</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-fuchsia-500/15 border-l-2 border-fuchsia-500"></span>Mayara</span>
+        {teachers.map(t => {
+          const color = teacherColor(teacherSlug(t.name), teacherSlugs);
+          return (
+            <span key={t.id} className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded border-l-2 ${color.bg} ${color.border}`}></span>
+              {capitalize(t.name)}
+            </span>
+          );
+        })}
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>Aula paga</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
