@@ -301,8 +301,19 @@ diretamente".
 ele lê só o próprio cadastro e a lista de professores. Zero aulas, zero
 financeiro, zero nomes de outros alunos.
 
-Pendente: trocar a senha do login `teste` (ou desativá-lo) depois que o Play
-Console estiver apontando para o `demo`.
+**Estado final.** O Play Console aponta para o login `demo`. A senha do login
+`teste` foi trocada por uma forte e as sessões dele derrubadas; ele continua
+existindo, na empresa de produção, para testar o portal do aluno com dados
+reais. As senhas dos dois ficam no Play Console e no gerenciador do professor,
+não aqui.
+
+Não dá mais para saber se o robô adivinhou a senha antiga ou a leu do "Acesso
+ao app": a senha antiga foi sobrescrita sem ser testada antes. A pergunta ficou
+sem resposta, e não é mais respondível por esse caminho.
+
+**Pendente:** religar `allow_student_booking` na empresa de produção depois que
+o PR #15 for mesclado e a confirmação estiver publicada (Configurações →
+Portal do Aluno). Até lá o portal do aluno fica só para visualização.
 
 ### Ainda não decidido
 
