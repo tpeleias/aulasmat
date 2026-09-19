@@ -311,9 +311,8 @@ Não dá mais para saber se o robô adivinhou a senha antiga ou a leu do "Acesso
 ao app": a senha antiga foi sobrescrita sem ser testada antes. A pergunta ficou
 sem resposta, e não é mais respondível por esse caminho.
 
-**Pendente:** religar `allow_student_booking` na empresa de produção depois que
-o PR #15 for mesclado e a confirmação estiver publicada (Configurações →
-Portal do Aluno). Até lá o portal do aluno fica só para visualização.
+O PR #15 foi mesclado, o Netlify publicou a confirmação e o
+`allow_student_booking` da produção foi religado. O episódio está encerrado.
 
 ### Ainda não decidido
 
