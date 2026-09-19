@@ -83,3 +83,19 @@ export function pickScarcityCandidates(
   return indices.slice(0, count).map(i => candidateStarts[i]).sort((a, b) => a.getTime() - b.getTime());
 }
 
+
+// Escassez por dia da semana (0 = domingo). Antes eram dois pares de números,
+// um para dia de semana e outro para fim de semana, repetidos em quatro telas.
+export type ScarcityDay = { min: number; max: number };
+
+export const SCARCITY_DEFAULT: Record<string, ScarcityDay> = {
+  "0": { min: 3, max: 7 }, "1": { min: 1, max: 3 }, "2": { min: 1, max: 3 },
+  "3": { min: 1, max: 3 }, "4": { min: 1, max: 3 }, "5": { min: 1, max: 3 },
+  "6": { min: 3, max: 7 },
+};
+
+export function scarcityFor(day: Date, scarcity: unknown): ScarcityDay {
+  const chave = String(day.getDay());
+  const tabela = (scarcity ?? {}) as Record<string, ScarcityDay | undefined>;
+  return tabela[chave] ?? SCARCITY_DEFAULT[chave];
+}

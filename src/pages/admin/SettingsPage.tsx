@@ -7,13 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
+// Um par de números por dia da semana, 0 = domingo.
+type ScarcityDay = { min: number; max: number };
+type Scarcity = Record<string, ScarcityDay>;
+
+const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const SCARCITY_PADRAO: Scarcity = {
+  "0": { min: 3, max: 7 }, "1": { min: 1, max: 3 }, "2": { min: 1, max: 3 },
+  "3": { min: 1, max: 3 }, "4": { min: 1, max: 3 }, "5": { min: 1, max: 3 },
+  "6": { min: 3, max: 7 },
+};
+
 type Settings = {
   work_start: string; work_end: string; slot_minutes: number;
-  scarcity_weekday_min: number; scarcity_weekday_max: number;
-  scarcity_weekend_min: number; scarcity_weekend_max: number;
+  scarcity: Scarcity;
   pix_key: string | null; payment_link: string | null;
   show_payment_info_to_students: boolean;
-  whatsapp_thiago: string | null; whatsapp_mayara: string | null;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
 };
@@ -21,10 +30,8 @@ type Settings = {
 export default function SettingsPage() {
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
-    scarcity_weekday_min: 1, scarcity_weekday_max: 3,
-    scarcity_weekend_min: 3, scarcity_weekend_max: 7,
+    scarcity: SCARCITY_PADRAO,
     pix_key: "", payment_link: "", show_payment_info_to_students: false,
-    whatsapp_thiago: "", whatsapp_mayara: "",
     allow_student_booking: true,
     show_availability_to_students: false,
   });
@@ -35,7 +42,8 @@ export default function SettingsPage() {
     supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
       if (!data) return;
       setRowId((data as any).id);
-      setS({ ...s, ...(data as any) });
+      const vindo = (data as any).scarcity as Scarcity | null;
+      setS({ ...s, ...(data as any), scarcity: vindo ?? SCARCITY_PADRAO });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -47,14 +55,13 @@ export default function SettingsPage() {
     const { id: _id, account_id: _account, ...rest } = s as any;
     const payload = {
       ...rest,
-      scarcity_weekday_min: clamp(s.scarcity_weekday_min, 1, 4),
-      scarcity_weekday_max: clamp(Math.max(s.scarcity_weekday_max, s.scarcity_weekday_min), 1, 4),
-      scarcity_weekend_min: clamp(s.scarcity_weekend_min, 1, 7),
-      scarcity_weekend_max: clamp(Math.max(s.scarcity_weekend_max, s.scarcity_weekend_min), 1, 7),
+      scarcity: Object.fromEntries(DIAS.map((_, i) => {
+        const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
+        const min = clamp(d.min, 1, 12);
+        return [String(i), { min, max: clamp(Math.max(d.max, min), 1, 12) }];
+      })),
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
-      whatsapp_thiago: (s.whatsapp_thiago || "").trim() || null,
-      whatsapp_mayara: (s.whatsapp_mayara || "").trim() || null,
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) toast.error(error.message); else { setS({ ...s, ...payload } as any); toast.success("Configurações salvas"); }
@@ -108,36 +115,31 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-5 space-y-4">
-        <h2 className="font-semibold text-sm uppercase text-muted-foreground">Contato (WhatsApp)</h2>
-        <p className="text-xs text-muted-foreground -mt-2">Use formato internacional sem espaços. Ex: 5511999999999</p>
-        <div><Label>WhatsApp do Thiago</Label><Input value={s.whatsapp_thiago ?? ""} onChange={e => setS({ ...s, whatsapp_thiago: e.target.value })} placeholder="5511..." /></div>
-        <div><Label>WhatsApp da Mayara</Label><Input value={s.whatsapp_mayara ?? ""} onChange={e => setS({ ...s, whatsapp_mayara: e.target.value })} placeholder="5511..." /></div>
-      </Card>
-
-      <Card className="p-5 space-y-4">
         <div>
           <h2 className="font-semibold text-sm uppercase text-muted-foreground">Escassez na página pública</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Define quantos horários no máximo aparecem por dia.
+            Quantos horários livres aparecem por dia. O app sorteia um número entre
+            o mínimo e o máximo, então a página não mostra a agenda inteira.
           </p>
         </div>
         <div className="space-y-2">
-          <Label>Dias de semana (Seg–Sex)</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs text-muted-foreground">Mínimo (1–4)</Label>
-              <Input type="number" min={1} max={4} value={s.scarcity_weekday_min} onChange={e => setS({ ...s, scarcity_weekday_min: Number(e.target.value) })} /></div>
-            <div><Label className="text-xs text-muted-foreground">Máximo (1–4)</Label>
-              <Input type="number" min={1} max={4} value={s.scarcity_weekday_max} onChange={e => setS({ ...s, scarcity_weekday_max: Number(e.target.value) })} /></div>
+          <div className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
+            <span />
+            <Label className="text-xs text-muted-foreground text-center">Mínimo</Label>
+            <Label className="text-xs text-muted-foreground text-center">Máximo</Label>
           </div>
-        </div>
-        <div className="space-y-2">
-          <Label>Finais de semana (Sáb–Dom)</Label>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs text-muted-foreground">Mínimo (1–7)</Label>
-              <Input type="number" min={1} max={7} value={s.scarcity_weekend_min} onChange={e => setS({ ...s, scarcity_weekend_min: Number(e.target.value) })} /></div>
-            <div><Label className="text-xs text-muted-foreground">Máximo (1–7)</Label>
-              <Input type="number" min={1} max={7} value={s.scarcity_weekend_max} onChange={e => setS({ ...s, scarcity_weekend_max: Number(e.target.value) })} /></div>
-          </div>
+          {DIAS.map((nome, i) => {
+            const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
+            const set = (campo: "min" | "max", valor: number) =>
+              setS({ ...s, scarcity: { ...s.scarcity, [String(i)]: { ...d, [campo]: valor } } });
+            return (
+              <div key={i} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
+                <Label className="text-sm">{nome}</Label>
+                <Input type="number" min={1} max={12} value={d.min} onChange={e => set("min", Number(e.target.value))} />
+                <Input type="number" min={1} max={12} value={d.max} onChange={e => set("max", Number(e.target.value))} />
+              </div>
+            );
+          })}
         </div>
       </Card>
 

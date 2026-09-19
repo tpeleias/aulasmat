@@ -15,8 +15,6 @@ type Settings = {
   work_start: string;
   work_end: string;
   slot_minutes: number;
-  whatsapp_thiago: string | null;
-  whatsapp_mayara: string | null;
 };
 
 const hhmm = (t?: string) => (t ? t.slice(0, 5) : "");
@@ -35,7 +33,7 @@ export default function PublicHome() {
 
     supabase
       .from("settings")
-      .select("work_start, work_end, slot_minutes, whatsapp_thiago, whatsapp_mayara")
+      .select("work_start, work_end, slot_minutes")
       
       .maybeSingle()
       .then(({ data }) => setSettings((data as any) ?? null));
@@ -45,8 +43,10 @@ export default function PublicHome() {
     if (!active && teachers.length) setActive(teacherSlug(teachers[0].name));
   }, [teachers, active]);
 
-  const whatsFor = (slug: string) =>
-    slug === "mayara" ? settings?.whatsapp_mayara : slug === "thiago" ? settings?.whatsapp_thiago : null;
+  const whatsFor = (slug: string) => {
+    const t = teachers.find(x => teacherSlug(x.name) === slug);
+    return t && t.whatsapp_enabled !== false ? t.whatsapp : null;
+  };
 
   return (
     <div className="flex flex-1 flex-col" style={{ background: "var(--gradient-subtle)" }}>

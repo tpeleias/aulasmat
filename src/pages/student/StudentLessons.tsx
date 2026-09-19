@@ -65,7 +65,7 @@ function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
               )}
               <Badge variant="secondary">{l.status ?? "agendada"}</Badge>
               {!hideFinancial && (
-                <WhatsAppButton teacher={l.teacher} settings={settings} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
               )}
             </div>
           </div>
