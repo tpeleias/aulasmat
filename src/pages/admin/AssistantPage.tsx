@@ -144,7 +144,7 @@ export default function AssistantPage() {
         {visibleMessages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center text-muted-foreground text-sm py-12">
             Peça algo como <br />
-            <span className="italic">"marca uma aula do Miguel quinta às 16h com o Thiago"</span>
+            <span className="italic">"marca uma aula do Miguel quinta às 16h"</span>
           </div>
         ) : (
           <div className="space-y-4">

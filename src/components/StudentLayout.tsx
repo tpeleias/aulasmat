@@ -6,12 +6,15 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useTheme } from "@/hooks/useTheme";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
   const settings = useAppSettings();
+  const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
 
   if (loading || stLoading) return null;
@@ -56,12 +59,11 @@ export default function StudentLayout() {
           {settings?.show_availability_to_students && (
             <>
               <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Disponibilidade</div>
-              <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-                <Link to="/disponibilidade/thiago" target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - Thiago</Link>
-              </Button>
-              <Button asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-                <Link to="/disponibilidade/mayara" target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - Mayara</Link>
-              </Button>
+              {teachers.map(t => (
+                <Button key={t.id} asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
+                  <Link to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - {capitalize(t.name)}</Link>
+                </Button>
+              ))}
             </>
           )}
           <ThemeToggle />
@@ -88,8 +90,9 @@ export default function StudentLayout() {
               ))}
               {settings?.show_availability_to_students && (
                 <>
-                  <Link to="/disponibilidade/thiago" target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda Thiago</Link>
-                  <Link to="/disponibilidade/mayara" target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda Mayara</Link>
+                  {teachers.map(t => (
+                    <Link key={t.id} to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda {capitalize(t.name)}</Link>
+                  ))}
                 </>
               )}
             </div>

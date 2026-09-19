@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Teacher = { id: string; name: string; active: boolean };
+export type Teacher = { id: string; name: string; active: boolean; sort_order?: number; subject?: string | null };
 
 export function useTeachers(onlyActive = true) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
@@ -9,7 +9,8 @@ export function useTeachers(onlyActive = true) {
 
   const load = async () => {
     setLoading(true);
-    let q = supabase.from("teachers" as any).select("*").order("name");
+    // A ordem precisa ser estável: é dela que saem as cores da agenda.
+    let q = supabase.from("teachers" as any).select("*").order("sort_order").order("name");
     const { data } = await q;
     let list = (data ?? []) as any as Teacher[];
     if (onlyActive) list = list.filter(t => t.active);

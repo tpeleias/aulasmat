@@ -101,7 +101,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="cursor-pointer">Exibir disponibilidade dos professores ao responsável</Label>
-            <p className="text-xs text-muted-foreground">Mostra os links de agenda do Thiago e da Mayara no portal do aluno.</p>
+            <p className="text-xs text-muted-foreground">Mostra os links de agenda dos professores no portal do aluno.</p>
           </div>
           <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
         </div>

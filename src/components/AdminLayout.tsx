@@ -10,6 +10,8 @@ import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
 import UpdateBanner from "@/components/UpdateBanner";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
 import { haptics } from "@/lib/haptics";
@@ -34,6 +36,7 @@ const secondary: NavItem[] = [
 export default function AdminLayout() {
   const { session, isAdmin, role, loading, signOut } = useAuth();
   const defaultTeacher = useDefaultTeacher();
+  const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -91,8 +94,14 @@ export default function AdminLayout() {
           </nav>
           <div className="p-3 border-t border-sidebar-border space-y-2">
             <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Links públicos</div>
-            <Button onClick={() => copyLink("/disponibilidade/thiago", "do Thiago")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Thiago</Button>
-            <Button onClick={() => copyLink("/disponibilidade/mayara", "da Mayara")} variant="secondary" size="sm" className="w-full justify-start gap-2"><LinkIcon className="w-4 h-4" />Link - Mayara</Button>
+            {teachers.map(t => {
+              const slug = teacherSlug(t.name);
+              return (
+                <Button key={t.id} onClick={() => copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`)} variant="secondary" size="sm" className="w-full justify-start gap-2">
+                  <LinkIcon className="w-4 h-4" />Link - {capitalize(t.name)}
+                </Button>
+              );
+            })}
             <ThemeToggle />
             <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
           </div>
@@ -125,8 +134,14 @@ export default function AdminLayout() {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <Button variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink("/disponibilidade/thiago", "do Thiago"); close(); }}><LinkIcon className="h-4 w-4" /> Link Thiago</Button>
-              <Button variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink("/disponibilidade/mayara", "da Mayara"); close(); }}><LinkIcon className="h-4 w-4" /> Link Mayara</Button>
+              {teachers.map(t => {
+                const slug = teacherSlug(t.name);
+                return (
+                  <Button key={t.id} variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`); close(); }}>
+                    <LinkIcon className="h-4 w-4" /> Link {capitalize(t.name)}
+                  </Button>
+                );
+              })}
             </div>
             <div className="flex items-center justify-between border-t border-border pt-3">
               <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>

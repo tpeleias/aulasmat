@@ -6,27 +6,32 @@ import { computeFreeSlots, fmtTime, pickScarcityCandidates } from "@/lib/availab
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
+import { useParams } from "react-router-dom";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
+import { capitalize } from "@/lib/balance";
 
-type Props = { teacher?: "thiago" | "mayara" };
-
-const TEACHER_LABEL: Record<string, { name: string; subject: string }> = {
-  thiago: { name: "Prof. Thiago", subject: "Matemática" },
-  mayara: { name: "Profa. Mayara", subject: "Química" },
-};
-
-export default function PublicAvailability({ teacher }: Props) {
+export default function PublicAvailability() {
+  // O professor vem do endereço (/disponibilidade/<professor>), e nome e matéria
+  // vêm do cadastro da empresa - antes eram dois nomes escritos no código.
+  const { teacher } = useParams<{ teacher?: string }>();
+  const { teachers } = useTeachers(true);
   const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const meta = teacher ? TEACHER_LABEL[teacher] : null;
-  const title = meta ? `Horários disponíveis — ${meta.name} (${meta.subject})` : "Horários disponíveis";
+  const found = teacher ? teachers.find(t => teacherSlug(t.name) === teacher) : undefined;
+  const meta = found
+    ? { name: capitalize(found.name), subject: found.subject ?? null }
+    : null;
+  const title = meta
+    ? `Horários disponíveis — ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}`
+    : "Horários disponíveis";
 
   useEffect(() => {
     document.title = title;
     const m = document.querySelector('meta[name="description"]') || (() => {
       const el = document.createElement("meta"); el.setAttribute("name", "description"); document.head.appendChild(el); return el;
     })();
-    m.setAttribute("content", `Horários livres ${meta ? `de ${meta.name} (${meta.subject})` : ""} para os próximos 5 dias.`);
+    m.setAttribute("content", `Horários livres ${meta ? `de ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}` : ""} para os próximos 5 dias.`);
 
     (async () => {
       const from = startOfDay(new Date());
@@ -88,7 +93,7 @@ export default function PublicAvailability({ teacher }: Props) {
           </div>
           <div>
             <h1 className="text-xl font-bold">
-              {meta ? `Aulas Particulares de ${meta.subject} — ${meta.name}` : "Aulas Particulares"}
+              {meta ? `Aulas Particulares${meta.subject ? ` de ${meta.subject}` : ""} — ${meta.name}` : "Aulas Particulares"}
             </h1>
             <p className="text-xs text-muted-foreground">Horários disponíveis para os próximos 5 dias</p>
           </div>

@@ -54,8 +54,7 @@ const App = () => (
             <Route path="/inicio" element={<PublicHome />} />
             <Route path="/privacidade" element={<PrivacyPolicy />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
-            <Route path="/disponibilidade/thiago" element={<PublicAvailability teacher="thiago" />} />
-            <Route path="/disponibilidade/mayara" element={<PublicAvailability teacher="mayara" />} />
+            <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<HomePage />} />
               <Route path="agenda" element={<CalendarPage />} />
