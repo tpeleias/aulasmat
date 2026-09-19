@@ -180,14 +180,17 @@ const tools = [
 
 // A credit filed under the wrong guardian silently lands in a different wallet than the
 // lesson debits, so always resolve a name to exactly one cadastro before touching money.
-async function resolveAccount(
+// Named for the student it resolves, not for accountId: "account" means the company
+// everywhere else, and this runs with the service key, where confusing the two leaks data.
+async function resolveStudent(
   admin: ReturnType<typeof createClient>,
+  accountId: string,
   studentName?: string,
   guardianName?: string,
 ): Promise<{ student_name: string; guardian_name: string | null } | { error: string }> {
   if (!studentName && !guardianName) return { error: "Informe o aluno ou o responsável." };
 
-  let q = admin.from("students").select("student_name, guardian_name");
+  let q = admin.from("students").select("student_name, guardian_name").eq("account_id", accountId);
   if (studentName) q = q.ilike("student_name", `%${studentName.trim()}%`);
   if (guardianName) q = q.ilike("guardian_name", `%${guardianName.trim()}%`);
   const { data, error } = await q;
@@ -210,12 +213,16 @@ async function resolveAccount(
   };
 }
 
-async function executeTool(admin: ReturnType<typeof createClient>, name: string, input: any) {
+// Todo acesso ao banco aqui usa a chave mestra, que ignora as regras de acesso do
+// Postgres. Por isso cada consulta precisa dizer explicitamente de qual empresa é:
+// o filtro que existe para o resto do app não vale para esta função.
+async function executeTool(admin: ReturnType<typeof createClient>, accountId: string, name: string, input: any) {
   switch (name) {
     case "find_students": {
       const { data, error } = await admin
         .from("students")
         .select("id, student_name, guardian_name, address")
+        .eq("account_id", accountId)
         .or(`student_name.ilike.%${input.query}%,guardian_name.ilike.%${input.query}%`)
         .limit(10);
       if (error) throw error;
@@ -223,6 +230,7 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
     }
     case "create_student": {
       const { data, error } = await admin.from("students").insert({
+        account_id: accountId,
         student_name: (input.student_name ?? "").trim(),
         guardian_name: (input.guardian_name ?? "").trim() || null,
         address: (input.address ?? "").trim() || null,
@@ -231,12 +239,14 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       return data;
     }
     case "list_teachers": {
-      const { data, error } = await admin.from("teachers").select("name, active").eq("active", true);
+      const { data, error } = await admin.from("teachers").select("name, active")
+        .eq("account_id", accountId).eq("active", true);
       if (error) throw error;
       return (data ?? []).map((t: any) => ({ name: t.name, slug: teacherSlug(t.name) }));
     }
     case "list_lessons": {
-      let q = admin.from("lessons").select("*").gte("start_at", input.from).lt("start_at", input.to).order("start_at");
+      let q = admin.from("lessons").select("*").eq("account_id", accountId)
+        .gte("start_at", input.from).lt("start_at", input.to).order("start_at");
       if (input.student_name) q = q.ilike("student_name", `%${input.student_name}%`);
       if (input.teacher) q = q.eq("teacher", input.teacher);
       if (input.status) q = q.eq("status", input.status);
@@ -249,10 +259,11 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       // other lessons, so fill it in from the cadastro whenever the name is unambiguous.
       let guardian = (input.guardian_name ?? "").trim() || null;
       if (!guardian) {
-        const account = await resolveAccount(admin, input.student_name);
-        if (!("error" in account)) guardian = account.guardian_name;
+        const student = await resolveStudent(admin, accountId, input.student_name);
+        if (!("error" in student)) guardian = student.guardian_name;
       }
       const { data, error } = await admin.from("lessons").insert({
+        account_id: accountId,
         student_name: (input.student_name ?? "").trim(),
         guardian_name: guardian,
         teacher: input.teacher,
@@ -269,39 +280,45 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       return data;
     }
     case "update_lesson": {
+      // O filtro por empresa aqui não é redundante: o id vem da conversa, e sem ele
+      // bastaria um id de outra empresa para editar a aula dela.
       const { lesson_id, ...fields } = input;
-      const { data, error } = await admin.from("lessons").update(fields).eq("id", lesson_id).select().single();
+      const { data, error } = await admin.from("lessons").update(fields)
+        .eq("id", lesson_id).eq("account_id", accountId).select().single();
       if (error) throw error;
       return data;
     }
     case "delete_lesson": {
-      const { error } = await admin.from("lessons").delete().eq("id", input.lesson_id);
+      const { error } = await admin.from("lessons").delete()
+        .eq("id", input.lesson_id).eq("account_id", accountId);
       if (error) throw error;
       return { ok: true };
     }
     case "get_wallet_balance": {
-      const account = await resolveAccount(admin, input.student_name, input.guardian_name);
-      if ("error" in account) return account;
+      const student = await resolveStudent(admin, accountId, input.student_name, input.guardian_name);
+      if ("error" in student) return student;
       let q = admin.from("wallet_transactions").select("*")
-        .eq("student_name", account.student_name)
+        .eq("account_id", accountId)
+        .eq("student_name", student.student_name)
         .order("created_at", { ascending: false });
-      q = account.guardian_name ? q.eq("guardian_name", account.guardian_name) : q.is("guardian_name", null);
+      q = student.guardian_name ? q.eq("guardian_name", student.guardian_name) : q.is("guardian_name", null);
       const { data, error } = await q;
       if (error) throw error;
       const rows = data ?? [];
       const balance = rows.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
-      return { account, balance, recent_transactions: rows.slice(0, 15) };
+      return { account: student, balance, recent_transactions: rows.slice(0, 15) };
     }
     case "add_wallet_credit": {
-      const account = await resolveAccount(admin, input.student_name, input.guardian_name);
-      if ("error" in account) return account;
+      const student = await resolveStudent(admin, accountId, input.student_name, input.guardian_name);
+      if ("error" in student) return student;
       const money = Math.abs(Number(input.amount ?? 0));
       const voucher = Math.abs(Number(input.voucher_amount ?? 0));
       if (money === 0 && voucher === 0) return { error: "Informe o valor recebido ou o valor do voucher." };
       // Money and voucher are written in one transaction so a package is never half-registered.
       const { data, error } = await admin.rpc("register_payment", {
-        _student: account.student_name,
-        _guardian: account.guardian_name,
+        _account: accountId,
+        _student: student.student_name,
+        _guardian: student.guardian_name,
         _amount: money,
         _kind: input.kind ?? "package",
         _description: input.description ?? null,
@@ -309,10 +326,10 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
         _voucher_description: input.voucher_description ?? null,
       });
       if (error) throw error;
-      return { account, received: money, voucher, ids: data };
+      return { account: student, received: money, voucher, ids: data };
     }
     case "list_blocks": {
-      let q = admin.from("blocks").select("*");
+      let q = admin.from("blocks").select("*").eq("account_id", accountId);
       if (input.teacher) q = q.eq("teacher", input.teacher);
       const { data, error } = await q;
       if (error) throw error;
@@ -320,6 +337,7 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
     }
     case "create_block": {
       const { data, error } = await admin.from("blocks").insert({
+        account_id: accountId,
         teacher: input.teacher,
         title: input.title,
         block_type: input.block_type,
@@ -333,7 +351,8 @@ async function executeTool(admin: ReturnType<typeof createClient>, name: string,
       return data;
     }
     case "delete_block": {
-      const { error } = await admin.from("blocks").delete().eq("id", input.block_id);
+      const { error } = await admin.from("blocks").delete()
+        .eq("id", input.block_id).eq("account_id", accountId);
       if (error) throw error;
       return { ok: true };
     }
@@ -358,8 +377,13 @@ Deno.serve(async (req) => {
     if (uErr || !user) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(url, serviceKey);
-    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+    const { data: roleRow } = await admin.from("user_roles").select("role, account_id").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
+
+    // Sem empresa não há como limitar o que as ferramentas alcançam, e esta função
+    // roda com a chave mestra. Recusar é a única resposta segura.
+    const accountId = roleRow.account_id as string | null;
+    if (!accountId) return json({ error: "Usuário sem empresa associada." }, 403);
 
     // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
     const { messages } = await req.json();
@@ -432,7 +456,7 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
       const toolResults = [];
       for (const block of toolUses) {
         try {
-          const output = await executeTool(admin, block.name, block.input ?? {});
+          const output = await executeTool(admin, accountId, block.name, block.input ?? {});
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(output) });
         } catch (e: any) {
           toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ error: String(e?.message ?? e) }), is_error: true });
