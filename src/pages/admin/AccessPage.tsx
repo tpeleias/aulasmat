@@ -47,6 +47,8 @@ export default function AccessPage() {
   const [visibility, setVisibility] = useState<Visibility | null>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("all");
+  // O banco entrega só a linha da própria empresa; guardamos o id dela para gravar.
+  const [settingsRowId, setSettingsRowId] = useState<number | null>(null);
   const [manageFor, setManageFor] = useState<Student | null>(null);
   const [inviteFor, setInviteFor] = useState<Student | null>(null);
   const [invitePassword, setInvitePassword] = useState("");
@@ -54,10 +56,14 @@ export default function AccessPage() {
   const load = async () => {
     const [{ data: st }, { data: cfg }] = await Promise.all([
       supabase.from("students").select("id, student_name, guardian_name, user_id, guardian_username, child_user_id, child_username").order("student_name"),
-      supabase.from("settings").select("allow_student_booking, show_availability_to_students, show_payment_info_to_students").eq("id", 1).maybeSingle(),
+      supabase.from("settings").select("id, allow_student_booking, show_availability_to_students, show_payment_info_to_students").maybeSingle(),
     ]);
     setStudents((st ?? []) as Student[]);
-    if (cfg) setVisibility(cfg as Visibility);
+    if (cfg) {
+      const { id, ...flags } = cfg as Visibility & { id: number };
+      setSettingsRowId(id);
+      setVisibility(flags as Visibility);
+    }
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -74,11 +80,11 @@ export default function AccessPage() {
   }, [students, filter]);
 
   const saveVisibility = async (key: keyof Visibility, value: boolean) => {
-    if (!visibility) return;
+    if (!visibility || settingsRowId === null) return;
     const previous = visibility;
     setVisibility({ ...visibility, [key]: value });
     const patch: Partial<Visibility> = { [key]: value };
-    const { error } = await supabase.from("settings").update(patch).eq("id", 1);
+    const { error } = await supabase.from("settings").update(patch).eq("id", settingsRowId);
     if (error) { setVisibility(previous); toast.error(error.message); }
     else { haptics.success(); toast.success("Preferência salva"); }
   };

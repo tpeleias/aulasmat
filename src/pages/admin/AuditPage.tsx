@@ -64,7 +64,7 @@ export default function AuditPage() {
 
       const [auditR, settingsR] = await Promise.all([
         supabase.from("audit_log").select("*").order("created_at", { ascending: false }).limit(200),
-        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").eq("id", 1).maybeSingle(),
+        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").maybeSingle(),
       ]);
       setRows((auditR.data ?? []) as AuditRow[]);
       const s: Settings = (settingsR.data as Settings) ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity_weekday_min: 1, scarcity_weekday_max: 3, scarcity_weekend_min: 3, scarcity_weekend_max: 7 };

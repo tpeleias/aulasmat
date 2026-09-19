@@ -98,7 +98,7 @@ export default function CalendarPage() {
     const nowIso = new Date().toISOString();
     const nextSevenDaysIso = addDays(new Date(), 7).toISOString();
     const [s, l, b, ex, up] = await Promise.all([
-      supabase.from("settings").select("work_start, work_end, slot_minutes").eq("id", 1).maybeSingle(),
+      supabase.from("settings").select("work_start, work_end, slot_minutes").maybeSingle(),
       supabase.from("lessons").select("*").gte("start_at", from).lt("start_at", to).order("start_at"),
       supabase.from("blocks").select("*"),
       supabase.from("block_exceptions").select("*"),
