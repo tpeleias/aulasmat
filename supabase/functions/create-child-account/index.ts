@@ -36,10 +36,16 @@ Deno.serve(async (req) => {
     if (!password || password.length < 6) return json({ error: "Senha deve ter ao menos 6 caracteres" }, 400);
 
     // Authorization: admin OR the guardian linked to this student
-    const { data: adminRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
-    const isAdmin = !!adminRow;
+    // Quem chama pode ser admin ou responsável, então a empresa vem de qualquer
+    // um dos papéis dele - não só do papel de admin.
+    const { data: roleRows } = await admin.from("user_roles").select("role, account_id").eq("user_id", user.id);
+    const isAdmin = (roleRows ?? []).some((r: any) => r.role === "admin");
+    const accountId = ((roleRows ?? []).find((r: any) => r.account_id)?.account_id ?? null) as string | null;
+    if (!accountId) return json({ error: "Usuário sem empresa associada." }, 403);
 
-    const { data: studentRow, error: sErr } = await admin.from("students").select("*").eq("id", student_id).maybeSingle();
+    // Com a chave mestra as regras do banco não valem aqui: sem a empresa, um
+    // admin criaria acesso para o aluno de outra empresa.
+    const { data: studentRow, error: sErr } = await admin.from("students").select("*").eq("id", student_id).eq("account_id", accountId).maybeSingle();
     if (sErr || !studentRow) return json({ error: "Aluno não encontrado" }, 404);
 
     const isGuardian = studentRow.user_id === user.id;
@@ -70,13 +76,13 @@ Deno.serve(async (req) => {
         await admin.auth.admin.updateUserById(target.id, { password });
       }
 
-      await admin.from("user_roles").upsert({ user_id: target.id, role: "child" }, { onConflict: "user_id,role" });
+      await admin.from("user_roles").upsert({ user_id: target.id, role: "child", account_id: accountId }, { onConflict: "user_id,role" });
       // Ensure the child account doesn't also carry the auto-assigned 'student' role.
       await admin.from("user_roles").delete().eq("user_id", target.id).eq("role", "student");
 
       const { error: upErr } = await admin.from("students")
         .update({ child_user_id: target.id, child_username: usernameRaw, child_must_change_password: true })
-        .eq("id", student_id);
+        .eq("id", student_id).eq("account_id", accountId);
       if (upErr) return json({ error: upErr.message }, 400);
 
       return json({ ok: true, username: usernameRaw });
@@ -87,7 +93,7 @@ Deno.serve(async (req) => {
       if (!studentRow.child_user_id) return json({ error: "Aluno não possui acesso cadastrado." }, 400);
       const { error: pErr } = await admin.auth.admin.updateUserById(studentRow.child_user_id, { password });
       if (pErr) return json({ error: pErr.message }, 400);
-      await admin.from("students").update({ child_must_change_password: true }).eq("id", student_id);
+      await admin.from("students").update({ child_must_change_password: true }).eq("id", student_id).eq("account_id", accountId);
       return json({ ok: true, username: studentRow.child_username });
     }
 
