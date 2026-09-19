@@ -27,13 +27,19 @@ Deno.serve(async (req) => {
     if (uErr || !user) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(url, serviceKey);
-    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+    const { data: roleRow } = await admin.from("user_roles").select("role, account_id").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
+
+    // Esta função roda com a chave mestra, que ignora as regras de acesso do
+    // banco: sem exigir a empresa aqui, um admin redefiniria a senha do aluno
+    // de outra empresa - e a senha nova volta na resposta.
+    const accountId = roleRow.account_id as string | null;
+    if (!accountId) return json({ error: "Usuário sem empresa associada." }, 403);
 
     const { student_id, new_password } = await req.json();
     if (!student_id) return json({ error: "student_id obrigatório" }, 400);
 
-    const { data: student, error: sErr } = await admin.from("students").select("id,user_id,student_name").eq("id", student_id).maybeSingle();
+    const { data: student, error: sErr } = await admin.from("students").select("id,user_id,student_name").eq("id", student_id).eq("account_id", accountId).maybeSingle();
     if (sErr || !student) return json({ error: "aluno não encontrado" }, 404);
     if (!student.user_id) return json({ error: "Este aluno ainda não tem conta vinculada." }, 400);
 

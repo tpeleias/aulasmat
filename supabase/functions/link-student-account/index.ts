@@ -23,8 +23,13 @@ Deno.serve(async (req) => {
     const { data: { user }, error: uErr } = await userClient.auth.getUser();
     if (uErr || !user) return json({ error: "unauthorized" }, 401);
     const admin = createClient(url, serviceKey);
-    const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle();
+    const { data: roleRow } = await admin.from("user_roles").select("role, account_id").eq("user_id", user.id).eq("role", "admin").maybeSingle();
     if (!roleRow) return json({ error: "forbidden" }, 403);
+
+    // Com a chave mestra as regras de acesso do banco não valem aqui: sem a
+    // empresa, um admin vincularia um login ao aluno de outra empresa.
+    const accountId = roleRow.account_id as string | null;
+    if (!accountId) return json({ error: "Usuário sem empresa associada." }, 403);
 
     const { student_id, email, username, password } = await req.json();
     if (!student_id) return json({ error: "student_id obrigatório" }, 400);
@@ -69,12 +74,12 @@ Deno.serve(async (req) => {
     }
 
     // Ensure student role
-    await admin.from("user_roles").upsert({ user_id: targetUser.id, role: "student" }, { onConflict: "user_id,role" });
+    await admin.from("user_roles").upsert({ user_id: targetUser.id, role: "student", account_id: accountId }, { onConflict: "user_id,role" });
 
     // Link student row + force password change on first login when we just set the password
     const { error: linkErr } = await admin.from("students")
       .update({ user_id: targetUser.id, must_change_password: created, guardian_username: guardianUsername })
-      .eq("id", student_id);
+      .eq("id", student_id).eq("account_id", accountId);
     if (linkErr) return json({ error: linkErr.message }, 400);
 
     return json({ ok: true, user_id: targetUser.id, email: loginEmail, username: guardianUsername });
