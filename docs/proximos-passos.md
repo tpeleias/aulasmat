@@ -31,6 +31,41 @@ no projeto, testes e build de produção passando):
 Pendente (deixado para depois, a pedido do Thiago): um 4º item ainda não
 escrito neste arquivo — perguntar a ele qual é antes de seguir.
 
+## Extras feitos na mesma sessão (não estavam na fila original)
+
+- ~~Símbolo do Lovable aparecendo no site~~ — feito. `favicon.ico` era
+  literalmente o logo do Lovable (coração gradiente); trocado pela arte do
+  app. Também removidos `meta author`/`twitter:site` "Lovable" e a imagem de
+  preview hospedada em `lovable.app` (og:image/twitter:image agora apontam
+  pro ícone do próprio app).
+- ~~Ícone borrado ao instalar o site como atalho pelo navegador~~ — feito.
+  Faltava `public/manifest.json` com ícones em resolução adequada (o
+  navegador esticava o favicon pequeno). Criados `pwa-192.png`/`pwa-512.png`
+  e o manifest, referenciados em `index.html` junto com `theme-color`.
+
+## Dois lugares publicados — Netlify e Lovable
+
+Descoberto nesta sessão: o projeto nasceu no Lovable e continua existindo
+lá, sincronizado por GitHub com este mesmo repositório (mesmo `main`).
+São publicações **independentes**, cada uma exige sua própria ação:
+
+- **Netlify** (`tpeleias.netlify.app`, site "oficial"/produção): publica
+  sozinho a cada push no `main`, sem ação extra.
+- **Lovable** (`aulasmat.lovable.app`, projeto "Site - Aulas",
+  id `0060e038-c986-4361-94a6-f56077ed8118`): o código sincroniza sozinho
+  do GitHub (`latest_commit_sha` do projeto acompanha o `main`), mas **não
+  fica visível pra quem acessa o link até chamar `deploy_project`**
+  explicitamente. Depois de mesclar um PR, se quiser esse link também
+  atualizado, published de novo por lá.
+  - O link `id-preview--0060e038-...lovable.app` é o de rascunho/edição,
+    não o publicado — evitar divulgar esse, usar `aulasmat.lovable.app`.
+
+Favicon é um recurso com cache próprio do navegador (não é o cache normal
+de página) — depois de publicar, pode continuar mostrando o ícone antigo
+por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
+barra de endereço é o jeito confiável de confirmar se o servidor já está
+com o arquivo certo, sem depender do cache do ícone da aba.
+
 ## Linha de fundo: abrir para outras empresas (SaaS)
 
 Contexto: não é "adicionar professores" à escola do Thiago — são **empresas
