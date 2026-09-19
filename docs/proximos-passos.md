@@ -269,9 +269,25 @@ fictícios (ana, bruno), um aluno fictício e 4 aulas, para a tela não parecer
 quebrada na revisão. Login `demo`, e a senha está no Play Console em Acesso ao
 app. Verificado: esse login enxerga 4 aulas fictícias e nada da produção.
 
-Cuidado ao criar login novo por SQL: o gatilho `handle_new_user` joga todo
-usuário novo na empresa pública, que é a de produção. É preciso realocar o
-`user_roles` na mesma transação, senão o login nasce dentro da empresa real.
+Dois cuidados ao criar login novo por SQL, ambos aprendidos errando:
+
+1. O gatilho `handle_new_user` joga todo usuário novo na empresa pública, que é
+   a de produção. É preciso realocar o `user_roles` na mesma transação, senão o
+   login nasce dentro da empresa real.
+2. `auth.users` tem colunas de texto que precisam ser `''`, nunca `NULL`:
+   `confirmation_token`, `recovery_token`, `email_change` e
+   `email_change_token_new`. O serviço de autenticação lê esses campos como
+   texto e quebra em `NULL` — a senha confere e o login falha assim mesmo, sem
+   dizer por quê. O jeito de conferir é comparar o usuário novo com um que já
+   funciona, coluna por coluna:
+
+   ```sql
+   SELECT c.column_name
+   FROM information_schema.columns c
+   WHERE c.table_schema='auth' AND c.table_name='users'
+     AND (SELECT to_jsonb(u)->>c.column_name FROM auth.users u WHERE u.email='<que funciona>') IS NOT NULL
+     AND (SELECT to_jsonb(u)->>c.column_name FROM auth.users u WHERE u.email='<o novo>') IS NULL;
+   ```
 
 **`allow_student_booking` está DESLIGADO na empresa de produção.** Foi o que
 cortou o sangramento: mesmo depois da trava contra sobreposição, o robô criou
