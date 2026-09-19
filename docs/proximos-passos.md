@@ -95,11 +95,10 @@ outro site, outro login sem nenhuma relação com o seu, e outro app na loja.
 ### O plano: 4 partes
 
 1. **Fundação** — `account_id` nas tabelas + regras de acesso por empresa ✅ FEITO
-2. **Rotinas do banco + páginas públicas** — as 17 funções `SECURITY DEFINER`
-   e o endereço por empresa ⬜ PENDENTE
-3. **Rotinas com chave mestra** — as 6 edge functions com `service_role`
-   ⬜ PENDENTE (o assistente já foi feito, antecipado da parte 3)
-4. **Empresa fake + teste de invasão** ⬜ PENDENTE
+2. **Rotinas do banco** — as funções `SECURITY DEFINER` ✅ FEITO
+   (o endereço próprio por empresa continua pendente: depende de comprar domínio)
+3. **Rotinas com chave mestra** — as 6 edge functions com `service_role` ✅ FEITO
+4. **Empresa fake + teste de invasão** ✅ FEITO
 
 ### O que já está aplicado na produção
 
@@ -116,6 +115,41 @@ outro site, outro login sem nenhuma relação com o seu, e outro app na loja.
   (`is_public_default`), para a página pública não fechar quando aparecer a
   segunda empresa
 - Front-end: removido o `id = 1` fixo das consultas de `settings` (10 lugares)
+
+### O teste de invasão (feito na produção, com a conta da Empresa X)
+
+Tentativas de LEITURA, todas devolvendo zero: aulas, alunos, carteira,
+histórico, bloqueios, exceções, lições, entregas, materiais, outras empresas,
+professores alheios, configuração alheia (chave pix), e as rotinas
+`get_busy_ranges`, `get_recurring_blocks`, `get_busy_ranges_by_teacher`
+(pedindo explicitamente pelo professor da outra empresa),
+`get_recurring_blocks_by_teacher` e `get_child_lessons`. 17 de 17 em zero.
+
+Tentativas de ESCRITA, todas bloqueadas: alterar aulas, chave pix, alunos e
+carteira da outra empresa (0 linhas alcançadas); criar aula e criar aluno
+dentro dela (recusado pelo banco com "new row violates row-level security
+policy"); e mover o próprio usuário para a outra empresa (0 linhas).
+
+Ao final, os dados do Portal de Aulas seguiam intactos (94 aulas, 14 alunos,
+83 lançamentos) e nenhum resíduo do teste ficou no banco.
+
+### O que foi corrigido nas partes 2 e 3
+
+- 9 funções `SECURITY DEFINER` passaram a filtrar por empresa. A mais grave era
+  `student_account_matches`, que decide se um aluno vê uma aula e casava só por
+  nome+responsável. Também `get_child_lessons` (liga aula e aluno por nome) e
+  `recompute_payment_status` (mexe em dinheiro casando por nome)
+- Criada `effective_account_id()`: a empresa de quem está logado, ou a dona do
+  endereço quando não há login. É o que permite a página pública funcionar
+  sem abrir para todas as empresas
+- 4 edge functions escopadas. A pior era `admin-reset-student-password`: o
+  admin de uma empresa redefinia a senha do aluno de outra **e recebia a senha
+  nova na resposta**. `admin-create-user` não tinha checagem nenhuma - bastava
+  estar logado, inclusive como aluno, para criar contas; não é chamada por
+  nenhuma tela e o certo seria removê-la
+- Tirados os nomes "Thiago" e "Mayara" de ~12 lugares do código (ver commit
+  próprio). O pior era a função que decidia o professor do usuário logado:
+  qualquer pessoa de qualquer empresa era saudada como Thiago
 
 ### Bugs que os testes pegaram antes de virarem problema
 
@@ -152,14 +186,25 @@ pegou os bugs acima.
   e 0 linhas de histórico do Thiago; e o Thiago não enxerga o professor dela
 - Nome é provisório, trocar é uma linha no banco
 
-**Regras enquanto as partes 2 e 3 não estiverem prontas:**
-- Só o lado de administrador. **Não distribuir login de aluno nem de
-  responsável** — as rotinas que casam aluno por nome+responsável ainda não
-  olham a empresa, então dois alunos de mesmo nome em empresas diferentes
-  podem se confundir (o mesmo bug que a migration de setembro consertou
-  entre alunos da mesma empresa)
-- Nada de dados de famílias reais da outra empresa
-- A rotina de vincular conta de aluno também não checa empresa ainda
+**A restrição anterior caiu:** login de aluno e de responsável já pode ser
+distribuído. As rotinas que casavam aluno por nome+responsável agora exigem a
+mesma empresa dos dois lados, e isso foi verificado no teste de invasão.
+
+O que ainda pede cuidado antes de tratar como produção de verdade: a empresa
+sem endereço próprio não tem página pública de horários (só o lado logado), e
+o WhatsApp e o e-mail da política de privacidade ainda são os do Thiago.
+
+### O que falta
+
+- **Endereço próprio por empresa** (`empresax.dominio.com.br`). É o único item
+  das partes 2-4 que não dá para fazer sem comprar um domínio. Sem ele, só a
+  empresa marcada como `is_public_default` tem página pública de horários; as
+  demais funcionam normalmente no lado logado
+- **WhatsApp por professor**: hoje são colunas `whatsapp_thiago` e
+  `whatsapp_mayara` em `settings` - o nome está no próprio banco. O lugar certo
+  é uma coluna em `teachers`
+- **E-mail de contato da política de privacidade**: está cravado em
+  `PrivacyPolicy.tsx`. Deveria ser um campo por empresa
 
 ### Achados à parte, para resolver em algum momento
 
