@@ -218,6 +218,44 @@ o WhatsApp e o e-mail da política de privacidade ainda são os do Thiago.
   setembro com dados reais de alunos e não é escopada por empresa. Avaliar
   se ainda é necessária; se não for, apagar
 
+### O robô do Google Play marcando aulas (19/09) — resolvido
+
+Aulas apareciam sozinhas na agenda, duas vezes: 33 na madrugada de 19/09 e
+22 na tarde do mesmo dia. Não era bug de marcação nem ação do professor.
+
+Era o **robô do Relatório de pré-lançamento do Google Play**. A cada `.aab`
+enviado, o Google instala o app em aparelhos reais e solta um crawler que toca
+em tudo por alguns minutos. As sessões em `auth.sessions` vieram de IPs
+`66.249.*` e `74.125.*` (Google) num `Android 11; OnePlus8Pro ... wv`, e cada
+leva de aulas começou segundos depois de um login. O robô varreu o domingo
+inteiro, 08:00 às 20:00, hora por hora.
+
+Ele conseguiu entrar porque o Play Console guarda **credenciais de conta de
+teste** para o robô passar da tela de login — e o `.aab` aponta para o banco de
+produção. As fechaduras da multi-empresa seguraram: ele só mexeu nas aulas do
+próprio aluno dele, não tocou em configurações, alunos nem em outras empresas.
+
+O que ficou, além de apagar as credenciais no Play Console:
+
+- `lessons_sem_sobreposicao` (migration `20260919120000`): o banco recusa duas
+  aulas no mesmo horário do mesmo professor, na mesma empresa. Canceladas não
+  contam. Vale para o portal do aluno, a tela de admin e o assistente de IA,
+  porque a regra está no banco e não na tela
+- A constraint precisa de `public.lesson_span()`, marcada `IMMUTABLE`. Ela
+  existe porque `timestamptz + interval` é `STABLE` (intervalos com dias/meses
+  dependem do fuso) e índice exige `IMMUTABLE`. Só minutos entram ali, que são
+  deslocamento absoluto — conferido em 5 fusos e numa virada de horário de
+  verão. **Se a duração um dia passar a ser contada em dias ou meses, essa
+  função deixa de poder ser `IMMUTABLE` e o índice apodrece em silêncio**
+- Confirmação antes de agendar no portal do aluno: um toque não cria mais aula
+- O botão do portal do aluno só volta a funcionar depois que a lista recarrega.
+  Era isso que deixava marcar o mesmo horário duas vezes em 3 segundos
+- `src/lib/lessonErrors.ts` traduz o erro 23P01 do Postgres, que é ilegível
+
+Antes do próximo `.aab`: Play Console → Testes → Relatório de pré-lançamento →
+Configurações → apagar as credenciais de conta de teste. Ou apontá-las para uma
+empresa descartável, nunca para a de produção.
+
 ### Ainda não decidido
 
 - Ativar/desativar por pagamento: rastrear quem pagou pode ser uma planilha

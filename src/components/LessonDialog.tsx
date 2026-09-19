@@ -13,6 +13,7 @@ import { format, addWeeks } from "date-fns";
 import { ExternalLink, ChevronDown } from "lucide-react";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
+import { isSlotConflict, lessonErrorMessage } from "@/lib/lessonErrors";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -186,7 +187,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
-      if (error) { setBusy(false); toast.error(error.message); return; }
+      if (error) { setBusy(false); toast.error(lessonErrorMessage(error)); return; }
 
       if (applyToAll) {
         // status/class_summary/start_at ficam de fora: são específicos de cada aula,
@@ -203,7 +204,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             start = d.toISOString();
           }
           const { error: futureError } = await supabase.from("lessons").update({ ...futureRest, ...names, start_at: start }).eq("id", m.id);
-          if (futureError) toast.error(`Aula futura não atualizada: ${futureError.message}`);
+          if (futureError) toast.error(`${format(new Date(m.start_at), "dd/MM")}: ${lessonErrorMessage(futureError)}`);
         }
       }
 
@@ -219,7 +220,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").insert(payload);
       setBusy(false);
-      if (error) toast.error(error.message); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+      if (error) toast.error(lessonErrorMessage(error)); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
       return;
     }
 
@@ -250,7 +251,15 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
     const { error } = await supabase.from("lessons").insert(toInsert);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      // O insert é uma instrução só: se um horário conflitar, nenhuma aula é
+      // criada. Acontece quando alguém marcou no meio do caminho, depois de a
+      // checagem acima ter lido a agenda.
+      toast.error(isSlotConflict(error)
+        ? "Um dos horários foi ocupado enquanto você preenchia. Nenhuma aula foi criada - abra de novo para ver a agenda atual."
+        : lessonErrorMessage(error));
+      return;
+    }
 
     if (conflicts.length > 0) {
       toast.success(`${toInsert.length} aulas criadas. ${conflicts.length} ignoradas por conflito: ${conflicts.join(", ")}`);
