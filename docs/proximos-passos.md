@@ -4,6 +4,64 @@ Notas de planejamento entre Thiago e o Claude. Não é documentação do produto
 é um bloco de notas para retomar trabalho entre conversas sem precisar reler
 um chat inteiro. Atualize/apague itens conforme forem resolvidos.
 
+---
+
+## COMEÇE POR AQUI — estado em 19/09/2026
+
+**Nada está quebrado nem pela metade.** Dá para começar qualquer item abaixo
+sem desfazer nada.
+
+### O que fazer primeiro (na ordem)
+
+1. **Subir o `.aab` 1.1.1 no Play Console** (código interno 5). Artefato
+   `aulas-play-1.1.1-5`, no run 35468175036 do workflow `android-release.yml`.
+   Baixa como `.zip`, precisa descompactar antes de subir. Expira 19/10 — se
+   tiver passado, é só disparar o workflow de novo.
+2. **Depois de subir, conferir se o robô do Google caiu na empresa demo.**
+   É a única peça do conserto de hoje que ainda não foi vista acontecendo.
+   Como conferir: `auth.sessions` do usuário `demo@aluno.sistema.local` deve
+   ter acesso de IP `66.249.*` ou `74.125.*`, e o de `teste@aluno.sistema.local`
+   **não** deve ter nenhum novo.
+3. **O 4º item pequeno** que o Thiago mencionou e nunca especificou —
+   perguntar qual é.
+
+### Decisões que só o Thiago pode tomar
+
+- **O nome do produto.** A conversa sobre nomes não chegou a uma escolha; ele
+  gostou do estilo de "Magistrix" e "Klassy". Trava a compra do domínio.
+- **Comprar o domínio** (~R$ 40/ano). Sem ele, só uma empresa pode ter página
+  pública — as outras ficam sem endereço próprio.
+
+### Dívidas conhecidas, nenhuma urgente
+
+- `anon reads settings` deixa `pix_key` e `payment_link` legíveis por qualquer
+  visitante não logado. É anterior à multi-empresa, hoje está escopado por
+  empresa, mas continua público. Merece decisão à parte.
+- `lessons_payment_status_backup_20260912`: backup manual com dados reais de
+  alunos, **não** escopado por empresa. Avaliar se ainda serve; se não, apagar.
+- `admin-create-user`: edge function que o app não usa. Foi trancada, mas o
+  certo provavelmente é apagar.
+- O e-mail de contato da política de privacidade está cravado no código
+  (`PrivacyPolicy.tsx`, `thiagopeleias@gmail.com`).
+
+### Senhas (as senhas em si não ficam aqui)
+
+- `demo` — login que o Play Console usa. Cai na empresa "Demonstração".
+- `teste` — login de aluno na empresa de produção, para testes com dados reais.
+
+### Ferramentas que valem lembrar
+
+- **Espelho local do banco:** reproduzir o Postgres de produção e rodar as
+  migrations nele antes de aplicar de verdade. Pegou 4 bugs que teriam ido
+  para dados reais, incluindo um `min(uuid)` que não existe e três gatilhos
+  que gravavam sem `account_id`. Vale o esforço sempre que a migration mexer
+  em RLS, gatilho ou função `SECURITY DEFINER`.
+- **`.claude/settings.json`:** SQL de leitura não pede mais autorização; SQL
+  de escrita continua pedindo. Se mexer no guard, rode
+  `bash .claude/hooks/sql-guard.test.sh`.
+
+---
+
 ## Fila de itens pequenos (prontos para implementar)
 
 Os 3 itens abaixo foram implementados (typecheck, lint no nível já existente
@@ -311,9 +369,8 @@ Não dá mais para saber se o robô adivinhou a senha antiga ou a leu do "Acesso
 ao app": a senha antiga foi sobrescrita sem ser testada antes. A pergunta ficou
 sem resposta, e não é mais respondível por esse caminho.
 
-**Pendente:** religar `allow_student_booking` na empresa de produção depois que
-o PR #15 for mesclado e a confirmação estiver publicada (Configurações →
-Portal do Aluno). Até lá o portal do aluno fica só para visualização.
+O PR #15 foi mesclado, o Netlify publicou a confirmação e o
+`allow_student_booking` da produção foi religado. O episódio está encerrado.
 
 ### Ainda não decidido
 
