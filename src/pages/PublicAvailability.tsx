@@ -42,7 +42,7 @@ export default function PublicAvailability({ teacher }: Props) {
         : supabase.from("lessons").select("start_at, duration_minutes")
       ).gte("start_at", from.toISOString()).lt("start_at", to.toISOString());
       const [settingsR, busyR, recR, lessonsR] = await Promise.all([
-        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").eq("id", 1).maybeSingle(),
+        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity_weekday_min, scarcity_weekday_max, scarcity_weekend_min, scarcity_weekend_max").maybeSingle(),
         busyCall,
         recCall,
         lessonsCall,

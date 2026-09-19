@@ -36,7 +36,7 @@ export default function PublicHome() {
     supabase
       .from("settings")
       .select("work_start, work_end, slot_minutes, whatsapp_thiago, whatsapp_mayara")
-      .eq("id", 1)
+      
       .maybeSingle()
       .then(({ data }) => setSettings((data as any) ?? null));
   }, []);

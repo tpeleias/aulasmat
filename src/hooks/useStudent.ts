@@ -46,7 +46,7 @@ export function useAppSettings(options?: { enabled?: boolean }) {
   const [s, setS] = useState<AppSettings | null>(null);
   useEffect(() => {
     if (options?.enabled === false) { setS(null); return; }
-    supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => setS(data as any));
+    supabase.from("settings").select("*").maybeSingle().then(({ data }) => setS(data as any));
   }, [options?.enabled]);
   return s;
 }

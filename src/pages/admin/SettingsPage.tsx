@@ -28,16 +28,25 @@ export default function SettingsPage() {
     allow_student_booking: true,
     show_availability_to_students: false,
   });
+  // O banco entrega só a linha da própria empresa, então a consulta não filtra
+  // por id - mas o id da linha carregada é guardado para gravar exatamente nela.
+  const [rowId, setRowId] = useState<number | null>(null);
   useEffect(() => {
-    supabase.from("settings").select("*").eq("id", 1).maybeSingle().then(({ data }) => data && setS({ ...s, ...(data as any) }));
+    supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
+      if (!data) return;
+      setRowId((data as any).id);
+      setS({ ...s, ...(data as any) });
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v || lo));
 
   const save = async () => {
+    if (rowId === null) { toast.error("Configurações ainda carregando"); return; }
+    const { id: _id, account_id: _account, ...rest } = s as any;
     const payload = {
-      ...s,
+      ...rest,
       scarcity_weekday_min: clamp(s.scarcity_weekday_min, 1, 4),
       scarcity_weekday_max: clamp(Math.max(s.scarcity_weekday_max, s.scarcity_weekday_min), 1, 4),
       scarcity_weekend_min: clamp(s.scarcity_weekend_min, 1, 7),
@@ -47,8 +56,8 @@ export default function SettingsPage() {
       whatsapp_thiago: (s.whatsapp_thiago || "").trim() || null,
       whatsapp_mayara: (s.whatsapp_mayara || "").trim() || null,
     };
-    const { error } = await supabase.from("settings").update(payload).eq("id", 1);
-    if (error) toast.error(error.message); else { setS(payload as any); toast.success("Configurações salvas"); }
+    const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
+    if (error) toast.error(error.message); else { setS({ ...s, ...payload } as any); toast.success("Configurações salvas"); }
   };
 
   return (
