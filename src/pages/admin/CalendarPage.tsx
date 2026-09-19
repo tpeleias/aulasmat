@@ -32,6 +32,11 @@ const DAY_COUNTS: { value: DayCount; label: string }[] = [
 
 const LONG_PRESS_MS = 500;
 
+// A week always starts on Sunday; shorter ranges start wherever you are.
+function anchorFor(date: Date, count: DayCount) {
+  return count === 7 ? startOfWeek(date, { weekStartsOn: 0 }) : startOfDay(date);
+}
+
 function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
@@ -46,7 +51,7 @@ export default function CalendarPage() {
     } catch { /* blocked storage: the default is fine */ }
     return 1;
   });
-  const [anchor, setAnchor] = useState<Date>(() => startOfDay(new Date()));
+  const [anchor, setAnchor] = useState<Date>(() => anchorFor(new Date(), dayCount));
   const [teacherFilter, setTeacherFilter] = useState<string>("all");
   // Which teachers the "Todos" summary shows. Empty means every one of them.
   const [hiddenInSummary, setHiddenInSummary] = useState<string[]>(() => {
@@ -70,10 +75,6 @@ export default function CalendarPage() {
     () => Array.from({ length: dayCount }, (_, i) => addDays(anchor, i)),
     [anchor, dayCount]
   );
-
-  // A week always starts on Monday; shorter ranges start wherever you are.
-  const anchorFor = (date: Date, count: DayCount) =>
-    count === 7 ? startOfWeek(date, { weekStartsOn: 1 }) : startOfDay(date);
 
   const chooseDayCount = (count: DayCount) => {
     setDayCount(count);
