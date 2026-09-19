@@ -66,50 +66,121 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
-## Linha de fundo: abrir para outras empresas (SaaS)
+## Multi-empresa (SaaS) — EM ANDAMENTO
 
 Contexto: não é "adicionar professores" à escola do Thiago — são **empresas
 clientes independentes**, cada uma com o próprio negócio, próprios alunos e
 próprios dados. Thiago não deve (nem quer) ver os dados delas.
 
-**Decisão tomada:** não fazer a cirurgia multi-tenant (schema compartilhado
-com `account_id` em tudo) agora. Risco alto — dados de crianças, várias
-regras de acesso para acertar, e a edge function do assistente roda com
-`service_role`, que ignora RLS. Um erro ali vaza dados entre empresas
-clientes de verdade, não só entre você e sua esposa.
+### A decisão foi revertida, e por quê
 
-**Caminho escolhido: uma instância isolada por empresa.**
-- Banco Supabase próprio por empresa (confirmado: R$ 0/mês por projeto
-  extra na organização atual)
-- Site próprio no Netlify, mesmo repositório, apontando pro banco dela
-- Isolamento é estrutural (bancos fisicamente separados), não depende de
-  nenhuma regra de acesso estar certa
+A decisão anterior (registrada aqui antes) era **não** fazer a cirurgia
+multi-tenant e usar uma instância isolada por empresa: banco Supabase próprio
++ site Netlify próprio para cada uma. O motivo era medo de vazar dados entre
+empresas.
 
-**Para não parecer "provisório" com várias empresas:**
-- Domínio próprio (~R$ 40/ano) com subdomínio por empresa:
-  `empresax.portaldeaulas.com.br` em vez de link do Netlify
-- Script de provisionamento: automatizar criar banco + aplicar migrações +
-  criar site + configurar variáveis + criar admin, tudo num comando, em vez
-  de montar cada instância na mão
+O argumento que inverteu isso: **o risco de vazamento é menor agora do que
+será depois.** Hoje só existe uma empresa no banco, então um erro de regra de
+acesso não expõe nada de ninguém. Fazendo a cirurgia com 3 empresas reais já
+rodando, cada erro vira dado de criança real exposto a estranho. Esperar
+torna a cirurgia mais perigosa, não mais segura.
 
-**Limite do modelo:** cada melhoria de banco precisa ser aplicada em cada
-instância separadamente (o código do site atualiza sozinho via Git, o banco
-não). Tranquilo até uns 6-8 clientes; a partir daí a repetição começa a
-doer, e é o gatilho real para considerar a cirurgia multi-tenant — não o
-número de empresas testando.
+Além disso, o modelo de instâncias isoladas tinha um custo que não estava
+visível quando foi decidido: o `.aab` da Play Store tem o endereço do banco
+gravado dentro dele no momento do build. Cada empresa precisaria do **próprio
+app na Play Store** — outro appId, outra ficha, outra revisão do Google e
+possivelmente outro ritual de 12 testadores por 14 dias. Ou seja, por cliente:
+outro site, outro login sem nenhuma relação com o seu, e outro app na loja.
 
-**Ativar/desativar por pagamento (perguntado, ainda não implementado):**
-- Rastrear quem pagou = uma lista simples (planilha), não precisa de nada
-  no app agora
-- Cortar acesso = pausar o projeto Supabase da empresa (ação manual, já
-  existe pronta no Supabase, reversível)
-- Automatizar isso (cobrança recorrente + corte automático) só quando o
-  número de clientes tornar o processo manual inviável — não construir
-  infra de cobrança antes de validar se alguém paga
+### O plano: 4 partes
 
-**Não fazer ainda:** painel único mostrando todas as empresas juntas (só
-existe naturalmente com schema compartilhado — é exatamente o que estamos
-evitando por enquanto).
+1. **Fundação** — `account_id` nas tabelas + regras de acesso por empresa ✅ FEITO
+2. **Rotinas do banco + páginas públicas** — as 17 funções `SECURITY DEFINER`
+   e o endereço por empresa ⬜ PENDENTE
+3. **Rotinas com chave mestra** — as 6 edge functions com `service_role`
+   ⬜ PENDENTE (o assistente já foi feito, antecipado da parte 3)
+4. **Empresa fake + teste de invasão** ⬜ PENDENTE
+
+### O que já está aplicado na produção
+
+- Tabela `accounts` + `current_account_id()` / `public_account_id()`
+- `account_id` em 11 tabelas, com `DEFAULT current_account_id()` — é esse
+  default que mantém as ~97 chamadas do app funcionando sem alteração
+- As 27 políticas RLS reescritas: "admin" virou "admin **desta** empresa"
+- `settings` deixou de ser linha única (`check id = 1`); `teachers.name`
+  passou a ser único por empresa
+- **O assistente de IA escopado por empresa** (antecipado da parte 3): as 11
+  ferramentas dele filtram por empresa, e sem empresa ele recusa
+- `handle_new_user` coloca o cadastro na empresa dona do endereço
+- Uma empresa pode ser marcada como dona do endereço padrão
+  (`is_public_default`), para a página pública não fechar quando aparecer a
+  segunda empresa
+- Front-end: removido o `id = 1` fixo das consultas de `settings` (10 lugares)
+
+### Bugs que os testes pegaram antes de virarem problema
+
+Vale registrar porque são o mesmo padrão e vão reaparecer na parte 2 e 3:
+
+- `min(uuid)` não existe no Postgres
+- **Três** rotinas gravam em tabelas marcadas por empresa sem dizer qual:
+  `log_lesson_audit`, `sync_lesson_wallet` e `register_payment`. Todas
+  contavam com o preenchimento automático, que é **vazio** quando quem
+  escreve é uma rotina com chave mestra (sem usuário logado). A terceira
+  chegou a quebrar o registro de pagamento pelo assistente em produção.
+  A varredura que encontra esse padrão:
+  `pg_get_functiondef` + regex por `INSERT INTO public.<tabela marcada>`
+- Migration não idempotente: duas políticas criadas sem `DROP` do próprio
+  nome antes, o que impediria rodar de novo depois de uma interrupção
+
+### Como testar mudança de banco sem tocar na produção
+
+Foi montado um Postgres 16 local que **reproduz a produção coluna por
+coluna** (115/115): stubs do que o Supabase fornece pronto (`auth.uid()`,
+papéis `anon`/`authenticated`, `storage`, `cron`, publicação de realtime) e
+as migrations históricas replayadas por cima. Os testes rodam como o papel
+`authenticated` com `request.jwt.claim.sub` — rodar como dono do banco
+ignoraria RLS e daria falso "tudo certo".
+
+Vale reconstruir isso na próxima sessão antes de mexer em RLS. Foi o que
+pegou os bugs acima.
+
+### Empresa de teste em produção
+
+- **Empresa X** (slug `empresax`), login `testex` / senha `testex`
+- É do amigo do Thiago, com dados inventados
+- Verificado na produção: esse login enxerga 0 aulas, 0 alunos, 0 lançamentos
+  e 0 linhas de histórico do Thiago; e o Thiago não enxerga o professor dela
+- Nome é provisório, trocar é uma linha no banco
+
+**Regras enquanto as partes 2 e 3 não estiverem prontas:**
+- Só o lado de administrador. **Não distribuir login de aluno nem de
+  responsável** — as rotinas que casam aluno por nome+responsável ainda não
+  olham a empresa, então dois alunos de mesmo nome em empresas diferentes
+  podem se confundir (o mesmo bug que a migration de setembro consertou
+  entre alunos da mesma empresa)
+- Nada de dados de famílias reais da outra empresa
+- A rotina de vincular conta de aluno também não checa empresa ainda
+
+### Achados à parte, para resolver em algum momento
+
+- `pix_key`, `payment_link` e os WhatsApps ficam em `settings`, que é legível
+  por qualquer visitante não logado. Já era assim antes da multi-empresa.
+  Agora está escopado por empresa, mas expor esses campos ao público merece
+  decisão à parte
+- `settings` tem colunas `whatsapp_thiago` e `whatsapp_mayara`, cravadas nos
+  nomes — outra empresa tem outros professores. Generalizar
+- A tabela `lessons_payment_status_backup_20260912` é um backup manual de
+  setembro com dados reais de alunos e não é escopada por empresa. Avaliar
+  se ainda é necessária; se não for, apagar
+
+### Ainda não decidido
+
+- Ativar/desativar por pagamento: rastrear quem pagou pode ser uma planilha
+  por enquanto; não construir infra de cobrança antes de validar se alguém paga
+- Domínio próprio (~R$ 40/ano) com subdomínio por empresa
+  (`empresax.dominio.com.br`) — vira necessário na parte 2, porque é assim
+  que a página pública sem login descobre de qual empresa é
+- O nome do produto (a conversa sobre nomes não chegou a uma escolha)
 
 ## Como retomar
 
