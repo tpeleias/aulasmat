@@ -94,8 +94,11 @@ export const SCARCITY_DEFAULT: Record<string, ScarcityDay> = {
   "6": { min: 3, max: 7 },
 };
 
-export function scarcityFor(day: Date, scarcity: unknown): ScarcityDay {
+// A do professor ganha da empresa, e a da empresa ganha do padrão. Professor
+// sem escassez própria (o caso normal) simplesmente herda a da empresa.
+export function scarcityFor(day: Date, accountScarcity: unknown, teacherScarcity?: unknown): ScarcityDay {
   const chave = String(day.getDay());
-  const tabela = (scarcity ?? {}) as Record<string, ScarcityDay | undefined>;
-  return tabela[chave] ?? SCARCITY_DEFAULT[chave];
+  const doProfessor = (teacherScarcity ?? {}) as Record<string, ScarcityDay | undefined>;
+  const daEmpresa = (accountScarcity ?? {}) as Record<string, ScarcityDay | undefined>;
+  return doProfessor[chave] ?? daEmpresa[chave] ?? SCARCITY_DEFAULT[chave];
 }

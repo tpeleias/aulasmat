@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
@@ -10,6 +11,7 @@ import { Clock, Flame } from "lucide-react";
 type Props = { teacher?: string };
 
 export function AvailabilityBoard({ teacher }: Props) {
+  const { teachers } = useTeachers(true);
   const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -54,7 +56,7 @@ export function AvailabilityBoard({ teacher }: Props) {
         const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
         const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-        const { min: minN, max: maxN } = scarcityFor(day, s.scarcity);
+        const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teachers.find(t => teacherSlug(t.name) === teacher)?.scarcity);
         const picked = pickScarcityCandidates(day, dayCandidates, teacher ?? "all", minN, maxN);
         const visible = picked
           .filter(start => freeStartTimes.has(start.getTime()))

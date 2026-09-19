@@ -71,7 +71,7 @@ export default function PublicAvailability() {
         const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
         const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
         const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-        const { min: minN, max: maxN } = scarcityFor(day, s.scarcity);
+        const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teachers.find(t => teacherSlug(t.name) === teacher)?.scarcity);
         const picked = pickScarcityCandidates(day, dayCandidates, teacher ?? "all", minN, maxN);
         // Once a picked slot is booked it simply disappears — no replacement is shown
         const visible = picked
