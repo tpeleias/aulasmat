@@ -18,14 +18,14 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Próximas aulas"
-            android:textColor="#FFFFFF"
+            android:textColor="#ECE7DB"
             android:textStyle="bold"
             android:textSize="15sp" />
         <TextView
             android:id="@+id/widget_date"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#B3FFFFFF"
+            android:textColor="#A9A79C"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -34,7 +34,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Nenhuma aula nos próximos dias"
-        android:textColor="#B3FFFFFF"
+        android:textColor="#A9A79C"
         android:textSize="12sp"
         android:paddingTop="6dp"
         android:paddingBottom="6dp"
@@ -56,8 +56,8 @@
             android:layout_width="44dp"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-            <TextView android:id="@+id/row1_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp" />
-            <TextView android:id="@+id/row1_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#99FFFFFF" android:textSize="10sp" />
+            <TextView android:id="@+id/row1_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textStyle="bold" android:textSize="15sp" />
+            <TextView android:id="@+id/row1_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="10sp" />
         </LinearLayout>
         <LinearLayout
             android:layout_width="0dp"
@@ -65,8 +65,8 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:orientation="vertical">
-            <TextView android:id="@+id/row1_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
-            <TextView android:id="@+id/row1_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B3FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row1_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row1_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
 
@@ -86,8 +86,8 @@
             android:layout_width="44dp"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-            <TextView android:id="@+id/row2_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp" />
-            <TextView android:id="@+id/row2_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#99FFFFFF" android:textSize="10sp" />
+            <TextView android:id="@+id/row2_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textStyle="bold" android:textSize="15sp" />
+            <TextView android:id="@+id/row2_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="10sp" />
         </LinearLayout>
         <LinearLayout
             android:layout_width="0dp"
@@ -95,8 +95,8 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:orientation="vertical">
-            <TextView android:id="@+id/row2_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
-            <TextView android:id="@+id/row2_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B3FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row2_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row2_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
 
@@ -116,8 +116,8 @@
             android:layout_width="44dp"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-            <TextView android:id="@+id/row3_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp" />
-            <TextView android:id="@+id/row3_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#99FFFFFF" android:textSize="10sp" />
+            <TextView android:id="@+id/row3_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textStyle="bold" android:textSize="15sp" />
+            <TextView android:id="@+id/row3_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="10sp" />
         </LinearLayout>
         <LinearLayout
             android:layout_width="0dp"
@@ -125,8 +125,8 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:orientation="vertical">
-            <TextView android:id="@+id/row3_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
-            <TextView android:id="@+id/row3_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B3FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row3_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row3_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
 
@@ -146,8 +146,8 @@
             android:layout_width="44dp"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-            <TextView android:id="@+id/row4_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="15sp" />
-            <TextView android:id="@+id/row4_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#99FFFFFF" android:textSize="10sp" />
+            <TextView android:id="@+id/row4_time" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textStyle="bold" android:textSize="15sp" />
+            <TextView android:id="@+id/row4_day" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="10sp" />
         </LinearLayout>
         <LinearLayout
             android:layout_width="0dp"
@@ -155,8 +155,8 @@
             android:layout_weight="1"
             android:layout_marginStart="8dp"
             android:orientation="vertical">
-            <TextView android:id="@+id/row4_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#FFFFFF" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
-            <TextView android:id="@+id/row4_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#B3FFFFFF" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row4_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
+            <TextView android:id="@+id/row4_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
     </LinearLayout>
 
@@ -176,7 +176,7 @@
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
             android:text="✦  Assistente"
-            android:textColor="#FFFFFF"
+            android:textColor="#13141B"
             android:textStyle="bold"
             android:textSize="12sp" />
         <TextView
@@ -189,7 +189,7 @@
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
             android:text="＋  Nova aula"
-            android:textColor="#FFFFFF"
+            android:textColor="#ECE7DB"
             android:textSize="12sp" />
     </LinearLayout>
 

@@ -13,7 +13,21 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        // docs/cronys-brand-spec.md: Fraunces no wordmark e nos titulos,
+        // Work Sans na interface. Os fallbacks sao os que o spec pede.
+        serif: ["Fraunces", "Georgia", "serif"],
+        sans: ["Work Sans", "system-ui", "sans-serif"],
+      },
       colors: {
+        brand: {
+          navy: "hsl(var(--brand-navy))",
+          "navy-2": "hsl(var(--brand-navy-2))",
+          gold: "hsl(var(--brand-gold))",
+          teal: "hsl(var(--brand-teal))",
+          ink: "hsl(var(--brand-ink))",
+          "ink-dim": "hsl(var(--brand-ink-dim))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

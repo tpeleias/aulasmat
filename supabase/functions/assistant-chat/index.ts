@@ -403,7 +403,7 @@ Deno.serve(async (req) => {
 
     const nowSaoPaulo = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "full", timeStyle: "short" });
 
-    const systemPrompt = `Você é o assistente do app "Aulas", usado por um professor de matemática/química para gerenciar aulas, alunos e financeiro (carteira).
+    const systemPrompt = `Você é o assistente do Cronys, o app que um professor particular usa para gerenciar aulas, alunos e financeiro (carteira).
 
 Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 

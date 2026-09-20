@@ -676,3 +676,119 @@ sem mostrar não serviria de nada.
 **Não precisou de migration:** `subject`, `notes` e `is_online` já existiam, e a
 política de insert do aluno não restringe nenhuma delas (ela checa empresa,
 vínculo do cadastro, `status = 'solicitada'` e o interruptor de agendamento).
+
+## Cronys: nome, marca e ícones (20/09)
+
+O app deixou de se chamar "Portal de Aulas" e passou a se chamar **Cronys**. A
+identidade veio de `docs/cronys-brand-spec.md`, que o Thiago subiu no `main` e
+que diz "todos os valores são finais; não improvisar variações". Nada de banco,
+nada de RLS, nada de dados mudou.
+
+### O que NÃO mudou, de propósito
+
+- **`applicationId` continua `com.aulasmat.app`.** É a identidade da ficha na
+  Play Store e não pode mudar num app já publicado: é por ele que o Android
+  liga a atualização ao app instalado. Só sai num app novo, com ficha nova.
+- **`Preferences.group` continua `AulasMatPrefs`.** É a chave do armazenamento
+  no aparelho. Trocá-la não renomeia nada visível, só faz o app perder o que
+  já guardou.
+- **Páginas públicas (`PublicHome`, `PublicAvailability`) não viraram Cronys.**
+  Elas são a vitrine do professor, não do produto — quem chega ali procura o
+  professor.
+
+### As três decisões que o spec não decidia
+
+O spec define a marca para **fundo escuro**: todos os seis tokens dele
+(navy, navy-2, gold, teal, ink, ink-dim) são de superfície escura, e não há
+token nenhum de superfície clara. O app tem modo claro. Então:
+
+1. **O modo claro é derivado**, com neutros quentes tirados do matiz do ink
+   (42°), para o claro ser da mesma família e não um cinza azulado avulso.
+
+2. **`--primary` no modo claro é o dourado escurecido** (`41 54% 34%`). O
+   dourado do spec, `#c9a24b`, rende **2,4:1** sobre superfície clara, e
+   `--primary` neste código não pinta só botão: pinta link, ícone e borda, em
+   59 lugares. Como texto ele seria ilegível. O escurecido passa nos dois
+   sentidos (4,94:1 como texto no fundo, 4,85:1 do ink sobre ele).
+
+3. **O botão primário usa o dourado cheio mesmo assim**, via
+   `bg-brand-gold text-brand-navy` em `ui/button.tsx`. Preenchimento não
+   precisa de contraste contra a página — quem precisa é o texto por cima, e
+   esse é navy: 7,58:1. Assim "gold: botões" do spec vale ao pé da letra sem
+   levar junto os links.
+
+Conferido, token a token: no modo claro e no escuro, todo par de texto/fundo
+passa de 4,5:1. O único que estava raspando era o texto no vermelho destrutivo
+(4,29:1, porque o texto por cima deixou de ser branco puro, como o spec pede);
+o vermelho desceu de 52% para 48% de luminosidade e foi para 4,91:1.
+
+### As fontes são auto-hospedadas
+
+O spec diz "ambas via Google Fonts". São as **mesmas** Fraunces e Work Sans, só
+servidas do próprio site (`public/fonts/`, ~117 KB somados): o app Android
+embute os arquivos e roda sem internet, e um `<link>` para
+fonts.googleapis.com cairia fora de rede — a marca apareceria em Georgia justo
+na tela de abertura, que é a mais offline de todas. O byte muda de origem; a
+fonte não muda.
+
+### O que o desenho pede e o tamanho de 48px não dá
+
+O ponteiro de segundos tem 3,5 de traço num quadro de 600: 0,58% do lado. Num
+ícone de 48px isso dá **0,28 pixel** — ele não fica fino, ele não existe. O de
+minuto (9/600) dá 0,72px e vira um fantasma.
+
+**Não é problema para consertar.** Aos 96px, 192px e 512px — que é onde o ícone
+é olhado de verdade (Play Store, PWA, aba em tela grande) — os três ponteiros
+aparecem e são o desenho todo. A 48px o que sobra é o anel dourado com uma
+marca no meio, e isso ainda lê. Fica anotado aqui para quem for mexer não achar
+que "sumiu um ponteiro" e sair reescrevendo o spec.
+
+### Os ícones não se editam à mão
+
+São 28 arquivos (favicon em 3 tamanhos, PWA em 2, apple-touch, 5 densidades
+Android × 3 variantes, 11 splash, og-image). Editar isso a mão garante que um
+dia uma densidade fica com o desenho velho e ninguém descobre — o celular que
+usa aquela densidade é que mostra o ícone errado.
+
+O desenho existe **uma vez**, em `scripts/gerar-identidade.py`:
+
+```bash
+pip install pillow cairosvg
+python3 scripts/gerar-identidade.py
+```
+
+A mesma geometria está em `src/components/brand.tsx` (o símbolo inline, que o
+wordmark precisa para encostar no "r") e a mesma paleta em `src/index.css`. São
+três lugares que precisam andar juntos, e cada um diz isso no comentário.
+
+### Precisa de `.aab` novo
+
+Sim. Ícone, nome e splash são do lado do app, que embute o `dist/`. Sobe pelo
+workflow `Build Android release (Play)`, e o nome na ficha da Play (o "Nome do
+app") muda no Play Console, à mão — o `.aab` sozinho não renomeia a ficha.
+
+### Também mudou: os widgets da tela de início
+
+Estavam no azul `#4E7FE6` e num magenta `#D946EF` que não são de marca nenhuma,
+com texto em branco puro. Viraram navy + dourado + teal, e o branco puro virou
+ink, como o spec manda. As bordas e véus de branco a 8-24% viraram ink nas
+mesmas opacidades, que é o token `line` do spec.
+
+O magenta era a cor da linha do professor "mayara" — nome **fixo no Java**
+(`LessonsWidgetProvider.java`), que numa segunda empresa não quer dizer nada.
+Dívida anotada, não resolvida aqui.
+
+### Dívida descoberta no caminho: o `tsc` do projeto não é o da raiz
+
+`npx tsc --noEmit` na raiz **não checa nada**: `tsconfig.json` tem
+`"files": []` e só referências. O comando que checa de verdade é
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+
+Rodando o certo, apareceu um erro de tipo em `LessonRequests.tsx` que entrou
+nesta mesma sessão: `title` num ícone do lucide. Em runtime a prop caía no
+`<svg>`, e `<svg title="">` não vira dica em navegador nenhum — ou seja, a dica
+de "Aula on-line" e a do endereço nunca funcionaram. Corrigido: a dica foi para
+um `<span title>` em volta.

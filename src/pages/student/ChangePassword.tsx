@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { GraduationCap, Lock } from "lucide-react";
+import { Lock } from "lucide-react";
+import { CronysBadge } from "@/components/brand";
 
 export default function ChangePassword() {
   const { session, loading: authLoading, signOut } = useAuth();
@@ -70,9 +71,7 @@ export default function ChangePassword() {
     <div className="flex flex-1 items-center justify-center p-4 bg-background">
       <Card className="max-w-md w-full p-6 space-y-4">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <GraduationCap className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <CronysBadge className="h-10 w-10 rounded-xl" />
           <div>
             <h1 className="font-semibold flex items-center gap-2"><Lock className="w-4 h-4" /> Definir nova senha</h1>
             <p className="text-xs text-muted-foreground">Para sua segurança, escolha uma senha pessoal antes de continuar.</p>

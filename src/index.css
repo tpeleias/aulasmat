@@ -2,6 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fraunces (marca, títulos) e Work Sans (interface), as duas do
+   docs/cronys-brand-spec.md.
+
+   O spec diz "ambas via Google Fonts". Aqui elas são as MESMAS fontes, só
+   servidas do próprio site: o app Android embute os arquivos e roda sem
+   internet, e um <link> para fonts.googleapis.com cairia fora de rede — a
+   marca apareceria em Georgia justo na tela de abertura, que é a mais
+   offline de todas. A fonte é a mesma; o que muda é de onde vem o byte.
+
+   É um arquivo por família: as duas são variáveis, então 400/500/600 saem do
+   mesmo woff2. O subconjunto é o latino, que já cobre os acentos do português
+   (eles vivem em U+00C0-00FF). */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/fraunces-latin-var.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Work Sans';
+  font-style: normal;
+  font-weight: 400 600;
+  font-display: swap;
+  src: url('/fonts/work-sans-latin-var.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193,
+    U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 @layer base {
   html {
     height: 100%;
@@ -33,79 +67,142 @@
     padding-right: env(safe-area-inset-right);
   }
 
+  /* ---------------------------------------------------------------------
+     Cronys — docs/cronys-brand-spec.md
+     ---------------------------------------------------------------------
+     Os valores da marca são do spec e não se improvisa variação deles:
+
+       navy    #13141b   232 17%  9%   fundo principal
+       navy-2  #1b1d28   231 19% 13%   superfícies elevadas
+       gold    #c9a24b    41 54% 54%   marca, acento principal, botões
+       teal    #3f9c94   175 42% 43%   acento secundário, traço fino
+       ink     #ece7db    42 31% 89%   texto sobre escuro — NUNCA branco puro
+       ink-dim #a9a79c    51  7% 64%   texto secundário
+
+     Onde eles rendem, conferido: dourado sobre navy 7,65:1; navy sobre
+     dourado (o texto dos botões) 7,65:1; ink sobre navy 14,9:1; ink-dim
+     7,6:1; teal 5,6:1. Todos acima dos 4,5:1 da WCAG.
+
+     Onde eles NÃO rendem: dourado sobre branco dá 2,4:1 e teal dá 3,28:1.
+     Por isso nenhum dos dois vira texto em superfície clara. Como PREENCHIMENTO
+     de botão o dourado vale em qualquer lugar — aí quem precisa de contraste é
+     o texto por cima, e esse é navy.
+
+     O spec define a marca para fundo escuro e não fala de superfície clara. O
+     modo claro abaixo é derivado: neutros quentes tirados do matiz do ink (42°),
+     para o claro ser da mesma família e não um cinza azulado avulso.
+
+     Os mesmos valores estão em scripts/gerar-identidade.py, que desenha os
+     ícones. Mudou aqui, muda lá. */
   :root {
-    --background: 210 40% 98%;
-    --foreground: 215 28% 17%;
+    --brand-navy: 232 17% 9%;
+    --brand-navy-2: 231 19% 13%;
+    --brand-gold: 41 54% 54%;
+    --brand-teal: 175 42% 43%;
+    --brand-ink: 42 31% 89%;
+    --brand-ink-dim: 51 7% 64%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 215 28% 17%;
+    --background: 42 30% 97%;
+    --foreground: 232 17% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 215 28% 17%;
+    --card: 40 33% 99%;
+    --card-foreground: 232 17% 12%;
 
-    --primary: 224 35% 48%;
-    --primary-foreground: 0 0% 100%;
-    --primary-glow: 224 38% 64%;
+    --popover: 40 33% 99%;
+    --popover-foreground: 232 17% 12%;
 
-    --secondary: 220 16% 95%;
-    --secondary-foreground: 222 16% 25%;
+    /* O dourado da marca (#c9a24b) rende 2,4:1 sobre superfície clara, e
+       `--primary` não pinta só botão: pinta link, ícone e borda. Então no modo
+       CLARO ele é o mesmo matiz escurecido, que passa nos dois sentidos —
+       4,94:1 como texto no fundo, 4,85:1 do ink sobre ele. O dourado cheio do
+       spec continua onde o spec o coloca: no símbolo, no wordmark, na barra
+       lateral, no ícone e no botão primário (que é preenchimento, e aí o
+       contraste que importa é o do texto navy por cima: 7,65:1). */
+    --primary: 41 54% 34%;
+    --primary-foreground: 42 31% 96%;
+    --primary-glow: 41 54% 46%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 47%;
+    --secondary: 40 16% 93%;
+    --secondary-foreground: 232 15% 22%;
 
-    --accent: 224 30% 95%;
-    --accent-foreground: 224 35% 32%;
+    --muted: 40 14% 94%;
+    --muted-foreground: 42 8% 42%;
 
-    --destructive: 4 45% 52%;
-    --destructive-foreground: 0 0% 100%;
+    --accent: 42 28% 92%;
+    --accent-foreground: 232 17% 18%;
 
-    --success: 152 30% 38%;
-    --success-foreground: 0 0% 100%;
+    /* 48% e não os 52% de antes: o texto por cima deixou de ser branco puro
+       (o spec pede ink) e a 52% isso caía para 4,29:1. */
+    --destructive: 4 45% 48%;
+    --destructive-foreground: 42 31% 96%;
 
-    --warning: 38 55% 48%;
-    --warning-foreground: 0 0% 100%;
+    --success: 175 42% 34%;
+    --success-foreground: 42 31% 96%;
 
-    --border: 220 14% 88%;
-    --input: 220 14% 88%;
-    --ring: 224 35% 48%;
+    --warning: 33 60% 44%;
+    --warning-foreground: 42 31% 96%;
+
+    --border: 40 14% 87%;
+    --input: 40 14% 87%;
+    /* O anel de foco segue o `--primary` escurecido, e não o dourado cheio:
+       anel é indicador de interface e precisa de 3:1 contra o fundo. O
+       dourado cheio daria 2,4:1 sobre claro; este dá 4,94:1. */
+    --ring: 41 54% 34%;
 
     --radius: 0.625rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(224 35% 48%), hsl(224 38% 64%));
-    --gradient-subtle: linear-gradient(180deg, hsl(210 40% 98%), hsl(220 16% 95%));
-    --shadow-elegant: 0 4px 20px -4px hsl(224 35% 48% / 0.15);
-    --shadow-card: 0 1px 3px hsl(220 10% 70% / 0.15), 0 1px 2px hsl(220 10% 70% / 0.1);
+    /* Sem gradiente no símbolo nem no fundo do ícone — o spec proíbe. Estes
+       aqui são de superfície de tela, não da marca, e ficam discretos. */
+    --gradient-primary: linear-gradient(135deg, hsl(41 54% 50%), hsl(41 56% 62%));
+    --gradient-subtle: linear-gradient(180deg, hsl(42 30% 97%), hsl(40 16% 93%));
+    --shadow-elegant: 0 4px 20px -4px hsl(232 17% 9% / 0.18);
+    --shadow-card: 0 1px 3px hsl(232 10% 40% / 0.10), 0 1px 2px hsl(232 10% 40% / 0.08);
 
-    --sidebar-background: 222 16% 14%;
-    --sidebar-foreground: 220 12% 90%;
-    --sidebar-primary: 224 38% 58%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 14% 20%;
-    --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 222 14% 22%;
-    --sidebar-ring: 224 38% 58%;
+    /* A barra lateral é navy nos dois modos: é a superfície da marca dentro do
+       app. O item ativo não é um bloco dourado cheio — dourado maciço numa
+       coluna inteira vira o assunto da tela e briga com o próprio nome logo
+       acima. Ele é um degrau de navy-2 com o texto dourado. */
+    --sidebar-background: 232 17% 9%;
+    --sidebar-foreground: 42 20% 82%;
+    --sidebar-primary: 231 19% 17%;
+    --sidebar-primary-foreground: 41 54% 58%;
+    --sidebar-accent: 231 18% 14%;
+    --sidebar-accent-foreground: 42 31% 89%;
+    /* #2d2d32: o `line` do spec, rgba(ink,0.12), já resolvido sobre o navy —
+       as utilidades de borda do Tailwind não carregam alfa. */
+    --sidebar-border: 240 5% 19%;
+    --sidebar-ring: 41 54% 54%;
   }
 
+  /* No escuro o spec fala direto: navy de fundo, navy-2 nas superfícies
+     elevadas, ink no texto. */
   .dark {
-    --background: 222 16% 9%;
-    --foreground: 210 20% 96%;
-    --card: 222 16% 12%;
-    --card-foreground: 210 20% 96%;
-    --popover: 222 16% 12%;
-    --popover-foreground: 210 20% 96%;
-    --primary: 224 40% 62%;
-    --primary-foreground: 222 16% 9%;
-    --secondary: 222 14% 17%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 222 14% 17%;
-    --muted-foreground: 220 10% 65%;
-    --accent: 222 14% 20%;
-    --accent-foreground: 210 20% 96%;
-    --destructive: 4 40% 44%;
-    --destructive-foreground: 210 20% 96%;
-    --border: 222 14% 20%;
-    --input: 222 14% 20%;
-    --ring: 224 40% 62%;
+    --background: 232 17% 9%;
+    --foreground: 42 31% 89%;
+    --card: 231 19% 13%;
+    --card-foreground: 42 31% 89%;
+    --popover: 231 19% 13%;
+    --popover-foreground: 42 31% 89%;
+    --primary: 41 54% 54%;
+    --primary-foreground: 232 17% 9%;
+    --primary-glow: 41 56% 66%;
+    --secondary: 231 19% 17%;
+    --secondary-foreground: 42 31% 89%;
+    --muted: 231 19% 17%;
+    --muted-foreground: 51 7% 64%;
+    --accent: 231 19% 20%;
+    --accent-foreground: 42 31% 89%;
+    --destructive: 4 42% 46%;
+    --destructive-foreground: 42 31% 92%;
+    --success: 175 42% 43%;
+    --success-foreground: 232 17% 9%;
+    --warning: 33 55% 50%;
+    --warning-foreground: 232 17% 9%;
+    --border: 233 7% 24%;
+    --input: 233 7% 24%;
+    --ring: 41 54% 54%;
+    --gradient-primary: linear-gradient(135deg, hsl(41 54% 46%), hsl(41 54% 58%));
+    --gradient-subtle: linear-gradient(180deg, hsl(232 17% 9%), hsl(231 19% 13%));
   }
 }
 
@@ -113,6 +210,7 @@
   * { @apply border-border; }
   body {
     @apply bg-background text-foreground;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    /* Os `cv0x` que estavam aqui eram variantes de caractere da Inter, que
+       saiu. Na Work Sans não fazem nada. */
   }
 }

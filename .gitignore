@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Arte intermediaria do scripts/gerar-identidade.py (a fonte TTF e os recortes)
+.icones-tmp/

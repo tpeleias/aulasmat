@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { GraduationCap, Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
+import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
 
@@ -22,7 +23,7 @@ export default function Auth() {
   const [childPw, setChildPw] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { document.title = "Acesso — Portal de Aulas"; }, []);
+  useEffect(() => { document.title = "Acesso — Cronys"; }, []);
 
   if (loading) return null;
   if (session) {
@@ -75,14 +76,16 @@ export default function Auth() {
       <div className="mx-auto w-full md:max-w-md md:overflow-hidden md:rounded-[2rem] md:bg-background md:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
         {/* Hero */}
         <div className="relative overflow-hidden bg-sidebar px-6 pb-16 pt-14 text-sidebar-foreground md:pt-12">
-          <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+          {/* Dois véus fracos: o dourado a 12% e o teal a 10%. Mais que isso
+              vira mancha marrom em cima do navy, e o spec não quer gradiente
+              chamando atenção perto da marca. */}
+          <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-gold/12 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-brand-teal/10 blur-3xl" />
           <div className="relative flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg" style={{ background: "var(--gradient-primary)" }}>
-              <GraduationCap className="h-6 w-6 text-primary-foreground" />
-            </div>
+            {/* O símbolo sem moldura, direto sobre o navy: aqui o fundo já é
+                a cor da marca, e um quadradinho por cima só somaria borda. */}
             <div>
-              <div className="text-2xl font-bold tracking-tight">Portal de Aulas</div>
+              <CronysWordmark tamanho="2.25rem" className="text-brand-ink" />
               <div className="text-sm text-sidebar-foreground/70">Agenda, alunos e cobrança</div>
             </div>
           </div>
@@ -180,7 +183,7 @@ function PendingScreen() {
   return (
     <div className="flex flex-1 items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><GraduationCap className="h-6 w-6" /></div>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
         <h2 className="text-xl font-semibold">Conta aguardando liberação</h2>
         <p className="text-sm text-muted-foreground">
           Sua conta ({user?.email}) foi criada, mas o professor ainda precisa vincular você ao cadastro do aluno.

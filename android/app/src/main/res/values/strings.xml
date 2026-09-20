@@ -1,7 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Portal de Aulas</string>
-    <string name="title_activity_main">Portal de Aulas</string>
+    <string name="app_name">Cronys</string>
+    <string name="title_activity_main">Cronys</string>
+    <!-- Estes dois seguem o applicationId, que é permanente na Play Store. -->
     <string name="package_name">com.aulasmat.app</string>
     <string name="custom_url_scheme">com.aulasmat.app</string>
     <string name="widget_description">Próximas aulas, com atalhos para o assistente e para marcar aula</string>

@@ -95,10 +95,17 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="truncate font-medium">{r.student_name}</span>
+                    {/* A dica fica no <span> e não no ícone: <svg title=""> não
+                        vira tooltip em navegador nenhum, e o tipo do lucide nem
+                        aceita a prop. */}
                     {r.is_online ? (
-                      <Wifi className="h-3.5 w-3.5 shrink-0 text-muted-foreground" title="Aula on-line" />
+                      <span title="Aula on-line" className="shrink-0 leading-none">
+                        <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
                     ) : r.address ? (
-                      <MapPin className="h-3.5 w-3.5 shrink-0 text-muted-foreground" title={r.address} />
+                      <span title={r.address} className="shrink-0 leading-none">
+                        <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
                     ) : null}
                     {/* O professor pode simplesmente não ter respondido. Dizer isso
                         é melhor que deixar o pedido velho parecendo atual. */}
