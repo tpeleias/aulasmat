@@ -461,3 +461,96 @@ Achado à parte, do mesmo naipe: o papel `anon` tem `TRUNCATE` em `settings` (e
 provavelmente em todas as tabelas — é o padrão do Supabase). RLS não cobre
 `TRUNCATE`. Não é alcançável pelo PostgREST, então não é urgente, mas é um grant
 que ninguém usa.
+
+## As quatro dívidas da lista (20/09) — três fechadas, uma devolvida
+
+### 1. E-mail da privacidade por empresa ✅
+
+`contact_email` em `settings`, campo na tela de Configurações (card "Contato"),
+e `PrivacyPolicy.tsx` lendo do banco. O e-mail do Thiago foi preenchido só na
+empresa dona do endereço público; Empresa X e Demonstração ficaram nulas.
+
+Nulo **esconde o parágrafo** em vez de mostrar outro e-mail: a página passa a
+pedir que a família fale com o professor. Mostrar o e-mail errado é pior que não
+mostrar nenhum — convida a família a escrever para um estranho sobre os dados do
+filho.
+
+### 2. `pix_key` e `payment_link` fechados ao visitante ✅
+
+O `anon` perdeu o SELECT na tabela inteira e ganhou uma lista explícita:
+`id, account_id, work_start, work_end, slot_minutes, scarcity, contact_email`.
+
+**É allowlist e não denylist de propósito.** Revogar só as duas colunas
+sensíveis de hoje deixaria a próxima coluna sensível exposta em silêncio,
+porque ninguém lembra de voltar na migration ao adicionar uma. Assim coluna
+nova nasce invisível para o visitante, e quem precisar dela no site público diz
+isso explicitamente.
+
+**O preço:** `select("*")` como `anon` passa a falhar. Conferido antes de
+aplicar que nenhuma das 4 rotas públicas faz isso — as consultas anônimas já
+nomeiam colunas, e os dois `select("*")` que existem (`useAppSettings` e
+`SettingsPage`) rodam autenticados. Há um teste cobrindo exatamente isso, para
+não virar surpresa.
+
+Aproveitando a mesma migration, o `anon` também perdeu INSERT/UPDATE/DELETE/
+TRUNCATE em `settings`. RLS já barrava os três primeiros, mas **TRUNCATE não
+passa por RLS** — é comando de tabela, não de linha. Não era alcançável pelo
+PostgREST, então nunca foi buraco de verdade; era grant que ninguém usava.
+**O mesmo vale para as outras tabelas, que seguem com TRUNCATE para `anon`.**
+
+16 casos no espelho local, todos passando (anon não lê as sensíveis, lê as
+públicas, não escreve, não trunca, e `select *` falha; admin logado continua
+vendo tudo da própria empresa). Migration idempotente em 3 aplicações.
+
+### 3. `admin-create-user` desativada ✅ (falta um clique seu)
+
+Virou **lápide**: responde 410 a tudo e não importa o cliente do Supabase, então
+não tem como alcançar a chave mestra nem o banco. Publicada (versão 4) e
+conferida lendo a fonte de volta do servidor.
+
+Por que lápide e não apagar: as ferramentas daqui publicam edge function, mas
+não removem. Apagar só o arquivo do repositório deixaria a **versão antiga, com
+a chave mestra, rodando na produção** e sem fonte para conferir — pior que
+antes.
+
+**Para terminar:** Supabase → Edge Functions → `admin-create-user` → Delete, e
+remover o diretório do repositório.
+
+### 4. Tabela de backup — NÃO apagada, decisão sua ⚠️
+
+Eu ia apagar se ela fosse redundante. **Não é.**
+
+- 84 linhas, 12 alunos reais, feita em 12/09
+- **17 linhas têm `payment_status` diferente do que a tabela viva diz hoje**
+- nenhuma aula do backup sumiu da tabela viva
+
+Ou seja: ela guarda o estado de pagamento de antes da migration
+`20260912022140` (a que passou a derivar o pagamento da carteira), e esses 17
+casos são exatamente onde a derivação mudou a resposta. É o único lugar onde
+isso existe. Se a derivação tiver errado com alguém, é aqui que se descobre.
+
+Continua valendo que são dados reais de aluno numa tabela fora do escopo por
+empresa. Ela está com RLS ligada e **sem nenhuma política**, então o app não a
+alcança — só a chave mestra. Três caminhos:
+
+1. **Deixar como está.** Inacessível pelo app, e o histórico continua existindo.
+2. **Exportar e apagar.** Baixar as 84 linhas (ou só as 17 divergentes) pelo
+   painel e então apagar a tabela. Tira dado real de aluno do banco sem perder
+   o registro.
+3. **Apagar direto**, aceitando perder a única cópia do estado anterior.
+
+Me diga qual e eu faço.
+
+### Dívida nova encontrada: `types.ts` está desatualizado
+
+`src/integrations/supabase/types.ts` é gerado do banco e **não é regerado desde
+antes do PR #13**. Ele ainda declara `whatsapp_thiago`, `whatsapp_mayara` e
+`scarcity_weekday_*` em `settings` — colunas que já não existem — e não conhece
+`scarcity`, `account_id` nem `contact_email` (este eu acrescentei à mão).
+
+É por isso que o código está cheio de `as any` em volta de `settings`: os tipos
+mentem, e o jeito de continuar trabalhando foi desligá-los. Não é urgente e não
+quebra nada em execução, mas qualquer código novo que confie nesses tipos vai
+quebrar em produção, não na compilação. Regerar é um comando
+(`generate_typescript_types`), e o custo real é conferir os erros de tipo que
+aparecerem quando a mentira sumir.

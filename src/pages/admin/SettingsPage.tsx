@@ -22,6 +22,7 @@ type Settings = {
   work_start: string; work_end: string; slot_minutes: number;
   scarcity: Scarcity;
   pix_key: string | null; payment_link: string | null;
+  contact_email: string | null;
   show_payment_info_to_students: boolean;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
@@ -31,7 +32,8 @@ export default function SettingsPage() {
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     scarcity: SCARCITY_PADRAO,
-    pix_key: "", payment_link: "", show_payment_info_to_students: false,
+    pix_key: "", payment_link: "", contact_email: "",
+    show_payment_info_to_students: false,
     allow_student_booking: true,
     show_availability_to_students: false,
   });
@@ -62,6 +64,7 @@ export default function SettingsPage() {
       })),
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
+      contact_email: (s.contact_email || "").trim() || null,
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) toast.error(error.message); else { setS({ ...s, ...payload } as any); toast.success("Configurações salvas"); }
@@ -93,6 +96,26 @@ export default function SettingsPage() {
             <p className="text-xs text-muted-foreground">Mostra PIX e link de pagamento no portal do aluno.</p>
           </div>
           <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
+        </div>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Contato</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Aparece na página pública de privacidade, que a Play Store exige. Em branco,
+            a página pede para a família falar com o professor, em vez de mostrar um
+            e-mail que não é seu.
+          </p>
+        </div>
+        <div>
+          <Label>E-mail de contato</Label>
+          <Input
+            type="email"
+            value={s.contact_email ?? ""}
+            onChange={e => setS({ ...s, contact_email: e.target.value })}
+            placeholder="seu@email.com"
+          />
         </div>
       </Card>
 

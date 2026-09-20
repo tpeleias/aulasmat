@@ -266,6 +266,7 @@ export type Database = {
       settings: {
         Row: {
           allow_student_booking: boolean
+          contact_email: string | null
           id: number
           payment_link: string | null
           pix_key: string | null
@@ -283,6 +284,7 @@ export type Database = {
         }
         Insert: {
           allow_student_booking?: boolean
+          contact_email?: string | null
           id?: number
           payment_link?: string | null
           pix_key?: string | null
@@ -300,6 +302,7 @@ export type Database = {
         }
         Update: {
           allow_student_booking?: boolean
+          contact_email?: string | null
           id?: number
           payment_link?: string | null
           pix_key?: string | null

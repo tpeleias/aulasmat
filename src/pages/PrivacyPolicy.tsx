@@ -1,14 +1,24 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { GraduationCap } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 // The Play Console requires a public privacy policy URL, and it has to describe what the
-// app really does. This is a draft written from the app's actual behaviour: read it,
-// fill in the contact e-mail, and change anything that does not match how you work.
-const CONTACT = "thiagopeleias@gmail.com";
+// app really does. This is a draft written from the app's actual behaviour: read it and
+// change anything that does not match how you work.
 const UPDATED_AT = "13 de setembro de 2026";
 
 export default function PrivacyPolicy() {
+  // O e-mail de contato vem do banco, por empresa. Estava cravado aqui, e com
+  // isso toda empresa cliente publicava na política dela o e-mail do dono do
+  // primeiro negócio. Página pública: quem responde é a empresa dona do
+  // endereço (ver public_account_id no banco).
+  const [contact, setContact] = useState<string | null>(null);
+  useEffect(() => {
+    supabase.from("settings").select("contact_email").maybeSingle()
+      .then(({ data }) => setContact(((data as any)?.contact_email ?? "").trim() || null));
+  }, []);
+
   useEffect(() => { document.title = "Privacidade — Portal de Aulas"; }, []);
 
   return (
@@ -93,13 +103,17 @@ export default function PrivacyPolicy() {
             <p>
               Conforme a Lei Geral de Proteção de Dados, você pode pedir acesso, correção ou
               exclusão dos seus dados e dos dados do seu filho, além de saber com quem foram
-              compartilhados. É só escrever para {CONTACT}.
+              compartilhados.{contact ? <> É só escrever para {contact}.</> : " Basta pedir ao professor responsável pelas aulas."}
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="font-semibold text-base">Contato</h2>
-            <p>Dúvidas sobre esta política: {CONTACT}.</p>
+            <p>
+              {contact
+                ? <>Dúvidas sobre esta política: {contact}.</>
+                : "Para dúvidas sobre esta política, fale com o professor responsável pelas aulas."}
+            </p>
           </section>
         </div>
       </div>
