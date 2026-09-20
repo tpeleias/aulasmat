@@ -554,3 +554,28 @@ quebra nada em execução, mas qualquer código novo que confie nesses tipos vai
 quebrar em produção, não na compilação. Regerar é um comando
 (`generate_typescript_types`), e o custo real é conferir os erros de tipo que
 aparecerem quando a mentira sumir.
+
+## `.aab` 1.2.0 (código 6) — o app com o fluxo de solicitação
+
+Disparado o workflow `android-release.yml` na branch
+`claude/app-implementation-continuation-b3ijx8`, run 6. Artefato
+`aulas-play-1.2.0-6`, que baixa como `.zip` e precisa ser descompactado antes de
+subir no Play Console. Expira 30 dias depois do build.
+
+**Por que precisa de `.aab` novo:** `capacitor.config.ts` tem `webDir: 'dist'` e
+não aponta para o site. O app **embute a tela** no pacote no momento do build, e
+o `.env` está versionado, então o endereço do Supabase também entra ali. O site
+do Netlify se atualiza sozinho a cada push no `main`; o app da loja, nunca — só
+com pacote novo.
+
+`versionCode` sai do número do run do workflow, então sobe sozinho e a loja
+sempre aceita. `versionName` é o que você digita ao disparar.
+
+**Atenção:** este `.aab` foi construído da branch, não do `main`. O app passa a
+ter o fluxo de solicitação, mas **o site continua com o código antigo até a
+branch ser mesclada.** Sem isso, o portal do aluno pelo navegador segue mandando
+`status: "agendada"`, que o banco agora recusa.
+
+Isso não é problema hoje porque nenhuma família tem acesso ainda — o Thiago está
+só em testes. Mas é a ordem certa quando houver gente usando: mesclar primeiro,
+deixar o Netlify publicar, e só então subir o `.aab`.
