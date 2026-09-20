@@ -627,3 +627,52 @@ professor**. A RLS escopa por empresa. Logo:
 
 Não existe roteamento "pedido da aula da Mayara vai para a Mayara", e não havia
 intenção de existir.
+
+## REGRA PERMANENTE: são DOIS sites, e o Lovable não publica sozinho
+
+Vale para qualquer conversa futura, não só para aquela em que foi escrita.
+
+- **`aulasmat.lovable.app`** — é o que o Thiago usa no dia a dia (ele já morava no
+  Lovable antes, e tem outros projetos lá). Sincroniza o código do GitHub
+  sozinho, mas **só fica visível depois de um `deploy_project` explícito**.
+- **`tpeleias.netlify.app`** — publica sozinho a cada push no `main`.
+
+**Nenhum dos dois é mais importante que o outro.** As notas antigas chamavam o
+Netlify de "oficial/produção" e isso foi repetido sem questionar; não há
+superioridade técnica — os dois servem o mesmo `dist`, do mesmo commit, contra o
+mesmo banco. A única diferença é que um publica sozinho e o outro não.
+
+**Portanto: toda vez que mesclar no `main`, publicar no Lovable também**, sem
+esperar o Thiago pedir. Projeto `0060e038-c986-4361-94a6-f56077ed8118`, slug
+`aulasmat`.
+
+Isso já custou um bug: em 20/09 o banco passou a exigir `status = 'solicitada'`
+do aluno, o `main` foi mesclado, o Netlify publicou — e o Lovable não. O Thiago
+testou pelo Lovable, caiu na tela antiga (que manda `agendada`) e levou um
+`new row violates row-level security policy`. O sinal estava no título da tela:
+"Agendar aula" é a versão velha, "Solicitar aula" é a nova.
+
+**Conferir antes de dizer que está publicado:** `get_project` devolve
+`latest_commit_sha`, que tem que bater com o `main`.
+
+## O pedido passa a ter disciplina e assunto (20/09)
+
+Ao solicitar um horário, a família agora preenche, dentro da mesma confirmação:
+
+- **Disciplina** — obrigatória. O botão de enviar fica desabilitado sem ela. A
+  matéria do professor escolhido aparece só como exemplo no placeholder, não
+  preenchida: se viesse pronta ninguém pensaria no que está pedindo.
+- **"O que você quer trabalhar?"** — texto livre, opcional. É o campo que muda a
+  decisão: *"prova na sexta sobre função quadrática"* é outra conversa que um
+  pedido em branco. Vai para `notes`.
+- **Presencial ou on-line** — só aparece para aluno com endereço cadastrado.
+  Antes o app **adivinhava** (com endereço = presencial, sem = on-line), e
+  palpite não é resposta. Numa aula on-line o `address` vai nulo, porque
+  endereço de aula que não acontece ali não diz nada.
+
+Os três aparecem para quem aprova, na tela Hoje e no diálogo de recusa — coletar
+sem mostrar não serviria de nada.
+
+**Não precisou de migration:** `subject`, `notes` e `is_online` já existiam, e a
+política de insert do aluno não restringe nenhuma delas (ela checa empresa,
+vínculo do cadastro, `status = 'solicitada'` e o interruptor de agendamento).

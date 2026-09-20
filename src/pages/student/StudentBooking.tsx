@@ -8,6 +8,10 @@ import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCIT
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -31,8 +35,17 @@ export default function StudentBooking() {
   const [loading, setLoading] = useState(true);
   // Horário escolhido esperando confirmação. Antes, um toque já criava a aula.
   const [pending, setPending] = useState<{ start: Date; end: Date } | null>(null);
+  // O que a família escreve junto com o pedido. A disciplina é obrigatória: sem
+  // ela o professor aprova no escuro. O resto é opcional, mas é o que faz ele
+  // chegar preparado em vez de descobrir o assunto na hora.
+  const [subject, setSubject] = useState("");
+  const [topic, setTopic] = useState("");
+  const [online, setOnline] = useState(false);
 
   useEffect(() => { if (!teacher && teachers[0]) setTeacher(teachers[0].name); }, [teachers, teacher]);
+
+  // Serve de exemplo no campo, não de valor preenchido: quem escreve é a família.
+  const teacherSubject = teachers.find(t => t.name === teacher)?.subject ?? null;
 
   const load = async () => {
     if (!teacher || !settings) return;
@@ -77,14 +90,18 @@ export default function StudentBooking() {
 
   const request = async () => {
     if (!student || !pending) return;
+    // A trava de verdade é o botão desabilitado; isto aqui é a rede, para o
+    // caso de alguém chegar por outro caminho.
+    if (!subject.trim()) return;
     const start = pending.start;
     setPending(null);
     setBusy(true);
     const { error } = await supabase.from("lessons").insert({
       student_name: student.student_name,
       guardian_name: student.guardian_name,
-      address: student.address,
-      subject: null,
+      // Endereço só acompanha aula presencial; numa online ele não diz nada.
+      address: online ? null : student.address,
+      subject: subject.trim(),
       start_at: start.toISOString(),
       duration_minutes: settings?.slot_minutes ?? 60,
       price: 220,
@@ -94,7 +111,8 @@ export default function StudentBooking() {
       // Pedido, não aula. Quem promove para "agendada" é o professor, e o banco
       // não aceita outro status vindo daqui (política students insert own lessons).
       status: "solicitada",
-      is_online: !student.address,
+      notes: topic.trim() || null,
+      is_online: online,
     });
     if (error) {
       setBusy(false);
@@ -161,7 +179,7 @@ export default function StudentBooking() {
                       key={s.start.toISOString()}
                       variant="outline"
                       disabled={busy}
-                      onClick={() => setPending(s)}
+                      onClick={() => { setSubject(""); setTopic(""); setOnline(!student?.address); setPending(s); }}
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="flex items-center gap-1 text-sm font-semibold"><Clock className="w-3 h-3" />{fmtTime(s.start)}</span>
@@ -196,9 +214,53 @@ export default function StudentBooking() {
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
+
+          <div className="space-y-3">
+            <div>
+              <Label htmlFor="disciplina">Disciplina</Label>
+              <Input
+                id="disciplina"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                placeholder={teacherSubject ? `Ex: ${teacherSubject}` : "Ex: Matemática"}
+                autoComplete="off"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="assunto">O que você quer trabalhar? (opcional)</Label>
+              <Textarea
+                id="assunto"
+                value={topic}
+                onChange={e => setTopic(e.target.value)}
+                placeholder="Ex: prova na sexta sobre função quadrática; não entendi limites"
+                rows={3}
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Ajuda o professor a chegar preparado, em vez de descobrir o assunto na hora.
+              </p>
+            </div>
+
+            {/* Só faz sentido perguntar a quem tem endereço cadastrado. Sem
+                endereço a aula é online e não há escolha a fazer. */}
+            {student?.address && (
+              <div className="flex items-center justify-between rounded-md border border-border p-3">
+                <div>
+                  <Label htmlFor="online" className="cursor-pointer">Aula on-line</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Desligado, a aula é presencial em {student.address}.
+                  </p>
+                </div>
+                <Switch id="online" checked={online} onCheckedChange={setOnline} />
+              </div>
+            )}
+          </div>
+
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={request}>Solicitar horário</AlertDialogAction>
+            <AlertDialogAction onClick={request} disabled={!subject.trim()}>
+              Solicitar horário
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

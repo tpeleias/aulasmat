@@ -18,6 +18,7 @@ import { Check, X, Clock, MapPin, Wifi } from "lucide-react";
 type Request = {
   id: string; student_name: string; guardian_name: string | null; teacher: string;
   start_at: string; duration_minutes: number; address: string | null; is_online: boolean;
+  subject: string | null; notes: string | null;
 };
 
 /**
@@ -39,7 +40,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
   const load = useCallback(async () => {
     const { data } = await supabase
       .from("lessons")
-      .select("id, student_name, guardian_name, teacher, start_at, duration_minutes, address, is_online")
+      .select("id, student_name, guardian_name, teacher, start_at, duration_minutes, address, is_online, subject, notes")
       .eq("status", "solicitada")
       .order("start_at");
     setRequests((data ?? []) as Request[]);
@@ -105,7 +106,15 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {format(start, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })} · {r.duration_minutes} min · {capitalize(r.teacher)}
+                    {r.subject ? ` · ${r.subject}` : ""}
                   </div>
+                  {/* O que a família escreveu. É isto que decide se você aceita e
+                      como se prepara, então fica visível sem precisar abrir nada. */}
+                  {r.notes && (
+                    <p className="mt-1 rounded bg-muted/50 px-2 py-1 text-xs italic text-muted-foreground">
+                      “{r.notes}”
+                    </p>
+                  )}
                 </div>
                 <div className="flex shrink-0 gap-2">
                   <Button
@@ -140,7 +149,11 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     {refusing.student_name}
                     <br />
                     {format(new Date(refusing.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                    {refusing.subject ? <><br />{refusing.subject}</> : null}
                   </p>
+                )}
+                {refusing?.notes && (
+                  <p className="rounded bg-muted/50 px-2 py-1 text-sm italic">“{refusing.notes}”</p>
                 )}
                 <p>O horário volta a aparecer como livre e a família vê a recusa no portal.</p>
               </div>
