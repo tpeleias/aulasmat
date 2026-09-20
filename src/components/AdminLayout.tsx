@@ -15,7 +15,7 @@ import { capitalize } from "@/lib/balance";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
 import { haptics } from "@/lib/haptics";
-import { CronysMark, CronysWordmark } from "@/components/brand";
+import { CronysWordmark } from "@/components/brand";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
@@ -82,8 +82,7 @@ export default function AdminLayout() {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-            <CronysMark className="w-8 h-8 shrink-0 text-brand-gold" />
-            <div><CronysWordmark className="text-lg leading-none" /><div className="text-xs text-sidebar-foreground/60 mt-0.5">Professor</div></div>
+            <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">Professor</div></div>
           </div>
           <nav className="flex flex-col gap-1 p-3 flex-1">
             {primary.map(sidebarLink)}

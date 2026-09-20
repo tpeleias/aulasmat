@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CronysMark, CronysWordmark } from "@/components/brand";
+import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
 
 // The Play Console requires a public privacy policy URL, and it has to describe what the
@@ -25,11 +25,7 @@ export default function PrivacyPolicy() {
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
         <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-navy">
-            <CronysMark className="h-5 w-5 text-brand-gold" />
-          </span>
-          {/* Sobre fundo claro o "y" dourado sai: 2,3:1 não se lê. */}
-          <CronysWordmark className="text-base text-foreground" destaque={false} />
+          <CronysWordmark tamanho="1.125rem" className="text-foreground" />
         </Link>
 
         <h1 className="text-2xl font-bold">Política de privacidade</h1>

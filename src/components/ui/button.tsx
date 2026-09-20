@@ -9,7 +9,13 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
+        // O dourado #c9a24b do spec, cheio, nos dois modos: "gold: marca,
+        // acento principal, botões". Ele vale como PREENCHIMENTO em qualquer
+        // fundo, porque quem precisa de contraste aí é o texto por cima, e
+        // esse é navy (7,65:1). O que não vale é dourado como TEXTO em
+        // superfície clara - por isso `--primary`, que também pinta link e
+        // ícone, é uma versão escurecida no modo claro.
+        default: "bg-brand-gold text-brand-navy hover:bg-brand-gold/90",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
         outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",

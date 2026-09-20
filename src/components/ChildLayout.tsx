@@ -32,7 +32,7 @@ export default function ChildLayout() {
     <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <CronysMark className="w-8 h-8 shrink-0 text-brand-gold" />
+          <CronysMark className="w-8 h-8 shrink-0" />
           <div>
             <div className="font-semibold text-sm">Meu painel</div>
             <div className="text-xs text-sidebar-foreground/60">{student?.student_name?.split(" ")[0] ?? "Aluno"}</div>

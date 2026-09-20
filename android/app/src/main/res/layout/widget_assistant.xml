@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="ASSISTENTE"
-        android:textColor="#99FFFFFF"
+        android:textColor="#A9A79C"
         android:textSize="10sp"
         android:letterSpacing="0.08"
         android:paddingBottom="8dp" />
@@ -35,7 +35,7 @@
             android:layout_weight="1"
             android:layout_height="wrap_content"
             android:text="Pergunte ou peça algo…"
-            android:textColor="#B3FFFFFF"
+            android:textColor="#A9A79C"
             android:textSize="13sp"
             android:maxLines="1"
             android:ellipsize="end" />
@@ -44,7 +44,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="✦"
-            android:textColor="#D8B44A"
+            android:textColor="#C9A24B"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -62,7 +62,7 @@
             android:gravity="center"
             android:background="@drawable/widget_chip"
             android:text="Hoje"
-            android:textColor="#FFFFFF"
+            android:textColor="#ECE7DB"
             android:textSize="12sp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
@@ -76,7 +76,7 @@
             android:gravity="center"
             android:background="@drawable/widget_chip"
             android:text="Em aberto"
-            android:textColor="#FFFFFF"
+            android:textColor="#ECE7DB"
             android:textSize="12sp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
@@ -90,7 +90,7 @@
             android:gravity="center"
             android:background="@drawable/widget_chip_primary"
             android:text="Marcar"
-            android:textColor="#0D1828"
+            android:textColor="#13141B"
             android:textSize="12sp"
             android:paddingTop="8dp"
             android:paddingBottom="8dp" />

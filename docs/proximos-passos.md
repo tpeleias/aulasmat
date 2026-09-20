@@ -679,8 +679,10 @@ vínculo do cadastro, `status = 'solicitada'` e o interruptor de agendamento).
 
 ## Cronys: nome, marca e ícones (20/09)
 
-O app deixou de se chamar "Portal de Aulas" e passou a se chamar **Cronys**. O
-que mudou foi só o que se vê — nada de banco, nada de RLS, nada de dados.
+O app deixou de se chamar "Portal de Aulas" e passou a se chamar **Cronys**. A
+identidade veio de `docs/cronys-brand-spec.md`, que o Thiago subiu no `main` e
+que diz "todos os valores são finais; não improvisar variações". Nada de banco,
+nada de RLS, nada de dados mudou.
 
 ### O que NÃO mudou, de propósito
 
@@ -692,27 +694,54 @@ que mudou foi só o que se vê — nada de banco, nada de RLS, nada de dados.
   já guardou.
 - **Páginas públicas (`PublicHome`, `PublicAvailability`) não viraram Cronys.**
   Elas são a vitrine do professor, não do produto — quem chega ali procura o
-  professor. (Isso deixa exposta uma dívida antiga: `PublicHome` tem
-  "Matemática e Química" no código, o que só vale para a empresa do Thiago.
-  Numa segunda empresa aparece a matéria errada.)
+  professor.
 
-### A marca
+### As três decisões que o spec não decidia
 
-Navy `#0D1828` e dourado `#C9A227`, com **Fraunces** no nome. Uma regra vale
-para o dourado inteiro: **ele mora sobre o navy e nunca vira texto sobre fundo
-claro** — `#C9A227` sobre branco dá contraste 2,3:1, abaixo do mínimo legível
-de 4,5:1. Por isso o dourado aparece na barra lateral, no topo do login, no
-símbolo e no "y" da palavra, que são todos fundo escuro.
+O spec define a marca para **fundo escuro**: todos os seis tokens dele
+(navy, navy-2, gold, teal, ink, ink-dim) são de superfície escura, e não há
+token nenhum de superfície clara. O app tem modo claro. Então:
 
-O símbolo é um **C com um ponteiro**: lê-se como letra (Cronys) e como relógio
-(Chronos). Foi desenhado **a 48px primeiro**, não a 512px — 48px é o tamanho
-que importa (ícone na tela de início, favicon na aba) e é onde contorno fino
-morre. O ponteiro aponta para 1 hora e não para 12: na vertical ele viraria uma
-barra dentro de um C, que é o símbolo de centavo.
+1. **O modo claro é derivado**, com neutros quentes tirados do matiz do ink
+   (42°), para o claro ser da mesma família e não um cinza azulado avulso.
 
-O item ativo da barra lateral **não** é um bloco dourado cheio. Dourado maciço
-numa coluna inteira vira o assunto da tela e briga com o próprio nome logo
-acima; ele é um degrau de navy com o texto dourado.
+2. **`--primary` no modo claro é o dourado escurecido** (`41 54% 34%`). O
+   dourado do spec, `#c9a24b`, rende **2,4:1** sobre superfície clara, e
+   `--primary` neste código não pinta só botão: pinta link, ícone e borda, em
+   59 lugares. Como texto ele seria ilegível. O escurecido passa nos dois
+   sentidos (4,94:1 como texto no fundo, 4,85:1 do ink sobre ele).
+
+3. **O botão primário usa o dourado cheio mesmo assim**, via
+   `bg-brand-gold text-brand-navy` em `ui/button.tsx`. Preenchimento não
+   precisa de contraste contra a página — quem precisa é o texto por cima, e
+   esse é navy: 7,58:1. Assim "gold: botões" do spec vale ao pé da letra sem
+   levar junto os links.
+
+Conferido, token a token: no modo claro e no escuro, todo par de texto/fundo
+passa de 4,5:1. O único que estava raspando era o texto no vermelho destrutivo
+(4,29:1, porque o texto por cima deixou de ser branco puro, como o spec pede);
+o vermelho desceu de 52% para 48% de luminosidade e foi para 4,91:1.
+
+### As fontes são auto-hospedadas
+
+O spec diz "ambas via Google Fonts". São as **mesmas** Fraunces e Work Sans, só
+servidas do próprio site (`public/fonts/`, ~117 KB somados): o app Android
+embute os arquivos e roda sem internet, e um `<link>` para
+fonts.googleapis.com cairia fora de rede — a marca apareceria em Georgia justo
+na tela de abertura, que é a mais offline de todas. O byte muda de origem; a
+fonte não muda.
+
+### O que o desenho pede e o tamanho de 48px não dá
+
+O ponteiro de segundos tem 3,5 de traço num quadro de 600: 0,58% do lado. Num
+ícone de 48px isso dá **0,28 pixel** — ele não fica fino, ele não existe. O de
+minuto (9/600) dá 0,72px e vira um fantasma.
+
+**Não é problema para consertar.** Aos 96px, 192px e 512px — que é onde o ícone
+é olhado de verdade (Play Store, PWA, aba em tela grande) — os três ponteiros
+aparecem e são o desenho todo. A 48px o que sobra é o anel dourado com uma
+marca no meio, e isso ainda lê. Fica anotado aqui para quem for mexer não achar
+que "sumiu um ponteiro" e sair reescrevendo o spec.
 
 ### Os ícones não se editam à mão
 
@@ -728,9 +757,9 @@ pip install pillow cairosvg
 python3 scripts/gerar-identidade.py
 ```
 
-A mesma geometria está em `src/components/brand.tsx` (o símbolo inline, que
-herda `currentColor`) e a mesma paleta em `src/index.css`. São três lugares
-que precisam andar juntos, e cada um diz isso no comentário.
+A mesma geometria está em `src/components/brand.tsx` (o símbolo inline, que o
+wordmark precisa para encostar no "r") e a mesma paleta em `src/index.css`. São
+três lugares que precisam andar juntos, e cada um diz isso no comentário.
 
 ### Precisa de `.aab` novo
 
@@ -740,7 +769,26 @@ app") muda no Play Console, à mão — o `.aab` sozinho não renomeia a ficha.
 
 ### Também mudou: os widgets da tela de início
 
-Estavam no azul `#4E7FE6` e num magenta `#D946EF` que não são de marca nenhuma.
-Viraram navy + dourado. O magenta era a cor da linha do professor "mayara" —
-nome **fixo no Java** (`LessonsWidgetProvider.java`), que numa segunda empresa
-não quer dizer nada. Dívida anotada, não resolvida aqui.
+Estavam no azul `#4E7FE6` e num magenta `#D946EF` que não são de marca nenhuma,
+com texto em branco puro. Viraram navy + dourado + teal, e o branco puro virou
+ink, como o spec manda. As bordas e véus de branco a 8-24% viraram ink nas
+mesmas opacidades, que é o token `line` do spec.
+
+O magenta era a cor da linha do professor "mayara" — nome **fixo no Java**
+(`LessonsWidgetProvider.java`), que numa segunda empresa não quer dizer nada.
+Dívida anotada, não resolvida aqui.
+
+### Dívida descoberta no caminho: o `tsc` do projeto não é o da raiz
+
+`npx tsc --noEmit` na raiz **não checa nada**: `tsconfig.json` tem
+`"files": []` e só referências. O comando que checa de verdade é
+
+```bash
+npx tsc --noEmit -p tsconfig.app.json
+```
+
+Rodando o certo, apareceu um erro de tipo em `LessonRequests.tsx` que entrou
+nesta mesma sessão: `title` num ícone do lucide. Em runtime a prop caía no
+`<svg>`, e `<svg title="">` não vira dica em navegador nenhum — ou seja, a dica
+de "Aula on-line" e a do endereço nunca funcionaram. Corrigido: a dica foi para
+um `<span title>` em volta.

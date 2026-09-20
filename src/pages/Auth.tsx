@@ -76,14 +76,16 @@ export default function Auth() {
       <div className="mx-auto w-full md:max-w-md md:overflow-hidden md:rounded-[2rem] md:bg-background md:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
         {/* Hero */}
         <div className="relative overflow-hidden bg-sidebar px-6 pb-16 pt-14 text-sidebar-foreground md:pt-12">
-          <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
-          <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
+          {/* Dois véus fracos: o dourado a 12% e o teal a 10%. Mais que isso
+              vira mancha marrom em cima do navy, e o spec não quer gradiente
+              chamando atenção perto da marca. */}
+          <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand-gold/12 blur-3xl" />
+          <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-brand-teal/10 blur-3xl" />
           <div className="relative flex items-center gap-3">
             {/* O símbolo sem moldura, direto sobre o navy: aqui o fundo já é
                 a cor da marca, e um quadradinho por cima só somaria borda. */}
-            <CronysMark className="h-12 w-12 shrink-0 text-brand-gold" />
             <div>
-              <CronysWordmark className="text-3xl" />
+              <CronysWordmark tamanho="2.25rem" className="text-brand-ink" />
               <div className="text-sm text-sidebar-foreground/70">Agenda, alunos e cobrança</div>
             </div>
           </div>

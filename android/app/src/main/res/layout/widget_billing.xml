@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="A RECEBER"
-        android:textColor="#99FFFFFF"
+        android:textColor="#A9A79C"
         android:textSize="10sp"
         android:letterSpacing="0.08" />
 
@@ -19,7 +19,7 @@
         android:id="@+id/billing_total"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#FFFFFF"
+        android:textColor="#ECE7DB"
         android:textStyle="bold"
         android:textSize="24sp"
         android:maxLines="1" />
@@ -28,14 +28,14 @@
         android:id="@+id/billing_subtitle"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textColor="#B3FFFFFF"
+        android:textColor="#A9A79C"
         android:textSize="11sp"
         android:paddingBottom="8dp"
         android:maxLines="1"
         android:ellipsize="end" />
 
-    <TextView android:id="@+id/debtor1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
-    <TextView android:id="@+id/debtor2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
-    <TextView android:id="@+id/debtor3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#E6FFFFFF" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+    <TextView android:id="@+id/debtor1" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+    <TextView android:id="@+id/debtor2" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
+    <TextView android:id="@+id/debtor3" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" android:paddingTop="2dp" android:paddingBottom="2dp" />
 
 </LinearLayout>

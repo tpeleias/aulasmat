@@ -14,16 +14,19 @@ export default {
     },
     extend: {
       fontFamily: {
-        // A serifada e' da MARCA, nao do texto: wordmark e titulo de pagina.
-        // Corpo de app se le melhor em sem-serifa, e uma serifada de display
-        // em 13px numa lista de aulas cansa.
-        serif: ["Fraunces", "ui-serif", "Georgia", "serif"],
+        // docs/cronys-brand-spec.md: Fraunces no wordmark e nos titulos,
+        // Work Sans na interface. Os fallbacks sao os que o spec pede.
+        serif: ["Fraunces", "Georgia", "serif"],
+        sans: ["Work Sans", "system-ui", "sans-serif"],
       },
       colors: {
         brand: {
           navy: "hsl(var(--brand-navy))",
+          "navy-2": "hsl(var(--brand-navy-2))",
           gold: "hsl(var(--brand-gold))",
-          "gold-soft": "hsl(var(--brand-gold-soft))",
+          teal: "hsl(var(--brand-teal))",
+          ink: "hsl(var(--brand-ink))",
+          "ink-dim": "hsl(var(--brand-ink-dim))",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
-"""Gera toda a arte do Cronys a partir de UMA descricao geometrica.
+"""Gera toda a arte do Cronys a partir do desenho de docs/cronys-brand-spec.md.
 
 Rode assim, da raiz do projeto:
 
     pip install pillow cairosvg
     python3 scripts/gerar-identidade.py
+
+A GEOMETRIA E AS CORES SAO DO SPEC. O spec diz "todos os valores sao finais;
+nao improvisar variacoes", entao este arquivo nao inventa nada: o SVG do
+simbolo abaixo e' o do spec, copiado. Se o desenho mudar, muda la primeiro.
 
 O motivo de existir um script em vez de 30 PNGs versionados sem origem: icone
 tem 28 tamanhos (5 densidades Android x 3 variantes, favicon em 3, PWA em 2,
@@ -12,24 +16,17 @@ apple-touch, og-image, 11 splashes). Editar isso a mao garante que um dia uma
 densidade fica com o desenho velho e ninguem descobre - o celular que usa
 aquela densidade e' que mostra o icone errado. Aqui o desenho existe uma vez.
 
-O SIMBOLO
----------
-Um "C" dourado com um ponteiro saindo do centro. Le-se como letra (Cronys) e
-como relogio (Chronos), que e' o que o produto vende: horario.
+O QUE O DESENHO PEDE E O TAMANHO NAO DA
+---------------------------------------
+O ponteiro de segundos tem 3,5 de traco num quadro de 600: 0,58% do lado. Num
+icone de 48px isso da' 0,28 PIXEL. Ele nao "fica fino" - ele nao existe. O
+ponteiro de minuto (9/600) da' 0,72px e vira um fantasma cinza.
 
-Ele foi desenhado a 48px primeiro, nao a 512px. 48px e' o tamanho que importa
-- icone na tela de inicio, favicon na aba - e e' onde contorno fino morre. Daí
-as escolhas abaixo: traco grosso (10 de 100), miolo cheio, e um vao de 5,7
-entre a ponta do ponteiro e a borda de dentro do C, que a 48px ainda sobra ~3px
-e nao vira borrao.
-
-O ponteiro cruza um pouco o eixo, do jeito que ponteiro de relogio de verdade
-cruza: e' esse contrapeso curto que faz o centro parecer um eixo. Sem ele o
-traco fica boiando, e o desenho vira um C com um acento.
-
-O ponteiro aponta para 1 hora, nao para 12. Na vertical ele vira uma barra
-dentro de um C - poderia ser um simbolo de centavo. Inclinado, so' ha uma
-leitura possivel: ponteiro de relogio.
+Isso nao e' erro do desenho nem coisa para consertar escondido: aos 192px e aos
+512px, que e' onde o icone e' olhado de verdade (Play Store, PWA, aba do
+navegador em tela grande), os tres ponteiros aparecem e sao o desenho todo. A
+perda e' so' no menor dos tamanhos, e esta anotada aqui para quem for mexer nao
+achar que "sumiu um ponteiro" e sair reescrevendo o spec.
 """
 
 import math
@@ -46,73 +43,71 @@ except ImportError:
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # --------------------------------------------------------------------------
-# Paleta
+# Paleta - docs/cronys-brand-spec.md
 # --------------------------------------------------------------------------
-# Os mesmos valores estao em src/index.css como tokens HSL. Se mudar um lado,
-# mude o outro - o icone e a tela tem que ser a mesma marca.
-NAVY_FUNDO = "#0D1828"   # fundo do icone, barra lateral, topo do login
-GOLD       = "#C9A227"   # o simbolo, e o acento da marca
-BRANCO     = "#F5F2EA"   # o texto do wordmark (branco levemente quente)
+NAVY   = "#13141b"   # fundo principal
+NAVY_2 = "#1b1d28"   # superficies elevadas
+GOLD   = "#c9a24b"   # marca, acento principal, botoes
+TEAL   = "#3f9c94"   # acento secundario: pivo, ponteiro de segundo, perna do y
+INK    = "#ece7db"   # texto sobre fundo escuro. NUNCA branco puro.
+INK_DIM = "#a9a79c"  # texto secundario
 
 # --------------------------------------------------------------------------
-# Geometria do simbolo, num quadro de 100x100
+# O simbolo, copiado do spec
 # --------------------------------------------------------------------------
-CENTRO = 50.0
-ARCO_R = 32.0            # linha de centro do C
-ARCO_W = 10.0            # espessura do C -> borda interna em 27, externa em 37
-VAO_GRAUS = 38.0         # metade da abertura do C, centrada nas 3 horas
-PONT_ANG = 285.0         # 1 hora (0 = 3h, e o y cresce para baixo)
-PONT_R = 17.0            # da ponta: com a cabeca redonda, chega a 21,2
-PONT_CAUDA = 5.5         # o contrapeso, do outro lado do eixo
-PONT_W = 8.5
+# Anel dourado aberto. Do centro saem tres ponteiros: hora (curto e grosso) e
+# minuto (mais longo e fino) em dourado, segundo (fino, com contrapeso) em
+# teal. O pivo e' um circulo teal.
+#
+# O angulo dos dois ponteiros dourados nao se mexe sem mexer junto no `y` do
+# wordmark: eles formam o mesmo V das duas pernas da letra.
+SIMBOLO = (
+    '<path d="M 439.2 397.5 A 170 170 0 1 1 439.2 202.5" '
+    f'fill="none" stroke="{GOLD}" stroke-width="34" stroke-linecap="round"/>'
+    '<line x1="280" y1="300" x2="248.4" y2="255.0" '
+    f'stroke="{GOLD}" stroke-width="14" stroke-linecap="round"/>'
+    '<line x1="280" y1="300" x2="334.5" y2="222.2" '
+    f'stroke="{GOLD}" stroke-width="9" stroke-linecap="round"/>'
+    '<line x1="289" y1="284.4" x2="217.5" y2="408.3" '
+    f'stroke="{TEAL}" stroke-width="3.5" stroke-linecap="round"/>'
+    f'<circle cx="280" cy="300" r="10" fill="{TEAL}"/>'
+)
 
-# O desenho inteiro cabe num circulo de raio 37 -> 74% do quadro.
-MARCA_DIAM = 2 * (ARCO_R + ARCO_W / 2) / 100.0   # 0.74
-
-
-def _ponto(ang_graus, raio):
-    a = math.radians(ang_graus)
-    return CENTRO + raio * math.cos(a), CENTRO + raio * math.sin(a)
-
-
-def simbolo_svg(escala=1.0, cor=GOLD):
-    """Os elementos do simbolo, centrados em 50,50 e escalados em torno dali."""
-    ini, fim = VAO_GRAUS, 360.0 - VAO_GRAUS
-    x1, y1 = _ponto(ini, ARCO_R)
-    x2, y2 = _ponto(fim, ARCO_R)
-    px, py = _ponto(PONT_ANG, PONT_R)
-    cx, cy = _ponto(PONT_ANG, -PONT_CAUDA)
-    # sweep=1: o arco vai de 38 graus ate 322 pelo caminho longo, passando por
-    # 180 - e' o caminho longo que deixa a abertura do C na direita.
-    arco = (f'M {x1:.3f} {y1:.3f} '
-            f'A {ARCO_R} {ARCO_R} 0 1 1 {x2:.3f} {y2:.3f}')
-    return (
-        f'<g transform="translate({CENTRO} {CENTRO}) scale({escala:.5f}) '
-        f'translate({-CENTRO} {-CENTRO})" '
-        f'fill="none" stroke="{cor}" stroke-linecap="butt">'
-        f'<path d="{arco}" stroke-width="{ARCO_W}"/>'
-        f'<path d="M {cx:.3f} {cy:.3f} L {px:.3f} {py:.3f}" '
-        f'stroke-width="{PONT_W}" stroke-linecap="round"/>'
-        f'</g>'
-    )
+# A caixa real do desenho dentro do quadro de 600, medida ponta a ponta
+# (o anel vai de 130-17 a 470+17 em x, e a ponta do segundo desce ate 408+2).
+# O spec da' o recorte justo: viewBox "90 105 370 380".
+CAIXA = (90, 105, 370, 380)
 
 
-def svg_documento(lado, escala_marca, fundo=None, raio_canto=0.0, circulo=False):
-    """Um SVG completo de `lado`x`lado` com o simbolo dentro."""
-    partes = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{lado}" '
-              f'height="{lado}" viewBox="0 0 100 100">']
+def svg_documento(escala, fundo=None, raio_canto=0.0, circulo=False):
+    """Um SVG quadrado com o simbolo dentro, ocupando `escala` do lado.
+
+    `escala` e' a fracao do lado do quadro que o desenho ocupa - o spec pede
+    ~70% para o icone do app.
+    """
+    x, y, w, h = CAIXA
+    lado_arte = max(w, h)
+    # Centraliza a caixa do desenho no quadro de 100 e a escala para `escala`.
+    k = 100.0 * escala / lado_arte
+    tx = 50.0 - (x + w / 2) * k
+    ty = 50.0 - (y + h / 2) * k
+
+    partes = ['<svg xmlns="http://www.w3.org/2000/svg" width="512" '
+              'height="512" viewBox="0 0 100 100">']
     if fundo and circulo:
         partes.append(f'<circle cx="50" cy="50" r="50" fill="{fundo}"/>')
     elif fundo:
-        partes.append(f'<rect x="0" y="0" width="100" height="100" '
-                      f'rx="{raio_canto}" ry="{raio_canto}" fill="{fundo}"/>')
-    partes.append(simbolo_svg(escala_marca))
+        # Sem gradiente: o spec proibe gradiente no fundo do icone.
+        partes.append(f'<rect width="100" height="100" rx="{raio_canto}" '
+                      f'ry="{raio_canto}" fill="{fundo}"/>')
+    partes.append(f'<g transform="translate({tx:.4f} {ty:.4f}) scale({k:.6f})">'
+                  f'{SIMBOLO}</g>')
     partes.append('</svg>')
     return "".join(partes)
 
 
-def png(caminho, lado, escala_marca, fundo=None, raio_canto=0.0, circulo=False):
-    svg = svg_documento(lado, escala_marca, fundo, raio_canto, circulo)
+def png(caminho, lado, escala, fundo=None, raio_canto=0.0, circulo=False):
+    svg = svg_documento(escala, fundo, raio_canto, circulo)
     os.makedirs(os.path.dirname(caminho), exist_ok=True)
     cairosvg.svg2png(bytestring=svg.encode(), write_to=caminho,
                      output_width=lado, output_height=lado,
@@ -121,16 +116,18 @@ def png(caminho, lado, escala_marca, fundo=None, raio_canto=0.0, circulo=False):
 
 
 # --------------------------------------------------------------------------
-# 1. O SVG da marca, para o site, a loja e quem pedir o logo
+# 1. Os SVG da marca
 # --------------------------------------------------------------------------
 def gerar_svgs():
-    fora = os.path.join(RAIZ, "public")
-    # Simbolo sozinho, transparente: serve sobre qualquer fundo.
-    with open(os.path.join(fora, "cronys-simbolo.svg"), "w") as f:
-        f.write(svg_documento(512, 1.0) + "\n")
-    # Simbolo sobre navy, cantos arredondados: o "app icon" de referencia.
-    with open(os.path.join(fora, "cronys-icone.svg"), "w") as f:
-        f.write(svg_documento(512, 0.88, NAVY_FUNDO, raio_canto=22) + "\n")
+    pub = os.path.join(RAIZ, "public")
+    x, y, w, h = CAIXA
+    # Recorte justo, do spec: e' o que cola ao lado do texto no wordmark.
+    with open(os.path.join(pub, "cronys-simbolo.svg"), "w") as f:
+        f.write(f'<svg xmlns="http://www.w3.org/2000/svg" '
+                f'viewBox="{x} {y} {w} {h}">{SIMBOLO}</svg>\n')
+    # Sobre o navy, com canto de 22% do lado: o icone do app de referencia.
+    with open(os.path.join(pub, "cronys-icone.svg"), "w") as f:
+        f.write(svg_documento(0.70, NAVY, raio_canto=22) + "\n")
     print("public/cronys-simbolo.svg, public/cronys-icone.svg")
 
 
@@ -142,52 +139,56 @@ def gerar_web():
     tmp = os.path.join(RAIZ, ".icones-tmp")
     os.makedirs(tmp, exist_ok=True)
 
-    # PWA: cantos arredondados, porque o Android/Chrome mostra a imagem como ela
-    # vem quando o purpose e' "any".
     for lado in (192, 512):
-        png(os.path.join(pub, f"pwa-{lado}.png"), lado, 0.88,
-            NAVY_FUNDO, raio_canto=22)
+        png(os.path.join(pub, f"pwa-{lado}.png"), lado, 0.70, NAVY,
+            raio_canto=22)
 
-    # apple-touch-icon: quadrado cheio, sem canto. O iOS recorta por conta e
-    # arredondar aqui daria canto duplo.
-    png(os.path.join(pub, "apple-touch-icon.png"), 180, 0.88, NAVY_FUNDO)
+    # apple-touch-icon: quadrado cheio. O iOS recorta por conta, e arredondar
+    # aqui daria canto duplo.
+    png(os.path.join(pub, "apple-touch-icon.png"), 180, 0.70, NAVY)
 
-    # favicon.ico com os tres tamanhos que os navegadores pedem. O de 16 leva a
-    # marca um pouco maior: nesse tamanho margem e' desperdicio de pixel.
+    # Favicon. O spec pede o simbolo SEM o fundo arredondado - mas favicon sem
+    # fundo some em aba de tema claro, porque o dourado sobre branco da' 2,5:1.
+    # Entao: fundo navy reto (sem canto), que e' o "sem fundo arredondado" do
+    # spec cumprido ao pe da letra, e a aba clara continua enxergando o icone.
     quadros = []
-    for lado, esc in ((16, 0.98), (32, 0.92), (48, 0.90)):
-        p = png(os.path.join(tmp, f"fav{lado}.png"), lado, esc,
-                NAVY_FUNDO, raio_canto=(10 if lado >= 32 else 6))
+    for lado in (16, 32, 48):
+        p = png(os.path.join(tmp, f"fav{lado}.png"), lado, 0.80, NAVY)
         quadros.append(Image.open(p).convert("RGBA"))
     quadros[-1].save(os.path.join(pub, "favicon.ico"),
                      sizes=[(16, 16), (32, 32), (48, 48)],
                      append_images=quadros[:-1])
-    print("public/pwa-192.png, pwa-512.png, apple-touch-icon.png, favicon.ico")
+    # O .svg do favicon, que navegador moderno prefere e escala sem perder os
+    # ponteiros finos.
+    x, y, w, h = CAIXA
+    with open(os.path.join(pub, "favicon.svg"), "w") as f:
+        f.write(svg_documento(0.80, NAVY) + "\n")
+    print("public/pwa-192.png, pwa-512.png, apple-touch-icon.png, "
+          "favicon.ico, favicon.svg")
 
 
 # --------------------------------------------------------------------------
 # 3. Android: mipmaps
 # --------------------------------------------------------------------------
 # ic_launcher / _round: o icone de verdade no Android 7 e anterior.
-# ic_launcher_foreground: a camada de frente do icone adaptativo (Android 8+).
+# ic_launcher_foreground: a camada da frente do icone adaptativo (Android 8+).
 #   O canvas dele e' 108dp mas so' os 66dp do meio sao garantidos - o resto o
-#   sistema corta para fazer circulo, squircle, gota. Por isso a marca entra a
-#   0.82: 74% x 0.82 = 61% = exatamente os 66 de 108.
+#   sistema corta para fazer circulo, squircle, gota. Por isso a arte entra a
+#   61% (66/108) e nao aos 70% do icone comum.
 DENSIDADES = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
-SEGURO = 66.0 / 108.0 / MARCA_DIAM     # 0.826
 
 
 def gerar_android():
     res = os.path.join(RAIZ, "android/app/src/main/res")
     for dens, lado in DENSIDADES.items():
         d = os.path.join(res, f"mipmap-{dens}")
-        png(os.path.join(d, "ic_launcher.png"), lado, 0.88,
-            NAVY_FUNDO, raio_canto=18)
-        png(os.path.join(d, "ic_launcher_round.png"), lado, 0.88,
-            NAVY_FUNDO, circulo=True)
-        # O foreground e' 2.25x o icone legado (108dp contra 48dp de base).
+        # Canto de 22% do lado, como o spec pede.
+        png(os.path.join(d, "ic_launcher.png"), lado, 0.70, NAVY,
+            raio_canto=22)
+        png(os.path.join(d, "ic_launcher_round.png"), lado, 0.70, NAVY,
+            circulo=True)
         png(os.path.join(d, "ic_launcher_foreground.png"),
-            round(lado * 2.25), SEGURO)
+            round(lado * 2.25), 66.0 / 108.0)
     print("android mipmaps (5 densidades x 3 arquivos)")
 
 
@@ -203,16 +204,23 @@ SPLASHES = {
     "drawable-port-xxxhdpi": (1280, 1920), "drawable-land-xxxhdpi": (1920, 1280),
 }
 
+FONTES = {
+    "fraunces": ("fraunces.ttf",
+                 "https://fonts.gstatic.com/s/fraunces/v38/6NUh8FyLNQOQZAnv9bY"
+                 "EvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58nib1603gg7S2nf"
+                 "gRYIcaRyjDg.ttf"),
+}
 
-def _fonte(tamanho):
-    """Fraunces, a mesma do wordmark na tela. Sem ela, o texto nao sai."""
+
+def _fraunces(tamanho):
+    """Fraunces 500, a mesma do wordmark na tela."""
     caminho = os.path.join(RAIZ, ".icones-tmp", "fraunces.ttf")
     if not os.path.exists(caminho):
         return None
     try:
         f = ImageFont.truetype(caminho, tamanho)
         try:
-            f.set_variation_by_axes([100.0, tamanho, 600.0])  # SOFT, opsz, wght
+            f.set_variation_by_axes([100.0, float(tamanho), 500.0])
         except Exception:
             pass
         return f
@@ -220,105 +228,133 @@ def _fonte(tamanho):
         return None
 
 
+def _desenha_wordmark(base, x, y, fonte, tamanho):
+    """"ronys" em ink, com o y bicolor do spec.
+
+    O y e' a letra da fonte desenhada tres vezes: dourada cortada em 78% da
+    caixa, e teal do corte para baixo, esticada 1,35x a partir dali. E' o mesmo
+    recorte que o CSS de src/components/brand.tsx faz na tela - aqui a mao e'
+    o Pillow, que nao tem clip-path, entao o corte e' feito na imagem.
+    """
+    d = ImageDraw.Draw(base)
+    corte = int(round(tamanho * 0.78))
+    alto = int(round(tamanho * 2.2))
+
+    def letra(texto, cor):
+        larg = int(round(d.textlength(texto, font=fonte))) + 4
+        camada = Image.new("RGBA", (max(larg, 1), alto), (0, 0, 0, 0))
+        ImageDraw.Draw(camada).text((0, 0), texto, font=fonte, fill=cor)
+        return camada, larg
+
+    for texto, cor in (("ron", INK),):
+        d.text((x, y), texto, font=fonte, fill=cor)
+        x += d.textlength(texto, font=fonte)
+
+    # o y: corpo dourado ate' 78%, perna teal esticada dali para baixo
+    ouro, larg_y = letra("y", GOLD)
+    base.alpha_composite(ouro.crop((0, 0, larg_y, corte)), (int(round(x)), int(round(y))))
+
+    teal, _ = letra("y", TEAL)
+    perna = teal.crop((0, corte, larg_y, alto))
+    perna = perna.resize((perna.width, int(round(perna.height * 1.35))),
+                         Image.LANCZOS)
+    base.alpha_composite(perna, (int(round(x)), int(round(y)) + corte))
+    x += d.textlength("y", font=fonte)
+
+    d.text((x, y), "s", font=fonte, fill=INK)
+    x += d.textlength("s", font=fonte)
+    return x
+
+
+def _largura_wordmark(d, fonte):
+    return d.textlength("ronys", font=fonte)
+
+
 def gerar_splash():
     res = os.path.join(RAIZ, "android/app/src/main/res")
     tmp = os.path.join(RAIZ, ".icones-tmp")
     for pasta, (w, h) in SPLASHES.items():
-        base = Image.new("RGB", (w, h), NAVY_FUNDO)
+        base = Image.new("RGBA", (w, h), NAVY)
+        d = ImageDraw.Draw(base)
         menor = min(w, h)
-        lado = round(menor * 0.30)
-        p = png(os.path.join(tmp, f"splash-mark-{lado}.png"), lado, 1.0)
+
+        # O simbolo FAZ o C da palavra: eles ficam lado a lado, na mesma linha,
+        # e nao empilhados. E' o wordmark do spec.
+        alt = round(menor * 0.16)
+        p = png(os.path.join(tmp, f"splash-mark-{alt}.png"), alt, 1.0)
         marca = Image.open(p).convert("RGBA")
 
-        texto_alt = 0
-        fonte = _fonte(round(menor * 0.085))
+        corpo = round(alt * 0.62)
+        fonte = _fraunces(corpo)
         if fonte:
-            texto_alt = round(menor * 0.085 * 1.5)
-
-        # O bloco (marca + palavra) fica centrado no conjunto, nao a marca
-        # sozinha - senao a palavra joga o peso visual para baixo.
-        vao = round(menor * 0.06)
-        bloco = lado + (vao + texto_alt if fonte else 0)
-        y = (h - bloco) // 2
-        base.paste(marca, ((w - lado) // 2, y), marca)
-
-        if fonte:
-            d = ImageDraw.Draw(base)
-            # "Cron" + "y" dourado + "s": o y dourado e' o mesmo detalhe da
-            # landing page, e e' o que faz a palavra ser desta marca.
-            partes = [("Cron", BRANCO), ("y", GOLD), ("s", BRANCO)]
-            larguras = [d.textlength(t, font=fonte) for t, _ in partes]
-            x = (w - sum(larguras)) / 2
-            ty = y + lado + vao
-            for (t, cor), lw in zip(partes, larguras):
-                d.text((x, ty), t, font=fonte, fill=cor)
-                x += lw
+            texto_w = _largura_wordmark(d, fonte)
+            total = alt + texto_w
+            x0 = (w - total) / 2
+            base.paste(marca, (round(x0), (h - alt) // 2), marca)
+            # baseline: o texto alinha pela linha de base do anel.
+            _desenha_wordmark(base, x0 + alt - alt * 0.06,
+                              (h - alt) // 2 + alt * 0.26, fonte, corpo)
+        else:
+            base.paste(marca, ((w - alt) // 2, (h - alt) // 2), marca)
 
         os.makedirs(os.path.join(res, pasta), exist_ok=True)
-        base.save(os.path.join(res, pasta, "splash.png"))
+        base.convert("RGB").save(os.path.join(res, pasta, "splash.png"))
     print(f"android splash ({len(SPLASHES)} arquivos)")
 
 
 # --------------------------------------------------------------------------
-# 5. og-image: o retangulo que WhatsApp, LinkedIn e Google mostram
+# 5. og-image
 # --------------------------------------------------------------------------
 def gerar_og():
     w, h = 1200, 630
-    base = Image.new("RGB", (w, h), NAVY_FUNDO)
+    base = Image.new("RGBA", (w, h), NAVY)
     d = ImageDraw.Draw(base)
-    # Uma regua dourada embaixo: e' o unico enfeite, e existe para a imagem nao
-    # ser um retangulo escuro solto num feed claro.
-    d.rectangle([0, h - 10, w, h], fill=GOLD)
+    # Fio teal embaixo: traco fino, que e' o unico papel que o spec da' ao teal.
+    d.rectangle([0, h - 6, w, h], fill=TEAL)
 
-    lado = 210
-    p = png(os.path.join(RAIZ, ".icones-tmp", f"og-mark-{lado}.png"), lado, 1.0)
+    alt = 190
+    p = png(os.path.join(RAIZ, ".icones-tmp", f"og-mark-{alt}.png"), alt, 1.0)
     marca = Image.open(p).convert("RGBA")
 
-    fonte = _fonte(112)
-    sub = _fonte(38)
+    corpo = round(alt * 0.62)
+    fonte = _fraunces(corpo)
+    sub = _fraunces(36)
     if fonte:
-        partes = [("Cron", BRANCO), ("y", GOLD), ("s", BRANCO)]
-        larguras = [d.textlength(t, font=fonte) for t, _ in partes]
-        texto_w = sum(larguras)
-        vao = 40
-        total = lado + vao + texto_w
-        x0 = (w - total) / 2
-        base.paste(marca, (round(x0), (h - lado) // 2 - 30), marca)
-        x = x0 + lado + vao
-        ty = (h - 112 * 1.35) / 2 - 30
-        for (t, cor), lw in zip(partes, larguras):
-            d.text((x, ty), t, font=fonte, fill=cor)
-            x += lw
-        if sub:
-            linha = "Agenda, alunos e cobrança para quem dá aula particular"
-            lw = d.textlength(linha, font=sub)
-            d.text(((w - lw) / 2, h - 150), linha, font=sub, fill="#A9B4C4")
+        texto_w = _largura_wordmark(d, fonte)
+        x0 = (w - (alt + texto_w)) / 2
+        topo = (h - alt) // 2 - 40
+        base.paste(marca, (round(x0), topo), marca)
+        _desenha_wordmark(base, x0 + alt - alt * 0.06, topo + alt * 0.26,
+                          fonte, corpo)
     else:
-        base.paste(marca, ((w - lado) // 2, (h - lado) // 2), marca)
+        base.paste(marca, ((w - alt) // 2, (h - alt) // 2), marca)
 
-    base.save(os.path.join(RAIZ, "public", "og-image.png"))
+    if sub:
+        linha = "Agenda, alunos e cobrança para quem dá aula particular"
+        lw = d.textlength(linha, font=sub)
+        d.text(((w - lw) / 2, h - 160), linha, font=sub, fill=INK_DIM)
+
+    base.convert("RGB").save(os.path.join(RAIZ, "public", "og-image.png"))
     print("public/og-image.png")
 
 
-def baixar_fonte():
-    """Fraunces em TTF, so' para o Pillow desenhar texto. Nao vai para o git."""
+def baixar_fontes():
+    """As TTF, so' para o Pillow desenhar texto. Nao vao para o git."""
     tmp = os.path.join(RAIZ, ".icones-tmp")
     os.makedirs(tmp, exist_ok=True)
-    destino = os.path.join(tmp, "fraunces.ttf")
-    if os.path.exists(destino):
-        return
-    url = ("https://fonts.gstatic.com/s/fraunces/v38/"
-           "6NUh8FyLNQOQZAnv9bYEvDiIdE9Ea92uemAk_WBq8U_9v0c2Wa0K7iN7hzFUPJH58"
-           "nib1603gg7S2nfgRYIcaRyjDg.ttf")
-    try:
-        subprocess.run(["curl", "-sSfL", "-o", destino, url], check=True,
-                       timeout=60)
-    except Exception as e:
-        print(f"  aviso: nao baixou a fonte ({e}); splash e og sairao sem texto")
+    for _, (nome, url) in FONTES.items():
+        destino = os.path.join(tmp, nome)
+        if os.path.exists(destino):
+            continue
+        try:
+            subprocess.run(["curl", "-sSfL", "-o", destino, url], check=True,
+                           timeout=60)
+        except Exception as e:
+            print(f"  aviso: nao baixou {nome} ({e}); splash e og sem texto")
 
 
 if __name__ == "__main__":
-    baixar_fonte()
+    baixar_fontes()
     gerar_svgs()
     gerar_web()
     gerar_android()

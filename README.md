@@ -12,12 +12,16 @@ O app atende várias empresas no mesmo banco (cada professor/escola é uma
 
 ## Como rodar
 
+O `tsc` que checa de verdade é o do projeto, com `-p`: o `tsconfig.json` da
+raiz tem `"files": []` e só referências, então `npx tsc --noEmit` sozinho não
+olha arquivo nenhum e sempre passa.
+
 ```bash
 npm install
-npm run dev        # http://localhost:8080
-npm run build      # gera dist/
-npx tsc --noEmit   # checagem de tipos
-npm test           # testes
+npm run dev   # http://localhost:8080
+npm run build   # gera dist/
+npx tsc --noEmit -p tsconfig.app.json   # checagem de tipos
+npm test   # testes
 ```
 
 As chaves do Supabase ficam no `.env`, que é versionado de propósito: são as
@@ -42,13 +46,18 @@ de RLS, não o segredo da chave.
 
 ## A marca
 
-Navy e dourado, com Fraunces no nome. Uma regra vale para o dourado inteiro:
-**ele mora sobre o navy escuro e nunca vira texto sobre fundo claro** —
-`#C9A227` sobre branco dá contraste 2,3:1, abaixo do mínimo legível.
+Navy e dourado com um acento teal, Fraunces no nome e Work Sans na interface.
+A especificação completa — cores, tipografia, o SVG do símbolo, o wordmark e
+o que não fazer — está em **`docs/cronys-brand-spec.md`**, e é ela que manda.
 
-Os ícones não se editam à mão. O desenho existe uma vez, em
-`scripts/gerar-identidade.py`, e de lá saem os 28 arquivos (favicon, PWA,
-apple-touch, mipmaps Android nas 5 densidades, os 11 splash e o og-image):
+Duas regras que não estão lá e valem no código:
+
+- **Dourado não vira texto em superfície clara** (`#c9a24b` sobre branco dá
+  2,4:1). Como preenchimento de botão vale em qualquer lugar, porque aí quem
+  precisa de contraste é o texto por cima, e esse é navy.
+- **Os ícones não se editam à mão.** O desenho existe uma vez, em
+  `scripts/gerar-identidade.py`, e de lá saem os 28 arquivos (favicon, PWA,
+  apple-touch, mipmaps Android nas 5 densidades, os 11 splash e o og-image):
 
 ```bash
 pip install pillow cairosvg
