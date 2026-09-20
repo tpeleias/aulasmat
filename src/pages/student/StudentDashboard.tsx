@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,7 @@ import { PaymentMethods } from "@/components/PaymentMethods";
 import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
+import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -28,10 +29,17 @@ export default function StudentDashboard() {
   const [txs, setTxs] = useState<any[]>([]);
   const [homework, setHomework] = useState<any[]>([]);
 
+  // Fora do useEffect porque o botão de retirar pedido também recarrega a lista.
+  // Não dá para contar só com o realtime: ele pode atrasar, e a família ficaria
+  // olhando um pedido que ela acabou de retirar.
+  const loadLessons = useCallback(() => {
+    if (!student) return;
+    scopeToAccount(supabase.from("lessons").select("*"), student)
+      .order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
+  }, [student]);
+
   useEffect(() => {
     if (!student) return;
-    const loadLessons = () => scopeToAccount(supabase.from("lessons").select("*"), student)
-      .order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
     const loadTxs = () => scopeToAccount(supabase.from("wallet_transactions").select("*"), student)
       .order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
     const loadHw = () => supabase.from("homework").select("*").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
@@ -44,7 +52,7 @@ export default function StudentDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "homework", filter: `student_id=eq.${student.id}` }, loadHw)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [student]);
+  }, [student, loadLessons]);
 
   const now = new Date();
   const future = lessons.filter(l => new Date(l.start_at) >= now);
@@ -105,7 +113,13 @@ export default function StudentDashboard() {
                 <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
                 <div className="text-xs text-muted-foreground">{l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
               </div>
-              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+              <div className="flex items-center gap-1">
+                <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+                {/* Só enquanto ninguém respondeu: depois disso quem manda é quem respondeu. */}
+                {isRequest(l.status) && (
+                  <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={loadLessons} />
+                )}
+              </div>
             </div>
           ))}
         </Card>

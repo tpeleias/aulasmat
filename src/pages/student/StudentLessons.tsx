@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useAuth } from "@/hooks/useAuth";
@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { scopeToAccount } from "@/lib/balance";
 import { isDiscarded, isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
+import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -20,7 +21,7 @@ export default function StudentLessons() {
   const settings = useAppSettings({ enabled: !hideFinancial });
   const [lessons, setLessons] = useState<any[]>([]);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     if (!student) return;
     if (hideFinancial) {
       (supabase as any).rpc("get_child_lessons").then(({ data }: any) => setLessons(data ?? []));
@@ -29,6 +30,8 @@ export default function StudentLessons() {
     scopeToAccount(supabase.from("lessons").select("*"), student)
       .order("start_at", { ascending: false }).then(({ data }) => setLessons(data ?? []));
   }, [student, hideFinancial]);
+
+  useEffect(() => { load(); }, [load]);
 
   const now = new Date();
   // A aba de cima junta o que está marcado e o que ainda é pedido, porque é
@@ -44,14 +47,14 @@ export default function StudentLessons() {
           <TabsTrigger value="upcoming">Próximas e pedidos ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} /></TabsContent>
+        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} onChanged={load} /></TabsContent>
         <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={hideFinancial} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
+function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }: any) {
   if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">Nada por aqui.</Card>;
   return (
     <div className="space-y-2">
@@ -70,6 +73,11 @@ function LessonList({ lessons, settings, showSummary, hideFinancial }: any) {
                 <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
               )}
               <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+              {/* Quem pede é o responsável, então quem retira é ele. O filho abre
+                  esta mesma tela pelo /meu-painel e não deve ver o botão. */}
+              {!hideFinancial && isRequest(l.status) && onChanged && (
+                <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={onChanged} />
+              )}
               {!hideFinancial && (
                 <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
               )}

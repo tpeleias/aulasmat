@@ -574,6 +574,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      cancel_own_lesson_request: { Args: { _lesson_id: string }; Returns: string }
       mark_past_lessons_realizada: { Args: never; Returns: number }
       recompute_payment_status: {
         Args: { _guardian: string; _student: string }
