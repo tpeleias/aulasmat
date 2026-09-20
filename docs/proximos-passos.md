@@ -579,3 +579,51 @@ branch ser mesclada.** Sem isso, o portal do aluno pelo navegador segue mandando
 Isso não é problema hoje porque nenhuma família tem acesso ainda — o Thiago está
 só em testes. Mas é a ordem certa quando houver gente usando: mesclar primeiro,
 deixar o Netlify publicar, e só então subir o `.aab`.
+
+## O responsável pode retirar o próprio pedido (20/09) — feito
+
+Enquanto nenhum admin respondeu, a família retira o pedido: botão "Retirar" no
+card "Seus pedidos" e na lista de próximas aulas. O filho abre a mesma lista
+pelo `/meu-painel` e **não** vê o botão — quem pede é o responsável, quem retira
+é ele.
+
+**Feito com função, não com política de UPDATE**, e a diferença é o ponto todo:
+uma política de UPDATE diz quais LINHAS o aluno altera e como a linha fica
+depois, mas **não diz quais COLUNAS ele mexeu**. O mesmo UPDATE que cancela
+poderia trocar preço, horário ou o resumo da aula no caminho, desde que
+terminasse em `cancelada`. Como a função `cancel_own_lesson_request` é quem
+escreve, só o status muda, e só de `solicitada` para `cancelada`.
+
+Segue valendo, e agora com teste: **o aluno não tem política de UPDATE em
+`lessons`** (conferido na produção, 0 políticas). Ele tem uma porta estreita.
+
+A função devolve código (`ok` / `ja-respondido` / `nao-encontrado` /
+`sem-empresa`) e não mensagem, porque quem decide como falar com a família é a
+tela. O caso que justifica isso é `ja-respondido`: um admin aprovou entre a
+família abrir a tela e apertar o botão. A resposta certa ali não é "deu erro", é
+contar o que aconteceu — e a tela recarrega a lista mesmo quando não deu certo.
+
+Retirar vira `cancelada`, então o horário volta na hora para a vitrine e a
+carteira não é tocada (cobrança só nasce em `realizada`). Ficou em `cancelada` em
+vez de um sexto status porque `retirada` obrigaria a mexer na constraint, nas
+duas funções de horário, nos rótulos e no enum do assistente — muito para o
+ganho de distinguir "a família desistiu" de "eu desmarquei". Se essa distinção
+passar a importar, é aí que vale o status novo.
+
+13 casos no espelho local, todos passando — inclusive uma família tentando
+retirar o pedido de outra da mesma empresa, a homônima de outra empresa tentando
+o mesmo, retirar depois de aprovado, e o UPDATE direto do aluno ainda alcançando
+zero linhas.
+
+## Para quem o pedido vai: os ADMINS, não o professor da aula
+
+Vale registrar porque é fácil supor errado. A lista de solicitações vive na tela
+Hoje, que está sob `/admin` (exige `isAdmin`), e a consulta **não filtra por
+professor**. A RLS escopa por empresa. Logo:
+
+- todo admin da empresa vê **todos** os pedidos pendentes dela;
+- o primeiro que aprovar faz valer;
+- se o professor da aula também é admin, ele vê; se não é, não vê.
+
+Não existe roteamento "pedido da aula da Mayara vai para a Mayara", e não havia
+intenção de existir.
