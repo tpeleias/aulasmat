@@ -6,7 +6,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useTheme } from "@/hooks/useTheme";
-import { GraduationCap, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks, Moon, Sun } from "lucide-react";
+import { LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks, Moon, Sun } from "lucide-react";
+import { CronysMark } from "@/components/brand";
 
 export default function ChildLayout() {
   const { session, role, loading, signOut } = useAuth();
@@ -31,11 +32,9 @@ export default function ChildLayout() {
     <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <GraduationCap className="w-5 h-5 text-primary-foreground" />
-          </div>
+          <CronysMark className="w-8 h-8 shrink-0 text-brand-gold" />
           <div>
-            <div className="font-semibold text-sm">Meu Painel</div>
+            <div className="font-semibold text-sm">Meu painel</div>
             <div className="text-xs text-sidebar-foreground/60">{student?.student_name?.split(" ")[0] ?? "Aluno"}</div>
           </div>
         </div>

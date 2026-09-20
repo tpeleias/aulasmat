@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { GraduationCap } from "lucide-react";
+import { CronysMark, CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
 
 // The Play Console requires a public privacy policy URL, and it has to describe what the
@@ -19,16 +19,17 @@ export default function PrivacyPolicy() {
       .then(({ data }) => setContact(((data as any)?.contact_email ?? "").trim() || null));
   }, []);
 
-  useEffect(() => { document.title = "Privacidade — Portal de Aulas"; }, []);
+  useEffect(() => { document.title = "Privacidade — Cronys"; }, []);
 
   return (
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
         <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl" style={{ background: "var(--gradient-primary)" }}>
-            <GraduationCap className="h-4 w-4 text-primary-foreground" />
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand-navy">
+            <CronysMark className="h-5 w-5 text-brand-gold" />
           </span>
-          Portal de Aulas
+          {/* Sobre fundo claro o "y" dourado sai: 2,3:1 não se lê. */}
+          <CronysWordmark className="text-base text-foreground" destaque={false} />
         </Link>
 
         <h1 className="text-2xl font-bold">Política de privacidade</h1>
@@ -38,7 +39,7 @@ export default function PrivacyPolicy() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base">O que é este app</h2>
             <p>
-              O Portal de Aulas organiza as aulas particulares dadas por um professor: agenda, cadastro de
+              O Cronys organiza as aulas particulares dadas por um professor: agenda, cadastro de
               alunos, cobrança e materiais. Ele é usado pelo professor e pelas famílias atendidas.
               Não há publicidade e nenhum dado é vendido.
             </p>

@@ -13,7 +13,18 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        // A serifada e' da MARCA, nao do texto: wordmark e titulo de pagina.
+        // Corpo de app se le melhor em sem-serifa, e uma serifada de display
+        // em 13px numa lista de aulas cansa.
+        serif: ["Fraunces", "ui-serif", "Georgia", "serif"],
+      },
       colors: {
+        brand: {
+          navy: "hsl(var(--brand-navy))",
+          gold: "hsl(var(--brand-gold))",
+          "gold-soft": "hsl(var(--brand-gold-soft))",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

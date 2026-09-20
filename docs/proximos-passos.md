@@ -676,3 +676,71 @@ sem mostrar não serviria de nada.
 **Não precisou de migration:** `subject`, `notes` e `is_online` já existiam, e a
 política de insert do aluno não restringe nenhuma delas (ela checa empresa,
 vínculo do cadastro, `status = 'solicitada'` e o interruptor de agendamento).
+
+## Cronys: nome, marca e ícones (20/09)
+
+O app deixou de se chamar "Portal de Aulas" e passou a se chamar **Cronys**. O
+que mudou foi só o que se vê — nada de banco, nada de RLS, nada de dados.
+
+### O que NÃO mudou, de propósito
+
+- **`applicationId` continua `com.aulasmat.app`.** É a identidade da ficha na
+  Play Store e não pode mudar num app já publicado: é por ele que o Android
+  liga a atualização ao app instalado. Só sai num app novo, com ficha nova.
+- **`Preferences.group` continua `AulasMatPrefs`.** É a chave do armazenamento
+  no aparelho. Trocá-la não renomeia nada visível, só faz o app perder o que
+  já guardou.
+- **Páginas públicas (`PublicHome`, `PublicAvailability`) não viraram Cronys.**
+  Elas são a vitrine do professor, não do produto — quem chega ali procura o
+  professor. (Isso deixa exposta uma dívida antiga: `PublicHome` tem
+  "Matemática e Química" no código, o que só vale para a empresa do Thiago.
+  Numa segunda empresa aparece a matéria errada.)
+
+### A marca
+
+Navy `#0D1828` e dourado `#C9A227`, com **Fraunces** no nome. Uma regra vale
+para o dourado inteiro: **ele mora sobre o navy e nunca vira texto sobre fundo
+claro** — `#C9A227` sobre branco dá contraste 2,3:1, abaixo do mínimo legível
+de 4,5:1. Por isso o dourado aparece na barra lateral, no topo do login, no
+símbolo e no "y" da palavra, que são todos fundo escuro.
+
+O símbolo é um **C com um ponteiro**: lê-se como letra (Cronys) e como relógio
+(Chronos). Foi desenhado **a 48px primeiro**, não a 512px — 48px é o tamanho
+que importa (ícone na tela de início, favicon na aba) e é onde contorno fino
+morre. O ponteiro aponta para 1 hora e não para 12: na vertical ele viraria uma
+barra dentro de um C, que é o símbolo de centavo.
+
+O item ativo da barra lateral **não** é um bloco dourado cheio. Dourado maciço
+numa coluna inteira vira o assunto da tela e briga com o próprio nome logo
+acima; ele é um degrau de navy com o texto dourado.
+
+### Os ícones não se editam à mão
+
+São 28 arquivos (favicon em 3 tamanhos, PWA em 2, apple-touch, 5 densidades
+Android × 3 variantes, 11 splash, og-image). Editar isso a mão garante que um
+dia uma densidade fica com o desenho velho e ninguém descobre — o celular que
+usa aquela densidade é que mostra o ícone errado.
+
+O desenho existe **uma vez**, em `scripts/gerar-identidade.py`:
+
+```bash
+pip install pillow cairosvg
+python3 scripts/gerar-identidade.py
+```
+
+A mesma geometria está em `src/components/brand.tsx` (o símbolo inline, que
+herda `currentColor`) e a mesma paleta em `src/index.css`. São três lugares
+que precisam andar juntos, e cada um diz isso no comentário.
+
+### Precisa de `.aab` novo
+
+Sim. Ícone, nome e splash são do lado do app, que embute o `dist/`. Sobe pelo
+workflow `Build Android release (Play)`, e o nome na ficha da Play (o "Nome do
+app") muda no Play Console, à mão — o `.aab` sozinho não renomeia a ficha.
+
+### Também mudou: os widgets da tela de início
+
+Estavam no azul `#4E7FE6` e num magenta `#D946EF` que não são de marca nenhuma.
+Viraram navy + dourado. O magenta era a cor da linha do professor "mayara" —
+nome **fixo no Java** (`LessonsWidgetProvider.java`), que numa segunda empresa
+não quer dizer nada. Dívida anotada, não resolvida aqui.

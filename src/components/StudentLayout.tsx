@@ -8,7 +8,8 @@ import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useTheme } from "@/hooks/useTheme";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
-import { GraduationCap, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
+import { LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
+import { CronysMark, CronysWordmark } from "@/components/brand";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
@@ -39,10 +40,8 @@ export default function StudentLayout() {
     <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-            <GraduationCap className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div><div className="font-semibold text-sm">Portal</div><div className="text-xs text-sidebar-foreground/60">Aluno</div></div>
+          <CronysMark className="w-8 h-8 shrink-0 text-brand-gold" />
+          <div><CronysWordmark className="text-lg leading-none" /><div className="text-xs text-sidebar-foreground/60 mt-0.5">Responsável</div></div>
         </div>
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {items.map(it => (

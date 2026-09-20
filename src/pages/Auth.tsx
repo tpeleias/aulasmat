@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { GraduationCap, Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight } from "lucide-react";
+import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
 
@@ -22,7 +23,7 @@ export default function Auth() {
   const [childPw, setChildPw] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { document.title = "Acesso — Portal de Aulas"; }, []);
+  useEffect(() => { document.title = "Acesso — Cronys"; }, []);
 
   if (loading) return null;
   if (session) {
@@ -78,11 +79,11 @@ export default function Auth() {
           <div aria-hidden className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
           <div aria-hidden className="pointer-events-none absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-primary/15 blur-3xl" />
           <div className="relative flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl shadow-lg" style={{ background: "var(--gradient-primary)" }}>
-              <GraduationCap className="h-6 w-6 text-primary-foreground" />
-            </div>
+            {/* O símbolo sem moldura, direto sobre o navy: aqui o fundo já é
+                a cor da marca, e um quadradinho por cima só somaria borda. */}
+            <CronysMark className="h-12 w-12 shrink-0 text-brand-gold" />
             <div>
-              <div className="text-2xl font-bold tracking-tight">Portal de Aulas</div>
+              <CronysWordmark className="text-3xl" />
               <div className="text-sm text-sidebar-foreground/70">Agenda, alunos e cobrança</div>
             </div>
           </div>
@@ -180,7 +181,7 @@ function PendingScreen() {
   return (
     <div className="flex flex-1 items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><GraduationCap className="h-6 w-6" /></div>
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
         <h2 className="text-xl font-semibold">Conta aguardando liberação</h2>
         <p className="text-sm text-muted-foreground">
           Sua conta ({user?.email}) foi criada, mas o professor ainda precisa vincular você ao cadastro do aluno.

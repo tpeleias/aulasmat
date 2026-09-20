@@ -4,7 +4,7 @@ import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, GraduationCap, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, ClipboardList, Home, Moon, Sun, ShieldCheck } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, ClipboardList, Home, Moon, Sun, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -15,6 +15,7 @@ import { capitalize } from "@/lib/balance";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
 import { haptics } from "@/lib/haptics";
+import { CronysMark, CronysWordmark } from "@/components/brand";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
@@ -81,10 +82,8 @@ export default function AdminLayout() {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--gradient-primary)" }}>
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <div><div className="font-semibold text-sm">Portal de Aulas</div><div className="text-xs text-sidebar-foreground/60">Professor</div></div>
+            <CronysMark className="w-8 h-8 shrink-0 text-brand-gold" />
+            <div><CronysWordmark className="text-lg leading-none" /><div className="text-xs text-sidebar-foreground/60 mt-0.5">Professor</div></div>
           </div>
           <nav className="flex flex-col gap-1 p-3 flex-1">
             {primary.map(sidebarLink)}

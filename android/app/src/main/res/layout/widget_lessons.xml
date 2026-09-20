@@ -176,7 +176,7 @@
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
             android:text="✦  Assistente"
-            android:textColor="#FFFFFF"
+            android:textColor="#0D1828"
             android:textStyle="bold"
             android:textSize="12sp" />
         <TextView
