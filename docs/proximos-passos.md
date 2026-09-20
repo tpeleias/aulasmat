@@ -329,3 +329,135 @@ Portal do Aluno). Até lá o portal do aluno fica só para visualização.
 Numa conversa nova: aponte para este arquivo (`docs/proximos-passos.md`) em
 vez de continuar uma conversa antiga e longa — custa bem menos crédito, porque
 não precisa reprocessar o histórico inteiro a cada mensagem.
+
+## Solicitação de aula em vez de marcação (20/09) — feito
+
+Pedido do Thiago: quando o aluno marca, não é marcação, é **solicitação**. O
+professor aprova e só então a aula existe. E antes de enviar, o app pergunta
+"Deseja solicitar este horário?".
+
+A confirmação já existia no código (veio no PR #15), mas o Thiago ainda via o
+toque marcando direto — provavelmente porque a versão publicada era anterior.
+Agora ela pergunta e o que ela envia é um pedido, não uma aula.
+
+### Dois status novos
+
+- **`solicitada`** — o aluno pediu, o professor não respondeu. **Ocupa** o
+  horário. Ocupar é o que evita duas famílias pedindo o mesmo slot e o professor
+  tendo que recusar uma por conflito.
+- **`recusada`** — o professor disse não. **Não** ocupa. Foi por isso que a
+  constraint `lessons_sem_sobreposicao` e as duas funções de horário livre
+  passaram de `status <> 'cancelada'` para `NOT IN ('cancelada','recusada')`:
+  sem isso, recusar queimaria o horário para sempre — o mesmo bug que a
+  migration `20260912010946` consertou para as canceladas.
+
+### A trava de verdade é no banco, não na tela
+
+A política `students insert own lessons` passou a exigir `status = 'solicitada'`
+no `WITH CHECK`. Sem isso, a exigência de aprovação viveria só no código da
+tela: quem chamasse a API direto com o token do próprio responsável continuaria
+criando aula pronta. Vale lembrar quem fez as 55 aulas de 19/09 — um crawler
+batendo na API, não uma pessoa clicando.
+
+O aluno também não consegue promover o próprio pedido: ele nunca teve política
+de `UPDATE` em `lessons`. Conferido em `pg_policy`, e coberto por teste.
+
+### Um pedido não vira dinheiro
+
+Esse era o jeito mais fácil de a mudança criar cobrança falsa, e por isso está
+testado: `sync_lesson_wallet` só lança cobrança em `realizada`, e
+`mark_past_lessons_realizada` só varre `agendada`. Então um pedido que o
+professor não respondeu e cuja hora passou continua pedido — não vira aula
+realizada, e não vira cobrança. **Se algum dia essa função passar a varrer
+outros status, pedido esquecido vira dívida de aula que não houve.**
+
+### O que mudou na tela
+
+- Portal do aluno: "Solicitar aula", com a confirmação dizendo que o horário
+  fica reservado até a resposta. Card "Seus pedidos" nas telas do aluno — é por
+  ali que a família descobre se foi aprovado ou recusado. O selo de valor
+  sumiu de pedido e de aula descartada: mostrar preço ali fazia parecer dívida
+  por aula que ninguém confirmou.
+- Tela Hoje do professor: seção "Solicitações de aula" no topo, com Aprovar e
+  Recusar (recusar pede confirmação). Fica acima de tudo porque é a única coisa
+  da tela em que alguém está esperando resposta. Pedido com hora já passada
+  aparece marcado, em vez de envelhecer em silêncio.
+- Agenda: pedido com borda tracejada; recusada risca em vermelho junto das
+  canceladas.
+- `src/lib/lessonStatus.ts` concentra os rótulos e os dois testes
+  (`isRequest`, `isDiscarded`). Com três status dava para espalhar strings por
+  quinze telas; com cinco não dá.
+- Assistente de IA: conhece os dois status e responde pedidos por
+  `update_lesson`.
+
+### Como foi verificado
+
+Espelho local do Postgres reconstruído (vale a pena: pegou a ordem errada do
+`handle_new_user` de novo). 37 migrations replayadas sobre stubs do Supabase, e
+**15 casos rodando como o papel `authenticated`**, todos passando:
+
+| Caso | Resultado |
+|---|---|
+| Aluno pede horário livre | aceito como `solicitada` ✅ |
+| Aluno tenta inserir `agendada` | barrado pela RLS ✅ |
+| Aluno tenta inserir `realizada` | barrado pela RLS ✅ |
+| Segundo pedido no mesmo horário | recusado (23P01) ✅ |
+| Aluno tenta aprovar o próprio pedido | 0 linhas ✅ |
+| Pedido pendente aparece como ocupado | sim ✅ |
+| Professor aprova | 1 linha, sem cobrança ✅ |
+| Recusada sai dos horários ocupados | sim ✅ |
+| Horário recusado pode ser pedido de novo | sim ✅ |
+| Pedido vencido continua `solicitada` | sim, sem cobrança ✅ |
+| Mesmo horário e professor, outra empresa | aceito ✅ |
+| Aula realizada gera 1 cobrança | sim ✅ |
+
+Migration aplicada 3× seguidas (idempotente). `tsc`, `build` e testes limpos.
+Aplicada na produção e conferida: trava e política no lugar, 99 aulas e 83
+lançamentos intactos, nenhuma linha nos status novos. Edge function
+`assistant-chat` republicada (versão 11) — não deu para bater nela por HTTP
+daqui, porque o proxy do ambiente bloqueia o host; a conferência foi ler a
+fonte de volta do servidor e comparar com o repositório.
+
+### O que ficou de fora, de propósito
+
+- **O aluno não pode retirar o próprio pedido.** Um toque errado prende o
+  horário até o professor recusar. Não é regressão (ele também não podia
+  cancelar antes), mas com pedido ocupando horário incomoda mais. Seria uma
+  política de `UPDATE` bem estreita: só `solicitada` → `cancelada`, e só a
+  própria.
+- **`price` ainda vem do cliente.** `StudentBooking` manda `price: 220` fixo,
+  então um responsável poderia mandar outro valor pela API. Hoje não vira
+  dinheiro (cobrança só nasce em `realizada`, e o professor vê o valor ao
+  aprovar), mas o certo é o valor vir do servidor.
+- **`class_summary` no insert do aluno.** Nada impede o aluno gravar o "resumo
+  da aula", que é texto do professor. É anterior a esta mudança e não tem a ver
+  com ela, então ficou fora do diff para não misturar as coisas.
+- **Nenhuma notificação.** O professor descobre o pedido abrindo o app (a lista
+  atualiza sozinha por realtime, mas não há push nem e-mail). Se o pedido ficar
+  dias sem resposta, ninguém avisa.
+- **Pedido vencido não expira sozinho.** Fica `solicitada` para sempre, só
+  marcado na tela como "horário já passou".
+
+### Dívidas da lista anterior que continuam abertas
+
+Foram priorizadas e depois deixadas de lado quando o Thiago redirecionou para o
+fluxo de solicitação. As quatro seguem valendo:
+
+1. E-mail da política de privacidade por empresa (`PrivacyPolicy.tsx` ainda tem
+   o e-mail cravado).
+2. Fechar `pix_key`/`payment_link` ao visitante não logado. O caminho mapeado é
+   um **allowlist** de colunas para o papel `anon` em `settings`, não um
+   denylist: coluna nova nasce fechada, e quem precisar dela no site público
+   diz isso explicitamente. Conferido que todas as consultas anon já pedem
+   colunas nomeadas (só `useAppSettings` e `SettingsPage` usam `select("*")`, e
+   os dois são `authenticated`).
+3. Apagar a edge function `admin-create-user` (nenhuma tela chama — conferido
+   por grep).
+4. `lessons_payment_status_backup_20260912`: 84 linhas com dados reais, fora do
+   escopo por empresa, e **não nasceu de migration** — foi backup manual no
+   dashboard. Por isso o replay do espelho precisa de um stub dela.
+
+Achado à parte, do mesmo naipe: o papel `anon` tem `TRUNCATE` em `settings` (e
+provavelmente em todas as tabelas — é o padrão do Supabase). RLS não cobre
+`TRUNCATE`. Não é alcançável pelo PostgREST, então não é urgente, mas é um grant
+que ninguém usa.
