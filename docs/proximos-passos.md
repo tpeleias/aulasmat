@@ -49,16 +49,16 @@ Descoberto nesta sessão: o projeto nasceu no Lovable e continua existindo
 lá, sincronizado por GitHub com este mesmo repositório (mesmo `main`).
 São publicações **independentes**, cada uma exige sua própria ação:
 
-- **Netlify** (`tpeleias.netlify.app`, site "oficial"/produção): publica
+- **Netlify** (`cronys.netlify.app`, site "oficial"/produção): publica
   sozinho a cada push no `main`, sem ação extra.
-- **Lovable** (`aulasmat.lovable.app`, projeto "Site - Aulas",
+- **Lovable** (`cronys.lovable.app`, projeto "Site - Aulas",
   id `0060e038-c986-4361-94a6-f56077ed8118`): o código sincroniza sozinho
   do GitHub (`latest_commit_sha` do projeto acompanha o `main`), mas **não
   fica visível pra quem acessa o link até chamar `deploy_project`**
   explicitamente. Depois de mesclar um PR, se quiser esse link também
   atualizado, published de novo por lá.
   - O link `id-preview--0060e038-...lovable.app` é o de rascunho/edição,
-    não o publicado — evitar divulgar esse, usar `aulasmat.lovable.app`.
+    não o publicado — evitar divulgar esse, usar `cronys.lovable.app`.
 
 Favicon é um recurso com cache próprio do navegador (não é o cache normal
 de página) — depois de publicar, pode continuar mostrando o ícone antigo
@@ -632,10 +632,10 @@ intenção de existir.
 
 Vale para qualquer conversa futura, não só para aquela em que foi escrita.
 
-- **`aulasmat.lovable.app`** — é o que o Thiago usa no dia a dia (ele já morava no
+- **`cronys.lovable.app`** — é o que o Thiago usa no dia a dia (ele já morava no
   Lovable antes, e tem outros projetos lá). Sincroniza o código do GitHub
   sozinho, mas **só fica visível depois de um `deploy_project` explícito**.
-- **`tpeleias.netlify.app`** — publica sozinho a cada push no `main`.
+- **`cronys.netlify.app`** — publica sozinho a cada push no `main`.
 
 **Nenhum dos dois é mais importante que o outro.** As notas antigas chamavam o
 Netlify de "oficial/produção" e isso foi repetido sem questionar; não há
@@ -792,3 +792,47 @@ nesta mesma sessão: `title` num ícone do lucide. Em runtime a prop caía no
 `<svg>`, e `<svg title="">` não vira dica em navegador nenhum — ou seja, a dica
 de "Aula on-line" e a do endereço nunca funcionaram. Corrigido: a dica foi para
 um `<span title>` em volta.
+
+## Os dois endereços viraram Cronys (20/09) — e o Netlify está parado
+
+- **Netlify**: `tpeleias.netlify.app` → **`cronys.netlify.app`**. Renomear é só
+  metadado, não precisa de build. O nome antigo morreu na hora e o Netlify
+  libera ele para qualquer outra pessoa pegar.
+- **Lovable**: `aulasmat.lovable.app` → **`cronys.lovable.app`**. Mesma coisa:
+  o endereço antigo não responde mais.
+
+O rótulo interno do projeto no Lovable ainda é "Site - Aulas". Não há como
+renomear pela API; é um clique no editor.
+
+### ⚠️ A política de privacidade da Play aponta para o endereço velho
+
+O Thiago cadastrou `tpeleias.netlify.app/privacidade` no Play Console. Esse
+endereço **não existe mais**. Política de privacidade quebrada é violação e
+pode suspender o app, então trocar para `https://cronys.netlify.app/privacidade`
+é urgente, não é arrumação.
+
+### O Netlify não publica desde 02:54, e não é o main que está errado
+
+Descobertas ao investigar:
+
+1. O deploy publicado é o commit `8ed1aa7` — o de **antes** do Cronys. O
+   `87f0a70` nunca subiu. Ou seja: a frase "o Netlify publica sozinho a cada
+   push no main", que estava anotada aqui, **não se confirmou** desta vez.
+2. Aquele deploy foi criado **via API, a partir de um zip**
+   (`deploy_source: "api"`, `has_source_zip: true`), e não por um build do
+   Netlify puxando do GitHub. Não existe `netlify.toml` no repositório nem
+   workflow de deploy para o Netlify. Isso aponta para a integração do
+   **Lovable** como quem alimenta o Netlify — não o GitHub direto.
+3. Tentar publicar pela ferramenta do Netlify devolve **403 Forbidden**,
+   enquanto renomear o site (que também é escrita) passou com o mesmo token.
+   Escrita autorizada e deploy negado é a assinatura de conta bloqueada por
+   limite — bate com o aviso de créditos que o Thiago recebeu.
+
+**Consequência prática:** até os créditos voltarem, `cronys.netlify.app` serve
+o build velho. A página `/privacidade` existe nele e abre normalmente (ela é
+anterior ao Cronys), só que com o nome antigo. Quem está atualizado é o
+`cronys.lovable.app`.
+
+**Se a pressa for a Play:** apontar a política para
+`https://cronys.lovable.app/privacidade` resolve na hora e com a marca certa,
+sem depender de crédito nenhum.
