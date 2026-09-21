@@ -16,6 +16,8 @@ import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
 import { computeStatements, daysOpen, isOverdue, sortAccounts, ACCOUNT_SORTS, type AccountSort, type LedgerTx, type LedgerLesson, type AccountStatement } from "@/lib/billing";
 import { discountOn, discountOnItems, isValidDiscount, describeDiscount, parseDiscountValue, type Discount, type DiscountKind } from "@/lib/discount";
 import { useLessonPrice } from "@/hooks/useLessonPrice";
+import { usePlan } from "@/hooks/usePlan";
+import { ProUpsell } from "@/components/ProUpsell";
 import { haptics } from "@/lib/haptics";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
@@ -66,6 +68,10 @@ const kindLabel = (t: Tx) =>
 
 export default function BillingPage() {
   const { price: listPrice } = useLessonPrice();
+  // Pacote, voucher e desconto sao a mesma familia - abatimento combinado
+  // com a familia - e ficam juntos no Pro. Registrar o dinheiro que entrou
+  // continua no Essencial: cobrar e o minimo que o app precisa fazer.
+  const { plan } = usePlan();
   const QUICK = useMemo(() => quickOptions(listPrice), [listPrice]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -429,9 +435,11 @@ export default function BillingPage() {
                         <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
                           <Plus className="w-4 h-4" /> Pagamento
                         </Button>
-                        <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
-                          <Percent className="w-3.5 h-3.5" /> Desconto
-                        </Button>
+                        {plan.packages && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
+                            <Percent className="w-3.5 h-3.5" /> Desconto
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -521,8 +529,17 @@ export default function BillingPage() {
           </DialogHeader>
           {payFor && (
             <div className="space-y-4">
+              {!plan.packages && (
+                <ProUpsell titulo="Pacotes e vouchers sao do Cronys Pro" compacto>
+                  aqui voce registra o que recebeu. Vender pacote com desconto e
+                  dar voucher ficam no Pro.
+                </ProUpsell>
+              )}
               <div className="grid grid-cols-2 gap-2">
-                {QUICK.filter(q => q.key !== "all" || payFor.owed > 0).map(q => (
+                {QUICK
+                  .filter(q => q.key !== "all" || payFor.owed > 0)
+                  .filter(q => plan.packages || q.kind === "adjustment")
+                  .map(q => (
                   <button key={q.key} type="button" onClick={() => chooseQuick(q.key)}
                     className={`rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${quick === q.key ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-muted"}`}>
                     <div className="font-medium">{q.label}</div>
@@ -544,7 +561,7 @@ export default function BillingPage() {
                   <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder={isVoucherOnly ? "Ex.: desconto combinado" : "Ex.: Pix de setembro"} />
                 </div>
               </div>
-              {!isVoucherOnly && (
+              {!isVoucherOnly && plan.packages && (
                 <div>
                   <Label>Voucher junto (R$)</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />

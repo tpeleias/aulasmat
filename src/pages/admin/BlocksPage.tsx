@@ -12,10 +12,16 @@ import { format } from "date-fns";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 
+import { usePlan } from "@/hooks/usePlan";
+import { ProUpsell } from "@/components/ProUpsell";
+
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null; teacher: string };
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 export default function BlocksPage() {
+  // Bloqueio pontual vale nos dois planos: dizer "dia 14 nao dou aula" e
+  // funcao basica de agenda. O que o Pro vende e nao repetir isso toda semana.
+  const { plan } = usePlan();
   const { teachers } = useTeachers(true);
   // "both" continua sendo o valor gravado para "vale para todos os professores".
   const teacherLabel = (slug: string) =>
@@ -51,6 +57,12 @@ export default function BlocksPage() {
         <TabsList><TabsTrigger value="recurring">Recorrentes (escola)</TabsTrigger><TabsTrigger value="oneoff">Pontuais (lazer)</TabsTrigger></TabsList>
 
         <TabsContent value="recurring" className="space-y-4">
+          {!plan.recurring_blocks && (
+            <ProUpsell titulo="Bloqueio que se repete e do Cronys Pro" compacto>
+              no Essencial da para bloquear uma data especifica, na aba ao lado.
+              Aqui voce diz uma vez &ldquo;toda terca a tarde&rdquo; e nao repete mais.
+            </ProUpsell>
+          )}
           <Card className="p-5">
             <h3 className="font-semibold mb-3">Novo bloqueio recorrente</h3>
             <div className="grid md:grid-cols-6 gap-3 items-end">

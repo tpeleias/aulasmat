@@ -10,11 +10,17 @@ import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/component
 import { SCARCITY_DEFAULT, type ScarcityDay } from "@/lib/availability";
 import { toast } from "sonner";
 import { capitalize } from "@/lib/balance";
+import { usePlan } from "@/hooks/usePlan";
+import { ProUpsell } from "@/components/ProUpsell";
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 export default function TeachersPage() {
+  const { plan } = usePlan();
   const { teachers, reload } = useTeachers(false);
+  // O limite conta professor ATIVO, igual ao gatilho do banco.
+  const ativos = teachers.filter(t => t.active).length;
+  const semVaga = plan.max_teachers !== null && ativos >= plan.max_teachers;
   const [name, setName] = useState("");
   // A escassez da empresa: serve de ponto de partida quando um professor passa
   // a ter a própria, para ele não começar com números vindos do nada.
@@ -78,9 +84,17 @@ export default function TeachersPage() {
             <label className="text-xs text-muted-foreground">Nome do professor</label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: João" onKeyDown={e => e.key === "Enter" && add()} />
           </div>
-          <Button onClick={add} disabled={busy} className="gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
+          <Button onClick={add} disabled={busy || semVaga} className="gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
+        {semVaga && (
+          <div className="mt-3">
+            <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_teachers} professor${plan.max_teachers === 1 ? "" : "es"}`} icon={GraduationCap} compacto>
+              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Pro não há limite —
+              é o plano de quem tem equipe.
+            </ProUpsell>
+          </div>
+        )}
       </Card>
 
       <div className="space-y-2">

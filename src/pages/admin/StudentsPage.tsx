@@ -18,6 +18,8 @@ import SortMenu, { useSortPreference } from "@/components/SortMenu";
 import { accountKey, fmtMoney } from "@/lib/balance";
 import { computeStatements, isOverdue, type LedgerTx } from "@/lib/billing";
 import { haptics } from "@/lib/haptics";
+import { usePlan } from "@/hooks/usePlan";
+import { ProUpsell } from "@/components/ProUpsell";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
@@ -36,6 +38,7 @@ const STUDENT_SORTS: { key: StudentSort; label: string }[] = [
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("");
 
 export default function StudentsPage() {
+  const { plan } = usePlan();
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -148,12 +151,25 @@ export default function StudentsPage() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Alunos</h1>
-            <p className="text-sm text-muted-foreground">{students.length} cadastrado{students.length === 1 ? "" : "s"}</p>
+            <p className="text-sm text-muted-foreground">
+              {students.length} cadastrado{students.length === 1 ? "" : "s"}
+              {plan.max_students !== null && ` de ${plan.max_students}`}
+            </p>
           </div>
-          <Button className="rounded-xl gap-1.5" onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
+          <Button
+            className="rounded-xl gap-1.5"
+            disabled={plan.max_students !== null && students.length >= plan.max_students}
+            onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
             <Plus className="w-4 h-4" /> Novo
           </Button>
         </div>
+
+        {plan.max_students !== null && students.length >= plan.max_students && (
+          <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} alunos`} icon={Users} compacto>
+            os {students.length} que você já tem continuam aqui, com tudo deles.
+            Para cadastrar o próximo, é o Cronys Pro.
+          </ProUpsell>
+        )}
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1">

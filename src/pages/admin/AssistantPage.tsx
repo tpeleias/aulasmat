@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, User, Send, Loader2 } from "lucide-react";
 import ChatMarkdown from "@/components/ChatMarkdown";
+import { usePlan } from "@/hooks/usePlan";
+import { ProUpsell } from "@/components/ProUpsell";
 
 type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
@@ -43,6 +45,7 @@ async function extractErrorMessage(e: any): Promise<string> {
 }
 
 export default function AssistantPage() {
+  const { plan, loading: planLoading } = usePlan();
   const [messages, setMessages] = useState<ChatMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -123,6 +126,28 @@ export default function AssistantPage() {
   };
 
   const visibleMessages = messages.filter((m) => displayText(m.content).trim().length > 0);
+
+  // O botao do Assistente continua no menu de propósito: quem esta no
+  // Essencial precisa DESCOBRIR que isso existe. Esconder nao vende nada.
+  // Quem recusa de verdade e a edge function, que checa o plano antes de
+  // gastar um token sequer.
+  if (!planLoading && !plan.assistant) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Assistente</h1>
+          <p className="text-sm text-muted-foreground">
+            Marcar aula, remarcar, registrar pagamento e consultar o financeiro — conversando.
+          </p>
+        </div>
+        <ProUpsell titulo="O Assistente e do Cronys Pro" icon={Bot}>
+          Em vez de abrir a agenda e preencher formulario, voce escreve
+          &ldquo;marca com o Miguel quinta as 15h&rdquo; e ele marca. Tambem
+          registra pagamento, responde quanto uma familia deve e remarca aula.
+        </ProUpsell>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

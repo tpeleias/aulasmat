@@ -678,6 +678,31 @@ export type Database = {
         }
         Returns: Json
       }
+      account_can: {
+        Args: { _account?: string; _capability: string }
+        Returns: boolean
+      }
+      account_limit: {
+        Args: { _account?: string; _what: string }
+        Returns: number
+      }
+      account_plan: {
+        Args: { _account?: string }
+        Returns: string
+      }
+      my_plan: {
+        Args: never
+        Returns: Json
+      }
+      platform_set_account_plan: {
+        Args: {
+          _account: string
+          _assistant_override?: boolean | null
+          _clear_override?: boolean
+          _plan?: string | null
+        }
+        Returns: Json
+      }
       is_platform_admin: {
         Args: never
         Returns: boolean
@@ -687,12 +712,15 @@ export type Database = {
         Returns: {
           active: boolean
           alunos: number
+          assistant: boolean
+          assistant_override: boolean | null
           aulas: number
           created_at: string
           id: string
           is_public_default: boolean
           logins: number
           name: string
+          plan: string
           professores: number
           responsaveis: number
           slug: string

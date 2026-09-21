@@ -26,7 +26,10 @@ DECLARE
   _ub uuid := gen_random_uuid();
   _ualuno uuid := gen_random_uuid();
 BEGIN
-  INSERT INTO public.accounts (name, slug) VALUES ('Empresa B', 'b') RETURNING id INTO _b;
+  -- Pro de proposito: os blocos 3 a 8 testam ISOLAMENTO entre empresas, nao
+  -- plano. Se ela nascesse no Essencial, eles falhariam por falta de plano e
+  -- nao por vazamento - que e o que eles existem para pegar.
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Empresa B', 'b', 'pro') RETURNING id INTO _b;
 
   -- handle_new_user joga todo usuário novo na empresa pública; com duas
   -- empresas ele deixa nulo. Os papéis são postos na mão, como manda a nota
@@ -567,6 +570,204 @@ SELECT public.assert((SELECT payload -> 'account' ->> 'name' FROM public.deleted
 SELECT public.assert((SELECT count(*) FROM public.lessons
                        WHERE account_id = current_setting('teste.a')::uuid) = 3,
   'a empresa A não perdeu nenhuma das 3 aulas dela no processo');
+
+
+\echo ''
+\echo '--- 17. Planos: o limite e do banco, nao da tela ---'
+
+-- A empresa A e Pro (dona do endereco publico). Criamos uma Essencial do zero.
+DO $$
+DECLARE _e uuid; _ua uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Essencial Ltda', 'essencial-ltda', 'essencial')
+  RETURNING id INTO _e;
+  INSERT INTO public.settings (account_id) VALUES (_e);
+  INSERT INTO auth.users (id, email) VALUES (_ua, 'admin-e@x');
+  DELETE FROM public.user_roles WHERE user_id = _ua;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_ua, 'admin', _e);
+  PERFORM set_config('teste.e', _e::text, false);
+  PERFORM set_config('teste.uae', _ua::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+
+SELECT public.assert(public.account_plan() = 'essencial', 'a empresa nova nasce no Essencial');
+SELECT public.assert(public.account_limit('students') = 5, 'com limite de 5 alunos');
+SELECT public.assert(public.account_limit('teachers') = 1, 'e de 1 professor');
+SELECT public.assert(public.account_can('assistant') = false, 'sem assistente');
+SELECT public.assert(public.account_can('packages') = false, 'sem pacotes/vouchers');
+SELECT public.assert(public.account_can('recurring_blocks') = false, 'sem bloqueio recorrente');
+
+-- 5 alunos passam; o sexto nao.
+INSERT INTO public.students (student_name, guardian_name) VALUES
+  ('A1','R1'), ('A2','R2'), ('A3','R3'), ('A4','R4'), ('A5','R5');
+SELECT public.assert((SELECT count(*) FROM public.students) = 5, 'cinco alunos entram');
+DO $$
+BEGIN
+  INSERT INTO public.students (student_name) VALUES ('A6');
+  RAISE EXCEPTION 'FALHOU: cadastrou o sexto aluno no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - o sexto aluno e recusado pelo BANCO, nao pela tela';
+END $$;
+
+-- 1 professor passa; o segundo nao.
+INSERT INTO public.teachers (name, active) VALUES ('Unico', true);
+DO $$
+BEGIN
+  INSERT INTO public.teachers (name, active) VALUES ('Segundo', true);
+  RAISE EXCEPTION 'FALHOU: cadastrou o segundo professor no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - o segundo professor e recusado';
+END $$;
+
+-- Desligar e religar nao burla o limite.
+INSERT INTO public.teachers (name, active) VALUES ('Reserva', false);
+DO $$
+BEGIN
+  UPDATE public.teachers SET active = true WHERE name = 'Reserva';
+  RAISE EXCEPTION 'FALHOU: reativou um segundo professor';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - reativar um professor desativado tambem respeita o limite';
+END $$;
+
+-- Bloqueio pontual sim, recorrente nao.
+INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at)
+VALUES ('Consulta', 'unico', 'one_off', '2026-11-10 14:00-03', '2026-11-10 16:00-03');
+SELECT public.assert((SELECT count(*) FROM public.blocks) = 1, 'bloqueio pontual vale no Essencial');
+DO $$
+BEGIN
+  INSERT INTO public.blocks (title, teacher, block_type, weekday, start_time, end_time)
+  VALUES ('Toda terca', 'unico', 'recurring', 2, '14:00', '16:00');
+  RAISE EXCEPTION 'FALHOU: criou bloqueio recorrente no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - bloqueio recorrente e recusado no Essencial';
+END $$;
+
+-- Dinheiro recebido sim; pacote e voucher nao.
+SELECT public.assert((public.register_payment('A1','R1', 100, 'adjustment', 'Pix') ->> 'payment_id') IS NOT NULL,
+  'registrar pagamento recebido continua valendo no Essencial');
+DO $$
+BEGIN
+  PERFORM public.register_payment('A1','R1', 2000, 'package', 'Pacote', 200, 'Voucher');
+  RAISE EXCEPTION 'FALHOU: lancou pacote no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - pacote/voucher e recusado no Essencial';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_account_discount('A1','R1','percent',10);
+  RAISE EXCEPTION 'FALHOU: criou desconto fixo no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - desconto por familia e recusado no Essencial';
+END $$;
+COMMIT;
+
+\echo ''
+\echo '--- 18. Virar Pro solta tudo, e rebaixar nao apaga nada ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.e')::uuid, 'pro') ->> 'plan') = 'pro',
+  'o gestor muda a empresa para Pro');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+SELECT public.assert(public.account_limit('students') IS NULL, 'no Pro o limite de alunos some');
+SELECT public.assert(public.account_can('assistant'), 'e o assistente liga');
+INSERT INTO public.students (student_name) VALUES ('A6');
+SELECT public.assert((SELECT count(*) FROM public.students) = 6, 'o sexto aluno agora entra');
+INSERT INTO public.teachers (name, active) VALUES ('Segundo', true);
+INSERT INTO public.blocks (title, teacher, block_type, weekday, start_time, end_time)
+VALUES ('Toda terca', 'unico', 'recurring', 2, '14:00', '16:00');
+SELECT public.assert((public.set_account_discount('A1','R1','percent',10) ->> 'removed') = 'false',
+  'e o desconto por familia passa a ser aceito');
+COMMIT;
+
+-- Rebaixar: mantem o que existe, so trava o proximo.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'essencial');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+SELECT public.assert((SELECT count(*) FROM public.students) = 6,
+  'rebaixada, a empresa CONTINUA com os 6 alunos que ja tinha');
+SELECT public.assert((SELECT count(*) FROM public.blocks WHERE block_type='recurring') = 1,
+  'e com o bloqueio recorrente que ja tinha');
+SELECT public.assert((SELECT count(*) FROM public.account_discounts) = 1,
+  'e com o desconto que ja tinha');
+-- Editar o que ja existe continua livre; so criar novo trava.
+UPDATE public.students SET guardian_name = 'R1 editado' WHERE student_name = 'A1';
+SELECT public.assert((SELECT count(*) FROM public.students WHERE guardian_name='R1 editado') = 1,
+  'editar aluno existente continua funcionando');
+-- Tirar um desconto continua livre, senao ela nao consegue desfazer.
+SELECT public.assert((public.set_account_discount('A1','R1 editado', NULL, NULL) ->> 'removed') = 'true',
+  'e tirar um desconto continua livre, para ela poder desfazer');
+DO $$
+BEGIN
+  INSERT INTO public.students (student_name) VALUES ('A7');
+  RAISE EXCEPTION 'FALHOU: criou o setimo aluno apos rebaixar';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - mas criar o proximo trava de novo';
+END $$;
+COMMIT;
+
+\echo ''
+\echo '--- 19. O assistente pode ser dado a mao, sem mudar o plano ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.e')::uuid, NULL, true) ->> 'assistant') = 'true',
+  'o gestor liga o assistente sem mudar o plano (cortesia/teste)');
+-- Pela funcao, e nao pela tabela: o operador nao le accounts (bloco 13).
+SELECT public.assert(public.account_plan(current_setting('teste.e')::uuid) = 'essencial',
+  'e a empresa continua no Essencial');
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.e')::uuid, NULL, NULL, true) ->> 'assistant') = 'false',
+  'e limpar a excecao devolve a decisao ao plano');
+COMMIT;
+
+-- Quem nao e gestor nao muda plano nenhum.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_set_account_plan(current_setting('teste.e')::uuid, 'pro');
+  RAISE EXCEPTION 'FALHOU: o admin da empresa deu Pro para si mesmo';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o admin da empresa NAO consegue se dar o Pro';
+END $$;
+ROLLBACK;
+
+\echo ''
+\echo '--- 20. A empresa de producao nao foi afetada ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
+SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
+SELECT public.assert(public.account_can('assistant'), 'com assistente');
+SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro', 'e my_plan() se apresenta como Cronys Pro');
+COMMIT;
 
 \echo ''
 \echo '=== FIM ==='

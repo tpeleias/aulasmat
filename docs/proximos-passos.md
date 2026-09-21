@@ -1111,3 +1111,109 @@ Também conferido que a senha bate (`crypt`) e que nenhuma coluna de
 ele entrar pela primeira vez — o app tem "trocar senha", e o Supabase também
 permite pelo painel.
 
+
+## Planos: Cronys Essencial e Cronys Pro (21/09) — feito no código, NÃO publicado
+
+Os nomes foram escolhidos pelo Thiago: **Cronys Essencial** (grátis) e
+**Cronys Pro** (pago).
+
+### O cardápio
+
+| | Essencial | Pro |
+|---|---|---|
+| Professores ativos | 1 | ilimitado |
+| Alunos | 5 | ilimitado |
+| Agenda, aulas, recorrência | sim | sim |
+| Registrar pagamento recebido | sim | sim |
+| Bloqueio de horário **pontual** | sim | sim |
+| Bloqueio **recorrente** (toda semana) | não | sim |
+| Pacotes e vouchers | não | sim |
+| Desconto fixo por família | não | sim |
+| Assistente de IA | não | sim |
+
+Tudo o que não está na tabela continua igual para os dois planos: portal da
+família, vitrine pública, materiais, tarefas, acesso do filho, widgets.
+**Não foram criadas travas que o Thiago não pediu.**
+
+### Três decisões, e o porquê de cada uma
+
+**1. Bloqueio pontual fica no Essencial.** Ele tinha pedido bloqueio inteiro no
+Pro. O problema: sem bloqueio, o professor grátis não consegue dizer "dia 14 eu
+não dou aula" — e se a vitrine pública dele estiver ligada, ela oferece horário
+que ele não tem. Isso não é funcionalidade premium, é agenda correta. O que o
+Pro vende é não repetir o trabalho toda semana.
+
+**2. O desconto fixo entrou junto com pacotes e vouchers.** Ele listou só
+"pacotes e voucher", mas desconto é a mesma família — abatimento combinado com
+a família, lançado como crédito. Separar deixaria a regra estranha de explicar.
+**É uma leitura minha, e desfazer é uma linha em `plan_features()`.**
+
+**3. Rebaixar não apaga nada.** Os limites valem para CRIAR. Uma empresa que
+tem 8 alunos e cai para o Essencial continua com os 8, continua editando os 8,
+e continua podendo TIRAR um desconto que já tinha — ela só não cria o nono nem
+põe desconto novo. Está coberto por teste (bloco 18).
+
+### A trava é do banco, não da tela
+
+Gatilhos em `teachers`, `students` e `blocks`, mais checagem dentro de
+`register_payment` e `set_account_discount`. Esconder o botão não impede nada:
+este projeto já viu um crawler do Google criar 55 aulas pela API, e viu a
+guarda de `register_payment` não guardar coisa nenhuma. A tela só evita que a
+pessoa esbarre no limite sem entender por quê.
+
+O assistente é recusado **na edge function, antes de falar com a API da
+Claude** — é o único item que custa dinheiro de verdade por uso, e não adianta
+recusar depois de gastar o token.
+
+### O switch do assistente é uma exceção, não o plano
+
+No painel do gestor há duas coisas por empresa: o **plano** (Essencial/Pro) e um
+**switch do Assistente**. O switch grava `accounts.assistant_override`:
+
+- nulo → segue o plano;
+- true/false → o gestor forçou.
+
+Existe porque "dar o assistente para essa empresa por um mês" é decisão
+comercial que não deveria obrigar a mudar o plano inteiro. No painel, um
+override aparece marcado como **"à mão"**, e tocar de novo devolve a decisão ao
+plano.
+
+### Nenhum link de pagamento dentro do app, de propósito
+
+O `ProUpsell` informa e manda falar com quem cuida da conta. **Não tem botão de
+compra nem link externo**: o app está na Google Play, e vender bem digital
+dentro dele obriga a usar a cobrança do Google — um link para pagar por fora é
+motivo de recusa na revisão. Quando existir cobrança de verdade, essa decisão
+precisa ser tomada de propósito (Google Play Billing, ou venda só pelo site,
+fora do app).
+
+A empresa **Demonstração** foi para o Pro junto com a de produção, também por
+causa da Play: é a conta que o revisor usa, e mostrar tela de venda para ele
+convida exatamente a essa discussão.
+
+### O que falta
+
+- **Publicar.** A migration `20260921160000_plans.sql` e a edge function
+  `assistant-chat` estão no código e não na produção. **Atenção ao publicar:** a
+  Empresa X cai para o Essencial e perde o assistente, porque só a de produção e
+  a Demonstração nascem Pro.
+- **Cobrança de verdade** não existe. Hoje o plano é trocado à mão pelo gestor.
+  Rastrear quem pagou continua podendo ser planilha até valer a pena.
+
+### Ideias de Pro que ainda não existem
+
+Levantadas na conversa de 21/09, em ordem do que parece vender mais:
+
+1. **Lembrete automático de aula** (WhatsApp/e-mail) — reduz falta; é o item que
+   mais se paga sozinho.
+2. **Relatório e exportação** — faturamento do mês, CSV para o imposto de renda.
+3. **Recibo para a família.**
+4. **Marca própria** — logo e cores da empresa no portal e na vitrine.
+5. **Endereço próprio** (`empresa.dominio.com.br`) — já está no plano multi-empresa.
+6. **Google Agenda.**
+7. **Relatório de presença e evolução do aluno.**
+
+Candidatos que já EXISTEM e poderiam virar Pro se o Essencial precisar ficar
+mais magro: portal da família, vitrine pública de horários, materiais e tarefas
+(esses dois consomem armazenamento), acesso do filho.
+

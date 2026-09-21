@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
 import { CronysWordmark } from "@/components/brand";
@@ -23,6 +24,9 @@ type Row = {
   active: boolean;
   is_public_default: boolean;
   created_at: string;
+  plan: "essencial" | "pro";
+  assistant: boolean;
+  assistant_override: boolean | null;
   responsaveis: number;
   alunos: number;
   professores: number;
@@ -113,6 +117,37 @@ export default function PlatformPage() {
     load();
   };
 
+  const mudarPlano = async (r: Row, plano: "essencial" | "pro") => {
+    if (plano === r.plan) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("platform_set_account_plan", { _account: r.id, _plan: plano });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`"${r.name}" agora e ${plano === "pro" ? "Cronys Pro" : "Cronys Essencial"}`);
+    load();
+  };
+
+  // O switch do assistente e uma EXCECAO ao plano, nao o plano. Ligar para uma
+  // empresa Essencial e cortesia ou teste; o terceiro toque limpa a excecao e
+  // devolve a decisao ao plano.
+  const alternarAssistente = async (r: Row) => {
+    setBusy(true);
+    const segueOPlano = r.plan === "pro";
+    const proximo = r.assistant ? false : true;
+    const limpar = proximo === segueOPlano;
+    const { error } = await supabase.rpc("platform_set_account_plan", {
+      _account: r.id,
+      _assistant_override: limpar ? null : proximo,
+      _clear_override: limpar,
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(limpar
+      ? `Assistente de "${r.name}" voltou a seguir o plano`
+      : `Assistente ${proximo ? "ligado" : "desligado"} para "${r.name}"`);
+    load();
+  };
+
   const confirmarExclusao = async () => {
     if (!excluir) return;
     setBusy(true);
@@ -129,10 +164,11 @@ export default function PlatformPage() {
   };
 
   const total = rows.reduce((s, r) => ({
+    pro: s.pro + (r.plan === "pro" ? 1 : 0),
     empresas: s.empresas + (r.active ? 1 : 0),
     alunos: s.alunos + Number(r.alunos),
     responsaveis: s.responsaveis + Number(r.responsaveis),
-  }), { empresas: 0, alunos: 0, responsaveis: 0 });
+  }), { pro: 0, empresas: 0, alunos: 0, responsaveis: 0 });
 
   return (
     <div className="min-h-dvh bg-background">
@@ -154,7 +190,7 @@ export default function PlatformPage() {
           <div>
             <h1 className="text-2xl font-bold">Empresas</h1>
             <p className="text-sm text-muted-foreground">
-              {total.empresas} ativa{total.empresas === 1 ? "" : "s"} · {total.alunos} aluno
+              {total.empresas} ativa{total.empresas === 1 ? "" : "s"} · {total.pro} no Pro · {total.alunos} aluno
               {total.alunos === 1 ? "" : "s"} · {total.responsaveis} responsáve
               {total.responsaveis === 1 ? "l" : "is"} no total
             </p>
@@ -168,6 +204,13 @@ export default function PlatformPage() {
           Esta conta não pertence a nenhuma empresa, então ela só enxerga as
           contagens abaixo. Nome de aluno, agenda e financeiro de cada empresa
           não chegam até aqui — a trava está no banco, não nesta tela.
+          <br />
+          <span className="mt-1 inline-flex items-center gap-1">
+            <Bot className="h-3 w-3" /> O switch do Assistente é uma exceção ao plano:
+            ligar para uma empresa Essencial é cortesia. Marcado
+            <strong className="text-foreground">à mão</strong>, ele não segue mais o plano —
+            toque de novo para devolver a decisão ao plano.
+          </span>
         </Card>
 
         {loading ? <ListSkeleton rows={3} /> : (
@@ -176,6 +219,8 @@ export default function PlatformPage() {
               <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-3 py-2.5 text-left font-medium">Empresa</th>
+                  <th className="px-3 py-2.5 text-left font-medium">Plano</th>
+                  <th className="px-3 py-2.5 text-center font-medium">Assistente</th>
                   <th className="px-3 py-2.5 text-right font-medium">Responsáveis</th>
                   <th className="px-3 py-2.5 text-right font-medium">Alunos</th>
                   <th className="px-3 py-2.5 text-right font-medium">Professores</th>
@@ -196,6 +241,27 @@ export default function PlatformPage() {
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {r.slug} · desde {format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex rounded-lg border border-border p-0.5">
+                        {(["essencial", "pro"] as const).map(pl => (
+                          <button
+                            key={pl} type="button" disabled={busy}
+                            onClick={() => mudarPlano(r, pl)}
+                            className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
+                              r.plan === pl ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                            {pl === "pro" ? "Pro" : "Essencial"}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <Switch checked={r.assistant} disabled={busy} onCheckedChange={() => alternarAssistente(r)} />
+                        {r.assistant_override !== null && (
+                          <span className="text-[9px] uppercase tracking-wide text-primary">à mão</span>
+                        )}
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{r.responsaveis}</td>

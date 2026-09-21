@@ -400,6 +400,16 @@ Deno.serve(async (req) => {
     const accountId = roleRow.account_id as string | null;
     if (!accountId) return json({ error: "Usuário sem empresa associada." }, 403);
 
+    // Antes de qualquer coisa, e principalmente antes de falar com a API da
+    // Claude: o assistente é do Cronys Pro e cada conversa custa dinheiro de
+    // verdade. Esconder o botão na tela não impediria uma chamada direta aqui.
+    const { data: podeAssistente } = await admin.rpc("account_can", {
+      _capability: "assistant", _account: accountId,
+    });
+    if (podeAssistente !== true) {
+      return json({ error: "O Assistente é do Cronys Pro. Sua conta está no Cronys Essencial." }, 402);
+    }
+
     // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
     const { messages } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
