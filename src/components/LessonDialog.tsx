@@ -14,6 +14,7 @@ import { ExternalLink, ChevronDown } from "lucide-react";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 import { isSlotConflict, lessonErrorMessage } from "@/lib/lessonErrors";
+import { useLessonPrice, FALLBACK_LESSON_PRICE } from "@/hooks/useLessonPrice";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -25,7 +26,7 @@ type Lesson = {
 
 // Every lesson is charged at the list price. The package discount is not a cheaper lesson:
 // it is a voucher credited on the Cobrança page, which keeps the ledger closing at zero.
-const LIST_PRICE = 220;
+// O mesmo vale para o desconto de uma família: o valor da aula não muda.
 const PACKAGE_LABEL: Record<string, string> = { single: "Avulsa", pack5: "Pacote 5 aulas", pack10: "Pacote 10 aulas" };
 
 export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, defaultTeacher, initialStudent }: {
@@ -34,6 +35,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   initialStudent?: { student_name: string; guardian_name?: string | null; address?: string | null } | null;
 }) {
   const { teachers } = useTeachers(true);
+  // O valor da hora sai das Configurações da empresa, não do código.
+  const { price: listPrice } = useLessonPrice();
   // A matéria que já vem preenchida sai do cadastro do professor, não de uma
   // lista de nomes escrita no código.
   const subjectOf = (slug: string) =>
@@ -42,7 +45,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const baseTeacher = defaultTeacher || "";
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: "",
-    start_at: "", duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
+    start_at: "", duration_minutes: 60, price: listPrice, package_type: "single", payment_status: "pendente", notes: "",
     teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
   const [busy, setBusy] = useState(false);
@@ -67,7 +70,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         guardian_name: initialStudent?.guardian_name ?? "",
         subject: subjectOf(baseTeacher),
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
-        duration_minutes: 60, price: LIST_PRICE, package_type: "single", payment_status: "pendente", notes: "",
+        duration_minutes: 60, price: listPrice, package_type: "single", payment_status: "pendente", notes: "",
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
@@ -79,6 +82,17 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       setConflictMsg(null);
     }
   }, [lesson, slotStart, open, baseTeacher, initialStudent]);
+
+  // O valor da empresa costuma chegar antes de o diálogo abrir, mas pode
+  // atrasar. Se atrasar, o formulário ainda está com o valor de último recurso
+  // e adota o verdadeiro quando ele chega. A condição é o que impede isso de
+  // apagar um valor que o professor já tenha digitado à mão.
+  useEffect(() => {
+    if (!open || lesson?.id) return;
+    setForm(f => (f.price === FALLBACK_LESSON_PRICE && listPrice !== FALLBACK_LESSON_PRICE
+      ? { ...f, price: listPrice }
+      : f));
+  }, [listPrice, open, lesson?.id]);
 
   const studentOptionLabel = (s: { student_name: string; guardian_name: string | null }) => {
     const dupes = students.filter(o => o.student_name.toLowerCase() === s.student_name.toLowerCase());
@@ -359,7 +373,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           </div>
           <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-            Toda aula entra pelo valor cheio (R$ {LIST_PRICE}/h). O desconto do pacote é lançado
+            Toda aula entra pelo valor cheio (R$ {listPrice}/h). O desconto do pacote é lançado
             como <strong className="text-foreground">voucher</strong> na Cobrança ao registrar o pagamento.
           </div>
           <Collapsible className="rounded-md border border-border bg-muted/30">

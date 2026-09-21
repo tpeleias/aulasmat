@@ -9,11 +9,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
 import { computeStatements, daysOpen, isOverdue, sortAccounts, ACCOUNT_SORTS, type AccountSort, type LedgerTx, type LedgerLesson, type AccountStatement } from "@/lib/billing";
+import { discountOn, discountOnItems, isValidDiscount, describeDiscount, parseDiscountValue, type Discount, type DiscountKind } from "@/lib/discount";
+import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { haptics } from "@/lib/haptics";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
@@ -23,13 +25,12 @@ import SortMenu, { useSortPreference } from "@/components/SortMenu";
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null };
+type DiscountRow = { student_name: string; guardian_name: string | null; kind: DiscountKind; value: number };
 
-type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null };
+type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null; discount: Discount | null };
 
-// Lessons are always charged at the list price (R$220/h). A package is the money received
-// plus a voucher for the discount, so 10 x R$220 = R$2.200 is closed by R$2.000 + R$200.
-const LIST_PRICE = 220;
-
+// Lessons are always charged at the list price. A package is the money received
+// plus a voucher for the discount, so 10 lessons close at exactly zero.
 type QuickOption = {
   key: string;
   label: string;
@@ -39,14 +40,23 @@ type QuickOption = {
   hint?: string;
 };
 
-const QUICK: QuickOption[] = [
+// Os valores de pacote continuam fixos: são um preço negociado, não uma conta
+// a partir do valor da hora. Quando o valor da aula mudar nas Configurações,
+// eles precisam ser revistos à mão - a caixa de aviso do diálogo mostra
+// quanto sobra em aberto se não fecharem.
+const quickOptions = (listPrice: number): QuickOption[] => [
   { key: "all", label: "Quitar tudo", kind: "adjustment" },
   { key: "pack10", label: "Pacote 10 aulas", amount: 2000, voucher: 200, kind: "package", hint: "R$ 2.000 + voucher R$ 200" },
   { key: "pack5", label: "Pacote 5 aulas", amount: 1050, voucher: 50, kind: "package", hint: "R$ 1.050 + voucher R$ 50" },
-  { key: "single", label: "1 aula avulsa", amount: LIST_PRICE, kind: "adjustment" },
+  { key: "single", label: "1 aula avulsa", amount: listPrice, kind: "adjustment" },
   { key: "voucher", label: "Voucher (desconto)", kind: "voucher", hint: "crédito sem dinheiro" },
   { key: "custom", label: "Outro valor", kind: "adjustment" },
 ];
+
+// Onde o desconto pega. "always" é o desconto fixo da família, que o banco
+// recalcula sozinho a cada aula; os outros dois são um abatimento pontual,
+// que entra como voucher e fica parado onde está.
+type DiscountScope = "lesson" | "open" | "always";
 
 const kindLabel = (t: Tx) =>
   t.kind === "lesson" ? "Aula"
@@ -55,9 +65,12 @@ const kindLabel = (t: Tx) =>
         : Number(t.amount) >= 0 ? "Pagamento" : "Ajuste";
 
 export default function BillingPage() {
+  const { price: listPrice } = useLessonPrice();
+  const QUICK = useMemo(() => quickOptions(listPrice), [listPrice]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
+  const [discounts, setDiscounts] = useState<DiscountRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useSortPreference<AccountSort>("billing", ACCOUNT_SORTS, "owed");
@@ -76,15 +89,23 @@ export default function BillingPage() {
   const [lessonDlgOpen, setLessonDlgOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  const [discountFor, setDiscountFor] = useState<Account | null>(null);
+  const [dKind, setDKind] = useState<DiscountKind>("percent");
+  const [dValue, setDValue] = useState("");
+  const [dScope, setDScope] = useState<DiscountScope>("always");
+  const [dItemId, setDItemId] = useState("");
+
   const load = async () => {
-    const [tx, st, ls] = await Promise.all([
+    const [tx, st, ls, dc] = await Promise.all([
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status"),
+      supabase.from("account_discounts").select("student_name, guardian_name, kind, value"),
     ]);
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
     setLessons((ls.data ?? []) as LessonRow[]);
+    setDiscounts((dc.data ?? []) as DiscountRow[]);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -116,10 +137,22 @@ export default function BillingPage() {
       if (!cur || l.start_at < cur.start_at) nextByKey.set(k, l);
     }
 
-    const merged = [...byKey.values()]
-      .map(s => ({ ...s, txs: txsByKey.get(s.key) ?? [], nextLesson: nextByKey.get(s.key) ?? null }));
+    // O desconto é da conta, e conta com responsável é do responsável - dois
+    // irmãos caem na mesma. accountKey é a mesma regra que o banco usa em
+    // public.account_key.
+    const discountByKey = new Map<string, Discount>();
+    for (const d of discounts) {
+      discountByKey.set(accountKey(d), { kind: d.kind, value: Number(d.value) });
+    }
+
+    const merged = [...byKey.values()].map(s => ({
+      ...s,
+      txs: txsByKey.get(s.key) ?? [],
+      nextLesson: nextByKey.get(s.key) ?? null,
+      discount: discountByKey.get(s.key) ?? null,
+    }));
     return sortAccounts(merged, sort);
-  }, [txs, students, lessons, sort]);
+  }, [txs, students, lessons, discounts, sort]);
 
   const totals = useMemo(() => ({
     received: txs.reduce((s, t) => s + (Number(t.amount) > 0 ? Number(t.amount) : 0), 0),
@@ -186,6 +219,96 @@ export default function BillingPage() {
     haptics.success();
     toast.success(isVoucherOnly ? "Voucher lançado" : value < 0 ? "Ajuste registrado" : "Pagamento registrado");
     setPayFor(null);
+    load();
+  };
+
+  // ---- Discounts ----
+  const dNumber = parseDiscountValue(dValue);
+  const dOk = isValidDiscount(dKind, dNumber);
+  const dDiscount: Discount = { kind: dKind, value: dNumber };
+  const dItem = discountFor?.items.find(i => i.id === dItemId) ?? null;
+  // Quanto sai, de verdade, com o que está preenchido agora. Sai da mesma
+  // conta que o banco faz (src/lib/discount.ts espelha public.lesson_discount),
+  // então o número mostrado aqui é o que a carteira vai lançar.
+  const dPreview = !dOk ? 0
+    : dScope === "lesson" ? (dItem ? discountOn(dItem.amount, dDiscount) : 0)
+      : dScope === "open" ? discountOnItems(discountFor?.items ?? [], dDiscount)
+        : discountOnItems(discountFor?.items ?? [], dDiscount);
+
+  const openDiscount = (a: Account) => {
+    haptics.tap();
+    setDiscountFor(a);
+    setDKind(a.discount?.kind ?? "percent");
+    setDValue(a.discount ? String(a.discount.value) : "");
+    setDScope("always");
+    setDItemId(a.items[0]?.id ?? "");
+  };
+
+  const submitDiscount = async () => {
+    if (!discountFor) return;
+    if (!dOk) {
+      toast.error(dKind === "percent" ? "Informe uma porcentagem entre 0 e 100" : "Informe um valor em reais");
+      return;
+    }
+    if (dScope === "lesson" && !dItem) { toast.error("Escolha a aula"); return; }
+    if (dScope !== "always" && !(dPreview > 0)) { toast.error("Não há nada em aberto para abater"); return; }
+
+    setBusy(true);
+    const rotulo = describeDiscount(dDiscount);
+
+    if (dScope === "always") {
+      // O banco guarda a regra e recalcula o crédito de cada aula realizada.
+      const { error } = await supabase.rpc("set_account_discount", {
+        _student: discountFor.student,
+        _guardian: discountFor.guardian,
+        _kind: dKind,
+        _value: dNumber,
+      });
+      setBusy(false);
+      if (error) { haptics.warning(); toast.error(error.message); return; }
+      haptics.success();
+      toast.success(`Desconto de ${rotulo} valendo para as aulas de ${discountFor.label}`);
+    } else {
+      // Abatimento pontual: entra como voucher solto (sem aula vinculada), e
+      // por isso o desconto fixo nunca o recalcula nem o apaga.
+      const descricao = dScope === "lesson"
+        ? `Desconto de ${rotulo} - ${dItem!.detail} de ${format(new Date(dItem!.date), "dd/MM", { locale: ptBR })}`
+        : `Desconto de ${rotulo} em ${discountFor.items.length} cobrança${discountFor.items.length > 1 ? "s" : ""} em aberto`;
+      const { error } = await supabase.rpc("register_payment", {
+        _student: discountFor.student,
+        _guardian: discountFor.guardian,
+        _amount: 0,
+        _kind: "voucher",
+        _description: descricao,
+        _voucher: dPreview,
+        _voucher_description: descricao,
+      });
+      setBusy(false);
+      if (error) { haptics.warning(); toast.error(error.message); return; }
+      haptics.success();
+      toast.success(`Desconto de ${fmtMoney(dPreview)} lançado`);
+    }
+    setDiscountFor(null);
+    load();
+  };
+
+  const removeDiscount = async () => {
+    if (!discountFor?.discount) return;
+    if (!confirm(
+      `Tirar o desconto fixo de ${discountFor.label}?\n\nOs créditos que ele já lançou nas aulas realizadas também saem, e o que a família deve volta ao valor cheio. Abatimentos pontuais lançados à mão não são afetados.`
+    )) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("set_account_discount", {
+      _student: discountFor.student,
+      _guardian: discountFor.guardian,
+      _kind: null,
+      _value: null,
+    });
+    setBusy(false);
+    if (error) { haptics.warning(); toast.error(error.message); return; }
+    haptics.success();
+    toast.success("Desconto fixo removido");
+    setDiscountFor(null);
     load();
   };
 
@@ -273,6 +396,12 @@ export default function BillingPage() {
                           Aluno: {a.student}
                           {a.items.length > 0 ? ` · ${a.items.length} aula${a.items.length > 1 ? "s" : ""} em aberto` : " · em dia"}
                         </div>
+                        {a.discount && (
+                          <Badge variant="outline" className="mt-1 gap-1 text-[10px] font-normal">
+                            <Percent className="h-2.5 w-2.5" />
+                            Desconto fixo de {describeDiscount(a.discount)}
+                          </Badge>
+                        )}
                       </div>
                     </button>
                     <div className="flex items-center gap-3 ml-auto">
@@ -296,9 +425,14 @@ export default function BillingPage() {
                           </>
                         )}
                       </div>
-                      <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
-                        <Plus className="w-4 h-4" /> Pagamento
-                      </Button>
+                      <div className="flex flex-col gap-1.5">
+                        <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
+                          <Plus className="w-4 h-4" /> Pagamento
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
+                          <Percent className="w-3.5 h-3.5" /> Desconto
+                        </Button>
+                      </div>
                     </div>
                   </div>
 
@@ -415,8 +549,10 @@ export default function BillingPage() {
                   <Label>Voucher junto (R$)</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Desconto do pacote em crédito, já que as aulas entram a R$ {LIST_PRICE}/h.
-                    Pacote de 10 → R$ 200. Pacote de 5 → R$ 50.
+                    Desconto do pacote em crédito, já que as aulas entram a {fmtMoney(listPrice)}/h.
+                    Os botões de pacote acima trazem R$ 200 e R$ 50, que são os valores
+                    combinados para a aula a R$ 220/h — se você mudou o valor da aula,
+                    confira no aviso abaixo quanto sobra em aberto.
                   </p>
                 </div>
               )}
@@ -448,6 +584,134 @@ export default function BillingPage() {
           <DialogFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setPayFor(null)}>Cancelar</Button>
             <Button className="rounded-xl" onClick={submitPay} disabled={busy}>Registrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!discountFor} onOpenChange={v => !v && setDiscountFor(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Aplicar desconto</DialogTitle>
+            <DialogDescription>
+              {discountFor?.label}
+              {discountFor?.discount && ` · hoje com desconto fixo de ${describeDiscount(discountFor.discount)}`}
+            </DialogDescription>
+          </DialogHeader>
+          {discountFor && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-[auto_1fr] gap-3">
+                <div>
+                  <Label>Em</Label>
+                  <div className="mt-1 flex rounded-xl border border-border p-0.5">
+                    {(["percent", "amount"] as DiscountKind[]).map(k => (
+                      <button key={k} type="button" onClick={() => setDKind(k)}
+                        className={`h-10 w-14 rounded-lg text-sm font-medium transition-colors ${dKind === k ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                        {k === "percent" ? "%" : "R$"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <Label>{dKind === "percent" ? "Porcentagem" : "Valor por aula (R$)"}</Label>
+                  <Input
+                    type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl"
+                    value={dValue} onChange={e => setDValue(e.target.value)}
+                    placeholder={dKind === "percent" ? "Ex.: 10" : "Ex.: 30"}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Aplicar em</Label>
+                {([
+                  {
+                    key: "always" as const,
+                    title: "Todas as aulas desta família, sempre",
+                    body: "Vale para as aulas que já aconteceram e para as próximas, sozinho. Mudar ou tirar depois recalcula tudo.",
+                  },
+                  {
+                    key: "open" as const,
+                    title: `Só o que está em aberto agora${discountFor.items.length ? ` (${discountFor.items.length})` : ""}`,
+                    body: "Um abatimento de uma vez, sobre cada cobrança em aberto. Não vale para as próximas aulas.",
+                    disabled: discountFor.items.length === 0,
+                  },
+                  {
+                    key: "lesson" as const,
+                    title: "Só uma aula",
+                    body: "Um abatimento de uma vez, na aula escolhida.",
+                    disabled: discountFor.items.length === 0,
+                  },
+                ]).map(o => (
+                  <button
+                    key={o.key} type="button" disabled={o.disabled}
+                    onClick={() => setDScope(o.key)}
+                    className={`w-full rounded-xl border px-3 py-2.5 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${dScope === o.key ? "border-primary bg-primary/10" : "border-border hover:bg-muted"}`}
+                  >
+                    <div className={`text-sm font-medium ${dScope === o.key ? "text-primary" : ""}`}>{o.title}</div>
+                    <div className="text-xs text-muted-foreground">{o.body}</div>
+                  </button>
+                ))}
+              </div>
+
+              {dScope === "lesson" && (
+                <div>
+                  <Label>Qual aula</Label>
+                  <select
+                    className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                    value={dItemId} onChange={e => setDItemId(e.target.value)}
+                  >
+                    {discountFor.items.map(i => (
+                      <option key={i.id} value={i.id}>
+                        {format(new Date(i.date), "dd/MM HH:mm", { locale: ptBR })} · {i.detail} · {fmtMoney(i.amount)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  {!dOk ? (
+                    dKind === "percent"
+                      ? "Informe uma porcentagem entre 0 e 100."
+                      : "Informe quanto sai de cada aula, em reais."
+                  ) : dScope === "always" ? (
+                    <>
+                      Cada aula continua valendo o preço cheio e o desconto entra como
+                      crédito na carteira — é isso que mantém o extrato fechando.
+                      {discountFor.items.length > 0
+                        ? ` Nas ${discountFor.items.length} cobrança(s) em aberto de hoje, isso dá ${fmtMoney(dPreview)}.`
+                        : " Ainda não há aulas em aberto, então o efeito aparece na próxima aula realizada."}
+                    </>
+                  ) : dScope === "lesson" ? (
+                    dItem
+                      ? `Entra um crédito de ${fmtMoney(dPreview)} na carteira da família. As próximas aulas seguem pelo valor cheio.`
+                      : "Escolha a aula."
+                  ) : (
+                    `Entra um crédito de ${fmtMoney(dPreview)}, somando o abatimento de cada uma das ${discountFor.items.length} cobrança(s) em aberto. As próximas aulas seguem pelo valor cheio.`
+                  )}
+                </span>
+              </div>
+
+              {dKind === "amount" && dScope !== "lesson" && (
+                <p className="text-[11px] text-muted-foreground">
+                  Em reais o valor sai de <strong className="text-foreground">cada</strong> aula,
+                  não do total, e nunca passa do que a própria aula custa.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            {discountFor?.discount ? (
+              <Button variant="destructive" className="rounded-xl" onClick={removeDiscount} disabled={busy}>
+                Tirar desconto fixo
+              </Button>
+            ) : <span />}
+            <div className="flex gap-2">
+              <Button variant="outline" className="rounded-xl" onClick={() => setDiscountFor(null)}>Cancelar</Button>
+              <Button className="rounded-xl" onClick={submitDiscount} disabled={busy}>Aplicar</Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>

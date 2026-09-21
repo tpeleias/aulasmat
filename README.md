@@ -22,7 +22,14 @@ npm run dev   # http://localhost:8080
 npm run build   # gera dist/
 npx tsc --noEmit -p tsconfig.app.json   # checagem de tipos
 npm test   # testes
+./scripts/espelho-local.sh   # sobe um Postgres, replaya as migrations e testa RLS
 ```
+
+**Mexeu em migration, política de acesso ou função do banco? Rode o espelho.**
+As regras de acesso estão no Postgres, não na tela, e ele é a única forma de
+exercitá-las sem tocar em dado de aluno real. Os testes rodam como o papel
+`authenticated` — rodar como dono do banco ignoraria RLS e daria um "tudo certo"
+falso.
 
 As chaves do Supabase ficam no `.env`, que é versionado de propósito: são as
 chaves públicas (`anon`), o Android embute o `dist/` no `.aab`, e sem elas o
@@ -41,6 +48,7 @@ de RLS, não o segredo da chave.
 | App Android (Capacitor) | `android/` |
 | Marca: paleta e tipografia | `src/index.css`, `src/components/brand.tsx` |
 | Marca: ícones, splash, og-image | `scripts/gerar-identidade.py` |
+| Espelho local do banco, para testar RLS | `scripts/espelho-local.sh` |
 | Notas de trabalho entre conversas | `docs/proximos-passos.md` |
 | Publicar na Play Store | `docs/publicar-na-play.md` |
 

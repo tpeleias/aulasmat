@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_discounts: {
+        Row: {
+          account_id: string
+          created_at: string
+          guardian_name: string | null
+          id: string
+          kind: string
+          note: string | null
+          student_name: string
+          updated_at: string
+          value: number
+        }
+        Insert: {
+          account_id?: string
+          created_at?: string
+          guardian_name?: string | null
+          id?: string
+          kind: string
+          note?: string | null
+          student_name: string
+          updated_at?: string
+          value: number
+        }
+        Update: {
+          account_id?: string
+          created_at?: string
+          guardian_name?: string | null
+          id?: string
+          kind?: string
+          note?: string | null
+          student_name?: string
+          updated_at?: string
+          value?: number
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -267,6 +303,7 @@ export type Database = {
         Row: {
           allow_student_booking: boolean
           contact_email: string | null
+          default_lesson_price: number
           id: number
           payment_link: string | null
           pix_key: string | null
@@ -285,6 +322,7 @@ export type Database = {
         Insert: {
           allow_student_booking?: boolean
           contact_email?: string | null
+          default_lesson_price?: number
           id?: number
           payment_link?: string | null
           pix_key?: string | null
@@ -303,6 +341,7 @@ export type Database = {
         Update: {
           allow_student_booking?: boolean
           contact_email?: string | null
+          default_lesson_price?: number
           id?: number
           payment_link?: string | null
           pix_key?: string | null
@@ -580,8 +619,20 @@ export type Database = {
         Args: { _guardian: string; _student: string }
         Returns: undefined
       }
+      set_account_discount: {
+        Args: {
+          _account?: string
+          _guardian: string
+          _kind?: string | null
+          _note?: string | null
+          _student: string
+          _value?: number | null
+        }
+        Returns: Json
+      }
       register_payment: {
         Args: {
+          _account?: string
           _amount: number
           _description?: string
           _guardian: string

@@ -836,3 +836,105 @@ anterior ao Cronys), só que com o nome antigo. Quem está atualizado é o
 **Se a pressa for a Play:** apontar a política para
 `https://cronys.lovable.app/privacidade` resolve na hora e com a marca certa,
 sem depender de crédito nenhum.
+
+## Valor da aula e desconto por família (21/09) — feito
+
+Pedido do Thiago: poder mudar o próprio valor da aula sem reprogramar, e poder
+dar desconto (em R$ ou em %) para um responsável específico — numa aula só, no
+que está em aberto, ou em todas.
+
+### O valor da aula saiu do código
+
+R$ 220/h estava escrito literalmente em seis lugares: o `DEFAULT` da coluna
+`lessons.price`, `LessonDialog`, `BillingPage`, o portal da família e o prompt
+do assistente de IA. Agora é `settings.default_lesson_price`, uma linha por
+empresa, editável em **Configurações → Valor da aula**.
+
+Detalhe que decidiu o desenho: o preenchimento virou **gatilho**
+(`lessons_fill_price`), não `DEFAULT` de coluna. Um `DEFAULT` não enxerga as
+outras colunas da própria linha, e é `account_id` que decide o preço. Fosse uma
+função baseada na empresa "em vigor", o assistente de IA — que grava com chave
+mestra, sem usuário logado — cairia na empresa do endereço público e carimbaria
+o preço do Thiago dentro da aula de outra empresa. Está coberto por teste.
+
+Quem cria aula agora **omite** o preço (portal da família e assistente) e deixa
+o banco preencher. Mudar o valor vale para as próximas aulas; as que já estão na
+agenda ficam com o valor que tinham.
+
+### O desconto tem duas formas, de propósito
+
+A regra que não mudou: **toda aula entra pelo valor cheio e todo desconto é
+crédito na carteira.** Reescrever `lessons.price` por família foi tentado e
+rejeitado em 20260912050000, porque aula reprecificada faz o extrato deixar de
+fechar em zero.
+
+- **Desconto fixo da família** (`account_discounts`, um por conta): o banco
+  lança o crédito sozinho a cada aula realizada. É sempre **recalculado** a
+  partir do desconto vigente — mudar o percentual recalcula as aulas
+  realizadas, tirar o desconto apaga esses créditos. Não há estado meio-velho.
+- **Abatimento pontual** (uma aula, ou tudo o que está em aberto): entra como
+  voucher **sem `lesson_id`** e fica parado onde está. É isso que separa os
+  dois: voucher com aula é do gatilho, voucher sem aula é de quem lançou à mão,
+  e o gatilho nunca encosta no segundo.
+
+Em reais, o desconto sai de **cada** aula (não do total) e nunca passa do valor
+dela — abater mais que a aula custa viraria crédito do nada. `src/lib/discount.ts`
+espelha `public.lesson_discount`; os dois têm os mesmos casos de teste, porque
+divergir faria a tela prometer um desconto e a carteira lançar outro.
+
+O desconto é da **conta**, não do aluno: havendo responsável, dois irmãos
+dividem o mesmo desconto — a mesma regra de `accountKey`.
+
+### Buraco de segurança encontrado no caminho ⚠️
+
+Ao testar a função nova, que nasceu copiando a guarda de `register_payment`:
+
+```sql
+IF NOT (has_role(auth.uid(), 'admin')
+        OR current_user IN ('postgres', 'service_role', 'supabase_admin')  -- <—
+        OR <claim role = service_role>) THEN RAISE EXCEPTION 'not allowed';
+```
+
+Dentro de uma função `SECURITY DEFINER`, **`current_user` é o dono da função**
+(postgres), nunca quem chamou. A segunda condição era sempre verdadeira e a
+guarda inteira passava para qualquer um. Na prática: **qualquer responsável
+logado podia chamar `register_payment` pela API e creditar o que quisesse na
+própria carteira, zerando a dívida.** Reproduzido no espelho local com o papel
+`authenticated` e `session_user` `authenticator`, que é exatamente como o
+PostgREST chama.
+
+Corrigido para `session_user`, nas duas funções. O teste de invasão de setembro
+não pegou isso porque exercitou escrita **direta em tabela** (barrada por RLS),
+e não as rotinas `SECURITY DEFINER` chamadas por RPC. **Vale varrer as outras
+funções desse tipo com o mesmo olhar.**
+
+### O espelho local virou script
+
+A nota antiga dizia "vale reconstruir isso na próxima sessão" — foi reconstruído
+e agora está versionado, para não se perder de novo:
+
+- `scripts/espelho-local.sh` — levanta o Postgres 16, replaya as 41 migrations
+  sobre os stubs e roda os testes. `--keep` deixa o servidor no ar.
+- `scripts/espelho-stubs.sql` — o que o Supabase entrega pronto (`auth.uid()`,
+  papéis, `storage`, publicação de realtime, e um `pg_cron` de mentira).
+- `scripts/espelho-testes.sql` — 12 blocos, 32 asserções, rodando como
+  `authenticated` com `session_user` `authenticator`.
+
+O bloco 12 cobre o caminho que mais importa em produção e que é fácil esquecer:
+quase nenhuma aula é marcada como realizada à mão — quem marca é
+`mark_past_lessons_realizada`, pelo pg_cron, sem ninguém logado. Se o desconto
+dependesse de `auth.uid()`, funcionaria na tela e falharia toda noite, em
+silêncio.
+
+### O que ficou de fora, e por quê
+
+- **Os botões de pacote continuam com valores fixos** (R$ 2.000 + voucher R$ 200;
+  R$ 1.050 + voucher R$ 50). São preço negociado, não conta a partir do valor da
+  hora, então derivá-los seria inventar política. Se o Thiago mudar o valor da
+  aula, esses dois botões precisam ser revistos à mão — o aviso do diálogo de
+  pagamento já mostra quanto sobraria em aberto, e o texto ao lado do campo de
+  voucher agora diz que eles assumem R$ 220/h. **Decidir com ele se viram
+  configuração também.**
+- **A migration precisa ser aplicada na produção.** Enquanto não for, nada disso
+  existe lá — inclusive a correção do `register_payment`, que é a parte urgente.
+

@@ -73,7 +73,7 @@ const tools = [
         start_at: { type: "string", description: "Data/hora ISO 8601 de início" },
         duration_minutes: { type: "number", description: "Em minutos. Se não especificado pelo usuário, use 60 (padrão)." },
         subject: { type: "string", description: "Ex: Matemática, Química, Ciências" },
-        price: { type: "number", description: "Valor da aula POR HORA em reais (R$/h) — não é o total da aula, o débito na carteira é calculado como price × duração/60. Use sempre 220, inclusive para aluno de pacote (o desconto do pacote entra como voucher no financeiro)." },
+        price: { type: "number", description: "Valor da aula POR HORA em reais (R$/h) — não é o total da aula, o débito na carteira é calculado como price × duração/60. OMITA este campo: sem ele o sistema usa o valor de aula configurado pela empresa. Só informe quando o professor pedir um valor diferente para esta aula específica. Nunca baixe o valor por causa de pacote ou de desconto — os dois entram como voucher no financeiro." },
         package_type: { type: "string", enum: ["avulsa", "pacote"], description: "Padrão avulsa" },
         is_online: { type: "boolean", description: "Padrão false" },
         address: { type: "string", description: "Endereço da aula presencial (com complemento/apto se houver)" },
@@ -279,7 +279,10 @@ async function executeTool(admin: ReturnType<typeof createClient>, accountId: st
         start_at: input.start_at,
         duration_minutes: input.duration_minutes ?? 60,
         subject: input.subject ?? null,
-        price: input.price ?? 220,
+        // Sem preço, o banco preenche com o valor da empresa (gatilho
+        // lessons_fill_price). Cravar 220 aqui carimbava o preço do Thiago
+        // dentro da aula de qualquer outra empresa.
+        ...(input.price != null ? { price: Number(input.price) } : {}),
         package_type: input.package_type ?? "avulsa",
         is_online: !!input.is_online,
         address: input.address ?? null,
@@ -403,17 +406,36 @@ Deno.serve(async (req) => {
 
     const nowSaoPaulo = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "full", timeStyle: "short" });
 
+    // O valor da aula é de cada empresa, e o prompt precisa falar do valor
+    // certo: com o número cravado, o assistente de outra empresa anunciava o
+    // preço do Thiago. Idem os descontos fixos - sem eles na conversa, o
+    // assistente explicaria errado por que a família deve menos do que a soma
+    // das aulas.
+    const { data: settingsRow } = await admin
+      .from("settings").select("default_lesson_price").eq("account_id", accountId).maybeSingle();
+    const listPrice = Number(settingsRow?.default_lesson_price) || 220;
+    const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    const { data: discountRows } = await admin
+      .from("account_discounts").select("student_name, guardian_name, kind, value").eq("account_id", accountId);
+    const discountLine = (discountRows ?? []).length === 0
+      ? "Nenhuma família tem desconto fixo no momento."
+      : (discountRows ?? []).map((d: { student_name: string; guardian_name: string | null; kind: string; value: number }) =>
+          `${(d.guardian_name ?? "").trim() || `aluno ${d.student_name}`}: ${d.kind === "percent" ? `${Number(d.value)}%` : brl(Number(d.value)) + " por aula"}`
+        ).join("; ");
+
     const systemPrompt = `Você é o assistente do Cronys, o app que um professor particular usa para gerenciar aulas, alunos e financeiro (carteira).
 
 Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
 Regras importantes:
-- Preço e duração padrão: TODA aula custa R$220,00 por hora e dura 60 minutos, a menos que o usuário diga um valor ou duração diferente. Isso vale inclusive para alunos de pacote — nunca lance uma aula com valor menor por causa de pacote.
+- Preço e duração padrão: nesta empresa a aula custa ${brl(listPrice)} por hora e dura 60 minutos. Ao criar uma aula, OMITA o campo "price" — o sistema preenche com esse valor sozinho. Só informe "price" quando o professor pedir um valor diferente para aquela aula. Nunca lance uma aula com valor menor por causa de pacote ou de desconto: o valor da aula é sempre o cheio, e o abatimento entra como voucher no financeiro. Se o professor quiser mudar o valor de todas as próximas aulas, o lugar é Configurações → Valor da aula (não dá para mudar por aqui).
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
 - Financeiro: toda aula realizada vira uma cobrança automática pelo valor cheio. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
-- Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. Pacote de 10 aulas: amount 2000 e voucher_amount 200 (10 x R$220 = R$2.200 = R$2.000 + R$200). Pacote de 5 aulas: amount 1050 e voucher_amount 50 (5 x R$220 = R$1.100 = R$1.050 + R$50). Assim a conta fecha exata e não sobra diferença.
+- Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. O dinheiro recebido entra como amount e o voucher cobre a diferença até o valor cheio, para a conta fechar exata. Com a aula a ${brl(listPrice)}: 10 aulas somam ${brl(listPrice * 10)} e 5 aulas somam ${brl(listPrice * 5)} — confirme com o professor quanto ele recebeu e lance o voucher pela diferença. Se ele disser só "pacote de 10", pergunte o valor recebido em vez de supor.
 - Voucher avulso (desconto ou cortesia combinada pelo professor): add_wallet_credit com amount 0 e voucher_amount igual ao desconto. Voucher é sempre crédito para o aluno, nunca cobrança.
+- Desconto fixo de família: o professor pode marcar um desconto permanente para uma família na tela de Cobrança. Quando existe, o sistema lança o crédito sozinho a cada aula realizada, e por isso a família deve menos que a soma das aulas — isso é esperado, não é erro. Você NÃO cria nem altera desconto fixo: se o professor pedir, diga que é em Cobrança → botão Desconto na conta da família. Descontos fixos hoje: ${discountLine}
 - Solicitações de aula: quando o aluno pede um horário pelo portal, a aula nasce com status "solicitada" e só entra na agenda depois que o professor aprova. Para responder, use update_lesson com status "agendada" (aprova) ou "recusada" (recusa e libera o horário). Um pedido "solicitada" já reserva o horário, então não sugira marcar outra aula em cima dele. Nunca aprove ou recuse sem o professor confirmar na conversa.
 - Seja direto e conciso nas respostas, em português do Brasil.
 

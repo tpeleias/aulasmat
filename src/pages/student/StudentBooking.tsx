@@ -104,7 +104,9 @@ export default function StudentBooking() {
       subject: subject.trim(),
       start_at: start.toISOString(),
       duration_minutes: settings?.slot_minutes ?? 60,
-      price: 220,
+      // Sem preço aqui de propósito: quem preenche é o banco, com o valor da
+      // empresa dona da aula (gatilho lessons_fill_price). Mandar um número
+      // daqui seria cravar o preço do professor dentro do portal da família.
       package_type: "single",
       payment_status: "pendente",
       teacher,

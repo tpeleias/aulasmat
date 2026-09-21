@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { FALLBACK_LESSON_PRICE, primeLessonPrice } from "@/hooks/useLessonPrice";
+import { fmtMoney } from "@/lib/balance";
 
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
@@ -20,6 +22,7 @@ const SCARCITY_PADRAO: Scarcity = {
 
 type Settings = {
   work_start: string; work_end: string; slot_minutes: number;
+  default_lesson_price: number;
   scarcity: Scarcity;
   pix_key: string | null; payment_link: string | null;
   contact_email: string | null;
@@ -31,6 +34,7 @@ type Settings = {
 export default function SettingsPage() {
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
+    default_lesson_price: FALLBACK_LESSON_PRICE,
     scarcity: SCARCITY_PADRAO,
     pix_key: "", payment_link: "", contact_email: "",
     show_payment_info_to_students: false,
@@ -54,9 +58,16 @@ export default function SettingsPage() {
 
   const save = async () => {
     if (rowId === null) { toast.error("Configurações ainda carregando"); return; }
+    // O banco recusa valor zerado ou negativo; avisar aqui evita a mensagem
+    // crua do Postgres, e a checagem de lá continua sendo a que vale.
+    if (!(Number(s.default_lesson_price) > 0)) {
+      toast.error("O valor da aula precisa ser maior que zero");
+      return;
+    }
     const { id: _id, account_id: _account, ...rest } = s as any;
     const payload = {
       ...rest,
+      default_lesson_price: Number(s.default_lesson_price),
       scarcity: Object.fromEntries(DIAS.map((_, i) => {
         const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
         const min = clamp(d.min, 1, 12);
@@ -67,7 +78,14 @@ export default function SettingsPage() {
       contact_email: (s.contact_email || "").trim() || null,
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
-    if (error) toast.error(error.message); else { setS({ ...s, ...payload } as any); toast.success("Configurações salvas"); }
+    if (error) toast.error(error.message);
+    else {
+      setS({ ...s, ...payload } as any);
+      // As outras telas leem o valor de um cache; sem isto, o diálogo de nova
+      // aula continuaria abrindo com o preço antigo até recarregar a página.
+      primeLessonPrice(payload.default_lesson_price);
+      toast.success("Configurações salvas");
+    }
   };
 
   return (
@@ -84,6 +102,40 @@ export default function SettingsPage() {
           <div><Label>Fim do dia</Label><Input type="time" value={s.work_end.slice(0,5)} onChange={e => setS({ ...s, work_end: e.target.value })} /></div>
         </div>
         <div><Label>Duração do slot (min)</Label><Input type="number" value={s.slot_minutes} onChange={e => setS({ ...s, slot_minutes: Number(e.target.value) })} /></div>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Valor da aula</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Quanto custa uma hora de aula. É com este valor que toda aula nova
+            nasce — na agenda, no portal da família e no assistente.
+          </p>
+        </div>
+        <div>
+          <Label>Valor por hora (R$/h)</Label>
+          <Input
+            type="number"
+            min={1}
+            step="0.01"
+            inputMode="decimal"
+            value={s.default_lesson_price}
+            onChange={e => setS({ ...s, default_lesson_price: Number(e.target.value) })}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Uma aula de 1 hora sai por{" "}
+            <strong className="text-foreground">{fmtMoney(Number(s.default_lesson_price) || 0)}</strong>;
+            uma de 90 min, por{" "}
+            <strong className="text-foreground">{fmtMoney((Number(s.default_lesson_price) || 0) * 1.5)}</strong>.
+          </p>
+        </div>
+        <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+          Mudar aqui vale para as <strong className="text-foreground">próximas</strong> aulas.
+          As que já estão na agenda ficam com o valor que tinham — para mudar uma
+          delas, abra a aula e edite o valor. Para cobrar menos de uma família
+          sem mexer no valor da aula, use <strong className="text-foreground">Desconto</strong> na
+          tela de Cobrança.
+        </p>
       </Card>
 
       <Card className="p-5 space-y-4">
