@@ -1077,7 +1077,37 @@ o código publicado e comparar com o arquivo do repositório.
 1. **Mesclar o `main`.** O Lovable sincroniza do `main` e está parado no commit
    `2bc9b3a`. Publicar antes de mesclar republicaria o código velho. O Netlify
    também publica sozinho a partir do `main` (quando os créditos voltarem).
-2. **Criar o login do gestor**, como descrito na seção "Gestor da plataforma".
-   Enquanto não existir, `/gestor` responde "Acesso restrito" para todo mundo —
-   inclusive para você, o que é o comportamento correto.
+2. ~~Criar o login do gestor~~ — **feito em 21/09.**
+
+### O operador da plataforma existe
+
+Login `thiagopeleias` (guardado em `auth.users` como
+`thiagopeleias@aluno.sistema.local`, porque o app converte todo login sem "@"
+para esse domínio interno). É uma conta **separada** do
+`thiagopeleias@gmail.com`, que continua sendo o admin da empresa Portal de
+Aulas — são dois logins diferentes, de propósito.
+
+Criado por SQL, seguindo a checklist desta mesma página: as colunas de texto de
+`auth.users` como `''` e nunca `NULL`, `confirmed_at` e `identities.email`
+deixadas de fora por serem `GENERATED ALWAYS`, linha em `auth.identities`, e o
+`DELETE FROM user_roles` na mesma transação — o gatilho `handle_new_user` tinha
+acabado de pôr o login dentro da empresa de produção como `student`.
+
+Conferido na produção, entrando como ele (papel `authenticated`, com o claim
+`sub` dele):
+
+| Verificação | Resultado |
+|---|---|
+| Reconhecido como operador | sim |
+| Empresas no painel | 3 |
+| Aulas / alunos / financeiro / histórico / professores que ele lê | **0 de cada** |
+| Lista de operadores que ele lê | 0 |
+| Empresa em vigor para ele | nenhuma |
+
+Também conferido que a senha bate (`crypt`) e que nenhuma coluna de
+`auth.users` ficou vazia em relação a um login que já funciona.
+
+**A senha combinada foi dita em conversa e por isso deve ser trocada** assim que
+ele entrar pela primeira vez — o app tem "trocar senha", e o Supabase também
+permite pelo painel.
 
