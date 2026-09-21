@@ -388,4 +388,185 @@ SELECT public.assert((SELECT count(*) FROM public.wallet_transactions
 COMMIT;
 
 \echo ''
+
+\echo ''
+\echo '--- 13. O gestor da plataforma ---'
+
+DO $$
+DECLARE _op uuid := gen_random_uuid();
+BEGIN
+  -- O operador é uma conta SEM empresa: nenhuma linha em user_roles.
+  INSERT INTO auth.users (id, email) VALUES (_op, 'gestor@x');
+  DELETE FROM public.user_roles WHERE user_id = _op;
+  INSERT INTO public.platform_admins (user_id, note) VALUES (_op, 'teste');
+  PERFORM set_config('teste.op', _op::text, false);
+END $$;
+
+-- A trava que mais importa: o operador enxerga CONTAGENS e nada mais.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+
+SELECT public.assert((SELECT count(*) FROM public.platform_accounts_overview()) = 2,
+  'o operador vê as 2 empresas no painel');
+SELECT public.assert((SELECT alunos FROM public.platform_accounts_overview() WHERE slug = 'portaldeaulas') = 2,
+  'e as contagens de cada uma (2 alunos na empresa A)');
+SELECT public.assert((SELECT responsaveis FROM public.platform_accounts_overview() WHERE slug = 'portaldeaulas') = 1,
+  'responsáveis contam a família, não o aluno (Bia e Caio = 1 responsável)');
+
+-- Sem empresa, as políticas de acesso não devolvem linha nenhuma.
+SELECT public.assert((SELECT count(*) FROM public.lessons) = 0, 'o operador não lê aula de ninguém');
+SELECT public.assert((SELECT count(*) FROM public.students) = 0, 'nem aluno');
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions) = 0, 'nem o financeiro');
+SELECT public.assert((SELECT count(*) FROM public.platform_admins) = 0, 'nem a própria lista de operadores');
+SELECT public.assert((SELECT count(*) FROM public.deleted_account_archives) = 0, 'nem o arquivo de exclusões');
+COMMIT;
+
+-- Quem não é operador não chega ao painel, nem sendo admin da própria empresa.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_accounts_overview();
+  RAISE EXCEPTION 'FALHOU: o admin de uma empresa abriu o painel da plataforma';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o admin de uma empresa não abre o painel da plataforma';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.platform_create_account('Pirata', 'pirata');
+  RAISE EXCEPTION 'FALHOU: o admin de uma empresa criou outra empresa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - nem cria empresa';
+END $$;
+ROLLBACK;
+
+\echo ''
+\echo '--- 14. Criar empresa ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+
+SELECT public.assert((public.platform_create_account('Empresa C', 'empresa-c') ->> 'id') IS NOT NULL,
+  'o operador cria uma empresa');
+
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('Outra', 'empresa-c',    'apelido repetido'),
+    ('Outra', 'AB',           'apelido curto demais'),
+    ('Outra', 'Com Maiúscula','apelido com maiúscula e espaço'),
+    ('',      'valido',       'nome vazio')
+  ) AS t(n, s, what) LOOP
+    BEGIN
+      PERFORM public.platform_create_account(r.n, r.s);
+      RAISE EXCEPTION 'FALHOU: aceitou %', r.what;
+    EXCEPTION WHEN sqlstate 'P0001' THEN
+      IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+      RAISE NOTICE '  ok - recusa %', r.what;
+    END;
+  END LOOP;
+END $$;
+COMMIT;
+
+-- Conferido de fora do RLS, porque o operador não enxerga linha de empresa
+-- nenhuma - inclusive a que ele acabou de criar. Essa é justamente a trava
+-- que o bloco 13 verifica.
+SELECT public.assert((SELECT count(*) FROM public.settings s JOIN public.accounts a ON a.id = s.account_id
+                       WHERE a.slug = 'empresa-c') = 1,
+  'a empresa nova já nasce com configurações (senão a primeira tela parece quebrada)');
+SELECT public.assert((SELECT default_lesson_price FROM public.settings s JOIN public.accounts a ON a.id = s.account_id
+                       WHERE a.slug = 'empresa-c') = 220.00,
+  'e com o valor de aula padrão, que o dono dela troca depois');
+
+\echo ''
+\echo '--- 15. Desativar, e só então excluir ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+
+-- A empresa de produção é a do endereço público: não se desativa nem se apaga.
+DO $$
+BEGIN
+  PERFORM public.platform_set_account_active(current_setting('teste.a')::uuid, false);
+  RAISE EXCEPTION 'FALHOU: desativou a empresa do endereço público';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - não desativa a empresa do endereço público';
+END $$;
+
+-- Empresa ativa não se apaga, nem com o nome certo.
+DO $$
+BEGIN
+  PERFORM public.platform_delete_account(current_setting('teste.b')::uuid, 'Empresa B');
+  RAISE EXCEPTION 'FALHOU: apagou uma empresa ativa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - não apaga empresa ativa (precisa desativar antes)';
+END $$;
+
+SELECT public.platform_set_account_active(current_setting('teste.b')::uuid, false);
+
+-- Desativada, mas com o nome errado: continua não apagando.
+DO $$
+BEGIN
+  PERFORM public.platform_delete_account(current_setting('teste.b')::uuid, 'empresa b');
+  RAISE EXCEPTION 'FALHOU: apagou com o nome digitado errado';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - não apaga com o nome digitado errado';
+END $$;
+COMMIT;
+
+\echo ''
+\echo '--- 16. A exclusão apaga tudo, e guarda tudo ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_delete_account(current_setting('teste.b')::uuid, 'Empresa B')
+                      -> 'counts' ->> 'lessons')::int = 1,
+  'a exclusão relata o que levou junto (1 aula da empresa B)');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((SELECT count(*) FROM public.platform_accounts_overview() WHERE slug = 'b') = 0,
+  'a empresa sumiu do painel');
+COMMIT;
+
+-- Nada da empresa B sobrou espalhado pelo banco...
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Duda') = 0,
+  'e as aulas dela sumiram junto');
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions
+                       WHERE account_id = current_setting('teste.b')::uuid) = 0,
+  'e o financeiro dela também');
+
+-- ...mas está tudo guardado, que é o que torna essa exclusão reversível.
+SELECT public.assert((SELECT jsonb_array_length(payload -> 'lessons') FROM public.deleted_account_archives
+                       WHERE slug = 'b') = 1,
+  'o arquivo guardou a aula, linha por linha, para dar para voltar atrás');
+SELECT public.assert((SELECT payload -> 'account' ->> 'name' FROM public.deleted_account_archives
+                       WHERE slug = 'b') = 'Empresa B',
+  'e guardou a própria empresa');
+
+-- A empresa de produção passou por tudo isso intacta.
+SELECT public.assert((SELECT count(*) FROM public.lessons
+                       WHERE account_id = current_setting('teste.a')::uuid) = 3,
+  'a empresa A não perdeu nenhuma das 3 aulas dela no processo');
+
+\echo ''
 \echo '=== FIM ==='

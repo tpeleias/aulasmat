@@ -7,11 +7,19 @@ type Ctx = {
   session: Session | null;
   user: User | null;
   isAdmin: boolean;
+  // O operador da plataforma é uma conta sem empresa: nenhum papel, nenhuma
+  // linha de nenhuma empresa. Só o gestor responde para ele.
+  isPlatformAdmin: boolean;
   role: Role;
   loading: boolean;
   signOut: () => Promise<void>;
 };
-const AuthContext = createContext<Ctx>({ session: null, user: null, isAdmin: false, role: null, loading: true, signOut: async () => {} });
+const AuthContext = createContext<Ctx>({ session: null, user: null, isAdmin: false, isPlatformAdmin: false, role: null, loading: true, signOut: async () => {} });
+
+async function fetchPlatformAdmin(): Promise<boolean> {
+  const { data } = await supabase.rpc("is_platform_admin");
+  return data === true;
+}
 
 async function fetchRole(userId: string): Promise<Role> {
   const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
@@ -27,17 +35,24 @@ async function fetchRole(userId: string): Promise<Role> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role>(null);
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
       setSession(s);
-      if (s?.user) setTimeout(async () => setRole(await fetchRole(s.user.id)), 0);
-      else setRole(null);
+      if (s?.user) setTimeout(async () => {
+        setRole(await fetchRole(s.user.id));
+        setIsPlatformAdmin(await fetchPlatformAdmin());
+      }, 0);
+      else { setRole(null); setIsPlatformAdmin(false); }
     });
     supabase.auth.getSession().then(async ({ data: { session: s } }) => {
       setSession(s);
-      if (s?.user) setRole(await fetchRole(s.user.id));
+      if (s?.user) {
+        setRole(await fetchRole(s.user.id));
+        setIsPlatformAdmin(await fetchPlatformAdmin());
+      }
       setLoading(false);
     });
     return () => sub.subscription.unsubscribe();
@@ -47,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider value={{
       session, user: session?.user ?? null,
       isAdmin: role === "admin",
+      isPlatformAdmin,
       role,
       loading,
       signOut: async () => { await supabase.auth.signOut(); },

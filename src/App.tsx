@@ -33,6 +33,7 @@ import ChangePassword from "./pages/student/ChangePassword";
 import ChildLayout from "./components/ChildLayout";
 import ChildDashboard from "./pages/child/ChildDashboard";
 import AndroidBackButton from "./components/AndroidBackButton";
+import PlatformPage from "./pages/platform/PlatformPage";
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
               <Route path="materiais" element={<StudentMaterials />} />
               <Route path="tarefas" element={<StudentHomework />} />
             </Route>
+            <Route path="/gestor" element={<PlatformPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

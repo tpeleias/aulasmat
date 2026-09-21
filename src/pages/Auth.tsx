@@ -14,7 +14,7 @@ import { haptics } from "@/lib/haptics";
 type Mode = "account" | "child";
 
 export default function Auth() {
-  const { session, role, loading } = useAuth();
+  const { session, role, isPlatformAdmin, loading } = useAuth();
   const [mode, setMode] = useState<Mode>("account");
   const [signup, setSignup] = useState(false);
   const [email, setEmail] = useState("");
@@ -27,6 +27,10 @@ export default function Auth() {
 
   if (loading) return null;
   if (session) {
+    // Antes dos papéis: o operador da plataforma não tem papel nenhum, porque
+    // não pertence a empresa nenhuma. Sem isto ele cairia na tela de "aguarde
+    // o professor te vincular", que não é o caso dele.
+    if (isPlatformAdmin) return <Navigate to="/gestor" replace />;
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "student") return <Navigate to="/aluno" replace />;
     if (role === "child") return <Navigate to="/meu-painel" replace />;

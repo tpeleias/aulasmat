@@ -50,6 +50,54 @@ export type Database = {
         }
         Relationships: []
       }
+      deleted_account_archives: {
+        Row: {
+          account_id: string
+          deleted_at: string
+          deleted_by: string | null
+          id: string
+          name: string
+          payload: Json
+          slug: string
+        }
+        Insert: {
+          account_id: string
+          deleted_at?: string
+          deleted_by?: string | null
+          id?: string
+          name: string
+          payload: Json
+          slug: string
+        }
+        Update: {
+          account_id?: string
+          deleted_at?: string
+          deleted_by?: string | null
+          id?: string
+          name?: string
+          payload?: Json
+          slug?: string
+        }
+        Relationships: []
+      }
+      platform_admins: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       audit_log: {
         Row: {
           action: string
@@ -628,6 +676,43 @@ export type Database = {
           _student: string
           _value?: number | null
         }
+        Returns: Json
+      }
+      is_platform_admin: {
+        Args: never
+        Returns: boolean
+      }
+      platform_accounts_overview: {
+        Args: never
+        Returns: {
+          active: boolean
+          alunos: number
+          aulas: number
+          created_at: string
+          id: string
+          is_public_default: boolean
+          logins: number
+          name: string
+          professores: number
+          responsaveis: number
+          slug: string
+          ultima_aula: string | null
+        }[]
+      }
+      platform_attach_admin: {
+        Args: { _account: string; _user: string }
+        Returns: Json
+      }
+      platform_create_account: {
+        Args: { _name: string; _slug: string }
+        Returns: Json
+      }
+      platform_delete_account: {
+        Args: { _account: string; _confirm_name: string }
+        Returns: Json
+      }
+      platform_set_account_active: {
+        Args: { _account: string; _active: boolean }
         Returns: Json
       }
       register_payment: {

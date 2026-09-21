@@ -938,3 +938,118 @@ silêncio.
 - **A migration precisa ser aplicada na produção.** Enquanto não for, nada disso
   existe lá — inclusive a correção do `register_payment`, que é a parte urgente.
 
+
+## Gestor da plataforma (21/09) — feito
+
+Um painel acima das empresas: ver quais existem, com quantos alunos e
+responsáveis cada uma tem, criar empresa nova já com o login do primeiro admin,
+e desativar ou excluir.
+
+### O desenho que manda em tudo: o operador não tem empresa
+
+A conta do gestor é um login **separado**, que não pertence a empresa nenhuma —
+nenhuma linha em `user_roles`. Consequência direta, e é ela que importa:
+`current_account_id()` dele é nulo, então as políticas de acesso não devolvem
+**nenhuma linha de nenhuma empresa**. Aula, aluno, responsável, financeiro: nada
+chega até ele.
+
+O que ele vê são `count()`, através de `platform_accounts_overview()`, que é
+`SECURITY DEFINER` e guardada por `is_platform_admin()`. Nenhum nome de pessoa
+sai dessa função. É o pedido do Thiago ("não devo nem quero ver os dados delas")
+virado regra do banco, e não promessa de tela.
+
+Está coberto por teste: o bloco 13 do espelho confirma que o operador lê 0 aulas,
+0 alunos, 0 lançamentos, 0 linhas de `platform_admins` e 0 do arquivo de
+exclusões — e que um admin de empresa comum não abre o painel nem cria empresa.
+
+### Como entrar
+
+Login separado, pela mesma tela de sempre. O `Auth` manda para `/gestor` **antes**
+de olhar os papéis, porque o operador não tem papel nenhum e cairia na tela de
+"aguarde o professor te vincular".
+
+**Para criar o operador** (uma vez, no painel do Supabase):
+
+1. Authentication → Users → Add user, com e-mail e senha.
+2. No SQL Editor: `INSERT INTO public.platform_admins (user_id, note) VALUES
+   ('<id do usuário>', 'Thiago');`
+3. Remover o papel que o gatilho deu a ele: `DELETE FROM public.user_roles WHERE
+   user_id = '<id>';` — **este passo não é opcional.** `handle_new_user` joga
+   todo usuário novo na empresa do endereço público, que é a de produção. Sem
+   apagar, o "operador sem empresa" nasce dentro da empresa real e passa a
+   enxergar os dados dela.
+
+`platform_admins` tem RLS ligada e **nenhuma política**: entrar nessa lista é ato
+deliberado no painel, nunca de dentro do app.
+
+### Excluir sem que "excluir" queira dizer "perder"
+
+Decisão do Thiago: desativar é o normal, excluir existe mas tem que ser
+absolutamente seguro. Quatro travas, todas ao mesmo tempo:
+
+1. só operador da plataforma;
+2. a empresa precisa estar **desativada** — não dá para apagar uma em
+   funcionamento;
+3. não dá para apagar a empresa do endereço público;
+4. o nome da empresa precisa ser digitado igual.
+
+E, antes de apagar qualquer coisa, tudo é copiado para
+`deleted_account_archives` em JSON, linha por linha, das 13 tabelas. É isso que
+torna a exclusão **reversível** — recuperação é feita por fora, pelo painel do
+Supabase. Os logins são a única coisa que não volta.
+
+O espelho pegou um bug real aqui: apagar as aulas **dispara `log_lesson_audit`**,
+que grava linhas novas em `audit_log`. Apagando o histórico antes das aulas, a
+tabela se repovoava sozinha e o `DELETE` da empresa batia na chave estrangeira no
+fim. A ordem certa é aulas primeiro, histórico depois.
+
+### Criar empresa
+
+`platform_create_account` faz a parte do banco (empresa + linha de `settings`,
+senão a primeira tela do dono parece quebrada). O login do primeiro admin é
+criado pela edge function `platform-console`, pela API oficial de autenticação —
+de novo para não repetir o erro de criar usuário por SQL, com as colunas de texto
+que precisam ser `''` e não `NULL`.
+
+Autorização em dois lugares de propósito: na edge function (que roda com chave
+mestra) e **de novo** dentro de cada RPC, chamada com o token do próprio usuário.
+A segunda é a que vale se a primeira um dia for escrita errado — o inverso do que
+aconteceu com `register_payment`.
+
+**Janela conhecida, pequena:** entre criar o login e chamar
+`platform_attach_admin`, o gatilho `handle_new_user` deixa o usuário novo na
+empresa do endereço público. São milissegundos e a senha acabou de ser escolhida
+pelo operador, mas está registrado aqui porque é real.
+
+### O que falta
+
+- **Restaurar do arquivo** não tem botão: hoje é abrir o `payload` no painel do
+  Supabase e reinserir na mão. Se a exclusão passar a ser usada de verdade, vale
+  uma função `platform_restore_account`.
+- **Trocar a empresa do endereço público** não tem tela; `is_public_default` se
+  troca por SQL. Enquanto só a produção tiver endereço, não incomoda.
+
+## Pacotes configuráveis — PEDIDO, não começado
+
+Pedido do Thiago em 21/09, sem pressa: criar, editar e excluir pacotes pelo app.
+
+Hoje os dois pacotes são **valores fixos no código** (`quickOptions` em
+`BillingPage.tsx`): "Pacote 10 aulas" = R$ 2.000 + voucher R$ 200, e "Pacote 5
+aulas" = R$ 1.050 + voucher R$ 50. Os números assumem a aula a R$ 220/h.
+
+**Por que isso ficou pendente e não foi resolvido junto com o valor da aula:**
+não dá para derivar o preço do pacote do valor da hora — pacote é preço
+negociado, com o desconto que o professor decidiu dar. Derivar seria inventar
+política dele.
+
+**O problema que isso cria agora que o valor da aula é configurável:** se o
+Thiago mudar a aula para R$ 250, "Pacote 10" continua lançando R$ 2.000 + R$ 200
+contra 10 × R$ 250 = R$ 2.500, e sobram R$ 300 em aberto. O aviso do diálogo de
+pagamento mostra isso ("ficam R$ 300 em aberto"), e o texto ao lado do campo de
+voucher avisa que os botões assumem R$ 220/h — mas é aviso, não conserto.
+
+Desenho provável quando for feito: tabela `lesson_packages` por empresa (nome,
+nº de aulas, valor recebido), com o voucher calculado como
+`nº × valor_da_aula − valor_recebido`, e uma tela em Configurações. Os dois
+pacotes de hoje viram as duas primeiras linhas dela.
+
