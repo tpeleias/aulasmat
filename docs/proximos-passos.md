@@ -1053,3 +1053,31 @@ nº de aulas, valor recebido), com o voucher calculado como
 `nº × valor_da_aula − valor_recebido`, e uma tela em Configurações. Os dois
 pacotes de hoje viram as duas primeiras linhas dela.
 
+
+## O que foi para a produção em 21/09
+
+Aplicado no Supabase (`dqfzuviwejlobrwebyum`), pelas migrations
+`lesson_price_and_discounts` e `platform_console`:
+
+- `settings.default_lesson_price` — as três empresas nasceram com 220,00, que é
+  exatamente o que o código cravava antes. **Ninguém sentiu diferença.**
+- `account_discounts`, `platform_admins`, `deleted_account_archives` e as
+  funções novas.
+- **A correção do `register_payment`** — era a parte urgente, e está fechada.
+
+Edge functions republicadas: `assistant-chat` (v12, agora lê o valor da aula e
+os descontos da empresa) e `platform-console` (v1, nova).
+
+**Não foi possível testar as edge functions de fora daqui:** a política de rede
+do ambiente do Claude bloqueia o host do projeto. A conferência foi ler de volta
+o código publicado e comparar com o arquivo do repositório.
+
+### Falta, e depende de você
+
+1. **Mesclar o `main`.** O Lovable sincroniza do `main` e está parado no commit
+   `2bc9b3a`. Publicar antes de mesclar republicaria o código velho. O Netlify
+   também publica sozinho a partir do `main` (quando os créditos voltarem).
+2. **Criar o login do gestor**, como descrito na seção "Gestor da plataforma".
+   Enquanto não existir, `/gestor` responde "Acesso restrito" para todo mundo —
+   inclusive para você, o que é o comportamento correto.
+
