@@ -1135,6 +1135,38 @@ Tudo o que não está na tabela continua igual para os dois planos: portal da
 família, vitrine pública, materiais, tarefas, acesso do filho, widgets.
 **Não foram criadas travas que o Thiago não pediu.**
 
+### PEDIDO PARA O FUTURO (22/09): rebaixar de verdade, com limite retroativo
+
+Hoje rebaixar uma empresa (Pro → Essencial) só trava a criação de coisa nova —
+quem já tinha 15 alunos continua com os 15, só não cadastra o 16º. Isso foi
+decisão de desenho, registrada e testada (bloco 18 do espelho).
+
+**O Thiago quer, no futuro, um rebaixamento que corta de verdade**: tirar
+funcionalidade e aplicar o limite também sobre o que já existe — não só sobre o
+que vem depois. Ele foi explícito que o dado não pode ser perdido (**"deixar
+salvo, óbvio"**), então o desenho não é apagar, é **desativar/ocultar mantendo
+o histórico** — o mesmo espírito da exclusão de empresa (arquiva em vez de
+apagar), aplicado a alunos/professores/recursos individuais dentro de uma
+empresa que continua existindo.
+
+Perguntas que vão precisar de resposta dele quando isso for feito (não
+decidir agora, só registrar que existem):
+
+- Com 15 alunos e limite de 5, **quais 5 continuam ativos**? Os mais antigos?
+  Os que o professor escolher numa tela? Todos ficam inativos até ele escolher?
+- Um aluno "desativado por rebaixamento" ainda aparece pro professor em algum
+  lugar (para ele escolher reativar se voltar ao Pro), ou some da lista como se
+  não existisse?
+- Bloqueio recorrente e desconto fixo que já existiam: desligam sozinhos, ou o
+  professor precisa confirmar?
+- Isso muda o comportamento do teste do bloco 18, que hoje testa exatamente o
+  oposto ("rebaixar não apaga nada") — o teste vai precisar virar o novo
+  comportamento, não só ganhar casos novos.
+
+Não é grande, mas também não é pequeno: é uma tela nova (escolher quem fica
+ativo) mais uma decisão de produto que só o Thiago pode tomar. Fica para
+quando ele voltar a isso.
+
 ### Três decisões, e o porquê de cada uma
 
 **1. Bloqueio pontual fica no Essencial.** Ele tinha pedido bloqueio inteiro no
