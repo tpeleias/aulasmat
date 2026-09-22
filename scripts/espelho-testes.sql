@@ -769,5 +769,109 @@ SELECT public.assert(public.account_can('assistant'), 'com assistente');
 SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro', 'e my_plan() se apresenta como Cronys Pro');
 COMMIT;
 
+
+\echo ''
+\echo '--- 21. Desligar o assistente de uma empresa PRO, a mao ---'
+
+-- A empresa A e Pro. O gestor desliga o assistente dela sem rebaixar o plano.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a')::uuid, NULL, false) ->> 'assistant') = 'false',
+  'o gestor desliga o assistente de uma empresa Pro');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((public.my_plan() ->> 'plano') = 'pro',
+  'a empresa continua Pro');
+SELECT public.assert((public.my_plan() ->> 'assistant') = 'false',
+  'mas sem assistente');
+SELECT public.assert((public.my_plan() ->> 'assistant_override') = 'false',
+  'e o app sabe que foi desligado A MAO, nao pelo plano - e o que decide se a tela vende ou avisa');
+-- O resto do Pro continua de pe: desligar o assistente nao rebaixa nada.
+SELECT public.assert((public.my_plan() -> 'max_students') = 'null'::jsonb,
+  'e o resto do Pro continua: sem limite de alunos');
+SELECT public.assert((public.my_plan() ->> 'packages') = 'true',
+  'e com pacotes');
+COMMIT;
+
+-- E a recusa vale de verdade: nao e so a tela que esconde.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert(public.account_can('assistant') = false,
+  'o banco tambem recusa o assistente para ela (e o que a edge function consulta)');
+COMMIT;
+
+-- Devolver ao plano religa.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
+  'limpar a excecao religa o assistente da empresa Pro');
+COMMIT;
+
+\echo ''
+\echo '--- 22. Renomear empresa ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+
+SELECT public.assert((public.platform_rename_account(current_setting('teste.e')::uuid, '  Escola Nova  ') ->> 'name') = 'Escola Nova',
+  'o gestor renomeia a empresa (e o nome vem sem espacos nas pontas)');
+SELECT public.assert((SELECT name FROM public.platform_accounts_overview() WHERE slug = 'essencial-ltda') = 'Escola Nova',
+  'e o painel ja mostra o nome novo');
+SELECT public.assert((SELECT slug FROM public.platform_accounts_overview() WHERE name = 'Escola Nova') = 'essencial-ltda',
+  'o apelido NAO muda junto - ele vira endereco e quebraria link ja divulgado');
+
+DO $$
+BEGIN
+  PERFORM public.platform_rename_account(current_setting('teste.e')::uuid, '   ');
+  RAISE EXCEPTION 'FALHOU: aceitou nome vazio';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - recusa nome vazio';
+END $$;
+COMMIT;
+
+-- Renomear nao destrava exclusao: a checagem le o nome ATUAL.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_active(current_setting('teste.e')::uuid, false);
+DO $$
+BEGIN
+  PERFORM public.platform_delete_account(current_setting('teste.e')::uuid, 'Essencial Ltda');
+  RAISE EXCEPTION 'FALHOU: apagou usando o nome ANTIGO';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o nome antigo nao serve mais para confirmar a exclusao';
+END $$;
+ROLLBACK;
+
+-- E o admin da empresa nao renomeia a propria empresa.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_rename_account(current_setting('teste.e')::uuid, 'Eu Mesmo SA');
+  RAISE EXCEPTION 'FALHOU: o admin da empresa se renomeou';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o admin da empresa nao renomeia a propria empresa';
+END $$;
+ROLLBACK;
+
 \echo ''
 \echo '=== FIM ==='

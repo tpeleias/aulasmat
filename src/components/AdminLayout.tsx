@@ -16,6 +16,8 @@ import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
 import { haptics } from "@/lib/haptics";
 import { CronysWordmark } from "@/components/brand";
+import { usePlan } from "@/hooks/usePlan";
+import { Badge } from "@/components/ui/badge";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
@@ -34,6 +36,7 @@ const secondary: NavItem[] = [
 ];
 
 export default function AdminLayout() {
+  const { plan, loading: planLoading } = usePlan();
   const { session, isAdmin, role, loading, signOut } = useAuth();
   const defaultTeacher = useDefaultTeacher();
   const { teachers } = useTeachers(true);
@@ -50,6 +53,20 @@ export default function AdminLayout() {
       setSearchParams(searchParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  // Um selo so, usado na lateral (desktop) e no topo (celular). Discreto de
+  // proposito: e informacao, nao propaganda - quem esta no Pro nao precisa ser
+  // lembrado disso o tempo todo.
+  const SeloPlano = ({ className = "" }: { className?: string }) =>
+    planLoading ? null : (
+      <Badge
+        variant={plan.plano === "pro" ? "default" : "outline"}
+        className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
+        title={plan.plano === "pro" ? "Sua conta tem todas as funções" : "Cronys Essencial: 1 professor e 5 alunos"}
+      >
+        {plan.plano === "pro" ? "PRO" : "ESSENCIAL"}
+      </Badge>
+    );
 
   if (loading) return null;
   if (!session) return <Navigate to="/auth" replace />;
@@ -82,7 +99,13 @@ export default function AdminLayout() {
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-            <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">Professor</div></div>
+            <div>
+              <CronysWordmark tamanho="1.25rem" />
+              <div className="mt-1 flex items-center gap-1.5">
+                <span className="text-xs text-sidebar-foreground/60">Professor</span>
+                <SeloPlano />
+              </div>
+            </div>
           </div>
           <nav className="flex flex-col gap-1 p-3 flex-1">
             {primary.map(sidebarLink)}
@@ -113,6 +136,12 @@ export default function AdminLayout() {
         items={primary}
         more={(close) => (
           <div className="space-y-4">
+            {/* No celular nao existe barra lateral, entao o selo do plano mora
+                aqui - e o lugar mais parecido com ela. */}
+            <div className="flex items-center gap-2">
+              <CronysWordmark tamanho="1rem" />
+              <SeloPlano />
+            </div>
             <Button
               className="h-12 w-full justify-start gap-2 rounded-2xl"
               onClick={() => { haptics.tap(); close(); setQuickOpen(true); }}

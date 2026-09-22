@@ -6,7 +6,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Send, Loader2 } from "lucide-react";
+import { Bot, User, Send, Loader2, PowerOff } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import ChatMarkdown from "@/components/ChatMarkdown";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
@@ -140,11 +141,30 @@ export default function AssistantPage() {
             Marcar aula, remarcar, registrar pagamento e consultar o financeiro — conversando.
           </p>
         </div>
-        <ProUpsell titulo="O Assistente e do Cronys Pro" icon={Bot}>
-          Em vez de abrir a agenda e preencher formulario, voce escreve
-          &ldquo;marca com o Miguel quinta as 15h&rdquo; e ele marca. Tambem
-          registra pagamento, responde quanto uma familia deve e remarca aula.
-        </ProUpsell>
+        {plan.assistant_override === false ? (
+          // Desligado a mao pela Cronys. Vender o Pro aqui seria mentira: em
+          // geral quem cai neste caso JA e Pro.
+          <Card className="mx-auto max-w-md rounded-2xl border-dashed p-6 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-muted">
+              <PowerOff className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <h2 className="text-lg font-semibold">Assistente desativado pela Cronys</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              O Assistente da sua conta está temporariamente desligado. Não é o
+              seu plano — o resto do {plan.nome} continua funcionando
+              normalmente.
+            </p>
+            <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+              Para religar, fale com quem cuida da sua conta.
+            </p>
+          </Card>
+        ) : (
+          <ProUpsell titulo="O Assistente é do Cronys Pro" icon={Bot}>
+            Em vez de abrir a agenda e preencher formulário, você escreve
+            &ldquo;marca com o Miguel quinta às 15h&rdquo; e ele marca. Também
+            registra pagamento, responde quanto uma família deve e remarca aula.
+          </ProUpsell>
+        )}
       </div>
     );
   }

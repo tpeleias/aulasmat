@@ -694,6 +694,10 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      platform_rename_account: {
+        Args: { _account: string; _name: string }
+        Returns: Json
+      }
       platform_set_account_plan: {
         Args: {
           _account: string

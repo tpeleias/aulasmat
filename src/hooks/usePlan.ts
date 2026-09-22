@@ -10,6 +10,13 @@ export type Plan = {
   max_teachers: number | null;
   max_students: number | null;
   assistant: boolean;
+  /**
+   * Por que o assistente está como está:
+   * `null` segue o plano, `false` a Cronys desligou à mão, `true` a Cronys
+   * ligou à mão. É isso que decide se a tela VENDE o Pro ou AVISA que foi
+   * desligado - mostrar a venda para quem já é Pro seria mentira.
+   */
+  assistant_override: boolean | null;
   packages: boolean;
   recurring_blocks: boolean;
 };
@@ -23,6 +30,7 @@ export const PLANO_DESCONHECIDO: Plan = {
   max_teachers: 1,
   max_students: 5,
   assistant: false,
+  assistant_override: null,
   packages: false,
   recurring_blocks: false,
 };

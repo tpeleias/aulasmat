@@ -8,6 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { FALLBACK_LESSON_PRICE, primeLessonPrice } from "@/hooks/useLessonPrice";
 import { fmtMoney } from "@/lib/balance";
+import { usePlan } from "@/hooks/usePlan";
+import { Badge } from "@/components/ui/badge";
 
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
@@ -32,6 +34,7 @@ type Settings = {
 };
 
 export default function SettingsPage() {
+  const { plan, loading: planLoading } = usePlan();
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     default_lesson_price: FALLBACK_LESSON_PRICE,
@@ -103,6 +106,48 @@ export default function SettingsPage() {
         </div>
         <div><Label>Duração do slot (min)</Label><Input type="number" value={s.slot_minutes} onChange={e => setS({ ...s, slot_minutes: Number(e.target.value) })} /></div>
       </Card>
+
+      {!planLoading && (
+        <Card className="p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-sm uppercase text-muted-foreground">Seu plano</h2>
+            <Badge variant={plan.plano === "pro" ? "default" : "outline"}>{plan.nome}</Badge>
+          </div>
+          <ul className="space-y-1 text-sm">
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Professores</span>
+              <strong>{plan.max_teachers ?? "sem limite"}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Alunos</span>
+              <strong>{plan.max_students ?? "sem limite"}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Pacotes, vouchers e desconto</span>
+              <strong>{plan.packages ? "sim" : "não"}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Bloqueio que se repete toda semana</span>
+              <strong>{plan.recurring_blocks ? "sim" : "não"}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Assistente</span>
+              <strong>
+                {plan.assistant ? "sim"
+                  : plan.assistant_override === false ? "desativado pela Cronys"
+                    : "não"}
+              </strong>
+            </li>
+          </ul>
+          {plan.plano !== "pro" && (
+            <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              O que você já cadastrou continua aqui, sempre. Os limites valem só
+              para cadastrar coisa nova. Para mudar de plano, fale com quem cuida
+              da sua conta.
+            </p>
+          )}
+        </Card>
+      )}
 
       <Card className="p-5 space-y-4">
         <div>

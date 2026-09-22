@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -58,6 +58,9 @@ export default function PlatformPage() {
 
   const [excluir, setExcluir] = useState<Row | null>(null);
   const [confirmaNome, setConfirmaNome] = useState("");
+
+  const [renomear, setRenomear] = useState<Row | null>(null);
+  const [nomeNovo, setNomeNovo] = useState("");
 
   const load = async () => {
     const { data, error } = await supabase.rpc("platform_accounts_overview");
@@ -148,6 +151,20 @@ export default function PlatformPage() {
     load();
   };
 
+  const confirmarRenome = async () => {
+    if (!renomear || !nomeNovo.trim()) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("platform_rename_account", {
+      _account: renomear.id, _name: nomeNovo.trim(),
+    });
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(`Agora se chama "${nomeNovo.trim()}"`);
+    setRenomear(null);
+    setNomeNovo("");
+    load();
+  };
+
   const confirmarExclusao = async () => {
     if (!excluir) return;
     setBusy(true);
@@ -235,7 +252,15 @@ export default function PlatformPage() {
                   <tr key={r.id} className={r.active ? "" : "bg-muted/30 text-muted-foreground"}>
                     <td className="px-3 py-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{r.name}</span>
+                        <button
+                          type="button"
+                          className="group inline-flex items-center gap-1 text-left font-medium text-foreground hover:text-primary"
+                          title="Renomear"
+                          onClick={() => { setRenomear(r); setNomeNovo(r.name); }}
+                        >
+                          {r.name}
+                          <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
+                        </button>
                         {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
                         {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
                       </div>
@@ -358,6 +383,31 @@ export default function PlatformPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" className="rounded-xl" onClick={() => setNovaOpen(false)}>Cancelar</Button>
             <Button className="rounded-xl" onClick={criar} disabled={busy}>Criar empresa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!renomear} onOpenChange={v => !v && setRenomear(null)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Renomear empresa</DialogTitle>
+            <DialogDescription>
+              O nome é o que aparece para quem usa. O apelido
+              (<code>{renomear?.slug}</code>) não muda: é ele que vira o endereço
+              próprio da empresa, e trocar endereço quebra link já divulgado.
+            </DialogDescription>
+          </DialogHeader>
+          <div>
+            <Label>Nome</Label>
+            <Input
+              className="h-11 rounded-xl" value={nomeNovo} autoFocus
+              onChange={e => setNomeNovo(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && nomeNovo.trim()) confirmarRenome(); }}
+            />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setRenomear(null)}>Cancelar</Button>
+            <Button className="rounded-xl" onClick={confirmarRenome} disabled={busy || !nomeNovo.trim()}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
