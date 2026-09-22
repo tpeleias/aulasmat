@@ -530,8 +530,8 @@ export default function BillingPage() {
           {payFor && (
             <div className="space-y-4">
               {!plan.packages && (
-                <ProUpsell titulo="Pacotes e vouchers sao do Cronys Pro" compacto>
-                  aqui voce registra o que recebeu. Vender pacote com desconto e
+                <ProUpsell titulo="Pacotes e vouchers são do Cronys Pro" compacto>
+                  aqui você registra o que recebeu. Vender pacote com desconto e
                   dar voucher ficam no Pro.
                 </ProUpsell>
               )}

@@ -58,9 +58,9 @@ export default function BlocksPage() {
 
         <TabsContent value="recurring" className="space-y-4">
           {!plan.recurring_blocks && (
-            <ProUpsell titulo="Bloqueio que se repete e do Cronys Pro" compacto>
-              no Essencial da para bloquear uma data especifica, na aba ao lado.
-              Aqui voce diz uma vez &ldquo;toda terca a tarde&rdquo; e nao repete mais.
+            <ProUpsell titulo="Bloqueio que se repete é do Cronys Pro" compacto>
+              no Essencial dá para bloquear uma data específica, na aba ao lado.
+              Aqui você diz uma vez &ldquo;toda terça à tarde&rdquo; e não repete mais.
             </ProUpsell>
           )}
           <Card className="p-5">
