@@ -1217,3 +1217,54 @@ Candidatos que já EXISTEM e poderiam virar Pro se o Essencial precisar ficar
 mais magro: portal da família, vitrine pública de horários, materiais e tarefas
 (esses dois consomem armazenamento), acesso do filho.
 
+
+## Roteiro do Pro: o que dá para fazer sozinho e o que depende de terceiros (22/09)
+
+Avaliação pedida pelo Thiago. A pergunta dele foi a certa: **"é possível fazer
+apenas com você ou teríamos que ter coisas externas?"** — porque a resposta muda
+completamente o custo de cada item, e não é a dificuldade do código que decide.
+
+O que trava não é código. É **cadastro em empresa terceira, verificação de
+identidade e aprovação de outra gente.** Esses itens têm prazo que não depende
+de nós.
+
+### Totalmente nosso (só código, nenhum cadastro, nenhuma espera)
+
+| Item | Tamanho | Observação |
+|---|---|---|
+| **Exportação e relatório (IR)** | pequeno | Os dados já existem na carteira. CSV é quase de graça; a tela de resumo por mês/ano é o trabalho. **É o mais fácil da lista inteira.** |
+| **Recibo para a família** | pequeno | Gerado no próprio app a partir da carteira. Sem serviço externo. |
+| **Relatório de evolução do aluno** | médio | Os dados existem: `class_summary`, lições, presença. É juntar e desenhar. |
+| **Lembrete por WhatsApp com mensagem pronta** | pequeno | **Não é automático**, mas entrega quase todo o valor: uma lista "quem tem aula amanhã" e um toque por família que abre o WhatsApp com o texto escrito. O app já tem `WhatsAppButton.tsx`. |
+| **Assinar a agenda (.ics)** | pequeno | Um endereço que o professor assina no Google Agenda, no iPhone, onde quiser. Só leitura, mas **resolve "quero ver minhas aulas na minha agenda" sem OAuth nenhum.** |
+| **Marca própria da empresa** | médio | Logo no Storage (já em uso) e cor de destaque por empresa. Conflito a resolver antes: `docs/cronys-brand-spec.md` diz que a identidade é fixa — provavelmente logo + uma cor de acento, não a paleta inteira. |
+
+### Depende de algo que só o Thiago faz (mas rápido)
+
+| Item | O que ele precisa fazer | Depois disso |
+|---|---|---|
+| **Notificação no app (push)** | Criar um projeto no Firebase (grátis) e me dar a chave de serviço | O resto é meu: Capacitor + uma rotina agendada. Médio. |
+| **Endereço próprio por empresa** | Comprar o domínio (~R$ 40/ano) e apontar o DNS | Já está planejado desde a parte 2 do multi-empresa. Médio. |
+| **E-mail automático** | Escolher um provedor (Resend/SendGrid, têm plano grátis) | **Depende do domínio também**: sem domínio próprio, e-mail de lembrete cai em spam. |
+
+### Depende de aprovação de terceiro (prazo fora do nosso controle)
+
+| Item | O obstáculo |
+|---|---|
+| **WhatsApp automático de verdade** | Exige a **WhatsApp Business Platform** da Meta: conta Business, **verificação da empresa**, número dedicado e **modelos de mensagem aprovados** pela Meta (um lembrete é enviado fora da janela de 24h, então obrigatoriamente é modelo aprovado). Tem custo por mensagem. Não é código difícil — é burocracia com prazo de terceiro. **Confirmar regras e preço atuais quando formos fazer; a Meta muda isso.** |
+| **Google Agenda com escrita (OAuth)** | Projeto no Google Cloud, tela de consentimento e **verificação do app pelo Google** quando houver usuários externos. A verificação é a parte lenta. O `.ics` acima entrega a leitura sem nada disso. |
+
+### A ordem que eu recomendaria
+
+1. **Exportação/IR + recibo** — menor esforço, maior retorno imediato, 100% nosso.
+2. **Lembrete por WhatsApp com mensagem pronta** — pega a maior dor (falta) hoje, sem Meta nenhuma.
+3. **Relatório de evolução** — vende o Pro em conversa com responsável.
+4. **Push no app** — primeiro lembrete de verdade automático.
+5. **Domínio → endereço próprio → e-mail** — os três destravam juntos.
+6. **WhatsApp automático e Google Agenda com escrita** — só quando houver cliente pagando que justifique a burocracia.
+
+**Observação sobre o item 1 x item 2:** o lembrete automático é o que mais se
+paga, mas o caminho automático mais barato (push) não é o que ele pediu
+(WhatsApp). Vale começar pelo WhatsApp semiautomático e medir se reduz falta
+antes de investir na verificação com a Meta.
+
