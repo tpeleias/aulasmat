@@ -52,11 +52,15 @@ export default function SettingsPage() {
   // aplicada, mandar a coluna no update faria TODO "Salvar" desta tela falhar -
   // e o front-end publica sozinho a cada merge, possivelmente antes dela.
   const [hasIssuerColumn, setHasIssuerColumn] = useState(false);
+  // Mesmo cuidado para os campos de pagamento por empresa (migration
+  // 20260924010000): só aparecem, e só vão no update, se a coluna existir.
+  const [hasPayColumns, setHasPayColumns] = useState(false);
   useEffect(() => {
     supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
       if (!data) return;
       setRowId((data as any).id);
       setHasIssuerColumn("issuer_document" in (data as any));
+      setHasPayColumns("pix_receiver_name" in (data as any));
       const vindo = (data as any).scarcity as Scarcity | null;
       setS({ ...s, ...(data as any), scarcity: vindo ?? SCARCITY_PADRAO });
     });
@@ -86,6 +90,10 @@ export default function SettingsPage() {
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
       ...(hasIssuerColumn ? { issuer_document: (s.issuer_document || "").trim() || null } : {}),
+      ...(hasPayColumns ? Object.fromEntries(
+        ["payment_link_label", "payment_link_note", "pix_receiver_name", "pix_city"]
+          .map(k => [k, (((s as any)[k] as string | null) || "").trim() || null]),
+      ) : {}),
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) toast.error(error.message);
@@ -192,8 +200,27 @@ export default function SettingsPage() {
 
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-sm uppercase text-muted-foreground">Pagamento</h2>
-        <div><Label>Chave PIX</Label><Input value={s.pix_key ?? ""} onChange={e => setS({ ...s, pix_key: e.target.value })} placeholder="CPF, e-mail, telefone ou chave aleatória" /></div>
-        <div><Label>Link de pagamento (InfinitePay, Mercado Pago, etc.)</Label><Input value={s.payment_link ?? ""} onChange={e => setS({ ...s, payment_link: e.target.value })} placeholder="https://..." /></div>
+        <div>
+          <Label>Chave Pix</Label>
+          <Input value={s.pix_key ?? ""} onChange={e => setS({ ...s, pix_key: e.target.value })} placeholder="CPF, CNPJ, e-mail, +55 celular ou chave aleatória" />
+          <p className="text-xs text-muted-foreground mt-1">Celular com +55 na frente - sem ele, 11 números são lidos como CPF.</p>
+        </div>
+        {hasPayColumns && (
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Nome de quem recebe</Label><Input value={(s as any).pix_receiver_name ?? ""} onChange={e => setS({ ...s, pix_receiver_name: e.target.value } as any)} placeholder="Como está no banco" /></div>
+            <div><Label>Cidade</Label><Input value={(s as any).pix_city ?? ""} onChange={e => setS({ ...s, pix_city: e.target.value } as any)} placeholder="Ex.: São Paulo" /></div>
+            <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
+              Com nome e cidade, a cobrança e o portal da família levam o <strong>Pix copia e cola já com o valor</strong> - a família só cola no app do banco.
+            </p>
+          </div>
+        )}
+        <div><Label>Link de pagamento</Label><Input value={s.payment_link ?? ""} onChange={e => setS({ ...s, payment_link: e.target.value })} placeholder="https://..." /></div>
+        {hasPayColumns && (
+          <>
+            <div><Label>Nome do link</Label><Input value={(s as any).payment_link_label ?? ""} onChange={e => setS({ ...s, payment_link_label: e.target.value } as any)} placeholder="Ex.: InfinitePay, Mercado Pago" /></div>
+            <div><Label>Texto que acompanha o link</Label><Input value={(s as any).payment_link_note ?? ""} onChange={e => setS({ ...s, payment_link_note: e.target.value } as any)} placeholder="Ex.: cartão em até 12x, boleto ou Pix" /></div>
+          </>
+        )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="cursor-pointer">Exibir dados de pagamento ao aluno</Label>

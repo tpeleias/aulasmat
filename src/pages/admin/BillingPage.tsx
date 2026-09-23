@@ -19,7 +19,8 @@ import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
 import { haptics } from "@/lib/haptics";
-import { buildCollectionMessage, type PaymentInfo } from "@/lib/collectionMessage";
+import { buildCollectionMessage, paymentInfoFromSettings, type PaymentInfo } from "@/lib/collectionMessage";
+import { buildPixPayload } from "@/lib/pix";
 import { syncBillingWidget } from "@/lib/widgetSync";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
@@ -111,9 +112,11 @@ export default function BillingPage() {
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status, price"),
       supabase.from("account_discounts").select("student_name, guardian_name, kind, value"),
-      supabase.from("settings").select("pix_key, payment_link").maybeSingle(),
+      // "*" e não a lista: as colunas de pagamento por empresa vêm da migration
+      // 20260924010000, e pedir coluna que não existe derrubaria a consulta.
+      supabase.from("settings").select("*").maybeSingle(),
     ]);
-    setPayment({ pixKey: cfg.data?.pix_key ?? null, paymentLink: cfg.data?.payment_link ?? null });
+    setPayment(paymentInfoFromSettings(cfg.data as Record<string, unknown> | null));
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
     setLessons((ls.data ?? []) as LessonRow[]);
@@ -176,6 +179,20 @@ export default function BillingPage() {
       accounts: debtors.map(a => ({ label: a.label, owed: a.owed })),
     });
   }, [loading, accounts]);
+
+  // Só o código Pix, com o valor em aberto: vai como segunda mensagem no
+  // WhatsApp, que a família copia com um toque (dentro do texto longo, ela
+  // teria de selecionar à mão).
+  const pixFor = (a: Account) => payment.pixKey
+    ? buildPixPayload({ key: payment.pixKey, name: payment.pixName ?? "", city: payment.pixCity ?? "", amount: a.owed })
+    : null;
+  const copyPix = (a: Account) => {
+    const code = pixFor(a);
+    if (!code) return;
+    navigator.clipboard.writeText(code);
+    haptics.success();
+    toast.success(`Pix de ${fmtMoney(a.owed)} copiado`);
+  };
 
   const copyCollection = (a: Account) => {
     navigator.clipboard.writeText(buildCollectionMessage(a.items, payment));
@@ -450,6 +467,11 @@ export default function BillingPage() {
                         {a.owed > 0 && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyCollection(a)}>
                             <Copy className="w-3.5 h-3.5" /> Copiar cobrança
+                          </Button>
+                        )}
+                        {a.owed > 0 && pixFor(a) && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyPix(a)}>
+                            <Copy className="w-3.5 h-3.5" /> Copiar Pix
                           </Button>
                         )}
                         {plan.packages && (
