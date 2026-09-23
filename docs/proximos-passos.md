@@ -1700,7 +1700,7 @@ apagar `admin-create-user` no painel do Supabase.
 vendabilidade" acima, começando por excluir a própria conta dentro do app
 (exigência da Google Play).
 
-## PEDIDO (23/09) — Resumo da semana / do mês — primeiro da próxima sessão
+## PEDIDO (23/09) — Resumo da semana / do mês — FEITO em 24/09 (ver abaixo)
 
 Pedido do Thiago: um lugar com o resumo do período - quanto recebeu, quanto
 falta receber, o total (inclusive o que já deveria ter entrado), quantas aulas
@@ -1729,3 +1729,163 @@ explicar isso, o professor acha que a conta está errada.
 
 Dados: tudo já existe (`wallet_transactions` + `lessons`); `computeStatements`
 e `summarizeIncome` cobrem boa parte das contas. Sem migration.
+
+## Lote de 24/09 — itens 1 a 7 da revisão de vendabilidade — feito no código
+
+Pedido: "faz até o item 7 e deixe o resto anotado". **Nada disso está na
+produção ainda** - falta aplicar as migrations, publicar duas edge functions,
+mesclar, publicar o Lovable e gerar o `.aab` (1.9.0, código 17).
+
+### 1. Resumo da semana / do mês
+
+- `src/lib/periodSummary.ts` (contas, com teste) e `PeriodSummary.tsx`.
+- **Financeiro:** cartão no topo com Semana/Mês, setas para voltar períodos,
+  Recebido · Valor das aulas (cheio, descontos, líquido) · Falta receber (do
+  período e geral) · Previsto; aulas dadas/horas/canceladas/recusadas/ainda
+  marcadas; comparação com o período anterior; por professor quando há mais
+  de um. A nota "recebido é pela data do pagamento, valor das aulas pela data
+  da aula" está escrita no cartão.
+- **Hoje:** versão curta do mesmo resumo, com link para o Financeiro.
+- Sem migration.
+
+### 2. Excluir a própria conta
+
+- **Minha conta** (`/minha-conta`), no menu dos três perfis: mostra o login,
+  troca a senha e tem "Excluir minha conta" (digitar EXCLUIR).
+- Edge function **`delete-my-account`**: o usuário vem do token; desfaz os
+  vínculos (aluno, filho, professor) e apaga o login. Recusa o **único admin**
+  de uma escola (a escola ficaria sem dono - encerrar escola é com o gestor)
+  e o operador da plataforma. Aulas e pagamentos ficam com a escola.
+- Página pública **`/excluir-conta`** com as instruções. **Cadastrar na Play
+  Console → Conteúdo do app → Segurança dos dados → "Exclusão de conta":
+  `https://cronys.lovable.app/excluir-conta`.**
+
+### 3. Termos de uso
+
+- `/termos` (link no rodapé do cadastro, com caixa "li e aceito").
+- ⚠️ **É rascunho escrito a partir do que o app faz, não texto de advogado.**
+  Antes de vender: alguém da área jurídica revisa, completa a identificação do
+  fornecedor (nome/razão social, CPF/CNPJ, endereço) e ajusta
+  cancelamento/reembolso à política comercial real.
+- A política de privacidade deixou de citar a InfinitePay (agora "o provedor
+  de pagamento escolhido pela escola") e aponta para a exclusão de conta.
+
+### 4. Escola se cadastrando sozinha, com 14 dias de Pro
+
+Migration `20260924020000_school_signup_and_trial.sql`.
+
+- O cadastro agora diz o que é (metadados do signUp, lidos por
+  `handle_new_user`):
+  - **"Professor ou escola? Criar minha escola"** → cria a escola (apelido
+    único, que vira o código), as configurações, o professor e o login como
+    admin, com **Pro até +14 dias** (`accounts.trial_ends_at`).
+  - **Família com código da escola** → papel de família naquela escola. No
+    app (Android) o código é **obrigatório**: acabou o cadastro pela loja
+    caindo na empresa de produção. Código errado = cadastro sem escola (não
+    enxerga nada), nunca a escola errada, nunca admin.
+  - Sem metadados (vitrine web, logins criados pelas edge functions) → igual
+    a antes.
+- `expire_trials()` roda todo dia às 03:15 (pg_cron): fim do teste vira
+  Essencial **com a trava de rebaixamento** (nada apagado, o excedente fica
+  pausado e a escola escolhe o que liberar).
+- O gestor definir o plano encerra o teste.
+- Telas: aviso "Teste grátis do Pro até dd/mm" na Hoje e em Configurações;
+  **código da escola** em Configurações → Portal do Aluno (botão copia) e no
+  texto do convite em Acessos; selo "Teste até ..." no painel do gestor.
+
+### 5. Papel "professor" separado de "admin"
+
+Migrations `20260924030000_teacher_role_enum.sql` (**sozinha**, antes - o
+Postgres não usa um valor novo de enum na mesma transação em que foi criado)
+e `20260924040000_teacher_role.sql`.
+
+- `teachers.user_id` liga um login a um professor. Em **Professores**, o
+  ícone de chave cria o acesso (usuário + senha; copia a mensagem para
+  enviar), troca a senha ou remove. Edge function **`create-teacher-login`**
+  (só admin da própria escola; nunca reaproveita login existente).
+- O professor **vê e marca só as próprias aulas** (edita, dá como realizada,
+  aprova pedido; não apaga - desmarca), vê os alunos e cadastra novos, vê os
+  bloqueios e mexe só nos dele, lê lições/entregas/materiais (Evolução).
+- **Não vê:** pagamentos, descontos, histórico, aulas dos outros, Financeiro,
+  Relatórios, Acessos, Professores, Configurações, Assistente. O preço da aula
+  é o da escola (gatilho: ele não escolhe nem altera).
+- O banco é quem garante (RLS + gatilho, 18 testes no espelho, bloco 25); a
+  tela só esconde o que ele não pode usar.
+- Limitação conhecida: na agenda dele os horários dos **outros** professores
+  aparecem livres (ele não enxerga essas aulas). Não há choque real - cada
+  professor tem a própria agenda -, mas se um dia a escola quiser "sala" ou
+  recurso compartilhado, precisa de uma consulta de horários ocupados.
+
+### 6. Meio de pagamento por empresa
+
+Migration `20260924010000_payment_per_account_and_pix.sql`.
+
+- Configurações → Pagamento: nome do link ("InfinitePay", "Mercado Pago"...),
+  texto que acompanha, nome e cidade do recebedor do Pix. A empresa do
+  endereço público recebe "InfinitePay" + o texto dos 12x de hoje, então para
+  o Thiago nada muda.
+- Saiu o `DEFAULT 'thiago'` de `lessons.teacher` e o "mayara" cravado no
+  widget Android (agora a cor alterna pela ordem dos professores).
+
+### 7. Pix copia e cola com o valor
+
+- `src/lib/pix.ts` gera o BR Code (EMV + CRC16) só com a chave - sem banco,
+  sem API. Conferido contra o exemplo do manual do Banco Central.
+- Aparece na mensagem de cobrança (com o total), no portal da família ("Copiar
+  Pix de R$ X") e no Financeiro ("Copiar Pix" por família).
+- **Só funciona com nome e cidade do recebedor preenchidos** em
+  Configurações (o padrão do Pix exige). Sem eles, fica só a chave, como antes.
+
+### Publicado em 24/09
+
+- **Banco:** as 5 migrations aplicadas na produção (`payment_per_account_and_pix`,
+  `school_signup_and_trial`, `teacher_role_enum`, `teacher_role` e
+  `teacher_role_lint`, esta última só para dois avisos do linter). Antes, as 4
+  funções substituídas foram comparadas com a produção: idênticas ao
+  repositório. Depois: 22 alunos, 101 aulas e 102 lançamentos intactos;
+  `expire-trials` agendado; `expire_trials` e `unique_account_slug` sem
+  EXECUTE para `anon`/`authenticated`; empresa do endereço público com
+  "InfinitePay" + texto dos 12x. (Os 6 alunos pausados que aparecem são da
+  Escola X, a empresa de teste no Essencial - não é deste lote.)
+- **Edge functions:** `delete-my-account` e `create-teacher-login` publicadas
+  (JWT obrigatório).
+
+### Ordem para publicar (como foi feito)
+
+1. Migrations, nesta ordem: `20260924010000`, `20260924020000`,
+   `20260924030000` (sozinha), `20260924040000`.
+2. Edge functions: `delete-my-account` e `create-teacher-login`.
+3. Mesclar, publicar o Lovable, `.aab` 1.9.0 (17).
+4. Play Console: link de exclusão de conta (acima).
+5. Configurações da empresa do Thiago: preencher nome e cidade do recebedor
+   do Pix.
+
+O front aguenta rodar antes das migrations (colunas novas são lidas com
+`select("*")` e conferidas antes de usar), mas o cadastro de escola e o
+papel de professor só funcionam depois delas.
+
+## PARA DEPOIS (anotado em 24/09)
+
+Da revisão de vendabilidade:
+
+- **Primeira experiência de escola nova** (lista "valor da aula → professor →
+  primeiro aluno → link público"). Ficou mais urgente: agora a escola se
+  cadastra sozinha e cai numa tela vazia.
+- **Importar alunos de planilha.**
+- **Monitoramento de erros** (Sentry, plano grátis).
+- **CI com `tsc`, testes e o espelho em cada PR.**
+- **Abertura mais rápida:** dividir o JS por tela (hoje ~1,25 MB de uma vez).
+- **Página de venda do Cronys**, com preço e botão de teste.
+- Família pedir **troca** de horário.
+- **Política de falta/cancelamento** configurável.
+
+Do roteiro antigo: lembrete de aula por WhatsApp; push no app; domínio →
+endereço por empresa → e-mail automático; assinar a agenda (.ics); marca
+própria; pacotes configuráveis; **cobrança da assinatura** (Play Billing ou
+venda fora do app - necessária para o fim do teste virar receita);
+WhatsApp automático e Google Agenda com escrita; notificação de pedido novo e
+expiração de pedido vencido.
+
+Pendências do Thiago (não é código): Netlify travado no painel; decidir a
+tabela de backup; apagar `admin-create-user` no painel do Supabase; conferir a
+URL da privacidade na Play; revisão jurídica dos termos.

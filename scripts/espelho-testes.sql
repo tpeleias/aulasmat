@@ -1087,4 +1087,181 @@ END $$;
 ROLLBACK;
 UPDATE public.students SET plan_locked = false WHERE student_name = 'Duda' AND account_id = (SELECT id FROM public.accounts WHERE slug = 'r');
 
+
+\echo ''
+\echo '--- 24. Escola se cadastra sozinha, com teste do Pro; familia entra por codigo ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('24000000-0000-0000-0000-000000000001', 'dona@escola.x', '{"signup_kind":"school","school_name":"Escola Ávila","teacher_name":"Ana Paula"}');
+SELECT set_config('teste.u24', '24000000-0000-0000-0000-000000000001', false);
+SELECT set_config('teste.a24', (SELECT account_id::text FROM public.user_roles WHERE user_id = current_setting('teste.u24')::uuid), false);
+
+SELECT public.assert((SELECT role::text FROM public.user_roles WHERE user_id = current_setting('teste.u24')::uuid) = 'admin',
+  'quem cria a escola vira admin dela');
+SELECT public.assert((SELECT slug FROM public.accounts WHERE id = current_setting('teste.a24')::uuid) = 'escola-avila',
+  'o codigo da escola sai do nome, sem acento');
+SELECT public.assert((SELECT plan = 'pro' AND trial_ends_at > now() + interval '13 days' AND trial_ends_at < now() + interval '15 days'
+                        FROM public.accounts WHERE id = current_setting('teste.a24')::uuid),
+  'nasce no Pro com 14 dias de teste');
+SELECT public.assert((SELECT count(*) FROM public.settings WHERE account_id = current_setting('teste.a24')::uuid) = 1
+                     AND (SELECT name FROM public.teachers WHERE account_id = current_setting('teste.a24')::uuid) = 'ana paula',
+  'ja nasce com configuracoes e com o professor');
+SELECT public.assert((SELECT public_account_id() <> current_setting('teste.a24')::uuid),
+  'e NAO cai na empresa do endereco publico');
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('24000000-0000-0000-0000-000000000002', 'outra@escola.x', '{"signup_kind":"school","school_name":"Escola Avila","teacher_name":"Bia"}');
+SELECT public.assert((SELECT a.slug FROM public.accounts a JOIN public.user_roles r ON r.account_id = a.id
+                       WHERE r.user_id = '24000000-0000-0000-0000-000000000002') = 'escola-avila-1',
+  'nome repetido ganha codigo diferente');
+
+DO $$
+BEGIN
+  INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+    ('24000000-0000-0000-0000-000000000009', 'sem@nome.x', '{"signup_kind":"school","school_name":"  "}');
+  RAISE EXCEPTION 'FALHOU: criou escola sem nome';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - escola sem nome e recusada';
+END $$;
+
+-- Familia pelo codigo: papel de familia, na escola certa. Nunca admin.
+INSERT INTO public.accounts (name, slug, plan) VALUES ('Sem admin', 'sem-admin', 'pro');
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('24000000-0000-0000-0000-000000000003', 'mae@x', '{"school_code":"escola-avila"}'),
+  ('24000000-0000-0000-0000-000000000004', 'pai@x', '{"school_code":"sem-admin"}'),
+  ('24000000-0000-0000-0000-000000000005', 'errou@x', '{"school_code":"nao-existe"}');
+SELECT public.assert((SELECT role::text || '@' || account_id::text FROM public.user_roles WHERE user_id = '24000000-0000-0000-0000-000000000003')
+                     = 'student@' || current_setting('teste.a24'),
+  'familia com codigo entra como familia daquela escola');
+SELECT public.assert((SELECT role::text FROM public.user_roles WHERE user_id = '24000000-0000-0000-0000-000000000004') = 'student',
+  'nem numa escola sem admin o codigo vira admin');
+SELECT public.assert((SELECT account_id FROM public.user_roles WHERE user_id = '24000000-0000-0000-0000-000000000005') IS NULL,
+  'codigo errado nao cai em escola nenhuma (e nao na de producao)');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.u24'), true);
+SELECT public.assert((public.my_plan() ->> 'school_code') = 'escola-avila' AND (public.my_plan() ->> 'trial_ends_at') IS NOT NULL,
+  'o app sabe o codigo da escola e o fim do teste');
+DO $$
+BEGIN
+  PERFORM public.expire_trials();
+  RAISE EXCEPTION 'FALHOU: admin chamou expire_trials';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - admin nao chama expire_trials';
+END $$;
+INSERT INTO public.students (student_name) SELECT 'Aluno ' || g FROM generate_series(1, 6) g;
+COMMIT;
+
+-- Fim do teste: vira Essencial de verdade e trava o que passa do limite.
+UPDATE public.accounts SET trial_ends_at = now() - interval '1 minute' WHERE id = current_setting('teste.a24')::uuid;
+SELECT public.assert(public.expire_trials() >= 1, 'o teste vencido e encerrado pela rotina diaria');
+SELECT public.assert((SELECT plan = 'essencial' AND trial_ends_at IS NULL FROM public.accounts WHERE id = current_setting('teste.a24')::uuid),
+  'a escola passa para o Essencial');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a24')::uuid AND plan_locked) = 6,
+  'e os 6 alunos ficam pausados para ela escolher quais liberar');
+
+-- O gestor definir o plano encerra o teste.
+UPDATE public.accounts SET plan = 'pro', trial_ends_at = now() + interval '5 days' WHERE id = current_setting('teste.a24')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_plan(current_setting('teste.a24')::uuid, 'pro');
+COMMIT;
+SELECT public.assert((SELECT trial_ends_at IS NULL FROM public.accounts WHERE id = current_setting('teste.a24')::uuid),
+  'plano definido pelo gestor encerra o teste');
+
+\echo ''
+\echo '--- 25. Papel professor: so as proprias aulas, nada de financeiro ---'
+
+DO $$
+DECLARE
+  _t uuid;
+  _adm uuid := gen_random_uuid();
+  _prof uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Escola T', 'escola-t', 'pro') RETURNING id INTO _t;
+  INSERT INTO public.settings (account_id, default_lesson_price) VALUES (_t, 200.00);
+  INSERT INTO auth.users (id, email) VALUES (_adm, 'adm-t@x'), (_prof, 'prof-t@x');
+  DELETE FROM public.user_roles WHERE user_id IN (_adm, _prof);
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_adm, 'admin', _t), (_prof, 'teacher', _t);
+  INSERT INTO public.teachers (account_id, name, active, user_id) VALUES (_t, 'Ana Júlia', true, _prof), (_t, 'Beto', true, NULL);
+  INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (_t, 'Caio', 'Dora');
+  INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status) VALUES
+    (_t, 'Caio', 'Dora', 'ana-julia', '2027-03-01 10:00-03', 60, 'agendada'),
+    (_t, 'Caio', 'Dora', 'beto',      '2027-03-02 10:00-03', 60, 'agendada');
+  INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
+  VALUES (_t, 'Caio', 'Dora', 500, 'adjustment', 'Pix');
+  INSERT INTO public.account_discounts (account_id, student_name, guardian_name, kind, value) VALUES (_t, 'Caio', 'Dora', 'percent', 10);
+  PERFORM set_config('teste.t', _t::text, false);
+  PERFORM set_config('teste.prof', _prof::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+SELECT public.assert(public.current_teacher_slug() = 'ana-julia', 'o login sabe qual professor e');
+SELECT public.assert((SELECT count(*) FROM public.lessons) = 1 AND (SELECT teacher FROM public.lessons) = 'ana-julia',
+  've so as proprias aulas');
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions) = 0, 'nao ve pagamentos');
+SELECT public.assert((SELECT count(*) FROM public.account_discounts) = 0, 'nao ve descontos');
+SELECT public.assert((SELECT count(*) FROM public.audit_log) = 0, 'nao ve o historico');
+SELECT public.assert((SELECT count(*) FROM public.students) = 1, 've os alunos da escola');
+SELECT public.assert((SELECT count(*) FROM public.teachers) = 2, 've os professores da escola');
+
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, price)
+VALUES ('Caio', 'Dora', 'ana-julia', '2027-03-03 10:00-03', 60, 999);
+SELECT public.assert((SELECT price FROM public.lessons WHERE start_at = '2027-03-03 10:00-03') = 200.00,
+  'marca aula propria, mas o preco e o da escola (mandou 999)');
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+  VALUES ('Caio', 'Dora', 'beto', '2027-03-04 10:00-03', 60);
+  RAISE EXCEPTION 'FALHOU: marcou aula para outro professor';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao marca aula para outro professor';
+END $$;
+UPDATE public.lessons SET price = 1, notes = 'x' WHERE start_at = '2027-03-01 10:00-03';
+SELECT public.assert((SELECT price FROM public.lessons WHERE start_at = '2027-03-01 10:00-03') = 200.00,
+  'editar a aula nao muda o preco');
+DO $$
+BEGIN
+  UPDATE public.lessons SET teacher = 'beto' WHERE start_at = '2027-03-01 10:00-03';
+  RAISE EXCEPTION 'FALHOU: passou a aula para outro professor';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao passa a aula para outro professor';
+END $$;
+DELETE FROM public.lessons WHERE start_at = '2027-03-01 10:00-03';
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE start_at = '2027-03-01 10:00-03') = 1, 'nao apaga aula (desmarca)');
+UPDATE public.lessons SET status = 'realizada' WHERE start_at = '2027-03-01 10:00-03';
+UPDATE public.settings SET default_lesson_price = 1;
+UPDATE public.teachers SET name = 'invasor';
+INSERT INTO public.students (student_name) VALUES ('Novo aluno');
+INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at) VALUES ('Folga', 'ana-julia', 'one_off', '2027-03-05 10:00-03', '2027-03-05 12:00-03');
+DO $$
+BEGIN
+  INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at) VALUES ('X', 'beto', 'one_off', '2027-03-05 10:00-03', '2027-03-05 12:00-03');
+  RAISE EXCEPTION 'FALHOU: bloqueou agenda de outro professor';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao bloqueia a agenda de outro professor';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.register_payment('Caio', 'Dora', 100, 'adjustment', 'x');
+  RAISE EXCEPTION 'FALHOU: professor registrou pagamento';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - professor nao registra pagamento';
+END $$;
+COMMIT;
+
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE account_id = current_setting('teste.t')::uuid AND kind = 'lesson') = 1,
+  'dar a aula como realizada gera a cobranca normalmente');
+SELECT public.assert((SELECT default_lesson_price FROM public.settings WHERE account_id = current_setting('teste.t')::uuid) = 200.00,
+  'nao mexe nas configuracoes');
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE account_id = current_setting('teste.t')::uuid AND name = 'invasor') = 0,
+  'nao mexe nos professores');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.t')::uuid) = 2,
+  'mas cadastra aluno novo');
+
 \echo '=== FIM ==='

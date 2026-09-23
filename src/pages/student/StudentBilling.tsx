@@ -73,7 +73,7 @@ export default function StudentBilling() {
       {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
         <Card className="p-5 space-y-3 border-primary/40">
           <h2 className="font-semibold">Como pagar</h2>
-          <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
+          <PaymentMethods settings={settings} amount={owed} />
         </Card>
       )}
 

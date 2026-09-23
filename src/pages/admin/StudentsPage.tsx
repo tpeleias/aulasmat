@@ -19,6 +19,7 @@ import { accountKey, fmtMoney } from "@/lib/balance";
 import { computeStatements, isOverdue, type LedgerTx } from "@/lib/billing";
 import { haptics } from "@/lib/haptics";
 import { usePlan } from "@/hooks/usePlan";
+import { useAuth } from "@/hooks/useAuth";
 import { ProUpsell } from "@/components/ProUpsell";
 
 type Student = {
@@ -42,6 +43,9 @@ const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p =>
 
 export default function StudentsPage() {
   const { plan } = usePlan();
+  // Login de professor: vê os alunos e cadastra novo, mas não o financeiro
+  // nem a administração do cadastro (editar, acessos, excluir, pausar).
+  const { isTeacher } = useAuth();
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -60,7 +64,9 @@ export default function StudentsPage() {
     const [{ data: s }, { data: l }, { data: t }] = await Promise.all([
       supabase.from("students").select("*").order("student_name"),
       supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status"),
-      supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
+      isTeacher
+        ? Promise.resolve({ data: [] as LedgerTx[] })
+        : supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
     ]);
     setStudents((s ?? []) as Student[]);
     setLessons((l ?? []) as Lesson[]);
@@ -186,7 +192,7 @@ export default function StudentsPage() {
           </Button>
         </div>
 
-        {locked.length > 0 && (
+        {!isTeacher && locked.length > 0 && (
           <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-3">
             <div>
               <div className="font-semibold text-sm">
@@ -213,7 +219,7 @@ export default function StudentsPage() {
           </div>
         )}
 
-        {atLimit && locked.length === 0 && (
+        {!isTeacher && atLimit && locked.length === 0 && (
           <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} alunos`} icon={Users} compacto>
             os {students.length} que você já tem continuam aqui, com tudo deles.
             Para cadastrar o próximo, é o Cronys Pro.
@@ -225,7 +231,7 @@ export default function StudentsPage() {
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar aluno ou responsável" className="h-11 rounded-xl pl-9" />
           </div>
-          <SortMenu value={sort} options={STUDENT_SORTS} onChange={setSort} className="h-11" />
+          <SortMenu value={sort} options={isTeacher ? STUDENT_SORTS.filter(o => o.key !== "owed") : STUDENT_SORTS} onChange={setSort} className="h-11" />
         </div>
 
         {loading ? (
@@ -261,7 +267,7 @@ export default function StudentsPage() {
                         {st.guardian_name ? `Resp.: ${st.guardian_name}` : "Sem responsável"}
                       </div>
                     </div>
-                    <div className="shrink-0 text-right">
+                    {!isTeacher && <div className="shrink-0 text-right">
                       {credit > 0 ? (
                         <><div className="font-semibold tabular-nums text-success">{fmtMoney(credit)}</div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">crédito</div></>
                       ) : owed > 0 ? (
@@ -269,7 +275,7 @@ export default function StudentsPage() {
                       ) : (
                         <div className="text-xs text-muted-foreground">Em dia</div>
                       )}
-                    </div>
+                    </div>}
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                   </button>
                 </li>
@@ -286,12 +292,13 @@ export default function StudentsPage() {
         open={!!selected}
         onOpenChange={v => !v && setSelected(null)}
         onSchedule={() => { const s = selected!; setSelected(null); setScheduleFor(s); }}
-        onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
-        onEdit={() => { const s = selected!; setSelected(null); setEditing(s); }}
-        onDelete={() => remove(selected!.id)}
-        onBilling={() => navigate("/admin/financeiro")}
+        showMoney={!isTeacher}
+        onManage={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setManageFor(s); }}
+        onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
+        onDelete={isTeacher ? undefined : () => remove(selected!.id)}
+        onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}
         onEvolution={() => navigate(`/admin/evolucao?aluno=${selected!.id}`)}
-        onPause={locked.length > 0 && selected && !selected.plan_locked ? () => pause(selected) : undefined}
+        onPause={!isTeacher && locked.length > 0 && selected && !selected.plan_locked ? () => pause(selected) : undefined}
       />
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>

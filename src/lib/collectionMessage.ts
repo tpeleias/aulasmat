@@ -2,8 +2,27 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtMoney } from "@/lib/balance";
 import type { OpenItem } from "@/lib/billing";
+import { buildPixPayload } from "@/lib/pix";
 
-export type PaymentInfo = { pixKey: string | null; paymentLink: string | null };
+// Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
+// saía na cobrança de qualquer escola.
+export type PaymentInfo = {
+  pixKey: string | null;
+  paymentLink: string | null;
+  linkLabel?: string | null;
+  linkNote?: string | null;
+  pixName?: string | null;
+  pixCity?: string | null;
+};
+
+export function paymentInfoFromSettings(s: Record<string, unknown> | null | undefined): PaymentInfo {
+  const str = (k: string) => ((s?.[k] as string | null | undefined) ?? null);
+  return {
+    pixKey: str("pix_key"), paymentLink: str("payment_link"),
+    linkLabel: str("payment_link_label"), linkNote: str("payment_link_note"),
+    pixName: str("pix_receiver_name"), pixCity: str("pix_city"),
+  };
+}
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -87,9 +106,19 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) 
 
   const pix = payment.pixKey?.trim();
   const link = payment.paymentLink?.trim();
+  // Com nome e cidade de quem recebe, vai junto o Pix "copia e cola" já com o
+  // total - a família cola no app do banco e não digita valor nenhum.
+  const pixCode = pix && total > 0
+    ? buildPixPayload({ key: pix, name: payment.pixName ?? "", city: payment.pixCity ?? "", amount: total })
+    : null;
+  const label = payment.linkLabel?.trim() || "Link de pagamento";
+  const note = payment.linkNote?.trim();
   const ways = [
-    pix && `💠 *Pix*\n${pixLine(pix)}`,
-    link && `🔗 *InfinitePay*\n${link}\nGoogle Pay, cartão de crédito ou Pix — no cartão, parcelamos em até 12x.`,
+    pix && [
+      `💠 *Pix*\n${pixLine(pix)}`,
+      pixCode && `Ou use o *Pix copia e cola*, que já vai com o valor de ${fmtMoney(total)}:\n${pixCode}`,
+    ].filter(Boolean).join("\n\n"),
+    link && `🔗 *${label}*\n${link}${note ? `\n${note}` : ""}`,
   ].filter(Boolean) as string[];
   const howToPay = ways.length ? `\n\n*Como pagar* (do jeito mais fácil pra você):\n\n${ways.join("\n\n")}` : "";
 

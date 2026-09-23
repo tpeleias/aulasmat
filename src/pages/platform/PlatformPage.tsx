@@ -32,6 +32,7 @@ type Row = {
   professores: number;
   // Ausentes antes da migration 20260923020000.
   alunos_travados?: number;
+  trial_ends_at?: string | null;
   professores_travados?: number;
   aulas: number;
   logins: number;
@@ -280,6 +281,7 @@ export default function PlatformPage() {
                         </button>
                         {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
                         {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
+                        {r.trial_ends_at && r.plan === "pro" && <Badge variant="outline" className="text-[10px]">Teste até {new Date(r.trial_ends_at).toLocaleDateString("pt-BR")}</Badge>}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {r.slug} · desde {format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR })}

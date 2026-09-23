@@ -16,6 +16,7 @@ import { capitalize } from "@/lib/balance";
 import { isSlotConflict, lessonErrorMessage } from "@/lib/lessonErrors";
 import { useLessonPrice, FALLBACK_LESSON_PRICE } from "@/hooks/useLessonPrice";
 import { DateTimeField } from "@/components/DateTimeField";
+import { useAuth } from "@/hooks/useAuth";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -35,7 +36,13 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   defaultTeacher?: string;
   initialStudent?: { student_name: string; guardian_name?: string | null; address?: string | null } | null;
 }) {
-  const { teachers } = useTeachers(true);
+  const { teachers: allTeachers } = useTeachers(true);
+  // Login de professor marca só as próprias aulas e não mexe em valor nem
+  // apaga (o banco também não deixa - migration 20260924040000).
+  const { isTeacher } = useAuth();
+  const teachers = isTeacher && defaultTeacher
+    ? allTeachers.filter(t => teacherSlug(t.name) === defaultTeacher)
+    : allTeachers;
   // O valor da hora sai das Configurações da empresa, não do código.
   const { price: listPrice } = useLessonPrice();
   // A matéria que já vem preenchida sai do cadastro do professor, não de uma
@@ -307,10 +314,12 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Professor(a)</Label>
-              <Select value={form.teacher} onValueChange={setTeacher}>
+              {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara
+                  na trava de plano e nas permissões do professor. */}
+              <Select value={form.teacher} onValueChange={setTeacher} disabled={isTeacher}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
+                  {teachers.map(t => <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -375,6 +384,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               On-line
             </label>
           </div>
+          {!isTeacher && <>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Pacote</Label>
               <Select value={form.package_type} onValueChange={setPackage}>
@@ -398,21 +408,22 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             Toda aula entra pelo valor cheio (R$ {listPrice}/h). O desconto do pacote é lançado
             como <strong className="text-foreground">voucher</strong> no Financeiro ao registrar o pagamento.
           </div>
+          </>}
           <Collapsible className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
-                <span>Detalhes adicionais (valor, status e observações)</span>
+                <span>{isTeacher ? "Detalhes adicionais (status e observações)" : "Detalhes adicionais (valor, status e observações)"}</span>
                 <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3 pt-0 space-y-3">
-              <div>
+              {!isTeacher && <div>
                 <Label>Valor por hora (R$/h)</Label>
                 <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
                 <p className="text-[11px] text-muted-foreground mt-1">
                   Pagamento é marcado na página Financeiro (isso mantém a carteira correta).
                 </p>
-              </div>
+              </div>}
               <div><Label>Situação da aula</Label>
                 <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -463,7 +474,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           )}
         </div>
         <DialogFooter className="gap-2">
-          {lesson?.id && <Button variant="destructive" onClick={remove}>Excluir</Button>}
+          {lesson?.id && !isTeacher && <Button variant="destructive" onClick={remove}>Excluir</Button>}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={save} disabled={busy}>Salvar</Button>
         </DialogFooter>

@@ -34,7 +34,10 @@ async function publish(key: string, value: unknown) {
   }
 }
 
-export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[]) {
+// `teacherOrder`: apelidos dos professores na ordem da agenda. O widget pinta
+// de outra cor a aula de quem não é o primeiro - antes era o nome "mayara"
+// cravado no código Android.
+export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], teacherOrder: string[] = []) {
   if (!Capacitor.isNativePlatform()) return;
   const payload = lessons
     .slice()
@@ -49,6 +52,7 @@ export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[]) {
       address: l.address ?? "",
       isOnline: l.is_online,
       teacher: l.teacher,
+      alt: teacherOrder.length > 1 && teacherOrder.indexOf(l.teacher) > 0,
     }));
   await publish(LESSONS_KEY, payload);
 }

@@ -152,7 +152,7 @@ export default function StudentDashboard() {
             </div>
           ))}
           {settings?.show_payment_info_to_students && (
-            <PaymentMethods pixKey={settings.pix_key} paymentLink={settings.payment_link} />
+            <PaymentMethods settings={settings} amount={owed} />
           )}
         </Card>
       )}

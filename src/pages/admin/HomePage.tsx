@@ -17,6 +17,10 @@ import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billi
 import { syncBillingWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import { Bot, CalendarDays, CalendarPlus, Ban, MapPin, Wifi, ChevronRight, Sparkles, Wallet } from "lucide-react";
+import PeriodSummary from "@/components/PeriodSummary";
+import type { SummaryLesson } from "@/lib/periodSummary";
+import { useAuth } from "@/hooks/useAuth";
+import TrialBanner from "@/components/TrialBanner";
 
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
@@ -43,10 +47,13 @@ function openWaze(address: string) {
 export default function HomePage() {
   const navigate = useNavigate();
   const teacher = useDefaultTeacher();
+  // Login de professor: agenda sim, dinheiro e assistente não.
+  const { isTeacher } = useAuth();
   const [today, setToday] = useState<Lesson[]>([]);
   const [next, setNext] = useState<Lesson | null>(null);
   const [txs, setTxs] = useState<LedgerTx[]>([]);
   const [doneLessons, setDoneLessons] = useState<LedgerLesson[]>([]);
+  const [allLessons, setAllLessons] = useState<SummaryLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
 
@@ -62,15 +69,20 @@ export default function HomePage() {
         .not("status", "in", "(cancelada,recusada,solicitada)").order("start_at"),
       supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
         .gte("start_at", now.toISOString()).eq("status", "agendada").order("start_at").limit(1),
-      supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
-      supabase.from("lessons").select("id, student_name, start_at, duration_minutes, subject, teacher").eq("status", "realizada"),
+      isTeacher
+        ? Promise.resolve({ data: [] as LedgerTx[] })
+        : supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
+      // Todas as aulas: o resumo do mês conta dadas, canceladas e ainda marcadas.
+      supabase.from("lessons").select("id, student_name, start_at, duration_minutes, subject, teacher, status, price"),
     ]);
     setToday((t.data ?? []) as Lesson[]);
     setNext(((n.data ?? [])[0] as Lesson) ?? null);
     setTxs((w.data ?? []) as LedgerTx[]);
-    setDoneLessons((d.data ?? []) as LedgerLesson[]);
+    const all = (d.data ?? []) as (LedgerLesson & SummaryLesson)[];
+    setAllLessons(all);
+    setDoneLessons(all.filter(l => l.status === "realizada"));
     setLoading(false);
-  }, []);
+  }, [isTeacher]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -79,8 +91,8 @@ export default function HomePage() {
   const totalOwed = useMemo(() => debtors.reduce((s, a) => s + a.owed, 0), [debtors]);
 
   useEffect(() => {
-    if (!loading) syncBillingWidget({ totalOwed, accounts: debtors.map(d => ({ label: d.label, owed: d.owed })) });
-  }, [loading, totalOwed, debtors]);
+    if (!loading && !isTeacher) syncBillingWidget({ totalOwed, accounts: debtors.map(d => ({ label: d.label, owed: d.owed })) });
+  }, [loading, isTeacher, totalOwed, debtors]);
 
   const now = new Date();
   const nextToday = today.find(l => new Date(l.start_at).getTime() + l.duration_minutes * 60000 > now.getTime());
@@ -97,6 +109,8 @@ export default function HomePage() {
           <p className="text-sm text-muted-foreground capitalize">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
           <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {capitalize(teacher)}</h1>
         </header>
+
+        {!isTeacher && <TrialBanner />}
 
         <LessonRequests onChanged={load} />
 
@@ -148,27 +162,16 @@ export default function HomePage() {
           )}
         </section>
 
-        <section>
+        {!isTeacher && <section>
           <SectionTitle icon={Wallet} title="Financeiro" action={<Link to="/admin/financeiro" className="text-sm text-primary">Abrir</Link>} />
           {loading ? (
             <Skeleton className="h-24 w-full rounded-2xl" />
           ) : (
-            <Link to="/admin/financeiro" onClick={() => haptics.tap()} className="block">
-              <Card className="flex items-center justify-between gap-4 rounded-2xl p-4 transition-colors hover:bg-muted/40">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">A receber</div>
-                  <div className="text-2xl font-bold tabular-nums">{fmtMoney(totalOwed)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {debtors.length === 0 ? "Tudo em dia" : `${debtors.length} conta${debtors.length > 1 ? "s" : ""} · maior: ${debtors[0].label} (${fmtMoney(debtors[0].owed)})`}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-              </Card>
-            </Link>
+            <PeriodSummary compact lessons={allLessons} txs={txs} statements={statements} />
           )}
-        </section>
+        </section>}
 
-        <section>
+        {!isTeacher && <section>
           <SectionTitle icon={Bot} title="Assistente" />
           <Card className="space-y-3 rounded-2xl p-4">
             <button onClick={() => askAssistant("")} className="flex w-full items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 text-left text-sm text-muted-foreground">
@@ -182,7 +185,7 @@ export default function HomePage() {
               ))}
             </div>
           </Card>
-        </section>
+        </section>}
 
         <section className="grid grid-cols-2 gap-3">
           <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> Nova aula</Button>

@@ -72,8 +72,9 @@ export default function PrivacyPolicy() {
               <li><strong>Anthropic</strong>, quando o professor usa o assistente do app: o texto da
                 conversa e os dados necessários para responder são enviados para processamento.
                 Só o professor tem acesso ao assistente.</li>
-              <li><strong>InfinitePay</strong>, se a família escolher pagar pelo link. O pagamento
-                acontece no site deles, sob a política de privacidade deles.</li>
+              <li>O <strong>provedor de pagamento escolhido pela escola</strong>, se a família
+                pagar pelo link de pagamento dela. O pagamento acontece no site do provedor, sob a
+                política de privacidade dele.</li>
             </ul>
             <p>Fora isso, nada é compartilhado.</p>
           </section>
@@ -91,7 +92,9 @@ export default function PrivacyPolicy() {
             <h2 className="font-semibold text-base">Por quanto tempo ficam guardados</h2>
             <p>
               Enquanto durar a relação de aulas, e depois pelo tempo necessário para o controle
-              financeiro. A qualquer momento você pode pedir a exclusão.
+              financeiro. Você pode excluir o seu acesso a qualquer momento pelo app, em Minha
+              conta → Excluir minha conta (veja <Link to="/excluir-conta" className="text-primary underline">como excluir</Link>),
+              e pedir a exclusão dos demais dados à escola.
             </p>
           </section>
 

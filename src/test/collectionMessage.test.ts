@@ -60,4 +60,29 @@ describe("buildCollectionMessage", () => {
     expect(buildCollectionMessage([item({ id: "1", date: "2026-08-20T18:00:00Z", amount: 200 })], { pixKey: "a@b.com", paymentLink: null }))
       .toContain("Chave (e-mail): a@b.com");
   });
+
+  it("o link de pagamento usa o nome e o texto da empresa, não InfinitePay fixo", () => {
+    const msg = buildCollectionMessage([item({ id: "1", date: "2026-08-20T18:00:00Z", amount: 200 })],
+      { pixKey: null, paymentLink: "https://mp.com/x", linkLabel: "Mercado Pago", linkNote: "Cartão em até 3x" });
+    expect(msg).toContain("🔗 *Mercado Pago*\nhttps://mp.com/x\nCartão em até 3x");
+    expect(msg).not.toContain("InfinitePay");
+    expect(msg).not.toContain("12x");
+  });
+
+  it("sem nome configurado, chama de link de pagamento", () => {
+    expect(buildCollectionMessage([item({ id: "1", date: "2026-08-20T18:00:00Z", amount: 200 })], { pixKey: null, paymentLink: "https://x" }))
+      .toContain("🔗 *Link de pagamento*");
+  });
+
+  it("com nome e cidade do Pix, manda o copia e cola com o total", () => {
+    const msg = buildCollectionMessage([item({ id: "1", date: "2026-08-20T18:00:00Z", amount: 200 })],
+      { pixKey: "375.547.138-84", paymentLink: null, pixName: "Thiago", pixCity: "Sao Paulo" });
+    expect(msg).toContain("Pix copia e cola");
+    expect(msg).toMatch(/000201.*5406200\.00.*6304[0-9A-F]{4}/);
+  });
+
+  it("sem nome/cidade, fica só a chave (sem código que o banco recusaria)", () => {
+    const msg = buildCollectionMessage([item({ id: "1", date: "2026-08-20T18:00:00Z", amount: 200 })], pay);
+    expect(msg).not.toContain("copia e cola");
+  });
 });

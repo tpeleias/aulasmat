@@ -120,10 +120,12 @@ export default function CalendarPage() {
     setExceptions((ex.data ?? []) as BlockException[]);
     const upcomingLessons = (up.data ?? []) as Lesson[];
     setUpcoming(upcomingLessons);
-    syncUpcomingLessonsWidget(upcomingLessons);
   }, [anchor, dayCount]);
 
   useEffect(() => { load(); }, [load]);
+  // Separado do load: os professores chegam depois, e a cor do widget depende
+  // da ordem deles.
+  useEffect(() => { syncUpcomingLessonsWidget(upcoming, teacherSlugs); }, [upcoming, teacherSlugs]);
 
   const [hStart, hEnd] = useMemo(() => {
     const [a] = settings.work_start.split(":").map(Number);
