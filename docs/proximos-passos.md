@@ -1403,3 +1403,37 @@ nível já existente) e build limpos.
 3. Preencher CPF/CNPJ em Configurações, senão o recibo sai com a linha em
    branco.
 
+## Relatório de evolução do aluno (23/09) — feito, sem migration
+
+Pedido do Thiago, item 3 do roteiro do Pro ("os dados existem: class_summary,
+lições, presença. É juntar e desenhar"). Ele mesmo disse não saber exatamente
+o que é o pedido - o desenho abaixo é a leitura mais direta do que já existe
+no banco, pra ele reagir e ajustar.
+
+Nova tela, `/admin/evolucao` (nav "Evolução"), e um botão "Evolução" na ficha
+do aluno (`StudentSheet`) que já leva pra lá com o aluno escolhido.
+
+- **Presença:** conta aulas `realizada`/`cancelada`/`recusada` (agendada e
+  solicitada não contam - ainda não aconteceram) e mostra a taxa.
+- **Linha do tempo:** aula realizada (com o resumo que o professor escreveu,
+  `class_summary`) e lição (com a devolutiva mais recente, se o aluno já
+  entregou), misturadas e ordenadas da mais recente pra mais antiga.
+
+**Detalhe que quase passou batido:** `lessons` não tem `student_id` - é
+`student_name`/`guardian_name` em texto, como o resto do app. Usar `accountKey`
+(de `balance.ts`) teria juntado a evolução de dois irmãos na mesma linha do
+tempo, porque ele agrupa por FAMÍLIA de propósito (é o que a Cobrança precisa).
+Evolução é por ALUNO, então `src/lib/evolution.ts` tem sua própria chave,
+`studentMatchKey`, por nome do aluno + responsável.
+
+Teste novo: `src/test/evolution.test.ts` (4 casos - só realizada entra na
+linha do tempo, aula e lição juntas ordenadas, presença conta certo, taxa não
+vira `NaN` sem dado). `tsc`, lint e build limpos; mesma ressalva de antes
+sobre não ter testado num navegador de verdade daqui.
+
+**O que ficou de fora, de propósito:** nenhum filtro de período (mostra tudo
+desde sempre) e nenhuma trava de plano (mesma decisão do Relatórios - o
+Thiago não pediu Pro-exclusivo agora, e o plano ainda não está em produção).
+Se a lista ficar longa demais com o tempo, um filtro por ano é a mesma UI que
+já existe em Relatórios - fica pra quando incomodar de verdade.
+

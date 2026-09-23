@@ -1,7 +1,7 @@
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2 } from "lucide-react";
+import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2, TrendingUp } from "lucide-react";
 import { format, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { fmtMoney, capitalize } from "@/lib/balance";
@@ -20,7 +20,7 @@ function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
 
-export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, onEdit, onDelete, onBilling }: {
+export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, onEdit, onDelete, onBilling, onEvolution }: {
   student: SheetStudent | null;
   lessons: SheetLesson[];
   statement?: AccountStatement;
@@ -31,6 +31,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
   onEdit: () => void;
   onDelete: () => void;
   onBilling: () => void;
+  onEvolution: () => void;
 }) {
   if (!student) return null;
 
@@ -79,6 +80,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
           <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Cobrança</Button>
           <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> Gerenciar</Button>
           <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>
+          <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> Evolução</Button>
         </div>
 
         <div className="mt-5">

@@ -240,6 +240,7 @@ export default function StudentsPage() {
         onEdit={() => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={() => remove(selected!.id)}
         onBilling={() => navigate("/admin/financeiro")}
+        onEvolution={() => navigate(`/admin/evolucao?aluno=${selected!.id}`)}
       />
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
