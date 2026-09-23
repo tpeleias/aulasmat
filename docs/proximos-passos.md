@@ -1548,3 +1548,20 @@ aparecia. A montagem saiu de `OrganizationPage.tsx` para
 - "Chave CPF" estava cravado para toda empresa; agora diz CPF, CNPJ ou e-mail
   conforme o formato da chave, ou só "Chave".
 - "de *Luana*" e não "da/do": adivinhar gênero pelo nome erra.
+
+## Publicado em 23/09
+
+- **Banco:** `receipt_issuer_document` e `plan_downgrade_locks` aplicadas na
+  produção antes do merge. Conferido depois: 0 alunos/professores travados,
+  17 alunos, 102 aulas e 101 lançamentos intactos, gatilhos no lugar, e
+  `lock_over_plan_limits`/`release_plan_locks` sem EXECUTE para
+  `authenticated` e `anon`. Antes de aplicar, as 4 funções substituídas foram
+  comparadas com a produção: idênticas ao repositório, nada mexido por fora.
+- **PR #17** mesclado no `main` (`73b0bfe`).
+- **Lovable:** publicado, `latest_commit_sha` = `73b0bfe`.
+- **Netlify: continua parado no build de 20/09** (`8ed1aa7`). Tentar publicar
+  pela ferramenta dá **403 Forbidden** de novo - a mesma trava de conta/crédito
+  anotada antes. Só se resolve no painel do Netlify. Enquanto isso,
+  `cronys.netlify.app` serve a versão velha; o atual é `cronys.lovable.app`.
+- **`.aab` 1.6.0** (código 14) disparado do `main`. Artefato
+  `aulas-play-1.6.0-14`, baixa como `.zip`, descompactar antes de subir.
