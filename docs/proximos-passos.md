@@ -1470,7 +1470,10 @@ Decisão do Thiago: "trava tudo e o usuário escolhe o que liberar". Migration
   ("o cadastro está pausado, fale com o professor"), porque a família também
   pode recebê-la pelo portal.
 
-### O que precisa de decisão sua ⚠️
+### Decidido (23/09): bloqueio recorrente e desconto fixo continuam valendo
+
+O Thiago confirmou: **ficam valendo depois do rebaixamento**, como já estava
+no código. O Essencial só impede criar novos.
 
 **Bloqueio recorrente e desconto fixo que já existiam NÃO são pausados.** "Trava
 tudo" pediria pausar, mas os dois têm efeito colateral ruim:
@@ -1481,9 +1484,8 @@ tudo" pediria pausar, mas os dois têm efeito colateral ruim:
 - pausar o **desconto fixo** faz a conta da família subir sem ninguém avisar -
   o desconto é um combinado entre professor e família, não com a Cronys.
 
-Hoje os dois continuam valendo e o Essencial só impede criar novos (como já
-era). Se quiser pausá-los mesmo assim, é uma mudança pequena - mas é decisão
-de produto, não técnica.
+Por isso os dois continuam valendo e o Essencial só impede criar novos. O
+teste do bloco 18 do espelho cobre exatamente isso.
 
 ### Outras coisas para saber
 
@@ -1548,3 +1550,20 @@ aparecia. A montagem saiu de `OrganizationPage.tsx` para
 - "Chave CPF" estava cravado para toda empresa; agora diz CPF, CNPJ ou e-mail
   conforme o formato da chave, ou só "Chave".
 - "de *Luana*" e não "da/do": adivinhar gênero pelo nome erra.
+
+## Publicado em 23/09
+
+- **Banco:** `receipt_issuer_document` e `plan_downgrade_locks` aplicadas na
+  produção antes do merge. Conferido depois: 0 alunos/professores travados,
+  17 alunos, 102 aulas e 101 lançamentos intactos, gatilhos no lugar, e
+  `lock_over_plan_limits`/`release_plan_locks` sem EXECUTE para
+  `authenticated` e `anon`. Antes de aplicar, as 4 funções substituídas foram
+  comparadas com a produção: idênticas ao repositório, nada mexido por fora.
+- **PR #17** mesclado no `main` (`73b0bfe`).
+- **Lovable:** publicado, `latest_commit_sha` = `73b0bfe`.
+- **Netlify: continua parado no build de 20/09** (`8ed1aa7`). Tentar publicar
+  pela ferramenta dá **403 Forbidden** de novo - a mesma trava de conta/crédito
+  anotada antes. Só se resolve no painel do Netlify. Enquanto isso,
+  `cronys.netlify.app` serve a versão velha; o atual é `cronys.lovable.app`.
+- **`.aab` 1.6.0** (código 14) disparado do `main`. Artefato
+  `aulas-play-1.6.0-14`, baixa como `.zip`, descompactar antes de subir.
