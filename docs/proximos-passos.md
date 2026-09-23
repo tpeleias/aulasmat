@@ -1836,7 +1836,21 @@ Migration `20260924010000_payment_per_account_and_pix.sql`.
 - **Só funciona com nome e cidade do recebedor preenchidos** em
   Configurações (o padrão do Pix exige). Sem eles, fica só a chave, como antes.
 
-### Ordem para publicar
+### Publicado em 24/09
+
+- **Banco:** as 5 migrations aplicadas na produção (`payment_per_account_and_pix`,
+  `school_signup_and_trial`, `teacher_role_enum`, `teacher_role` e
+  `teacher_role_lint`, esta última só para dois avisos do linter). Antes, as 4
+  funções substituídas foram comparadas com a produção: idênticas ao
+  repositório. Depois: 22 alunos, 101 aulas e 102 lançamentos intactos;
+  `expire-trials` agendado; `expire_trials` e `unique_account_slug` sem
+  EXECUTE para `anon`/`authenticated`; empresa do endereço público com
+  "InfinitePay" + texto dos 12x. (Os 6 alunos pausados que aparecem são da
+  Escola X, a empresa de teste no Essencial - não é deste lote.)
+- **Edge functions:** `delete-my-account` e `create-teacher-login` publicadas
+  (JWT obrigatório).
+
+### Ordem para publicar (como foi feito)
 
 1. Migrations, nesta ordem: `20260924010000`, `20260924020000`,
    `20260924030000` (sozinha), `20260924040000`.
