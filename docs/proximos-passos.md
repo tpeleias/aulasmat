@@ -1112,7 +1112,7 @@ ele entrar pela primeira vez — o app tem "trocar senha", e o Supabase também
 permite pelo painel.
 
 
-## Planos: Cronys Essencial e Cronys Pro (21/09) — feito no código, NÃO publicado
+## Planos: Cronys Essencial e Cronys Pro (21/09) — publicado (conferido em 23/09: migrations `plans` e `plan_badge_and_rename` estão na produção)
 
 Os nomes foram escolhidos pelo Thiago: **Cronys Essencial** (grátis) e
 **Cronys Pro** (pago).
@@ -1166,6 +1166,21 @@ decidir agora, só registrar que existem):
 Não é grande, mas também não é pequeno: é uma tela nova (escolher quem fica
 ativo) mais uma decisão de produto que só o Thiago pode tomar. Fica para
 quando ele voltar a isso.
+
+### Decisão (23/09): trava tudo, o professor escolhe o que liberar
+
+Resposta à primeira pergunta em aberto acima: **não** existe seleção automática
+de quem continua ativo (nem "os mais antigos", nem qualquer outra regra). Ao
+rebaixar, tudo que excede o limite do Essencial fica inativo de uma vez, e é o
+professor quem escolhe, numa tela, o que reativar até o limite — mesmo espírito
+de "deixar salvo, óbvio": nada é apagado, só oculto/pausado.
+
+Ainda em aberto (perguntas de UX pra resolver durante a implementação, não
+antes): se o inativo aparece numa lista separada pro professor escolher (a
+resposta óbvia dado "o usuário escolhe o que liberar", mas falta desenhar a
+tela), e se bloqueio recorrente/desconto fixo (que não existem no Essencial de
+jeito nenhum, não é questão de limite) simplesmente pausam sozinhos e voltam
+sozinhos quando a empresa volta pro Pro, sem exigir escolha do professor.
 
 ### Três decisões, e o porquê de cada uma
 
@@ -1300,3 +1315,236 @@ paga, mas o caminho automático mais barato (push) não é o que ele pediu
 (WhatsApp). Vale começar pelo WhatsApp semiautomático e medir se reduz falta
 antes de investir na verificação com a Meta.
 
+## Desconto discriminado na aula, não abatido de qualquer uma (23/09) — feito
+
+Pedido do Thiago: o desconto não estava sendo mostrado na aula que ele valia -
+`computeStatements` (`src/lib/billing.ts`) jogava TODO crédito (pagamento,
+pacote, voucher avulso e o voucher automático do desconto fixo) num pool único
+que quita a cobrança **mais antiga em aberto primeiro**. O voucher do desconto
+fixo já vinha do banco com `lesson_id` certo (é o que `sync_lesson_wallet`
+grava), mas isso era ignorado - o desconto de hoje podia acabar quitando uma
+aula de três semanas atrás, e a aula de hoje continuar cheia, sem nenhum
+desconto visível nela.
+
+**Corrigido:** um voucher com `lesson_id` agora abate primeiro, direto, a
+cobrança da própria aula - só o troco (se sobrar, o que não deveria acontecer
+porque o banco já limita o desconto ao valor da aula) volta pro pool geral. A
+tela "Em aberto" mostra o valor cheio riscado, o desconto e o líquido, aula por
+aula.
+
+**O que continua sem discriminação, de propósito:** o abatimento pontual
+(botão "Desconto" com alcance "uma aula" ou "tudo em aberto") lança um voucher
+**sem** `lesson_id` - é assim desde a migration 20260921120000, porque
+`sync_lesson_wallet` reconhece "o" voucher de uma aula só pelo par
+`lesson_id + kind='voucher'`; se o manual também usasse `lesson_id`, o gatilho
+do desconto fixo passaria a apagar/sobrescrever esse voucher manual sempre que
+a família também tivesse desconto fixo e a aula fosse tocada de novo. Ligar os
+dois exigiria uma forma de o gatilho distinguir "meu voucher" de "voucher
+alheio" (uma coluna nova, tipo `auto_generated`) - fica pra outra sessão se o
+Thiago quiser esse caso também discriminado.
+
+Teste novo: `src/test/billing.test.ts`, 3 casos (abate a própria aula, troco de
+desconto maior que a aula não vira crédito do nada, voucher solto continua indo
+pro pool geral). `tsc`, lint (no nível já existente) e build limpos.
+
+**Falta:** nada no banco muda, então não há migration a aplicar - é só o
+front-end, publica com o próximo merge/deploy normal.
+
+## Exportação IR + Recibo (23/09) — feito no código, falta aplicar a migration
+
+Pedido do Thiago, item 1 do roteiro do Pro ("o mais fácil da lista inteira").
+Tela nova, `/admin/relatorios` (nav "Relatórios"), com duas partes.
+
+**Resumo do período:** ano (e opcionalmente mês) → quanto cada família pagou
+de verdade, e o total. "De verdade" quer dizer `kind IN ('package',
+'adjustment')` com valor positivo - aula é cobrança, nunca entrada, e voucher
+é desconto, crédito sem dinheiro trocando de mão; nenhum dos dois é renda pra
+declarar nem prova de pagamento recebido. Botão exporta CSV das linhas do período,
+separado por `;` e com BOM - é o que o Excel em português abre em colunas e
+com acento certo (com `,` sai tudo numa coluna só).
+
+**Recibo:** escolhe família + mês/ano, soma o que ela pagou nesse período, e
+monta um recibo (nome da empresa, CPF/CNPJ e e-mail de quem recebe, valor em
+número E por extenso, lista do que foi pago, data de emissão, linha de
+assinatura). "Imprimir / Salvar PDF" chama `window.print()` — sem lib nova,
+`#recibo-print` é a única coisa visível na folha via `@media print` em
+`index.css`, o resto do app (nav, cabeçalho) some da impressão.
+
+**Duas coisas pequenas que vieram junto:**
+- `settings.issuer_document` (CPF/CNPJ de quem recebe) — campo novo em
+  Configurações → Contato, pra aparecer no recibo. Nulo sai em branco pra
+  preencher à mão. Não entra na lista que o `anon` lê (allowlist da migration
+  20260920120000) — não tem por que ser pública.
+- `src/lib/extenso.ts` — valor por extenso em português (obrigatório em
+  recibo de verdade). Cobre reais e centavos até 999.999.999, com a regra de
+  vírgula/"e" entre os grupos (ex.: "mil, duzentos e trinta e quatro reais",
+  mas "mil e cinquenta reais" - "e" só quando o último grupo é redondo ou
+  menor que 100).
+
+**Não é Pro-exclusivo.** O roteiro listava isso como ideia de Pro, mas o
+Thiago não pediu a trava agora e o plano em si ainda não está em produção
+(migration `20260921160000_plans.sql`). Fica registrado: se quiser gated,
+é adicionar `reports: boolean` em `usePlan.ts`/`plan_features()` e envolver a
+tela com `<ProUpsell>` — mesmo padrão de `packages`/`recurring_blocks`.
+
+Testes novos: `src/test/extenso.test.ts` (8 casos) e `src/test/reports.test.ts`
+(8 casos, cobrindo o filtro de renda, o período e o CSV). `tsc`, lint (no
+nível já existente) e build limpos.
+
+**O que falta, e depende de você:**
+1. **Aplicar a migration `20260923010000_receipt_issuer_document.sql`** na
+   produção — só adiciona a coluna, não tem RLS nem trigger novo.
+2. **Não foi possível testar a tela num navegador de verdade daqui.** O
+   ambiente não tem o pacote `playwright` instalado no projeto (só o Chromium
+   do sistema) e a tela exige login contra o Supabase de produção, que este
+   ambiente não alcança (mesma limitação já registrada para as edge
+   functions). A conferência foi `tsc` + lint + build + os testes de unidade
+   acima - vale abrir a tela de verdade depois de publicar antes de confiar
+   nela para um recibo real.
+3. Preencher CPF/CNPJ em Configurações, senão o recibo sai com a linha em
+   branco.
+
+## Relatório de evolução do aluno (23/09) — feito, sem migration
+
+Pedido do Thiago, item 3 do roteiro do Pro ("os dados existem: class_summary,
+lições, presença. É juntar e desenhar"). Ele mesmo disse não saber exatamente
+o que é o pedido - o desenho abaixo é a leitura mais direta do que já existe
+no banco, pra ele reagir e ajustar.
+
+Nova tela, `/admin/evolucao` (nav "Evolução"), e um botão "Evolução" na ficha
+do aluno (`StudentSheet`) que já leva pra lá com o aluno escolhido.
+
+- **Presença:** conta aulas `realizada`/`cancelada`/`recusada` (agendada e
+  solicitada não contam - ainda não aconteceram) e mostra a taxa.
+- **Linha do tempo:** aula realizada (com o resumo que o professor escreveu,
+  `class_summary`) e lição (com a devolutiva mais recente, se o aluno já
+  entregou), misturadas e ordenadas da mais recente pra mais antiga.
+
+**Detalhe que quase passou batido:** `lessons` não tem `student_id` - é
+`student_name`/`guardian_name` em texto, como o resto do app. Usar `accountKey`
+(de `balance.ts`) teria juntado a evolução de dois irmãos na mesma linha do
+tempo, porque ele agrupa por FAMÍLIA de propósito (é o que a Cobrança precisa).
+Evolução é por ALUNO, então `src/lib/evolution.ts` tem sua própria chave,
+`studentMatchKey`, por nome do aluno + responsável.
+
+Teste novo: `src/test/evolution.test.ts` (4 casos - só realizada entra na
+linha do tempo, aula e lição juntas ordenadas, presença conta certo, taxa não
+vira `NaN` sem dado). `tsc`, lint e build limpos; mesma ressalva de antes
+sobre não ter testado num navegador de verdade daqui.
+
+**O que ficou de fora, de propósito:** nenhum filtro de período (mostra tudo
+desde sempre) e nenhuma trava de plano (mesma decisão do Relatórios - o
+Thiago não pediu Pro-exclusivo agora, e o plano ainda não está em produção).
+Se a lista ficar longa demais com o tempo, um filtro por ano é a mesma UI que
+já existe em Relatórios - fica pra quando incomodar de verdade.
+
+## Rebaixamento trava tudo (23/09) — feito no código, falta aplicar a migration
+
+Decisão do Thiago: "trava tudo e o usuário escolhe o que liberar". Migration
+`20260923020000_plan_downgrade_locks.sql`.
+
+### Como ficou
+
+- Ao cair para o Essencial, **se** os alunos passam do limite (5), **todos**
+  ficam pausados (`students.plan_locked`), e o professor libera até 5 na tela
+  Alunos. O mesmo com professores ativos (limite 1): ficam inativos com
+  `teachers.plan_locked`, e o professor reativa 1 pelo interruptor de sempre.
+- **Abaixo do limite, nada trava.** Leitura minha de "trava tudo": travar 3
+  alunos só para o professor destravar os 3 em seguida seria atrito puro.
+- Pausado **não perde nada**: aulas, histórico, carteira, e as aulas já
+  marcadas continuam (e seguem sendo marcadas como realizadas e cobradas). O
+  que trava é aula NOVA - pelo admin, pelo portal da família, pelo assistente,
+  e também aprovar um pedido antigo ou passar uma aula existente para o aluno
+  pausado. Desmarcar e mudar horário continuam livres.
+- **Tudo isso é regra do banco** (gatilhos), não da tela. Inclusive o
+  "Liberar": o admin tem UPDATE em `students`, então sem o gatilho
+  `students_plan_unlock` bastaria um UPDATE pela API para liberar os 15.
+- Na ficha do aluno aparece **"Pausar"** enquanto houver alguém pausado: é
+  como o professor troca quem ocupa as 5 vagas. Sem isso, uma escolha errada
+  ficaria sem volta até o Pro.
+- **Voltar para o Pro libera tudo sozinho** - e só o que o plano pausou: um
+  professor que o dono tinha desligado por conta própria continua desligado.
+- O painel do gestor pede confirmação antes de rebaixar uma empresa acima do
+  limite, e mostra quantos estão pausados em cada uma.
+- A mensagem de erro de aula para aluno pausado **não fala de plano**
+  ("o cadastro está pausado, fale com o professor"), porque a família também
+  pode recebê-la pelo portal.
+
+### O que precisa de decisão sua ⚠️
+
+**Bloqueio recorrente e desconto fixo que já existiam NÃO são pausados.** "Trava
+tudo" pediria pausar, mas os dois têm efeito colateral ruim:
+
+- pausar o **bloqueio recorrente** faz a vitrine pública oferecer horário que o
+  professor não tem (o mesmo motivo que manteve o bloqueio pontual no
+  Essencial);
+- pausar o **desconto fixo** faz a conta da família subir sem ninguém avisar -
+  o desconto é um combinado entre professor e família, não com a Cronys.
+
+Hoje os dois continuam valendo e o Essencial só impede criar novos (como já
+era). Se quiser pausá-los mesmo assim, é uma mudança pequena - mas é decisão
+de produto, não técnica.
+
+### Outras coisas para saber
+
+- **A Empresa X já está acima do limite hoje** (Essencial com 2 professores
+  ativos - conferido na produção). A migration **não** trava ninguém sozinha:
+  a trava acontece no momento do rebaixamento. Para enquadrar a Empresa X, o
+  gestor passa ela para Pro e de volta para Essencial.
+- O casamento aula↔aluno é por nome + responsável e aula↔professor pelo
+  apelido (sem acento, minúsculo, espaço vira hífen) - o mesmo casamento por
+  texto do resto do banco. Um nome com acento fora do português comum (ex.:
+  "ñ") não casaria, e a aula passaria. Risco baixo, registrado.
+- `lock_over_plan_limits` e `release_plan_locks` **não** são executáveis por
+  `authenticated`: são SECURITY DEFINER e recebem a empresa por parâmetro, então
+  qualquer admin travaria os alunos de outra empresa. Coberto por teste.
+
+### Como foi verificado
+
+Espelho local (Postgres 16) reconstruído e rodado inteiro: todos os blocos
+anteriores seguem verdes, e o **bloco 18 foi reescrito** - ele testava
+exatamente o oposto ("rebaixar não apaga nada, os 6 continuam funcionando").
+Agora são 32 asserções: trava os 6 e os 2, não apaga, aula nova recusada,
+libera 5 e recusa o 6º (inclusive por UPDATE direto), reativar professor limpa
+a marca, trocar o aluno de uma aula existente é recusado, desmarcar e mudar
+horário continuam livres, admin não chama as funções de trava, voltar ao Pro
+libera só o que o plano pausou. Migration reaplicada 2× sobre si mesma sem
+erro (idempotente). `tsc`, testes, lint (nível existente) e build limpos.
+
+As telas **não** foram abertas num navegador logado daqui (mesma limitação de
+rede de antes).
+
+### Ordem para publicar (importante)
+
+As três telas novas foram escritas para funcionar **antes** das migrations
+(sem as colunas novas, simplesmente não mostram nada de novo). Mesmo assim a
+ordem certa é:
+
+1. aplicar `20260923010000_receipt_issuer_document.sql` e
+   `20260923020000_plan_downgrade_locks.sql` na produção;
+2. mesclar o PR no `main` (Netlify publica sozinho);
+3. publicar no Lovable (`deploy_project`) e conferir o `latest_commit_sha`;
+4. `.aab` novo só se quiser as telas no app da loja.
+
+
+## Mensagem de cobrança reorganizada (23/09)
+
+Pedido do Thiago: a lista de aulas estava amontoada ("sexta 15/05 às 16:30 —
+Luana — Matemática (60 min) — R$ 200,00" numa linha só) e o desconto não
+aparecia. A montagem saiu de `OrganizationPage.tsx` para
+`src/lib/collectionMessage.ts`, com teste.
+
+- Cada aula virou um bloco de 3 linhas (data em negrito / matéria e duração /
+  valor). O WhatsApp não alinha colunas (fonte proporcional), então bloco lê
+  melhor que tabela.
+- O nome do aluno sai do bloco e vai para a frase de abertura quando a conta
+  tem um aluno só; com irmãos, o nome volta para cada aula.
+- **Com desconto:** valor cheio riscado → valor com desconto em negrito, linha
+  "🎁 Desconto de 10%: você economiza R$ 20,00" em cada aula, e no fim
+  "Aulas / Descontos / Total a pagar" mais uma frase dizendo quanto a família
+  está economizando. Sem desconto, só o total - nada de linha "Descontos: R$ 0".
+- Aula paga em parte mostra quanto já entrou e quanto falta, e o resumo ganha
+  "Já pago", para a conta fechar na frente da família.
+- "Chave CPF" estava cravado para toda empresa; agora diz CPF, CNPJ ou e-mail
+  conforme o formato da chave, ou só "Chave".
+- "de *Luana*" e não "da/do": adivinhar gênero pelo nome erra.

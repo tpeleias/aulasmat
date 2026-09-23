@@ -461,13 +461,26 @@ export default function BillingPage() {
                         ) : (
                           <ul className="divide-y divide-border rounded-xl border border-border">
                             {a.items.map(i => (
-                              <li key={i.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                              <li key={i.id} className="flex items-start justify-between gap-2 px-3 py-2 text-sm">
                                 <span className="min-w-0 truncate">
                                   <span className="capitalize">{format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
                                   <span className="text-muted-foreground"> · {i.detail}</span>
+                                  {i.discount && (
+                                    <div className="text-[10px] text-muted-foreground truncate">{i.discount.label}</div>
+                                  )}
                                 </span>
-                                <span className="shrink-0 font-medium tabular-nums">
-                                  {fmtMoney(i.amount)}{i.partial && <span className="text-xs font-normal text-muted-foreground"> restante</span>}
+                                <span className="shrink-0 flex flex-col items-end">
+                                  {i.discount && (
+                                    <span className="text-[10px] text-muted-foreground line-through tabular-nums">
+                                      {fmtMoney(i.discount.gross)}
+                                    </span>
+                                  )}
+                                  <span className="font-medium tabular-nums">
+                                    {fmtMoney(i.amount)}{i.partial && <span className="text-xs font-normal text-muted-foreground"> restante</span>}
+                                  </span>
+                                  {i.discount && (
+                                    <span className="text-[10px] text-success tabular-nums">−{fmtMoney(i.discount.amount)} desconto</span>
+                                  )}
                                 </span>
                               </li>
                             ))}

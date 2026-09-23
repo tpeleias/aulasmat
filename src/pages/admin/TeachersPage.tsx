@@ -104,7 +104,9 @@ export default function TeachersPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="font-medium">{capitalize(t.name)}</div>
-                <div className="text-xs text-muted-foreground">{t.active ? "Ativo" : "Inativo"}</div>
+                <div className="text-xs text-muted-foreground">
+                  {t.active ? "Ativo" : t.plan_locked ? "Pausado pela mudança de plano - ative para liberar" : "Inativo"}
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />

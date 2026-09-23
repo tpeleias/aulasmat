@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { fmtMoney, capitalize } from "@/lib/balance";
 import { computeStatements, daysOpen, isOverdue, sortAccounts, ACCOUNT_SORTS, type AccountSort, type LedgerTx, type LedgerLesson, type OpenItem } from "@/lib/billing";
 import { syncBillingWidget } from "@/lib/widgetSync";
+import { buildCollectionMessage, type PaymentInfo } from "@/lib/collectionMessage";
 import { haptics } from "@/lib/haptics";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -23,38 +24,6 @@ type UpcomingLesson = {
 
 function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
-}
-
-type PaymentInfo = { pixKey: string | null; paymentLink: string | null };
-
-// The Pix key and the payment link come from Configurações, so changing them there
-// changes every message. Whatever is missing simply drops out, leaving no empty block.
-function buildCollectionMessage(items: OpenItem[], totalOwed: number, payment: PaymentInfo) {
-  const lines = items
-    .map(i =>
-      `• ${format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} — ${i.student} — ${i.detail} — ${fmtMoney(i.amount)}${i.partial ? " (saldo restante)" : ""}`
-    ).join("\n");
-
-  const pix = payment.pixKey?.trim();
-  const link = payment.paymentLink?.trim();
-  const ways = [
-    pix && `💠 Pix — chave CPF ${pix}`,
-    link && `🔗 InfinitePay — ${link}\nNa loja dá pra pagar com Google Pay, cartão de crédito ou Pix, e no cartão aceitamos parcelamento em até 12x.`,
-  ].filter(Boolean) as string[];
-
-  const howToPay = ways.length
-    ? `\nVocê pode pagar do jeito que for mais fácil pra você:\n\n${ways.join("\n\n")}\n`
-    : "";
-
-  return `Oi! Tudo bem? 😊
-
-Passando pra fechar as aulas já realizadas que ainda estão em aberto:
-
-${lines}
-
-Total em aberto: ${fmtMoney(totalOwed)}
-${howToPay}
-Depois é só mandar o comprovante que a gente dá baixa por aqui. Qualquer problema, nos avise! Estamos à disposição pra conversar. Obrigado! 🤓`;
 }
 
 export default function OrganizationPage() {
@@ -107,7 +76,7 @@ export default function OrganizationPage() {
   }, [upcoming]);
 
   const copyMessage = (acc: { label: string; owed: number; items: OpenItem[] }) => {
-    navigator.clipboard.writeText(buildCollectionMessage(acc.items, acc.owed, payment));
+    navigator.clipboard.writeText(buildCollectionMessage(acc.items, payment));
     haptics.success();
     toast.success(`Mensagem de cobrança de ${acc.label} copiada`);
   };

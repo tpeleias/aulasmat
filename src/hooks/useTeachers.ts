@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Teacher = { id: string; name: string; active: boolean; sort_order?: number; subject?: string | null; whatsapp?: string | null; whatsapp_enabled?: boolean; scarcity?: Record<string, { min: number; max: number }> | null };
+export type Teacher = { id: string; name: string; active: boolean; sort_order?: number; subject?: string | null; whatsapp?: string | null; whatsapp_enabled?: boolean; plan_locked?: boolean; scarcity?: Record<string, { min: number; max: number }> | null };
 
 export function useTeachers(onlyActive = true) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
