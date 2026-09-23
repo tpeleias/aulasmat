@@ -56,8 +56,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   useEffect(() => {
     if (!open) return;
-    supabase.from("students").select("id,student_name,guardian_name,address").order("student_name").then(({ data }) => {
-      setStudents((data ?? []) as any);
+    // "*" e não a lista de colunas: plan_locked só existe depois da migration
+    // 20260923020000, e pedir uma coluna que não existe derrubaria a consulta.
+    // Aluno pausado pelo plano sai da sugestão - o banco recusaria a aula.
+    supabase.from("students").select("*").order("student_name").then(({ data }) => {
+      setStudents(((data ?? []) as any[]).filter(s => !s.plan_locked));
     });
   }, [open]);
 

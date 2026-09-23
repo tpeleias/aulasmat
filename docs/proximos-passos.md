@@ -1112,7 +1112,7 @@ ele entrar pela primeira vez — o app tem "trocar senha", e o Supabase também
 permite pelo painel.
 
 
-## Planos: Cronys Essencial e Cronys Pro (21/09) — feito no código, NÃO publicado
+## Planos: Cronys Essencial e Cronys Pro (21/09) — publicado (conferido em 23/09: migrations `plans` e `plan_badge_and_rename` estão na produção)
 
 Os nomes foram escolhidos pelo Thiago: **Cronys Essencial** (grátis) e
 **Cronys Pro** (pago).
@@ -1359,8 +1359,9 @@ Tela nova, `/admin/relatorios` (nav "Relatórios"), com duas partes.
 de verdade, e o total. "De verdade" quer dizer `kind IN ('package',
 'adjustment')` com valor positivo - aula é cobrança, nunca entrada, e voucher
 é desconto, crédito sem dinheiro trocando de mão; nenhum dos dois é renda pra
-declarar nem prova de pagamento recebido. Botão exporta CSV com BOM (abre
-certo no Excel em português) das linhas do período.
+declarar nem prova de pagamento recebido. Botão exporta CSV das linhas do período,
+separado por `;` e com BOM - é o que o Excel em português abre em colunas e
+com acento certo (com `,` sai tudo numa coluna só).
 
 **Recibo:** escolhe família + mês/ano, soma o que ela pagou nesse período, e
 monta um recibo (nome da empresa, CPF/CNPJ e e-mail de quem recebe, valor em
@@ -1436,4 +1437,92 @@ desde sempre) e nenhuma trava de plano (mesma decisão do Relatórios - o
 Thiago não pediu Pro-exclusivo agora, e o plano ainda não está em produção).
 Se a lista ficar longa demais com o tempo, um filtro por ano é a mesma UI que
 já existe em Relatórios - fica pra quando incomodar de verdade.
+
+## Rebaixamento trava tudo (23/09) — feito no código, falta aplicar a migration
+
+Decisão do Thiago: "trava tudo e o usuário escolhe o que liberar". Migration
+`20260923020000_plan_downgrade_locks.sql`.
+
+### Como ficou
+
+- Ao cair para o Essencial, **se** os alunos passam do limite (5), **todos**
+  ficam pausados (`students.plan_locked`), e o professor libera até 5 na tela
+  Alunos. O mesmo com professores ativos (limite 1): ficam inativos com
+  `teachers.plan_locked`, e o professor reativa 1 pelo interruptor de sempre.
+- **Abaixo do limite, nada trava.** Leitura minha de "trava tudo": travar 3
+  alunos só para o professor destravar os 3 em seguida seria atrito puro.
+- Pausado **não perde nada**: aulas, histórico, carteira, e as aulas já
+  marcadas continuam (e seguem sendo marcadas como realizadas e cobradas). O
+  que trava é aula NOVA - pelo admin, pelo portal da família, pelo assistente,
+  e também aprovar um pedido antigo ou passar uma aula existente para o aluno
+  pausado. Desmarcar e mudar horário continuam livres.
+- **Tudo isso é regra do banco** (gatilhos), não da tela. Inclusive o
+  "Liberar": o admin tem UPDATE em `students`, então sem o gatilho
+  `students_plan_unlock` bastaria um UPDATE pela API para liberar os 15.
+- Na ficha do aluno aparece **"Pausar"** enquanto houver alguém pausado: é
+  como o professor troca quem ocupa as 5 vagas. Sem isso, uma escolha errada
+  ficaria sem volta até o Pro.
+- **Voltar para o Pro libera tudo sozinho** - e só o que o plano pausou: um
+  professor que o dono tinha desligado por conta própria continua desligado.
+- O painel do gestor pede confirmação antes de rebaixar uma empresa acima do
+  limite, e mostra quantos estão pausados em cada uma.
+- A mensagem de erro de aula para aluno pausado **não fala de plano**
+  ("o cadastro está pausado, fale com o professor"), porque a família também
+  pode recebê-la pelo portal.
+
+### O que precisa de decisão sua ⚠️
+
+**Bloqueio recorrente e desconto fixo que já existiam NÃO são pausados.** "Trava
+tudo" pediria pausar, mas os dois têm efeito colateral ruim:
+
+- pausar o **bloqueio recorrente** faz a vitrine pública oferecer horário que o
+  professor não tem (o mesmo motivo que manteve o bloqueio pontual no
+  Essencial);
+- pausar o **desconto fixo** faz a conta da família subir sem ninguém avisar -
+  o desconto é um combinado entre professor e família, não com a Cronys.
+
+Hoje os dois continuam valendo e o Essencial só impede criar novos (como já
+era). Se quiser pausá-los mesmo assim, é uma mudança pequena - mas é decisão
+de produto, não técnica.
+
+### Outras coisas para saber
+
+- **A Empresa X já está acima do limite hoje** (Essencial com 2 professores
+  ativos - conferido na produção). A migration **não** trava ninguém sozinha:
+  a trava acontece no momento do rebaixamento. Para enquadrar a Empresa X, o
+  gestor passa ela para Pro e de volta para Essencial.
+- O casamento aula↔aluno é por nome + responsável e aula↔professor pelo
+  apelido (sem acento, minúsculo, espaço vira hífen) - o mesmo casamento por
+  texto do resto do banco. Um nome com acento fora do português comum (ex.:
+  "ñ") não casaria, e a aula passaria. Risco baixo, registrado.
+- `lock_over_plan_limits` e `release_plan_locks` **não** são executáveis por
+  `authenticated`: são SECURITY DEFINER e recebem a empresa por parâmetro, então
+  qualquer admin travaria os alunos de outra empresa. Coberto por teste.
+
+### Como foi verificado
+
+Espelho local (Postgres 16) reconstruído e rodado inteiro: todos os blocos
+anteriores seguem verdes, e o **bloco 18 foi reescrito** - ele testava
+exatamente o oposto ("rebaixar não apaga nada, os 6 continuam funcionando").
+Agora são 32 asserções: trava os 6 e os 2, não apaga, aula nova recusada,
+libera 5 e recusa o 6º (inclusive por UPDATE direto), reativar professor limpa
+a marca, trocar o aluno de uma aula existente é recusado, desmarcar e mudar
+horário continuam livres, admin não chama as funções de trava, voltar ao Pro
+libera só o que o plano pausou. Migration reaplicada 2× sobre si mesma sem
+erro (idempotente). `tsc`, testes, lint (nível existente) e build limpos.
+
+As telas **não** foram abertas num navegador logado daqui (mesma limitação de
+rede de antes).
+
+### Ordem para publicar (importante)
+
+As três telas novas foram escritas para funcionar **antes** das migrations
+(sem as colunas novas, simplesmente não mostram nada de novo). Mesmo assim a
+ordem certa é:
+
+1. aplicar `20260923010000_receipt_issuer_document.sql` e
+   `20260923020000_plan_downgrade_locks.sql` na produção;
+2. mesclar o PR no `main` (Netlify publica sozinho);
+3. publicar no Lovable (`deploy_project`) e conferir o `latest_commit_sha`;
+4. `.aab` novo só se quiser as telas no app da loja.
 

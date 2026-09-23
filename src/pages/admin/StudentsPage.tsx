@@ -23,6 +23,9 @@ import { ProUpsell } from "@/components/ProUpsell";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
+  // Ausente enquanto a migration 20260923020000 não estiver aplicada - e aí
+  // ninguém está travado, que é exatamente o comportamento de antes.
+  plan_locked?: boolean;
 };
 type Lesson = SheetLesson & { student_name: string; guardian_name: string | null };
 
@@ -142,6 +145,24 @@ export default function StudentsPage() {
     if (error) toast.error(error.message); else { haptics.success(); toast.success("Aluno excluído"); setSelected(null); load(); }
   };
 
+  const locked = useMemo(() => students.filter(s => s.plan_locked), [students]);
+  const unlockedCount = students.length - locked.length;
+  const atLimit = plan.max_students !== null && unlockedCount >= plan.max_students;
+
+  // O banco confere o limite (students_plan_unlock); aqui é só o pedido.
+  const unlock = async (st: Student) => {
+    const { error } = await supabase.from("students").update({ plan_locked: false } as never).eq("id", st.id);
+    if (error) { haptics.warning(); toast.error(error.message); }
+    else { haptics.success(); toast.success(`${st.student_name} liberado`); load(); }
+  };
+
+  const pause = async (st: Student) => {
+    if (!confirm(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar aula nova até liberar de novo.`)) return;
+    const { error } = await supabase.from("students").update({ plan_locked: true } as never).eq("id", st.id);
+    if (error) { haptics.warning(); toast.error(error.message); }
+    else { haptics.success(); toast.success(`${st.student_name} pausado`); setSelected(null); load(); }
+  };
+
   const selectedStatement = selected ? statements.get(accountKey(selected)) : undefined;
   const selectedLessons = selected ? (lessonsByAccount.get(accountKey(selected)) ?? []) : [];
 
@@ -152,19 +173,47 @@ export default function StudentsPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Alunos</h1>
             <p className="text-sm text-muted-foreground">
-              {students.length} cadastrado{students.length === 1 ? "" : "s"}
-              {plan.max_students !== null && ` de ${plan.max_students}`}
+              {locked.length > 0
+                ? `${unlockedCount} liberado${unlockedCount === 1 ? "" : "s"} de ${plan.max_students ?? "∞"} · ${locked.length} pausado${locked.length === 1 ? "" : "s"}`
+                : <>{students.length} cadastrado{students.length === 1 ? "" : "s"}{plan.max_students !== null && ` de ${plan.max_students}`}</>}
             </p>
           </div>
           <Button
             className="rounded-xl gap-1.5"
-            disabled={plan.max_students !== null && students.length >= plan.max_students}
+            disabled={atLimit}
             onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
             <Plus className="w-4 h-4" /> Novo
           </Button>
         </div>
 
-        {plan.max_students !== null && students.length >= plan.max_students && (
+        {locked.length > 0 && (
+          <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-3">
+            <div>
+              <div className="font-semibold text-sm">
+                {locked.length} aluno{locked.length === 1 ? "" : "s"} pausado{locked.length === 1 ? "" : "s"} pela mudança de plano
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Nada deles foi apagado - histórico, aulas e financeiro continuam. Só não dá para marcar aula nova.
+                {plan.max_students !== null && ` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já liberado${unlockedCount === 1 ? "" : "s"})` : ""}.`}
+              </p>
+            </div>
+            <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+              {locked.map(st => (
+                <li key={st.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">
+                    {st.student_name}
+                    <span className="text-muted-foreground">{st.guardian_name ? ` · ${st.guardian_name}` : ""}</span>
+                  </span>
+                  <Button size="sm" variant="outline" className="h-8 shrink-0 rounded-xl" disabled={atLimit} onClick={() => unlock(st)}>
+                    Liberar
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {atLimit && locked.length === 0 && (
           <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} alunos`} icon={Users} compacto>
             os {students.length} que você já tem continuam aqui, com tudo deles.
             Para cadastrar o próximo, é o Cronys Pro.
@@ -206,6 +255,7 @@ export default function StudentsPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-medium">{st.student_name}</span>
                         {st.user_id && <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                        {st.plan_locked && <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">pausado</span>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {st.guardian_name ? `Resp.: ${st.guardian_name}` : "Sem responsável"}
@@ -241,6 +291,7 @@ export default function StudentsPage() {
         onDelete={() => remove(selected!.id)}
         onBilling={() => navigate("/admin/financeiro")}
         onEvolution={() => navigate(`/admin/evolucao?aluno=${selected!.id}`)}
+        onPause={locked.length > 0 && selected && !selected.plan_locked ? () => pause(selected) : undefined}
       />
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>

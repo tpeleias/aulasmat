@@ -666,7 +666,7 @@ END $$;
 COMMIT;
 
 \echo ''
-\echo '--- 18. Virar Pro solta tudo, e rebaixar nao apaga nada ---'
+\echo '--- 18. Virar Pro solta tudo; rebaixar trava tudo e o professor escolhe o que liberar ---'
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
@@ -689,14 +689,25 @@ INSERT INTO public.blocks (title, teacher, block_type, weekday, start_time, end_
 VALUES ('Toda terca', 'unico', 'recurring', 2, '14:00', '16:00');
 SELECT public.assert((public.set_account_discount('A1','R1','percent',10) ->> 'removed') = 'false',
   'e o desconto por familia passa a ser aceito');
+-- Uma aula ja marcada para o A6, para ver o que acontece com ela ao rebaixar.
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+VALUES ('A6', NULL, 'segundo', '2027-01-04 10:00-03', 60);
 COMMIT;
 
--- Rebaixar: mantem o que existe, so trava o proximo.
+-- Rebaixar: 6 alunos com limite 5 e 2 professores ativos com limite 1 -
+-- trava TODOS dos dois tipos. Ninguem e escolhido automaticamente.
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
-SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'essencial');
+SELECT public.assert(
+  (SELECT r ->> 'alunos_travados' = '6' AND r ->> 'professores_travados' = '2'
+     FROM (SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'essencial') AS r) x),
+  'rebaixar trava os 6 alunos e os 2 professores ativos');
+SELECT public.assert(
+  (SELECT alunos_travados = 6 AND professores_travados = 2
+     FROM public.platform_accounts_overview() WHERE id = current_setting('teste.e')::uuid),
+  'e o painel do gestor mostra quantos estao travados');
 COMMIT;
 
 BEGIN;
@@ -704,25 +715,139 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
 SELECT public.assert((SELECT count(*) FROM public.students) = 6,
-  'rebaixada, a empresa CONTINUA com os 6 alunos que ja tinha');
+  'travar nao apaga: a empresa CONTINUA com os 6 alunos');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE plan_locked) = 6, 'todos travados');
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE active) = 0, 'nenhum professor ativo');
+SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Reserva') = false
+                     AND (SELECT plan_locked FROM public.teachers WHERE name = 'Reserva') = false,
+  'o professor que o dono ja tinha desligado NAO vira travado-pelo-plano');
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'A6' AND status = 'agendada') = 1,
+  'a aula ja marcada do aluno travado continua marcada');
+-- Pro-only que ja existia fica, de proposito (ver migration 20260923020000).
 SELECT public.assert((SELECT count(*) FROM public.blocks WHERE block_type='recurring') = 1,
-  'e com o bloqueio recorrente que ja tinha');
+  'o bloqueio recorrente que ja existia continua');
 SELECT public.assert((SELECT count(*) FROM public.account_discounts) = 1,
-  'e com o desconto que ja tinha');
--- Editar o que ja existe continua livre; so criar novo trava.
+  'e o desconto que ja existia tambem');
 UPDATE public.students SET guardian_name = 'R1 editado' WHERE student_name = 'A1';
 SELECT public.assert((SELECT count(*) FROM public.students WHERE guardian_name='R1 editado') = 1,
-  'editar aluno existente continua funcionando');
--- Tirar um desconto continua livre, senao ela nao consegue desfazer.
+  'editar aluno travado continua funcionando');
 SELECT public.assert((public.set_account_discount('A1','R1 editado', NULL, NULL) ->> 'removed') = 'true',
   'e tirar um desconto continua livre, para ela poder desfazer');
 DO $$
 BEGIN
-  INSERT INTO public.students (student_name) VALUES ('A7');
-  RAISE EXCEPTION 'FALHOU: criou o setimo aluno apos rebaixar';
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+  VALUES ('A1', 'R1 editado', 'unico', '2027-01-05 10:00-03', 60);
+  RAISE EXCEPTION 'FALHOU: marcou aula para aluno travado';
 EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - mas criar o proximo trava de novo';
+  RAISE NOTICE '  ok - aluno travado nao recebe aula nova';
 END $$;
+COMMIT;
+
+-- O professor escolhe: libera 5 alunos e 1 professor. O sexto nao passa.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+UPDATE public.students SET plan_locked = false WHERE student_name IN ('A1','A2','A3','A4','A5');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE NOT plan_locked) = 5, 'libera 5 alunos');
+DO $$
+BEGIN
+  UPDATE public.students SET plan_locked = false WHERE student_name = 'A6';
+  RAISE EXCEPTION 'FALHOU: liberou o sexto aluno no Essencial';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - o sexto nao e liberado, nem por UPDATE direto na API';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.students (student_name) VALUES ('A7');
+  RAISE EXCEPTION 'FALHOU: criou aluno novo com 5 liberados';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - e criar um novo tambem trava';
+END $$;
+UPDATE public.teachers SET active = true WHERE name = 'Unico';
+SELECT public.assert((SELECT plan_locked FROM public.teachers WHERE name = 'Unico') = false,
+  'reativar o professor limpa a marca de travado');
+DO $$
+BEGIN
+  UPDATE public.teachers SET active = true WHERE name = 'Segundo';
+  RAISE EXCEPTION 'FALHOU: reativou o segundo professor';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - o segundo professor nao volta';
+END $$;
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+VALUES ('A1', 'R1 editado', 'unico', '2027-01-05 10:00-03', 60);
+SELECT public.assert(true, 'aluno liberado com professor liberado recebe aula');
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+  VALUES ('A1', 'R1 editado', 'segundo', '2027-01-06 10:00-03', 60);
+  RAISE EXCEPTION 'FALHOU: marcou aula com professor travado';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - professor travado nao recebe aula nova';
+END $$;
+DO $$
+BEGIN
+  UPDATE public.lessons SET student_name = 'A6', guardian_name = NULL
+   WHERE student_name = 'A1' AND start_at = '2027-01-05 10:00-03';
+  RAISE EXCEPTION 'FALHOU: passou uma aula para o aluno travado';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - nem trocando o aluno de uma aula existente';
+END $$;
+-- Mas desmarcar ou mudar o horario da aula do travado continua livre.
+UPDATE public.lessons SET start_at = '2027-01-04 11:00-03' WHERE student_name = 'A6';
+UPDATE public.lessons SET status = 'cancelada' WHERE student_name = 'A6';
+SELECT public.assert((SELECT status FROM public.lessons WHERE student_name = 'A6') = 'cancelada',
+  'mudar horario e desmarcar a aula do travado continua livre');
+COMMIT;
+
+-- O admin NAO chama a trava diretamente (ela recebe a empresa por parametro).
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+DO $$
+BEGIN
+  PERFORM public.lock_over_plan_limits(current_setting('teste.a')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin chamou lock_over_plan_limits';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - admin nao trava alunos de outra empresa';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.release_plan_locks(current_setting('teste.e')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin chamou release_plan_locks';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - nem se destrava sozinho';
+END $$;
+ROLLBACK;
+
+-- Voltar ao Pro destrava so o que o plano travou.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert(
+  (SELECT r ->> 'alunos_liberados' = '1' AND r ->> 'professores_liberados' = '1'
+     FROM (SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'pro') AS r) x),
+  'voltar ao Pro libera o aluno e o professor que ficaram travados');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+SELECT public.assert((SELECT count(*) FROM public.students WHERE plan_locked) = 0, 'nenhum aluno travado no Pro');
+SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Segundo'), 'o Segundo volta ativo');
+SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Reserva') = false,
+  'e o Reserva, que o dono tinha desligado, continua desligado');
+COMMIT;
+
+-- Deixa a empresa no Essencial para os blocos seguintes.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'essencial');
 COMMIT;
 
 \echo ''

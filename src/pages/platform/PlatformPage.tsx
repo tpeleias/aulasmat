@@ -30,6 +30,9 @@ type Row = {
   responsaveis: number;
   alunos: number;
   professores: number;
+  // Ausentes antes da migration 20260923020000.
+  alunos_travados?: number;
+  professores_travados?: number;
   aulas: number;
   logins: number;
   ultima_aula: string | null;
@@ -122,11 +125,25 @@ export default function PlatformPage() {
 
   const mudarPlano = async (r: Row, plano: "essencial" | "pro") => {
     if (plano === r.plan) return;
+    // Rebaixar acima do limite pausa TODOS os alunos (ou professores) dela, e o
+    // dono escolhe quem liberar - não é mais só "trava o próximo cadastro".
+    // Os números 5 e 1 são os de plan_features('essencial').
+    if (plano === "essencial") {
+      const avisos = [
+        r.alunos > 5 && `os ${r.alunos} alunos ficam pausados (o dono libera até 5)`,
+        r.professores > 1 && `os ${r.professores} professores ativos ficam pausados (o dono reativa 1)`,
+      ].filter(Boolean);
+      if (avisos.length && !confirm(`Rebaixar "${r.name}" para o Essencial?\n\n${avisos.join("\n")}\n\nNada é apagado, e voltar para o Pro libera tudo.`)) return;
+    }
     setBusy(true);
-    const { error } = await supabase.rpc("platform_set_account_plan", { _account: r.id, _plan: plano });
+    const { data, error } = await supabase.rpc("platform_set_account_plan", { _account: r.id, _plan: plano });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(`"${r.name}" agora e ${plano === "pro" ? "Cronys Pro" : "Cronys Essencial"}`);
+    const res = (data ?? {}) as Record<string, number>;
+    const pausados = (res.alunos_travados ?? 0) + (res.professores_travados ?? 0);
+    const liberados = (res.alunos_liberados ?? 0) + (res.professores_liberados ?? 0);
+    toast.success(`"${r.name}" agora e ${plano === "pro" ? "Cronys Pro" : "Cronys Essencial"}`
+      + (pausados ? ` · ${pausados} pausado(s)` : "") + (liberados ? ` · ${liberados} liberado(s)` : ""));
     load();
   };
 
@@ -290,8 +307,14 @@ export default function PlatformPage() {
                       </div>
                     </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{r.responsaveis}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.alunos}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.professores}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {r.alunos}
+                      {Number(r.alunos_travados) > 0 && <div className="text-[10px] text-warning">{r.alunos_travados} pausado{Number(r.alunos_travados) === 1 ? "" : "s"}</div>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {r.professores}
+                      {Number(r.professores_travados) > 0 && <div className="text-[10px] text-warning">{r.professores_travados} pausado{Number(r.professores_travados) === 1 ? "" : "s"}</div>}
+                    </td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{r.aulas}</td>
                     <td className="px-3 py-2.5 text-right tabular-nums">{r.logins}</td>
                     <td className="px-3 py-2.5 text-xs">
