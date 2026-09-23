@@ -472,7 +472,7 @@ export default function BillingPage() {
                                 <span className="shrink-0 flex flex-col items-end">
                                   {i.discount && (
                                     <span className="text-[10px] text-muted-foreground line-through tabular-nums">
-                                      {fmtMoney(i.amount + i.discount.amount)}
+                                      {fmtMoney(i.discount.gross)}
                                     </span>
                                   )}
                                   <span className="font-medium tabular-nums">

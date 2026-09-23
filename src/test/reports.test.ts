@@ -62,13 +62,18 @@ describe("summarizeIncome", () => {
 });
 
 describe("toCsv", () => {
-  it("junta colunas e linhas com vírgula", () => {
-    expect(toCsv(["a", "b"], [[1, "x"], [2, "y"]])).toBe("a,b\n1,x\n2,y");
+  it("usa ponto e vírgula, que é o que o Excel em português abre em colunas", () => {
+    expect(toCsv(["a", "b"], [[1, "x"], [2, "y"]])).toBe("a;b\n1;x\n2;y");
   });
 
-  it("põe em aspas quem tem vírgula, aspas ou quebra de linha", () => {
-    expect(toCsv(["nome"], [["Ana, Bia"]])).toBe('nome\n"Ana, Bia"');
+  it("vírgula decimal não precisa de aspas", () => {
+    expect(toCsv(["valor"], [["220,00"]])).toBe("valor\n220,00");
+  });
+
+  it("põe em aspas quem tem separador, aspas ou quebra de linha", () => {
+    expect(toCsv(["nome"], [["Ana; Bia"]])).toBe('nome\n"Ana; Bia"');
     expect(toCsv(["nome"], [['diz "oi"']])).toBe('nome\n"diz ""oi"""');
+    expect(toCsv(["nome"], [["a\nb"]])).toBe('nome\n"a\nb"');
   });
 });
 

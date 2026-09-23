@@ -40,7 +40,7 @@ export default function SettingsPage() {
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     default_lesson_price: FALLBACK_LESSON_PRICE,
     scarcity: SCARCITY_PADRAO,
-    pix_key: "", payment_link: "", contact_email: "", issuer_document: "",
+    pix_key: "", payment_link: "", contact_email: "", issuer_document: null,
     show_payment_info_to_students: false,
     allow_student_booking: true,
     show_availability_to_students: false,
@@ -48,10 +48,15 @@ export default function SettingsPage() {
   // O banco entrega só a linha da própria empresa, então a consulta não filtra
   // por id - mas o id da linha carregada é guardado para gravar exatamente nela.
   const [rowId, setRowId] = useState<number | null>(null);
+  // issuer_document vem da migration 20260923010000. Enquanto ela não estiver
+  // aplicada, mandar a coluna no update faria TODO "Salvar" desta tela falhar -
+  // e o front-end publica sozinho a cada merge, possivelmente antes dela.
+  const [hasIssuerColumn, setHasIssuerColumn] = useState(false);
   useEffect(() => {
     supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
       if (!data) return;
       setRowId((data as any).id);
+      setHasIssuerColumn("issuer_document" in (data as any));
       const vindo = (data as any).scarcity as Scarcity | null;
       setS({ ...s, ...(data as any), scarcity: vindo ?? SCARCITY_PADRAO });
     });
@@ -68,7 +73,7 @@ export default function SettingsPage() {
       toast.error("O valor da aula precisa ser maior que zero");
       return;
     }
-    const { id: _id, account_id: _account, ...rest } = s as any;
+    const { id: _id, account_id: _account, issuer_document: _doc, ...rest } = s as any;
     const payload = {
       ...rest,
       default_lesson_price: Number(s.default_lesson_price),
@@ -80,7 +85,7 @@ export default function SettingsPage() {
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
-      issuer_document: (s.issuer_document || "").trim() || null,
+      ...(hasIssuerColumn ? { issuer_document: (s.issuer_document || "").trim() || null } : {}),
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) toast.error(error.message);
@@ -216,7 +221,7 @@ export default function SettingsPage() {
             placeholder="seu@email.com"
           />
         </div>
-        <div>
+        {hasIssuerColumn && <div>
           <Label>CPF ou CNPJ</Label>
           <Input
             value={s.issuer_document ?? ""}
@@ -226,7 +231,7 @@ export default function SettingsPage() {
           <p className="text-xs text-muted-foreground mt-1">
             Impresso nos recibos, em Relatórios. Em branco, o recibo sai com a linha vazia para preencher à mão.
           </p>
-        </div>
+        </div>}
       </Card>
 
       <Card className="p-5 space-y-3">

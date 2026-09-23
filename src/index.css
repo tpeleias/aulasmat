@@ -217,12 +217,19 @@
 
 /* Recibo (ReportsPage): imprime só o #recibo-print, escondendo o resto do
    app (nav, cabeçalho, botões) - sem isso "Imprimir" sairia com a barra
-   lateral e a lista de aulas junto do recibo. */
+   lateral e a lista de aulas junto do recibo. As cores são forçadas para
+   preto no branco: no modo escuro o texto é claro, e o navegador não imprime
+   o fundo - o recibo sairia quase invisível no papel. */
 @media print {
   body * { visibility: hidden; }
-  #recibo-print, #recibo-print * { visibility: visible; }
+  #recibo-print, #recibo-print * {
+    visibility: visible;
+    color: #000 !important;
+    background: transparent !important;
+    border-color: #999 !important;
+  }
   #recibo-print {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     width: 100%;

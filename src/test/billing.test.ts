@@ -43,7 +43,7 @@ describe("computeStatements - desconto discriminado na aula", () => {
     expect(first.amount).toBe(220);
     expect(first.discount).toBeUndefined();
     expect(second.amount).toBe(198);
-    expect(second.discount).toEqual({ amount: 22, label: "Desconto de 10% - Aula em 08/01" });
+    expect(second.discount).toEqual({ amount: 22, gross: 220, label: "Desconto de 10% - Aula em 08/01" });
     expect(acc.owed).toBe(418);
   });
 
@@ -81,5 +81,32 @@ describe("computeStatements - desconto discriminado na aula", () => {
     expect(first.partial).toBe(true);
     expect(first.discount).toBeUndefined();
     expect(second.amount).toBe(220);
+  });
+
+  it("voucher de aula cuja cobrança não está na lista volta pro pool, não some", () => {
+    const lessons = [lesson({ id: "l1", start_at: "2026-01-01T10:00:00Z" })];
+    const txs = [
+      tx({ id: "c1", kind: "lesson", lesson_id: "l1", amount: -220 }),
+      tx({ id: "v9", kind: "voucher", lesson_id: "sumiu", amount: 50, description: "Desconto" }),
+    ];
+    const [acc] = computeStatements(txs, lessons);
+    expect(acc.owed).toBe(170);
+    expect(acc.owed).toBe(-acc.balance);
+    expect(acc.credits).toBe(50);
+  });
+
+  it("aula com desconto e pagamento parcial mostra o valor cheio certo", () => {
+    const lessons = [lesson({ id: "l1", start_at: "2026-01-01T10:00:00Z" })];
+    const txs = [
+      tx({ id: "c1", kind: "lesson", lesson_id: "l1", amount: -220 }),
+      tx({ id: "v1", kind: "voucher", lesson_id: "l1", amount: 22, description: "Desconto de 10%" }),
+      tx({ id: "p1", kind: "adjustment", amount: 100 }),
+    ];
+    const [acc] = computeStatements(txs, lessons);
+    const [item] = acc.items;
+    expect(item.amount).toBe(98);
+    expect(item.partial).toBe(true);
+    expect(item.discount).toEqual({ amount: 22, gross: 220, label: "Desconto de 10%" });
+    expect(acc.credits).toBe(122);
   });
 });

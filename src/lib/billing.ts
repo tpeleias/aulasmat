@@ -32,7 +32,7 @@ export type OpenItem = {
   // sync_lesson_wallet) already abated part of it. `amount` above is the net,
   // after this discount - the discount is broken out so the tela can show it
   // instead of just a smaller number nobody can explain.
-  discount?: { amount: number; label: string };
+  discount?: { amount: number; gross: number; label: string };
 };
 
 export type AccountStatement = {
@@ -101,27 +101,32 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
 
   const result: AccountStatement[] = [];
   for (const acc of accounts.values()) {
-    // Cada cobrança abate primeiro o(s) voucher(s) da PRÓPRIA aula. O que
-    // sobrar do voucher (não deveria acontecer - sync_lesson_wallet já limita
-    // o desconto ao valor da aula - mas por segurança) volta pro pool geral
-    // em vez de desaparecer.
+    // Cada cobrança abate primeiro o(s) voucher(s) da PRÓPRIA aula. Todo o
+    // resto - troco de voucher maior que a aula, ou voucher cuja cobrança não
+    // está na lista - volta pro pool geral: sumir com ele faria "em aberto"
+    // passar a somar mais do que o saldo diz.
+    let pool = acc.credits;
     for (const charge of acc.charges) {
       const vouchers = charge.lessonId ? acc.lessonVouchers.get(charge.lessonId) : undefined;
       if (!vouchers?.length) continue;
+      acc.lessonVouchers.delete(charge.lessonId!);
       const total = round2(vouchers.reduce((s, v) => s + v.amount, 0));
       const applied = Math.min(total, charge.amount);
       if (applied > 0) {
-        charge.amount = round2(charge.amount - applied);
         charge.discount = {
           amount: applied,
+          gross: charge.amount,
           label: vouchers.map(v => v.description).filter((d): d is string => !!d).join("; ") || "Desconto",
         };
+        charge.amount = round2(charge.amount - applied);
       }
-      const leftover = round2(total - applied);
-      if (leftover > 0) acc.credits = round2(acc.credits + leftover);
+      pool = round2(pool + total - applied);
     }
+    for (const orphans of acc.lessonVouchers.values()) {
+      pool = round2(pool + orphans.reduce((s, v) => s + v.amount, 0));
+    }
+    const credits = round2(pool + acc.charges.reduce((s, c) => s + (c.discount?.amount ?? 0), 0));
 
-    let pool = acc.credits;
     const items: OpenItem[] = [];
     for (const charge of acc.charges.sort((a, b) => a.date.localeCompare(b.date))) {
       const covered = Math.min(pool, charge.amount);
@@ -131,7 +136,7 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
     }
     result.push({
       key: acc.key, label: acc.label, student: acc.student, guardian: acc.guardian,
-      balance: round2(acc.balance), credits: round2(acc.credits),
+      balance: round2(acc.balance), credits,
       owed: round2(items.reduce((s, i) => s + i.amount, 0)),
       items,
       oldestOpenDate: items[0]?.date ?? null,

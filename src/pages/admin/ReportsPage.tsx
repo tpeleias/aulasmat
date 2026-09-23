@@ -67,11 +67,17 @@ export default function ReportsPage() {
   };
 
   // ---- Recibo ----
+  // `payer` é quem pagou: o responsável, ou o próprio aluno quando não há
+  // um. accountLabel serve pra lista ("Aluno: Ana"), não pro recibo.
   const accounts = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const s of students) map.set(accountKey(s), accountLabel(s));
-    for (const t of txs) if (!map.has(accountKey(t))) map.set(accountKey(t), accountLabel(t));
-    return [...map.entries()].map(([key, label]) => ({ key, label })).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+    const map = new Map<string, { label: string; payer: string }>();
+    const add = (r: { student_name: string; guardian_name: string | null }) => {
+      const k = accountKey(r);
+      if (!map.has(k)) map.set(k, { label: accountLabel(r), payer: (r.guardian_name ?? "").trim() || r.student_name });
+    };
+    students.forEach(add);
+    txs.forEach(add);
+    return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
   }, [students, txs]);
 
   const [receiptAccount, setReceiptAccount] = useState("");
@@ -81,7 +87,8 @@ export default function ReportsPage() {
   const receiptSummary = useMemo(() => summarizeIncome(txs, receiptYear, receiptMonth), [txs, receiptYear, receiptMonth]);
   const receiptRows = useMemo(() => receiptSummary.rows.filter(r => r.accountKey === receiptAccount), [receiptSummary, receiptAccount]);
   const receiptTotal = useMemo(() => Math.round(receiptRows.reduce((s, r) => s + r.amount, 0) * 100) / 100, [receiptRows]);
-  const receiptLabel = accounts.find(a => a.key === receiptAccount)?.label ?? "";
+  const receiptAcc = accounts.find(a => a.key === receiptAccount);
+  const receiptLabel = receiptAcc?.label ?? "";
 
   if (loading) return <ListSkeleton rows={4} />;
 
@@ -172,12 +179,12 @@ export default function ReportsPage() {
               </div>
               <div className="text-center font-semibold uppercase tracking-wide text-xs text-muted-foreground">Recibo de pagamento</div>
               <p>
-                Recebi de <strong>{receiptLabel}</strong> a quantia de <strong>{fmtMoney(receiptTotal)}</strong>
+                Recebi de <strong>{receiptAcc?.payer}</strong> a quantia de <strong>{fmtMoney(receiptTotal)}</strong>
                 {" "}({valorPorExtenso(receiptTotal)}), referente a:
               </p>
               <ul className="list-disc pl-5 space-y-0.5">
-                {receiptRows.map(r => (
-                  <li key={r.date + r.description}>
+                {receiptRows.map((r, i) => (
+                  <li key={i}>
                     {format(new Date(r.date), "dd/MM/yyyy", { locale: ptBR })} — {r.description} ({fmtMoney(r.amount)})
                   </li>
                 ))}

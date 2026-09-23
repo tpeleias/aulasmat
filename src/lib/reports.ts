@@ -52,15 +52,16 @@ export function summarizeIncome(txs: LedgerTx[], year: number, month: number | n
   return { rows, byAccount, total };
 }
 
-// CSV simples, sem lib: escapa aspas e envolve em aspas quem tem vírgula,
-// aspas ou quebra de linha - o resto é passado direto, mais legível pra
-// abrir e conferir.
-export function toCsv(columns: string[], rows: (string | number)[][]): string {
+// CSV simples, sem lib. Separador ";" e não ",": é o que o Excel em
+// português espera (lá a vírgula é o decimal), e com "," o arquivo abre com
+// tudo numa coluna só. Célula com separador, aspas ou quebra de linha vai
+// entre aspas.
+export function toCsv(columns: string[], rows: (string | number)[][], sep = ";"): string {
   const cell = (v: string | number) => {
     const s = String(v);
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    return s.includes(sep) || /["\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const lines = [columns.map(cell).join(","), ...rows.map(r => r.map(cell).join(","))];
+  const lines = [columns.map(cell).join(sep), ...rows.map(r => r.map(cell).join(sep))];
   return lines.join("\n");
 }
 
