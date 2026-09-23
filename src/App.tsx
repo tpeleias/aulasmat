@@ -14,7 +14,6 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/admin/HomePage";
 import CalendarPage from "./pages/admin/CalendarPage";
-import OrganizationPage from "./pages/admin/OrganizationPage";
 import BlocksPage from "./pages/admin/BlocksPage";
 import BillingPage from "./pages/admin/BillingPage";
 import ReportsPage from "./pages/admin/ReportsPage";
@@ -60,7 +59,9 @@ const App = () => (
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<HomePage />} />
               <Route path="agenda" element={<CalendarPage />} />
-              <Route path="organizacao" element={<OrganizationPage />} />
+              {/* A Organização foi fundida no Financeiro. O endereço fica porque o widget
+                  de cobrança de quem ainda está no app antigo abre ele. */}
+              <Route path="organizacao" element={<Navigate to="/admin/financeiro" replace />} />
               <Route path="bloqueios" element={<BlocksPage />} />
               <Route path="alunos" element={<StudentsPage />} />
               <Route path="professores" element={<TeachersPage />} />

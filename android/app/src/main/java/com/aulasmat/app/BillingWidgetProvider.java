@@ -28,7 +28,7 @@ public class BillingWidgetProvider extends AppWidgetProvider {
     private void updateWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_billing);
 
-        PendingIntent openBilling = WidgetIntents.openRoute(context, "/admin/organizacao", appWidgetId * 100 + 50);
+        PendingIntent openBilling = WidgetIntents.openRoute(context, "/admin/financeiro", appWidgetId * 100 + 50);
         views.setOnClickPendingIntent(R.id.billing_root, openBilling);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_GROUP, Context.MODE_PRIVATE);

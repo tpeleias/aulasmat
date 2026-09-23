@@ -1567,3 +1567,118 @@ aparecia. A montagem saiu de `OrganizationPage.tsx` para
   `cronys.netlify.app` serve a versão velha; o atual é `cronys.lovable.app`.
 - **`.aab` 1.6.0** (código 14) disparado do `main`. Artefato
   `aulas-play-1.6.0-14`, baixa como `.zip`, descompactar antes de subir.
+
+## Ajustes pedidos em 23/09 (lote 2) — feito no código
+
+1. **Recibo e CSV no app.** `window.print()` e o download por `<a download>`
+   não existem no WebView do Android - no app os botões não faziam nada. Agora
+   o recibo é um **PDF de verdade** (jsPDF, carregado só quando alguém gera
+   recibo) e `src/lib/saveFile.ts` decide: no site baixa, no app grava no cache
+   e abre o menu de compartilhar do Android (dá para mandar direto pelo
+   WhatsApp). Isso também acabou com o PDF cinza no tema escuro: o PDF não
+   herda o tema da tela. Plugins novos: `@capacitor/filesystem` e
+   `@capacitor/share` - **nenhuma permissão nova no Android** (conferido nos
+   manifests), usam o FileProvider/cache que já existia. **Precisa de `.aab`
+   novo.**
+2. **Organização fundida no Financeiro** (a antiga Cobrança, renomeada). O
+   "Copiar cobrança" está em cada conta com valor em aberto. A lista "próximos
+   7 dias" da Organização já existia na Agenda, então nada se perdeu.
+   `/admin/organizacao` redireciona para `/admin/financeiro` (o widget do
+   Android de quem ainda está no app antigo abre esse endereço); o widget novo
+   já aponta para o Financeiro.
+3. **Link com localhost.** No app, `window.location.origin` é
+   `https://localhost` (é como o Capacitor serve o `dist/`). Afetava o link de
+   disponibilidade, **a mensagem de acesso enviada às famílias** (tela
+   Acessos) e o link de confirmação de cadastro. `src/lib/publicUrl.ts`: no
+   app usa `VITE_PUBLIC_SITE_URL` (padrão `https://cronys.lovable.app`); no
+   site, o próprio endereço.
+4. **Editar nome do professor.** Aulas e bloqueios guardam o professor pelo
+   apelido do nome (`ana-julia`), então renomear passa pela função
+   `rename_teacher` (migration `20260923030000`), que troca nome, aulas e
+   bloqueios numa transação só, escopada pela RLS da empresa. O diálogo avisa
+   que o link público muda. A trava de plano ganhou uma exceção só para o
+   renomear (senão barraria renomear professor pausado) - desligada no fim da
+   função; coberto por teste. `audit_log` não é reescrito: é histórico.
+   **Efeito colateral a saber:** o professor "padrão" do login é achado
+   procurando o apelido dentro do e-mail (`thiago` em `thiagopeleias@...`);
+   renomear para algo que não está no e-mail faz o padrão cair no primeiro
+   professor da lista.
+5. **Agenda - campo Início vazio ao editar:** o banco devolve a data com fuso
+   (`...T18:00:00+00:00`) e o campo só aceita hora local sem fuso; ficava em
+   branco. **Seletor novo:** dia num calendário + hora + minuto (00/15/30/45)
+   em listas curtas, com o resumo por extenso embaixo ("Quinta-feira, 24 de
+   setembro às 15:30"); aula antiga em minuto fora da lista mantém o minuto.
+   Duração em botões (30/45/1h/1h30/2h) mais o campo livre. **Achado junto:**
+   salvar sem início dava erro sem mensagem e deixava o botão travado; agora
+   avisa.
+6. **Toque na aula (só no app):** 160 ms de espera antes de abrir, cancelados
+   se a agenda rolar nesse meio-tempo. O bloco da aula não passava pela
+   proteção contra rolagem que as células vazias já tinham. No site continua
+   instantâneo.
+
+Verificado: 55 testes (novos: PDF do recibo, campo de data, atraso do toque),
+espelho inteiro verde com o bloco 23 novo (9 asserções do renomear), migration
+reaplicada 2×, `tsc` e build limpos. Telas não abertas num navegador logado.
+
+## Revisão de vendabilidade (23/09)
+
+O que falta para vender, **sem repetir o roteiro que já estava anotado**.
+
+### Bloqueia a venda (resolver antes)
+
+1. **Excluir a própria conta dentro do app.** Não existe. A Google Play exige
+   isso de app que permite criar conta (as famílias criam), com um link web
+   também. Risco de a ficha ser suspensa numa revisão.
+2. **Termos de uso.** Só existe política de privacidade. Vender assinatura sem
+   termos (cancelamento, reembolso, quem responde pelos dados dos alunos -
+   pela LGPD a escola é controladora e a Cronys operadora) é risco jurídico. O
+   texto é decisão sua/jurídica; a página é trabalho pequeno.
+3. **Cadastro de professor sem passar pelo gestor.** Toda empresa nasce na
+   mão do Thiago, no painel. Quem baixa o app na loja e não é família não tem
+   o que fazer. Pior: **todo cadastro novo pela loja cai dentro da empresa de
+   produção** (`handle_new_user` → empresa pública). Os testes mostram que ele
+   não enxerga nada, mas é a empresa real acumulando estranhos. Precisa de
+   "Sou professor → criar minha escola" com período de teste.
+4. **Papel "professor" separado de "admin".** Todo login da equipe é admin e vê
+   o financeiro de todo mundo. Escola com 3 professores não compra isso.
+5. **Coisas do Thiago cravadas para todas as empresas:** InfinitePay (portal
+   da família e mensagem de cobrança, com "12x"), `lessons.teacher` com
+   padrão `'thiago'` no banco, a cor da "mayara" no widget do Android. Cada
+   empresa precisa escolher o próprio meio de pagamento.
+
+### Alto impacto, 100% nosso
+
+6. **Pix "copia e cola" com o valor já preenchido** na mensagem de cobrança e
+   no portal da família. O código Pix com valor (BR Code) é gerado só com a
+   chave, sem banco nem API. A família paga com um toque - ataca
+   inadimplência, que é o que o professor sente no bolso.
+7. **Primeira experiência de uma empresa nova:** hoje é tela vazia. Uma lista
+   "valor da aula → professor → primeiro aluno → link público".
+8. **Importar alunos de planilha** - quem vem de caderno/Excel desiste no
+   cadastro um a um.
+9. **Monitoramento de erros** (Sentry tem plano grátis). Hoje erro só aparece
+   quando alguém reclama - foi assim com o recibo no app.
+10. **CI rodando `tsc`, testes e o espelho em cada PR.** Hoje o GitHub só
+    compila o APK.
+11. **Abertura mais rápida:** o app inteiro é um JS de 1,25 MB carregado de
+    uma vez, inclusive na vitrine pública e no login. Dividir por tela.
+
+### Médio
+
+12. Página de venda do Cronys (o site público hoje é a vitrine do professor,
+    não do produto), com preço e botão de teste.
+13. "Saúde do negócio" na tela Hoje: receita do mês x anterior, alunos ativos,
+    faltas.
+14. Família pedir **troca** de horário (hoje só retira o pedido).
+15. Política de falta/cancelamento configurável (cobrar se desmarcar com menos
+    de X horas).
+
+### O que já estava no roteiro (continua valendo)
+
+Lembrete de aula por WhatsApp com mensagem pronta; push no app; domínio →
+endereço próprio por empresa → e-mail automático; assinar a agenda (.ics);
+marca própria; pacotes configuráveis; cobrança da assinatura (Play Billing ou
+venda fora do app); WhatsApp automático e Google Agenda com escrita;
+notificação de pedido novo e pedido vencido que expira. Pendências técnicas:
+Netlify travado (403), regenerar `types.ts`, decisão sobre a tabela de backup,
+apagar `admin-create-user` no painel do Supabase.

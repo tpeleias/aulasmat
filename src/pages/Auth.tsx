@@ -10,6 +10,7 @@ import { Loader2, ArrowRight } from "lucide-react";
 import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
+import { publicSiteUrl } from "@/lib/publicUrl";
 
 type Mode = "account" | "child";
 
@@ -54,7 +55,7 @@ export default function Auth() {
     const loginEmail = isUsername ? usernameToEmail(typed) : typed;
     setBusy(true);
     const { error } = signup
-      ? await supabase.auth.signUp({ email: loginEmail, password, options: { emailRedirectTo: window.location.origin + "/" } })
+      ? await supabase.auth.signUp({ email: loginEmail, password, options: { emailRedirectTo: publicSiteUrl() + "/" } })
       : await supabase.auth.signInWithPassword({ email: loginEmail, password });
     setBusy(false);
     if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? "Usuário ou senha incorretos." : "E-mail ou senha incorretos."); return; }

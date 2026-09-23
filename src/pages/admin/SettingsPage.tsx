@@ -186,7 +186,7 @@ export default function SettingsPage() {
           As que já estão na agenda ficam com o valor que tinham — para mudar uma
           delas, abra a aula e edite o valor. Para cobrar menos de uma família
           sem mexer no valor da aula, use <strong className="text-foreground">Desconto</strong> na
-          tela de Cobrança.
+          tela Financeiro.
         </p>
       </Card>
 

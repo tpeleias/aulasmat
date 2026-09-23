@@ -149,11 +149,11 @@ export default function HomePage() {
         </section>
 
         <section>
-          <SectionTitle icon={Wallet} title="Financeiro" action={<Link to="/admin/financeiro" className="text-sm text-primary">Cobrança</Link>} />
+          <SectionTitle icon={Wallet} title="Financeiro" action={<Link to="/admin/financeiro" className="text-sm text-primary">Abrir</Link>} />
           {loading ? (
             <Skeleton className="h-24 w-full rounded-2xl" />
           ) : (
-            <Link to="/admin/organizacao" onClick={() => haptics.tap()} className="block">
+            <Link to="/admin/financeiro" onClick={() => haptics.tap()} className="block">
               <Card className="flex items-center justify-between gap-4 rounded-2xl p-4 transition-colors hover:bg-muted/40">
                 <div>
                   <div className="text-xs uppercase tracking-wide text-muted-foreground">A receber</div>
