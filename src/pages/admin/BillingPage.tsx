@@ -25,10 +25,11 @@ import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
 import SortMenu, { useSortPreference } from "@/components/SortMenu";
+import PeriodSummary from "@/components/PeriodSummary";
 
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
-type LessonRow = LedgerLesson & { status: string; guardian_name: string | null };
+type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
 type DiscountRow = { student_name: string; guardian_name: string | null; kind: DiscountKind; value: number };
 
 type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null; discount: Discount | null };
@@ -108,7 +109,7 @@ export default function BillingPage() {
     const [tx, st, ls, dc, cfg] = await Promise.all([
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
-      supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status"),
+      supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status, price"),
       supabase.from("account_discounts").select("student_name, guardian_name, kind, value"),
       supabase.from("settings").select("pix_key, payment_link").maybeSingle(),
     ]);
@@ -182,11 +183,7 @@ export default function BillingPage() {
     toast.success(`Mensagem de cobrança de ${a.label} copiada`);
   };
 
-  const totals = useMemo(() => ({
-    received: txs.reduce((s, t) => s + (Number(t.amount) > 0 ? Number(t.amount) : 0), 0),
-    owed: accounts.reduce((s, a) => s + a.owed, 0),
-    overdue: accounts.filter(isOverdue).length,
-  }), [txs, accounts]);
+  const overdueCount = useMemo(() => accounts.filter(isOverdue).length, [accounts]);
 
   // ---- Register payment ----
   const quickOption = QUICK.find(x => x.key === quick) ?? QUICK[0];
@@ -382,17 +379,10 @@ export default function BillingPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:gap-4">
-          <Card className="rounded-2xl p-4 md:p-5">
-            <div className="text-xs text-muted-foreground uppercase">Recebido</div>
-            <div className="mt-1 text-2xl md:text-3xl font-bold tabular-nums text-success">{fmtMoney(totals.received)}</div>
-          </Card>
-          <Card className="rounded-2xl p-4 md:p-5">
-            <div className="text-xs text-muted-foreground uppercase">A receber</div>
-            <div className="mt-1 text-2xl md:text-3xl font-bold tabular-nums">{fmtMoney(totals.owed)}</div>
-            {totals.overdue > 0 && <div className="text-xs text-destructive">{totals.overdue} conta{totals.overdue > 1 ? "s" : ""} em atraso</div>}
-          </Card>
-        </div>
+        {!loading && <PeriodSummary lessons={lessons} txs={txs} statements={accounts} />}
+        {overdueCount > 0 && (
+          <div className="text-xs text-destructive">{overdueCount} conta{overdueCount > 1 ? "s" : ""} em atraso (mais de 30 dias)</div>
+        )}
 
         {!loading && accounts.length > 0 && (
           <div className="flex items-center justify-between gap-3">

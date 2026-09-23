@@ -17,6 +17,8 @@ import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billi
 import { syncBillingWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import { Bot, CalendarDays, CalendarPlus, Ban, MapPin, Wifi, ChevronRight, Sparkles, Wallet } from "lucide-react";
+import PeriodSummary from "@/components/PeriodSummary";
+import type { SummaryLesson } from "@/lib/periodSummary";
 
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
@@ -47,6 +49,7 @@ export default function HomePage() {
   const [next, setNext] = useState<Lesson | null>(null);
   const [txs, setTxs] = useState<LedgerTx[]>([]);
   const [doneLessons, setDoneLessons] = useState<LedgerLesson[]>([]);
+  const [allLessons, setAllLessons] = useState<SummaryLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
 
@@ -63,12 +66,15 @@ export default function HomePage() {
       supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
         .gte("start_at", now.toISOString()).eq("status", "agendada").order("start_at").limit(1),
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at"),
-      supabase.from("lessons").select("id, student_name, start_at, duration_minutes, subject, teacher").eq("status", "realizada"),
+      // Todas as aulas: o resumo do mês conta dadas, canceladas e ainda marcadas.
+      supabase.from("lessons").select("id, student_name, start_at, duration_minutes, subject, teacher, status, price"),
     ]);
     setToday((t.data ?? []) as Lesson[]);
     setNext(((n.data ?? [])[0] as Lesson) ?? null);
     setTxs((w.data ?? []) as LedgerTx[]);
-    setDoneLessons((d.data ?? []) as LedgerLesson[]);
+    const all = (d.data ?? []) as (LedgerLesson & SummaryLesson)[];
+    setAllLessons(all);
+    setDoneLessons(all.filter(l => l.status === "realizada"));
     setLoading(false);
   }, []);
 
@@ -153,18 +159,7 @@ export default function HomePage() {
           {loading ? (
             <Skeleton className="h-24 w-full rounded-2xl" />
           ) : (
-            <Link to="/admin/financeiro" onClick={() => haptics.tap()} className="block">
-              <Card className="flex items-center justify-between gap-4 rounded-2xl p-4 transition-colors hover:bg-muted/40">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-muted-foreground">A receber</div>
-                  <div className="text-2xl font-bold tabular-nums">{fmtMoney(totalOwed)}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {debtors.length === 0 ? "Tudo em dia" : `${debtors.length} conta${debtors.length > 1 ? "s" : ""} · maior: ${debtors[0].label} (${fmtMoney(debtors[0].owed)})`}
-                  </div>
-                </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
-              </Card>
-            </Link>
+            <PeriodSummary compact lessons={allLessons} txs={txs} statements={statements} />
           )}
         </section>
 
