@@ -18,9 +18,14 @@ describe("DateTimeField", () => {
     expect(onChange).toHaveBeenCalledWith("2026-09-25T15:30");
   });
 
-  it("aula num minuto fora da lista (16:40) não é arredondada em silêncio", () => {
-    render(<DateTimeField value="2026-09-24T16:40" onChange={() => {}} />);
-    expect(screen.getByText(":40")).toBeInTheDocument();
+  it("aula num minuto fora da lista (16:42) não é arredondada em silêncio", () => {
+    render(<DateTimeField value="2026-09-24T16:42" onChange={() => {}} />);
+    expect(screen.getByText(":42")).toBeInTheDocument();
+  });
+
+  it("minutos vão de 5 em 5", async () => {
+    const { MINUTE_OPTIONS } = await import("@/components/DateTimeField");
+    expect(MINUTE_OPTIONS).toEqual(["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"]);
   });
 
   it("sem valor, não avisa nada até ter dia, hora e minuto", () => {

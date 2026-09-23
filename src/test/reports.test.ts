@@ -80,8 +80,8 @@ describe("toCsv", () => {
 describe("yearsWithData", () => {
   it("lista os anos com lançamento, mais o ano atual, sem repetir", () => {
     const txs: LedgerTx[] = [
-      tx({ id: "1", kind: "package", amount: 100, created_at: "2025-01-01T00:00:00Z" }),
-      tx({ id: "2", kind: "package", amount: 100, created_at: "2024-01-01T00:00:00Z" }),
+      tx({ id: "1", kind: "package", amount: 100, created_at: "2025-01-01T15:00:00Z" }),
+      tx({ id: "2", kind: "package", amount: 100, created_at: "2024-01-01T15:00:00Z" }),
     ];
     const years = yearsWithData(txs);
     expect(years).toContain(2025);

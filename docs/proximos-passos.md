@@ -1682,3 +1682,20 @@ venda fora do app); WhatsApp automático e Google Agenda com escrita;
 notificação de pedido novo e pedido vencido que expira. Pendências técnicas:
 Netlify travado (403), regenerar `types.ts`, decisão sobre a tabela de backup,
 apagar `admin-create-user` no painel do Supabase.
+
+## Ajustes de 23/09 (lote 3) — `.aab` 1.8.0
+
+- Minutos do horário da aula de **5 em 5** (antes 00/15/30/45). Minuto fora
+  da lista (aula antiga às 16:42) continua aparecendo, não é arredondado.
+- **Seleção de texto na agenda:** segurar o dedo selecionava texto e o
+  Android abria a barra "Copiar, Compartilhar..." que não sumia. A agenda
+  inteira agora é `select-none` + `-webkit-touch-callout: none`, e o menu de
+  toque longo é bloqueado - exceto em campos de texto, porque o diálogo de
+  aula abre em portal e o `onContextMenu` do React atravessa portal (sem a
+  exceção, o "colar" dos campos do diálogo sumiria).
+- Um teste de `yearsWithData` dependia do fuso (`2025-01-01T00:00Z` é 31/12
+  em Brasília); corrigido para meio-dia. O código estava certo.
+
+**Próxima sessão (provavelmente semana que vem):** a lista "Revisão de
+vendabilidade" acima, começando por excluir a própria conta dentro do app
+(exigência da Google Play).
