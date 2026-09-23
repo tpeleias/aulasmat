@@ -1167,6 +1167,21 @@ Não é grande, mas também não é pequeno: é uma tela nova (escolher quem fic
 ativo) mais uma decisão de produto que só o Thiago pode tomar. Fica para
 quando ele voltar a isso.
 
+### Decisão (23/09): trava tudo, o professor escolhe o que liberar
+
+Resposta à primeira pergunta em aberto acima: **não** existe seleção automática
+de quem continua ativo (nem "os mais antigos", nem qualquer outra regra). Ao
+rebaixar, tudo que excede o limite do Essencial fica inativo de uma vez, e é o
+professor quem escolhe, numa tela, o que reativar até o limite — mesmo espírito
+de "deixar salvo, óbvio": nada é apagado, só oculto/pausado.
+
+Ainda em aberto (perguntas de UX pra resolver durante a implementação, não
+antes): se o inativo aparece numa lista separada pro professor escolher (a
+resposta óbvia dado "o usuário escolhe o que liberar", mas falta desenhar a
+tela), e se bloqueio recorrente/desconto fixo (que não existem no Essencial de
+jeito nenhum, não é questão de limite) simplesmente pausam sozinhos e voltam
+sozinhos quando a empresa volta pro Pro, sem exigir escolha do professor.
+
 ### Três decisões, e o porquê de cada uma
 
 **1. Bloqueio pontual fica no Essencial.** Ele tinha pedido bloqueio inteiro no
@@ -1299,4 +1314,39 @@ de nós.
 paga, mas o caminho automático mais barato (push) não é o que ele pediu
 (WhatsApp). Vale começar pelo WhatsApp semiautomático e medir se reduz falta
 antes de investir na verificação com a Meta.
+
+## Desconto discriminado na aula, não abatido de qualquer uma (23/09) — feito
+
+Pedido do Thiago: o desconto não estava sendo mostrado na aula que ele valia -
+`computeStatements` (`src/lib/billing.ts`) jogava TODO crédito (pagamento,
+pacote, voucher avulso e o voucher automático do desconto fixo) num pool único
+que quita a cobrança **mais antiga em aberto primeiro**. O voucher do desconto
+fixo já vinha do banco com `lesson_id` certo (é o que `sync_lesson_wallet`
+grava), mas isso era ignorado - o desconto de hoje podia acabar quitando uma
+aula de três semanas atrás, e a aula de hoje continuar cheia, sem nenhum
+desconto visível nela.
+
+**Corrigido:** um voucher com `lesson_id` agora abate primeiro, direto, a
+cobrança da própria aula - só o troco (se sobrar, o que não deveria acontecer
+porque o banco já limita o desconto ao valor da aula) volta pro pool geral. A
+tela "Em aberto" mostra o valor cheio riscado, o desconto e o líquido, aula por
+aula.
+
+**O que continua sem discriminação, de propósito:** o abatimento pontual
+(botão "Desconto" com alcance "uma aula" ou "tudo em aberto") lança um voucher
+**sem** `lesson_id` - é assim desde a migration 20260921120000, porque
+`sync_lesson_wallet` reconhece "o" voucher de uma aula só pelo par
+`lesson_id + kind='voucher'`; se o manual também usasse `lesson_id`, o gatilho
+do desconto fixo passaria a apagar/sobrescrever esse voucher manual sempre que
+a família também tivesse desconto fixo e a aula fosse tocada de novo. Ligar os
+dois exigiria uma forma de o gatilho distinguir "meu voucher" de "voucher
+alheio" (uma coluna nova, tipo `auto_generated`) - fica pra outra sessão se o
+Thiago quiser esse caso também discriminado.
+
+Teste novo: `src/test/billing.test.ts`, 3 casos (abate a própria aula, troco de
+desconto maior que a aula não vira crédito do nada, voucher solto continua indo
+pro pool geral). `tsc`, lint (no nível já existente) e build limpos.
+
+**Falta:** nada no banco muda, então não há migration a aplicar - é só o
+front-end, publica com o próximo merge/deploy normal.
 

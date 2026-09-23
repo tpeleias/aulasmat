@@ -28,6 +28,11 @@ export type OpenItem = {
   detail: string;
   amount: number;
   partial: boolean;
+  // Set when a voucher tied to THIS lesson (account_discounts, via
+  // sync_lesson_wallet) already abated part of it. `amount` above is the net,
+  // after this discount - the discount is broken out so the tela can show it
+  // instead of just a smaller number nobody can explain.
+  discount?: { amount: number; label: string };
 };
 
 export type AccountStatement = {
@@ -49,9 +54,17 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // lessons.payment_status is a separate flag that can disagree and is deliberately ignored.
 export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): AccountStatement[] {
   const lessonById = new Map(lessons.map(l => [l.id, l]));
+  type Charge = OpenItem & { lessonId: string | null };
   const accounts = new Map<string, {
     key: string; label: string; student: string; guardian: string | null;
-    balance: number; credits: number; charges: OpenItem[];
+    balance: number; credits: number; charges: Charge[];
+    // Vouchers tied to a specific lesson (kind='voucher' with lesson_id): the
+    // fixed family discount in account_discounts lands here, via
+    // sync_lesson_wallet. Grouped by lesson_id so each abates ITS OWN aula
+    // directly below, instead of joining acc.credits and paying off whichever
+    // open charge happens to be oldest - a discount for today's lesson has no
+    // business quitting one from three weeks ago.
+    lessonVouchers: Map<string, { amount: number; description: string | null }[]>;
   }>();
 
   for (const t of txs) {
@@ -59,16 +72,23 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
     const acc = accounts.get(k) ?? {
       key: k, label: accountLabel(t), student: t.student_name,
       guardian: (t.guardian_name ?? "").trim() || null,
-      balance: 0, credits: 0, charges: [],
+      balance: 0, credits: 0, charges: [], lessonVouchers: new Map(),
     };
     const amount = Number(t.amount);
     acc.balance += amount;
     if (amount >= 0) {
-      acc.credits += amount;
+      if (t.kind === "voucher" && t.lesson_id) {
+        const list = acc.lessonVouchers.get(t.lesson_id) ?? [];
+        list.push({ amount, description: t.description });
+        acc.lessonVouchers.set(t.lesson_id, list);
+      } else {
+        acc.credits += amount;
+      }
     } else {
       const lesson = t.lesson_id ? lessonById.get(t.lesson_id) : undefined;
       acc.charges.push({
         id: t.id,
+        lessonId: t.lesson_id,
         date: lesson?.start_at ?? t.created_at,
         student: lesson?.student_name ?? t.student_name,
         detail: lesson ? `${lesson.subject ?? "Aula"} (${lesson.duration_minutes} min)` : (t.description ?? "Lançamento"),
@@ -81,6 +101,26 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
 
   const result: AccountStatement[] = [];
   for (const acc of accounts.values()) {
+    // Cada cobrança abate primeiro o(s) voucher(s) da PRÓPRIA aula. O que
+    // sobrar do voucher (não deveria acontecer - sync_lesson_wallet já limita
+    // o desconto ao valor da aula - mas por segurança) volta pro pool geral
+    // em vez de desaparecer.
+    for (const charge of acc.charges) {
+      const vouchers = charge.lessonId ? acc.lessonVouchers.get(charge.lessonId) : undefined;
+      if (!vouchers?.length) continue;
+      const total = round2(vouchers.reduce((s, v) => s + v.amount, 0));
+      const applied = Math.min(total, charge.amount);
+      if (applied > 0) {
+        charge.amount = round2(charge.amount - applied);
+        charge.discount = {
+          amount: applied,
+          label: vouchers.map(v => v.description).filter((d): d is string => !!d).join("; ") || "Desconto",
+        };
+      }
+      const leftover = round2(total - applied);
+      if (leftover > 0) acc.credits = round2(acc.credits + leftover);
+    }
+
     let pool = acc.credits;
     const items: OpenItem[] = [];
     for (const charge of acc.charges.sort((a, b) => a.date.localeCompare(b.date))) {
