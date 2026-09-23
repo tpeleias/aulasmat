@@ -125,14 +125,14 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
             String student = lesson.optString("student", "");
             String subject = lesson.optString("subject", "");
             String address = lesson.optString("address", "");
-            String teacher = lesson.optString("teacher", "");
             boolean isOnline = lesson.optBoolean("isOnline", false);
 
             views.setTextViewText(ROW_TIME_IDS[i], time);
             views.setTextViewText(ROW_DAY_IDS[i], day);
             views.setTextViewText(ROW_NAME_IDS[i], subject.isEmpty() ? student : student + " · " + subject);
 
-            int rowBackground = "mayara".equals(teacher) ? R.drawable.widget_row_alt : R.drawable.widget_row;
+            // "alt" vem do app (professor que não é o primeiro da agenda).
+            int rowBackground = lesson.optBoolean("alt", false) ? R.drawable.widget_row_alt : R.drawable.widget_row;
             views.setInt(ROW_CONTAINER_IDS[i], "setBackgroundResource", rowBackground);
 
             String addressLabel = isOnline ? "Online" : address;

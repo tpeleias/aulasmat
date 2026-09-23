@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { GraduationCap, Plus, Trash2, ChevronDown, Pencil } from "lucide-react";
+import { GraduationCap, Plus, Trash2, ChevronDown, Pencil, KeyRound } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { SCARCITY_DEFAULT, type ScarcityDay } from "@/lib/availability";
 import { toast } from "sonner";
@@ -51,6 +51,43 @@ export default function TeachersPage() {
   const newSlug = teacherSlug(newName.trim().toLowerCase());
   const oldSlug = renaming ? teacherSlug(renaming.name) : "";
   const slugTaken = !!renaming && teachers.some(t => t.id !== renaming.id && teacherSlug(t.name) === newSlug);
+
+  // Login próprio do professor (papel 'teacher'): vê a própria agenda e os
+  // alunos, sem financeiro nem administração. A função confere que quem chama
+  // é admin desta escola.
+  const [accessFor, setAccessFor] = useState<Teacher | null>(null);
+  const [accessUser, setAccessUser] = useState("");
+  const [accessPw, setAccessPw] = useState("");
+  // user_id só vem depois da migration 20260924040000; antes disso o botão
+  // nem aparece.
+  const hasAccessColumn = teachers.some(t => "user_id" in t);
+
+  const openAccess = (t: Teacher) => {
+    setAccessFor(t);
+    setAccessUser(teacherSlug(t.name).replace(/[^a-z0-9._-]/g, ""));
+    setAccessPw("");
+  };
+
+  const callAccess = async (action: "create" | "reset" | "remove") => {
+    if (!accessFor) return;
+    if (action === "remove" && !confirm(`Remover o acesso de ${capitalize(accessFor.name)}? As aulas dele continuam.`)) return;
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("create-teacher-login", {
+      body: { teacher_id: accessFor.id, action, username: accessUser.trim().toLowerCase(), password: accessPw },
+    });
+    setBusy(false);
+    const msg = (data as { error?: string } | null)?.error;
+    if (error || msg) { toast.error(msg || "Não foi possível concluir. Tente de novo."); return; }
+    if (action === "create") {
+      const text = `Seu acesso ao Cronys: usuário ${accessUser.trim().toLowerCase()}, senha ${accessPw}. Entre em ${publicSiteUrl()}/ ou pelo app.`;
+      try { await navigator.clipboard.writeText(text); toast.success("Acesso criado - usuário e senha copiados para enviar"); }
+      catch { toast.success("Acesso criado"); }
+    } else {
+      toast.success(action === "reset" ? "Senha trocada" : "Acesso removido");
+    }
+    setAccessFor(null);
+    reload();
+  };
 
   const rename = async () => {
     if (!renaming) return;
@@ -135,10 +172,16 @@ export default function TeachersPage() {
                 <div className="font-medium">{capitalize(t.name)}</div>
                 <div className="text-xs text-muted-foreground">
                   {t.active ? "Ativo" : t.plan_locked ? "Pausado pela mudança de plano - ative para liberar" : "Inativo"}
+                  {t.user_id ? " · tem acesso próprio" : ""}
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />
+                {hasAccessColumn && (
+                  <Button size="icon" variant="ghost" title={t.user_id ? "Acesso do professor" : "Criar acesso para o professor"} onClick={() => openAccess(t)}>
+                    <KeyRound className={`w-4 h-4 ${t.user_id ? "text-primary" : ""}`} />
+                  </Button>
+                )}
                 <Button size="icon" variant="ghost" title="Editar nome" onClick={() => { setRenaming(t); setNewName(capitalize(t.name)); }}><Pencil className="w-4 h-4" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => remove(t.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>
@@ -240,6 +283,43 @@ export default function TeachersPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setRenaming(null)}>Cancelar</Button>
             <Button onClick={rename} disabled={busy || !newSlug || slugTaken}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!accessFor} onOpenChange={v => !v && setAccessFor(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Acesso de {accessFor ? capitalize(accessFor.name) : ""}</DialogTitle>
+            <DialogDescription>
+              Com o acesso próprio, o professor vê e marca só as aulas dele, vê os alunos e cadastra
+              novos, e mexe nos próprios bloqueios. Não vê o financeiro, os valores nem as configurações.
+            </DialogDescription>
+          </DialogHeader>
+          {accessFor?.user_id ? (
+            <div className="space-y-2">
+              <Label>Nova senha</Label>
+              <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder="Mínimo 6 caracteres" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <Label>Usuário</Label>
+                <Input value={accessUser} onChange={e => setAccessUser(e.target.value.toLowerCase())} placeholder="ex.: mayara" />
+                <p className="text-[11px] text-muted-foreground">Letras minúsculas, números, ponto, traço ou underline. É o que ele digita para entrar.</p>
+              </div>
+              <div className="space-y-1">
+                <Label>Senha</Label>
+                <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            {accessFor?.user_id && <Button variant="destructive" onClick={() => callAccess("remove")} disabled={busy}>Remover acesso</Button>}
+            <Button variant="outline" onClick={() => setAccessFor(null)}>Cancelar</Button>
+            {accessFor?.user_id
+              ? <Button onClick={() => callAccess("reset")} disabled={busy || accessPw.length < 6}>Trocar senha</Button>
+              : <Button onClick={() => callAccess("create")} disabled={busy || accessPw.length < 6 || accessUser.trim().length < 3}>Criar acesso</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>

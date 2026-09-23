@@ -19,6 +19,10 @@ export type Plan = {
   assistant_override: boolean | null;
   packages: boolean;
   recurring_blocks: boolean;
+  /** Fim do teste grátis do Pro; nulo quando não está em teste. */
+  trial_ends_at?: string | null;
+  /** Código que a família digita no cadastro pelo app (o apelido da escola). */
+  school_code?: string | null;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a

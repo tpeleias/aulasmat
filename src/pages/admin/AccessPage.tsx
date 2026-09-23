@@ -16,6 +16,7 @@ import ListSkeleton from "@/components/ListSkeleton";
 import PullToRefresh from "@/components/PullToRefresh";
 import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
+import { usePlan } from "@/hooks/usePlan";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null;
@@ -44,6 +45,7 @@ const TOGGLES: { key: keyof Visibility; label: string; hint: string }[] = [
 ];
 
 export default function AccessPage() {
+  const { plan } = usePlan();
   const [students, setStudents] = useState<Student[]>([]);
   const [visibility, setVisibility] = useState<Visibility | null>(null);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,7 @@ export default function AccessPage() {
     ];
     if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Professor / Responsável”).`);
     else if (s.user_id) lines.push("Entre na aba “Professor / Responsável” com o seu e-mail.");
+    else if (plan.school_code) lines.push(`Para criar sua conta pelo app, use o código da escola: ${plan.school_code}`);
     if (s.child_username) lines.push(`Acesso do aluno: usuário ${s.child_username}.`);
     if (password.trim()) lines.push(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`);
     lines.push("", "Por lá você vê as próximas aulas, o que está em aberto, os materiais e as tarefas.");

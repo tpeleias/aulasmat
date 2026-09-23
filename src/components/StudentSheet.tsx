@@ -20,17 +20,20 @@ function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
 
-export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, onEdit, onDelete, onBilling, onEvolution, onPause }: {
+export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
   student: SheetStudent | null;
   lessons: SheetLesson[];
   statement?: AccountStatement;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onSchedule: () => void;
-  onManage: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onBilling: () => void;
+  // Os opcionais somem para o login de professor, que não administra o
+  // cadastro nem vê o financeiro.
+  onManage?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onBilling?: () => void;
+  showMoney?: boolean;
   onEvolution: () => void;
   // Só vem quando a empresa tem aluno pausado pelo plano: é como o professor
   // troca quem ocupa as vagas do Essencial.
@@ -67,22 +70,22 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
           </button>
         )}
 
-        <div className="mt-4 grid grid-cols-3 gap-2">
+        <div className={`mt-4 grid gap-2 ${showMoney ? "grid-cols-3" : "grid-cols-2"}`}>
           <Stat label="Realizadas" value={String(done.length)} />
-          <Stat
+          {showMoney && <Stat
             label={credit > 0 ? "Crédito" : owed > 0 ? "A receber" : "Financeiro"}
             value={credit > 0 ? fmtMoney(credit) : owed > 0 ? fmtMoney(owed) : "Em dia"}
             tone={overdue ? "destructive" : credit > 0 ? "success" : "default"}
             hint={overdue ? `${daysOpen(statement!.oldestOpenDate)} dias` : undefined}
-          />
+          />}
           <Stat label="Próxima" value={next ? format(new Date(next.start_at), "EEE dd/MM", { locale: ptBR }) : "—"} hint={next ? format(new Date(next.start_at), "HH:mm") : undefined} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> Agendar</Button>
-          <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Financeiro</Button>
-          <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> Gerenciar</Button>
-          <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>
+          {onBilling && <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Financeiro</Button>}
+          {onManage && <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> Gerenciar</Button>}
+          {onEdit && <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>}
           <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> Evolução</Button>
           {onPause && <Button onClick={onPause} variant="secondary" className="h-11 gap-2 rounded-xl"><PauseCircle className="h-4 w-4" /> Pausar</Button>}
         </div>
@@ -106,9 +109,9 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
           )}
         </div>
 
-        <button onClick={onDelete} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm text-destructive hover:bg-destructive/10">
+        {onDelete && <button onClick={onDelete} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm text-destructive hover:bg-destructive/10">
           <Trash2 className="h-4 w-4" /> Excluir cadastro
-        </button>
+        </button>}
       </SheetContent>
     </Sheet>
   );

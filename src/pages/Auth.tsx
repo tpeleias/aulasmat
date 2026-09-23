@@ -11,6 +11,7 @@ import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail, normalizeUsername } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
+import { Capacitor } from "@capacitor/core";
 
 type Mode = "account" | "child";
 
@@ -18,6 +19,17 @@ export default function Auth() {
   const { session, role, isPlatformAdmin, loading } = useAuth();
   const [mode, setMode] = useState<Mode>("account");
   const [signup, setSignup] = useState(false);
+  // "school": professor/escola criando a própria conta (vira admin de uma
+  // escola nova, com teste do Pro). "family": responsável entrando numa escola
+  // pelo código que o professor passou.
+  const [signupKind, setSignupKind] = useState<"family" | "school">("family");
+  const [schoolName, setSchoolName] = useState("");
+  const [teacherName, setTeacherName] = useState("");
+  const [schoolCode, setSchoolCode] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  // No app da loja não existe "a escola do endereço": sem código, a família
+  // cairia em escola nenhuma. No site, a vitrine é da escola do endereço.
+  const codeRequired = Capacitor.isNativePlatform();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
@@ -32,7 +44,7 @@ export default function Auth() {
     // não pertence a empresa nenhuma. Sem isto ele cairia na tela de "aguarde
     // o professor te vincular", que não é o caso dele.
     if (isPlatformAdmin) return <Navigate to="/gestor" replace />;
-    if (role === "admin") return <Navigate to="/admin" replace />;
+    if (role === "admin" || role === "teacher") return <Navigate to="/admin" replace />;
     if (role === "student") return <Navigate to="/aluno" replace />;
     if (role === "child") return <Navigate to="/meu-painel" replace />;
     return <PendingScreen />;
@@ -48,6 +60,18 @@ export default function Auth() {
       toast.error("Informe um e-mail válido ou um nome de usuário (3-30 caracteres).");
       return;
     }
+    if (signup && !acceptTerms) {
+      toast.error("Para criar a conta, aceite os termos de uso e a política de privacidade.");
+      return;
+    }
+    if (signup && signupKind === "school" && (!schoolName.trim() || !teacherName.trim())) {
+      toast.error("Informe o nome da escola e o seu nome.");
+      return;
+    }
+    if (signup && signupKind === "family" && codeRequired && !schoolCode.trim()) {
+      toast.error("Informe o código da escola - peça ao professor.");
+      return;
+    }
     if (signup && isUsername) {
       toast.error("Para criar uma conta é preciso um e-mail. Peça ao professor um acesso por usuário.");
       return;
@@ -55,12 +79,23 @@ export default function Auth() {
     const loginEmail = isUsername ? usernameToEmail(typed) : typed;
     setBusy(true);
     const { error } = signup
-      ? await supabase.auth.signUp({ email: loginEmail, password, options: { emailRedirectTo: publicSiteUrl() + "/" } })
+      ? await supabase.auth.signUp({
+          email: loginEmail, password,
+          options: {
+            emailRedirectTo: publicSiteUrl() + "/",
+            // Lido por handle_new_user no banco (migration 20260924020000).
+            data: signupKind === "school"
+              ? { signup_kind: "school", school_name: schoolName.trim(), teacher_name: teacherName.trim() }
+              : schoolCode.trim() ? { school_code: schoolCode.trim().toLowerCase() } : {},
+          },
+        })
       : await supabase.auth.signInWithPassword({ email: loginEmail, password });
     setBusy(false);
     if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? "Usuário ou senha incorretos." : "E-mail ou senha incorretos."); return; }
     haptics.success();
-    if (signup) toast.success("Conta criada! Se for responsável, peça ao professor para vincular seu acesso.");
+    if (signup) toast.success(signupKind === "school"
+      ? "Escola criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre."
+      : "Conta criada! Peça ao professor para vincular seu acesso ao cadastro do aluno.");
   };
 
   const submitChild = async (e: React.FormEvent) => {
@@ -113,6 +148,21 @@ export default function Auth() {
 
           {mode === "account" ? (
             <form onSubmit={submitAccount} className="space-y-4">
+              {signup && signupKind === "school" && (
+                <>
+                  <Field label="Nome da escola (ou o seu, se dá aula sozinho)">
+                    <Input required value={schoolName} onChange={e => setSchoolName(e.target.value)} className="h-12 rounded-xl" maxLength={120} />
+                  </Field>
+                  <Field label="Seu nome, como professor">
+                    <Input required value={teacherName} onChange={e => setTeacherName(e.target.value)} className="h-12 rounded-xl" maxLength={60} autoComplete="given-name" />
+                  </Field>
+                </>
+              )}
+              {signup && signupKind === "family" && (
+                <Field label={codeRequired ? "Código da escola" : "Código da escola (se o professor passou)"}>
+                  <Input required={codeRequired} value={schoolCode} onChange={e => setSchoolCode(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="ex.: escola-avila" className="h-12 rounded-xl" />
+                </Field>
+              )}
               <Field label={signup ? "E-mail" : "E-mail ou usuário"}>
                 <Input
                   type={signup ? "email" : "text"}
@@ -131,18 +181,27 @@ export default function Auth() {
               <Field label="Senha">
                 <Input type="password" required name="password" id="login-password" minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />
               </Field>
+              {signup && (
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
+                  <span>Li e aceito os <Link to="/termos" className="text-primary underline">termos de uso</Link> e a <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.</span>
+                </label>
+              )}
               <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                {signup ? "Criar conta" : "Entrar"}
+                {signup ? (signupKind === "school" ? "Criar minha escola" : "Criar conta") : "Entrar"}
               </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                {signup ? (
-                  <>Já tem conta? <button type="button" className="font-medium text-primary" onClick={() => setSignup(false)}>Entrar</button></>
-                ) : (
-                  <>Responsável novo? <button type="button" className="font-medium text-primary" onClick={() => setSignup(true)}>Criar conta</button></>
-                )}
-              </p>
-              {signup && (
+              {signup ? (
+                <p className="text-center text-xs text-muted-foreground">
+                  Já tem conta? <button type="button" className="font-medium text-primary" onClick={() => setSignup(false)}>Entrar</button>
+                </p>
+              ) : (
+                <div className="space-y-1 text-center text-xs text-muted-foreground">
+                  <p>Responsável novo? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>Criar conta</button></p>
+                  <p>Professor ou escola? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>Criar minha escola - 14 dias de Pro grátis</button></p>
+                </div>
+              )}
+              {signup && signupKind === "family" && (
                 <p className="text-center text-xs text-muted-foreground">
                   Depois de criar, o professor vincula sua conta ao cadastro do aluno.
                 </p>

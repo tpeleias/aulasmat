@@ -11,6 +11,9 @@ import Auth from "./pages/Auth";
 import PublicAvailability from "./pages/PublicAvailability";
 import PublicHome from "./pages/PublicHome";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfUse from "./pages/TermsOfUse";
+import DeleteAccountInfo from "./pages/DeleteAccountInfo";
+import MyAccount from "./pages/MyAccount";
 import AdminLayout from "./components/AdminLayout";
 import HomePage from "./pages/admin/HomePage";
 import CalendarPage from "./pages/admin/CalendarPage";
@@ -54,6 +57,9 @@ const App = () => (
             <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/inicio" element={<PublicHome />} />
             <Route path="/privacidade" element={<PrivacyPolicy />} />
+            <Route path="/termos" element={<TermsOfUse />} />
+            <Route path="/excluir-conta" element={<DeleteAccountInfo />} />
+            <Route path="/minha-conta" element={<MyAccount />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>

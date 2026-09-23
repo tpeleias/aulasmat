@@ -9,8 +9,15 @@ import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 // própria empresa, e sem palpite: quem não corresponde a ninguém cai no
 // primeiro da lista, que é o professor daquela empresa.
 export function useDefaultTeacher(): string {
-  const { user } = useAuth();
+  const { user, isTeacher } = useAuth();
   const { teachers } = useTeachers(true);
+
+  // Login de professor: é o professor ligado a ele, e nenhum outro - o banco
+  // só aceita aula dele mesmo.
+  if (isTeacher) {
+    const own = teachers.find(t => t.user_id === user?.id);
+    return own ? teacherSlug(own.name) : "";
+  }
 
   const email = (user?.email ?? "").toLowerCase();
   const slugs = teachers.map(t => teacherSlug(t.name));

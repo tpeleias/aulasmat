@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Navigate, NavLink, useSearchParams } from "react-router-dom";
+import { Navigate, NavLink, useLocation, useSearchParams } from "react-router-dom";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, UserRound, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -37,9 +37,16 @@ const secondary: NavItem[] = [
   { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
 
+// O que o login de professor (papel 'teacher') enxerga. O resto - financeiro,
+// relatórios, acessos, professores, configurações, assistente - é da escola, e
+// o banco também não entrega esses dados a ele (migration 20260924040000).
+const TEACHER_PATHS = ["/admin", "/admin/agenda", "/admin/alunos", "/admin/evolucao", "/admin/bloqueios"];
+const teacherCan = (path: string) => TEACHER_PATHS.includes(path.replace(/\/+$/, "") || "/admin");
+
 export default function AdminLayout() {
   const { plan, loading: planLoading } = usePlan();
-  const { session, isAdmin, role, loading, signOut } = useAuth();
+  const { session, isAdmin, isTeacher, role, loading, signOut } = useAuth();
+  const location = useLocation();
   const defaultTeacher = useDefaultTeacher();
   const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
@@ -73,11 +80,17 @@ export default function AdminLayout() {
   if (loading) return null;
   if (!session) return <Navigate to="/auth" replace />;
   if (role === "child") return <Navigate to="/meu-painel" replace />;
-  if (!isAdmin) return (
+  if (isTeacher && !teacherCan(location.pathname)) return <Navigate to="/admin" replace />;
+  if (!isAdmin && !isTeacher) return (
     <div className="flex flex-1 items-center justify-center p-6 text-center">
       <div><h2 className="text-xl font-semibold mb-2">Acesso restrito</h2><p className="text-muted-foreground">Sua conta não tem permissão de administrador.</p><Button className="mt-4" onClick={signOut}>Sair</Button></div>
     </div>
   );
+
+  const primaryNav = isTeacher ? primary.filter(it => teacherCan(it.to)) : primary;
+  const secondaryNav = isTeacher ? secondary.filter(it => teacherCan(it.to)) : secondary;
+  // O professor só divulga o próprio link de disponibilidade.
+  const linkTeachers = isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
 
   const copyLink = (path: string, label: string) => {
     navigator.clipboard.writeText(publicSiteUrl() + path);
@@ -104,19 +117,19 @@ export default function AdminLayout() {
             <div>
               <CronysWordmark tamanho="1.25rem" />
               <div className="mt-1 flex items-center gap-1.5">
-                <span className="text-xs text-sidebar-foreground/60">Professor</span>
-                <SeloPlano />
+                <span className="text-xs text-sidebar-foreground/60">{isTeacher ? "Minha agenda" : "Professor"}</span>
+                {!isTeacher && <SeloPlano />}
               </div>
             </div>
           </div>
           <nav className="flex flex-col gap-1 p-3 flex-1">
-            {primary.map(sidebarLink)}
+            {primaryNav.map(sidebarLink)}
             <div className="my-2 border-t border-sidebar-border" />
-            {secondary.map(sidebarLink)}
+            {secondaryNav.map(sidebarLink)}
           </nav>
           <div className="p-3 border-t border-sidebar-border space-y-2">
             <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Links públicos</div>
-            {teachers.map(t => {
+            {linkTeachers.map(t => {
               const slug = teacherSlug(t.name);
               return (
                 <Button key={t.id} onClick={() => copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`)} variant="secondary" size="sm" className="w-full justify-start gap-2">
@@ -125,6 +138,7 @@ export default function AdminLayout() {
               );
             })}
             <ThemeToggle />
+            <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />Minha conta</NavLink></Button>
             <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
           </div>
         </aside>
@@ -135,14 +149,14 @@ export default function AdminLayout() {
       </div>
 
       <BottomNav
-        items={primary}
+        items={primaryNav}
         more={(close) => (
           <div className="space-y-4">
             {/* No celular nao existe barra lateral, entao o selo do plano mora
                 aqui - e o lugar mais parecido com ela. */}
             <div className="flex items-center gap-2">
               <CronysWordmark tamanho="1rem" />
-              <SeloPlano />
+              {!isTeacher && <SeloPlano />}
             </div>
             <Button
               className="h-12 w-full justify-start gap-2 rounded-2xl"
@@ -151,7 +165,7 @@ export default function AdminLayout() {
               <Plus className="h-4 w-4" /> Nova aula
             </Button>
             <div className="grid grid-cols-2 gap-2">
-              {secondary.map(it => (
+              {secondaryNav.map(it => (
                 <NavLink key={it.to} to={it.to} onClick={() => { haptics.tap(); close(); }}
                   className={({ isActive }) =>
                     `flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-colors ${
@@ -162,7 +176,7 @@ export default function AdminLayout() {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {teachers.map(t => {
+              {linkTeachers.map(t => {
                 const slug = teacherSlug(t.name);
                 return (
                   <Button key={t.id} variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`); close(); }}>
@@ -176,6 +190,7 @@ export default function AdminLayout() {
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                 {theme === "dark" ? "Modo claro" : "Modo escuro"}
               </Button>
+              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> Minha conta</NavLink></Button>
               <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
             </div>
           </div>

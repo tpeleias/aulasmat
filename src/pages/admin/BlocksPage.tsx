@@ -9,6 +9,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import { useAuth } from "@/hooks/useAuth";
+import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 
@@ -22,7 +24,13 @@ export default function BlocksPage() {
   // Bloqueio pontual vale nos dois planos: dizer "dia 14 nao dou aula" e
   // funcao basica de agenda. O que o Pro vende e nao repetir isso toda semana.
   const { plan } = usePlan();
-  const { teachers } = useTeachers(true);
+  const { teachers: allTeachers } = useTeachers(true);
+  // O login de professor bloqueia só a própria agenda (e o banco só deixa
+  // mexer nos bloqueios dele). Os da escola aparecem, sem a lixeira.
+  const { isTeacher } = useAuth();
+  const own = useDefaultTeacher();
+  const teachers = isTeacher ? allTeachers.filter(t => teacherSlug(t.name) === own) : allTeachers;
+  const canRemove = (b: Block) => !isTeacher || b.teacher === own;
   // "both" continua sendo o valor gravado para "vale para todos os professores".
   const teacherLabel = (slug: string) =>
     slug === "both"
@@ -31,6 +39,11 @@ export default function BlocksPage() {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [recForm, setRecForm] = useState({ title: "Escola", weekday: 1, start_time: "07:00", end_time: "13:00", teacher: "both" });
   const [oneForm, setOneForm] = useState({ title: "Lazer", start_at: "", end_at: "", teacher: "both" });
+  useEffect(() => {
+    if (!isTeacher || !own) return;
+    setRecForm(f => ({ ...f, teacher: own }));
+    setOneForm(f => ({ ...f, teacher: own }));
+  }, [isTeacher, own]);
 
   const load = async () => { const { data } = await supabase.from("blocks").select("*").order("created_at", { ascending: false }); setBlocks((data ?? []) as Block[]); };
   useEffect(() => { load(); }, []);
@@ -71,7 +84,7 @@ export default function BlocksPage() {
                 <Select value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">Todos</SelectItem>
+                    {!isTeacher && <SelectItem value="both">Todos</SelectItem>}
                     {teachers.map(t => (
                       <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
                     ))}
@@ -97,7 +110,7 @@ export default function BlocksPage() {
                   <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
                   <div className="text-sm text-muted-foreground">{WEEKDAYS[b.weekday ?? 0]} · {b.start_time?.slice(0,5)} – {b.end_time?.slice(0,5)}</div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                {canRemove(b) && <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>}
               </Card>
             ))}
           </div>
@@ -112,7 +125,7 @@ export default function BlocksPage() {
                 <Select value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="both">Todos</SelectItem>
+                    {!isTeacher && <SelectItem value="both">Todos</SelectItem>}
                     {teachers.map(t => (
                       <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
                     ))}
@@ -132,7 +145,7 @@ export default function BlocksPage() {
                   <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
                   <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), "dd/MM/yyyy HH:mm")} – {b.end_at && format(new Date(b.end_at), "dd/MM HH:mm")}</div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                {canRemove(b) && <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>}
               </Card>
             ))}
           </div>

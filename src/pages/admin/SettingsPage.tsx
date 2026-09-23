@@ -128,6 +128,12 @@ export default function SettingsPage() {
             <h2 className="font-semibold text-sm uppercase text-muted-foreground">Seu plano</h2>
             <Badge variant={plan.plano === "pro" ? "default" : "outline"}>{plan.nome}</Badge>
           </div>
+          {plan.plano === "pro" && plan.trial_ends_at && (
+            <p className="rounded-md bg-primary/5 px-3 py-2 text-xs">
+              Teste grátis até <strong>{new Date(plan.trial_ends_at).toLocaleDateString("pt-BR")}</strong>.
+              Depois a conta passa para o Essencial, sem apagar nada.
+            </p>
+          )}
           <ul className="space-y-1 text-sm">
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">Professores</span>
@@ -263,6 +269,21 @@ export default function SettingsPage() {
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold text-sm uppercase text-muted-foreground">Portal do Aluno</h2>
+        {plan.school_code && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div className="min-w-0">
+              <Label>Código da escola</Label>
+              <p className="text-xs text-muted-foreground">
+                A família que baixar o app e criar a conta sozinha digita este código para entrar na sua escola.
+                Depois você liga o cadastro dela ao aluno em Acessos.
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="shrink-0 font-mono"
+              onClick={() => { navigator.clipboard.writeText(plan.school_code!); toast.success("Código copiado"); }}>
+              {plan.school_code}
+            </Button>
+          </div>
+        )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="cursor-pointer">Permitir que alunos agendem aulas diretamente</Label>
