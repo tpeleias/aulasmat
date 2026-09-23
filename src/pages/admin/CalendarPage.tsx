@@ -386,7 +386,18 @@ export default function CalendarPage() {
   };
 
   return (
-    <div>
+    // Segurar o dedo na agenda selecionava texto e o Android abria a barra
+    // "Copiar, Compartilhar..." que não saía mais. Nada aqui é texto para
+    // copiar: sem seleção e sem o menu de toque longo. O diálogo de aula abre
+    // em portal (fora desta div no DOM), então o CSS não chega nos campos dele;
+    // já o onContextMenu do React atravessa portal, por isso poupa campos de
+    // texto - senão o "colar" dos inputs do diálogo sumiria junto.
+    <div
+      className="select-none [-webkit-touch-callout:none]"
+      onContextMenu={(e) => {
+        if (!(e.target as HTMLElement).closest("input, textarea, [contenteditable='true']")) e.preventDefault();
+      }}
+    >
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold">Calendário</h1>

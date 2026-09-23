@@ -5,9 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
-const MINUTES = ["00", "15", "30", "45"];
+export const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
-// Dia num calendário e hora/minuto em duas listas curtas, no lugar do
+// Dia num calendário e hora/minuto (de 5 em 5) em duas listas curtas, no lugar do
 // datetime-local: no celular aquele abre um relógio de ponteiro, e acertar
 // 15:30 arrastando ponteiro era a queixa.
 //
@@ -29,9 +29,9 @@ export function DateTimeField({ value, onChange }: { value: string; onChange: (v
     if (d && h && mi) onChange(`${d}T${h}:${mi}`);
   };
 
-  // Uma aula antiga às 16:40 continua 16:40: o minuto dela entra na lista em
+  // Uma aula antiga às 16:42 continua 16:42: o minuto dela entra na lista em
   // vez de ser trocado em silêncio pelo mais próximo.
-  const minutes = minute && !MINUTES.includes(minute) ? [...MINUTES, minute].sort() : MINUTES;
+  const minutes = minute && !MINUTE_OPTIONS.includes(minute) ? [...MINUTE_OPTIONS, minute].sort() : MINUTE_OPTIONS;
   const complete = date && hour && minute;
 
   return (
