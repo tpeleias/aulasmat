@@ -15,6 +15,7 @@ import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
 import PullToRefresh from "@/components/PullToRefresh";
 import { haptics } from "@/lib/haptics";
+import { publicSiteUrl } from "@/lib/publicUrl";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null;
@@ -96,7 +97,7 @@ export default function AccessPage() {
     const lines = [
       `Oi, ${who}! Criei um acesso no app das aulas para você acompanhar ${s.student_name}.`,
       "",
-      `Link: ${window.location.origin}/`,
+      `Link: ${publicSiteUrl()}/`,
     ];
     if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Professor / Responsável”).`);
     else if (s.user_id) lines.push("Entre na aba “Professor / Responsável” com o seu e-mail.");

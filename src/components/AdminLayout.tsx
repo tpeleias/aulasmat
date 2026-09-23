@@ -4,7 +4,7 @@ import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, ClipboardList, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -18,19 +18,19 @@ import { haptics } from "@/lib/haptics";
 import { CronysWordmark } from "@/components/brand";
 import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
+import { publicSiteUrl } from "@/lib/publicUrl";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
   { to: "/admin/agenda", label: "Agenda", icon: Calendar },
   { to: "/admin/assistente", label: "Assistente", icon: Bot },
-  { to: "/admin/financeiro", label: "Cobrança", icon: Wallet },
+  { to: "/admin/financeiro", label: "Financeiro", icon: Wallet },
 ];
 
 const secondary: NavItem[] = [
   { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
   { to: "/admin/evolucao", label: "Evolução", icon: TrendingUp },
   { to: "/admin/alunos", label: "Alunos", icon: Users },
-  { to: "/admin/organizacao", label: "Organização", icon: ClipboardList },
   { to: "/admin/acessos", label: "Acessos", icon: ShieldCheck },
   { to: "/admin/professores", label: "Professores", icon: UserCog },
   { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
@@ -80,7 +80,7 @@ export default function AdminLayout() {
   );
 
   const copyLink = (path: string, label: string) => {
-    navigator.clipboard.writeText(window.location.origin + path);
+    navigator.clipboard.writeText(publicSiteUrl() + path);
     haptics.success();
     toast.success(`Link ${label} copiado!`);
   };

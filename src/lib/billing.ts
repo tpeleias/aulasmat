@@ -154,7 +154,7 @@ export function daysOpen(oldestOpenDate: string | null, now = new Date()): numbe
 
 export const isOverdue = (s: AccountStatement) => s.owed > 0 && daysOpen(s.oldestOpenDate) > OVERDUE_AFTER_DAYS;
 
-// ---- Ordering (shared by Cobrança and Organização) ----
+// ---- Ordering (shared by Financeiro and Home) ----
 
 export type AccountSort = "owed" | "overdue" | "name" | "credit";
 

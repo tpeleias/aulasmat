@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useTeachers } from "@/hooks/useTeachers";
+import { useTeachers, teacherSlug, type Teacher } from "@/hooks/useTeachers";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { publicSiteUrl } from "@/lib/publicUrl";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { GraduationCap, Plus, Trash2, ChevronDown } from "lucide-react";
+import { GraduationCap, Plus, Trash2, ChevronDown, Pencil } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { SCARCITY_DEFAULT, type ScarcityDay } from "@/lib/availability";
 import { toast } from "sonner";
@@ -38,6 +41,32 @@ export default function TeachersPage() {
     const { error } = await supabase.from("teachers" as any).insert({ name: v });
     setBusy(false);
     if (error) toast.error(error.message); else { toast.success("Professor cadastrado"); setName(""); reload(); }
+  };
+
+  // Renomear passa pelo banco (rename_teacher) porque aulas e bloqueios
+  // guardam o professor pelo apelido do nome: trocar só o nome deixaria todas
+  // as aulas dele órfãs na agenda. O nome segue em minúsculas, como no cadastro.
+  const [renaming, setRenaming] = useState<Teacher | null>(null);
+  const [newName, setNewName] = useState("");
+  const newSlug = teacherSlug(newName.trim().toLowerCase());
+  const oldSlug = renaming ? teacherSlug(renaming.name) : "";
+  const slugTaken = !!renaming && teachers.some(t => t.id !== renaming.id && teacherSlug(t.name) === newSlug);
+
+  const rename = async () => {
+    if (!renaming) return;
+    const v = newName.trim().toLowerCase();
+    if (!v || !newSlug) { toast.error("Informe o nome do professor"); return; }
+    if (slugTaken) { toast.error("Já existe um professor com esse nome"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.rpc("rename_teacher" as never, {
+      _teacher: renaming.id, _new_name: v, _old_slug: oldSlug, _new_slug: newSlug,
+    } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    const n = (data as { aulas?: number } | null)?.aulas ?? 0;
+    toast.success(`Professor renomeado${n ? ` - ${n} aula${n === 1 ? "" : "s"} atualizada${n === 1 ? "" : "s"}` : ""}`);
+    setRenaming(null);
+    reload();
   };
 
   const toggleActive = async (id: string, active: boolean) => {
@@ -110,6 +139,7 @@ export default function TeachersPage() {
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />
+                <Button size="icon" variant="ghost" title="Editar nome" onClick={() => { setRenaming(t); setNewName(capitalize(t.name)); }}><Pencil className="w-4 h-4" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => remove(t.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>
             </div>
@@ -190,6 +220,29 @@ export default function TeachersPage() {
           </Card>
         ))}
       </div>
+      <Dialog open={!!renaming} onOpenChange={v => !v && setRenaming(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar nome do professor</DialogTitle>
+            <DialogDescription>As aulas e os bloqueios dele acompanham o nome novo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label>Nome</Label>
+            <Input value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
+            {slugTaken && <p className="text-xs text-destructive">Já existe um professor com esse nome.</p>}
+            {renaming && newSlug && newSlug !== oldSlug && (
+              <p className="text-xs text-muted-foreground">
+                O link público de horários muda de <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{oldSlug}</span> para{" "}
+                <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{newSlug}</span>. Quem tiver o link antigo vai precisar do novo.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenaming(null)}>Cancelar</Button>
+            <Button onClick={rename} disabled={busy || !newSlug || slugTaken}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

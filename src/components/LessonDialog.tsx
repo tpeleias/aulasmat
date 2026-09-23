@@ -15,6 +15,7 @@ import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 import { isSlotConflict, lessonErrorMessage } from "@/lib/lessonErrors";
 import { useLessonPrice, FALLBACK_LESSON_PRICE } from "@/hooks/useLessonPrice";
+import { DateTimeField } from "@/components/DateTimeField";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -25,7 +26,7 @@ type Lesson = {
 
 
 // Every lesson is charged at the list price. The package discount is not a cheaper lesson:
-// it is a voucher credited on the Cobrança page, which keeps the ledger closing at zero.
+// it is a voucher credited on the Financeiro page, which keeps the ledger closing at zero.
 // O mesmo vale para o desconto de uma família: o valor da aula não muda.
 const PACKAGE_LABEL: Record<string, string> = { single: "Avulsa", pack5: "Pacote 5 aulas", pack10: "Pacote 10 aulas" };
 
@@ -66,7 +67,10 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   useEffect(() => {
     if (lesson) {
-      setForm({ ...lesson, address: lesson.address ?? "", is_online: lesson.is_online ?? false, status: lesson.status ?? "agendada", class_summary: lesson.class_summary ?? "" });
+      // O banco devolve "2026-09-23T18:00:00+00:00"; o campo de data só aceita
+      // hora local sem fuso ("2026-09-23T15:00") e, com o outro formato, ficava
+      // em branco na edição.
+      setForm({ ...lesson, start_at: format(new Date(lesson.start_at), "yyyy-MM-dd'T'HH:mm"), address: lesson.address ?? "", is_online: lesson.is_online ?? false, status: lesson.status ?? "agendada", class_summary: lesson.class_summary ?? "" });
     } else {
       setForm({
         student_name: initialStudent?.student_name ?? "",
@@ -182,6 +186,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   const save = async () => {
     if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
+    if (!form.start_at || Number.isNaN(new Date(form.start_at).getTime())) { toast.error("Escolha o dia e o horário da aula"); return; }
     setBusy(true);
     setConflictMsg(null);
 
@@ -328,9 +333,23 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
             <div><Label>Assunto</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Duração (min)</Label><Input type="number" value={form.duration_minutes} onChange={e => setForm({ ...form, duration_minutes: Number(e.target.value) })} /></div>
-            <div><Label>Início</Label><Input type="datetime-local" value={form.start_at} onChange={e => setForm({ ...form, start_at: e.target.value })} /></div>
+          <div>
+            <Label>Dia e horário</Label>
+            <DateTimeField key={open ? (lesson?.id ?? "nova") : "fechado"} value={form.start_at} onChange={v => setForm(f => ({ ...f, start_at: v }))} />
+          </div>
+          <div>
+            <Label>Duração</Label>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {[30, 45, 60, 90, 120].map(m => (
+                <Button key={m} type="button" size="sm" variant={form.duration_minutes === m ? "default" : "outline"}
+                  className="h-8 rounded-full px-3" onClick={() => setForm(f => ({ ...f, duration_minutes: m }))}>
+                  {m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`}
+                </Button>
+              ))}
+              <Input type="number" inputMode="numeric" className="h-8 w-20" value={form.duration_minutes}
+                onChange={e => setForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} aria-label="Duração em minutos" />
+              <span className="text-xs text-muted-foreground">min</span>
+            </div>
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
             <div>
@@ -377,7 +396,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
             Toda aula entra pelo valor cheio (R$ {listPrice}/h). O desconto do pacote é lançado
-            como <strong className="text-foreground">voucher</strong> na Cobrança ao registrar o pagamento.
+            como <strong className="text-foreground">voucher</strong> no Financeiro ao registrar o pagamento.
           </div>
           <Collapsible className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
@@ -391,7 +410,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 <Label>Valor por hora (R$/h)</Label>
                 <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Pagamento é marcado na página Cobrança (isso mantém a carteira correta).
+                  Pagamento é marcado na página Financeiro (isso mantém a carteira correta).
                 </p>
               </div>
               <div><Label>Situação da aula</Label>

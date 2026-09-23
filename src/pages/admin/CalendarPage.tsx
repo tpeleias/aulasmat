@@ -13,6 +13,7 @@ import { capitalize } from "@/lib/balance";
 import { syncUpcomingLessonsWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import { useTapGuard } from "@/lib/tapGuard";
+import { Capacitor } from "@capacitor/core";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -72,7 +73,10 @@ export default function CalendarPage() {
   const [editing, setEditing] = useState<Lesson | null>(null);
   const [slotStart, setSlotStart] = useState<Date | undefined>(undefined);
   const [freeing, setFreeing] = useState<{ blockId: string; day: Date; label: string } | null>(null);
-  const tapGuard = useTapGuard();
+  // No app, um toque só abre a aula depois de um instante sem rolagem - o
+  // pedido foi não abrir sem querer ao rolar a agenda com o dedo em cima dela.
+  const tapGuard = useTapGuard({ delayMs: Capacitor.isNativePlatform() ? 160 : 0 });
+  const lessonTap = (lesson: Lesson) => tapGuard(() => { haptics.tap(); setEditing(lesson); setDlgOpen(true); });
 
   const days = useMemo(
     () => Array.from({ length: dayCount }, (_, i) => addDays(anchor, i)),
@@ -280,7 +284,8 @@ export default function CalendarPage() {
     return (
       <button
         key={lesson.id}
-        onClick={(e) => { e.stopPropagation(); setEditing(lesson); setDlgOpen(true); }}
+        onPointerDown={lessonTap(lesson).onPointerDown}
+        onClick={(e) => { e.stopPropagation(); lessonTap(lesson).onClick(e); }}
         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
         className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : isPending ? "bg-muted/60 border border-dashed" : lesson.payment_status === "pago" ? "bg-success/20" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
       >

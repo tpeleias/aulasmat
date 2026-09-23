@@ -999,4 +999,92 @@ END $$;
 ROLLBACK;
 
 \echo ''
+
+\echo ''
+\echo '--- 23. Renomear professor leva aulas e bloqueios junto, e só da própria empresa ---'
+
+-- Um professor da empresa A, para ver que a empresa R não o alcança.
+INSERT INTO public.teachers (account_id, name, active)
+SELECT current_setting('teste.a')::uuid, 'Prof A', true
+ WHERE NOT EXISTS (SELECT 1 FROM public.teachers WHERE account_id = current_setting('teste.a')::uuid AND name = 'Prof A');
+SELECT set_config('teste.prof_a', (SELECT id::text FROM public.teachers WHERE account_id = current_setting('teste.a')::uuid AND name = 'Prof A'), false);
+SELECT set_config('teste.aulas_a', (SELECT count(*)::text FROM public.lessons WHERE account_id = current_setting('teste.a')::uuid), false);
+
+-- Empresa e admin proprios deste bloco: os de B ja foram desmontados pelos
+-- blocos anteriores.
+DO $$
+DECLARE
+  _r uuid;
+  _ur uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Empresa R', 'r', 'pro') RETURNING id INTO _r;
+  INSERT INTO auth.users (id, email) VALUES (_ur, 'admin-r@x');
+  DELETE FROM public.user_roles WHERE user_id = _ur;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_ur, 'admin', _r);
+  INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (_r, 'Duda', 'Ana');
+  PERFORM set_config('teste.ur', _ur::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ur'), true);
+INSERT INTO public.teachers (name, active) VALUES ('Ana Júlia', true);
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+VALUES ('Duda', 'Ana', 'ana-julia', '2027-02-01 10:00-03', 60);
+INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at)
+VALUES ('Folga', 'ana-julia', 'one_off', '2027-02-02 10:00-03', '2027-02-02 12:00-03');
+SELECT public.assert(
+  (SELECT r ->> 'aulas' = '1' AND r ->> 'bloqueios' = '1'
+     FROM (SELECT public.rename_teacher((SELECT id FROM public.teachers WHERE name = 'Ana Júlia'),
+                                        'Ana Julia Souza', 'ana-julia', 'ana-julia-souza') AS r) x),
+  'renomear leva a aula e o bloqueio junto');
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE teacher = 'ana-julia') = 0
+                     AND (SELECT count(*) FROM public.lessons WHERE teacher = 'ana-julia-souza') = 1,
+  'nenhuma aula fica órfã no apelido antigo');
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE name = 'Ana Julia Souza') = 1, 'e o nome mudou');
+DO $$
+BEGIN
+  PERFORM public.rename_teacher((SELECT id FROM public.teachers WHERE name = 'Ana Julia Souza'), 'Both', 'ana-julia-souza', 'both');
+  RAISE EXCEPTION 'FALHOU: aceitou o apelido reservado';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - recusa o apelido reservado (both vale para todos)';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.rename_teacher(current_setting('teste.prof_a')::uuid, 'Invasor', 'prof-a', 'invasor');
+  RAISE EXCEPTION 'FALHOU: renomeou professor de outra empresa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - admin de R nao renomeia professor de A';
+END $$;
+COMMIT;
+
+SELECT public.assert((SELECT name FROM public.teachers WHERE id = current_setting('teste.prof_a')::uuid) = 'Prof A',
+  'o professor de A continua com o nome dele');
+SELECT public.assert((SELECT count(*)::text FROM public.lessons WHERE account_id = current_setting('teste.a')::uuid) = current_setting('teste.aulas_a'),
+  'e as aulas de A nao foram tocadas');
+
+-- Professor e aluno pausados pelo plano: renomear nao e marcar aula nova, e
+-- a trava nao pode barrar. Mas a excecao nao pode sobrar depois.
+UPDATE public.teachers SET plan_locked = true WHERE name = 'Ana Julia Souza';
+UPDATE public.students SET plan_locked = true WHERE student_name = 'Duda' AND account_id = (SELECT id FROM public.accounts WHERE slug = 'r');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ur'), true);
+SELECT public.assert(
+  (public.rename_teacher((SELECT id FROM public.teachers WHERE name = 'Ana Julia Souza'), 'Ana J', 'ana-julia-souza', 'ana-j') ->> 'aulas') = '1',
+  'renomear professor pausado, com aula de aluno pausado, funciona');
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+  VALUES ('Duda', 'Ana', 'ana-j', '2027-02-03 10:00-03', 60);
+  RAISE EXCEPTION 'FALHOU: a excecao do renomear sobrou na transacao';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - e logo depois a trava volta a valer';
+END $$;
+ROLLBACK;
+UPDATE public.students SET plan_locked = false WHERE student_name = 'Duda' AND account_id = (SELECT id FROM public.accounts WHERE slug = 'r');
+
 \echo '=== FIM ==='

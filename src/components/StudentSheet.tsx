@@ -80,7 +80,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
 
         <div className="mt-4 grid grid-cols-2 gap-2">
           <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> Agendar</Button>
-          <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Cobrança</Button>
+          <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Financeiro</Button>
           <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> Gerenciar</Button>
           <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>
           <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> Evolução</Button>

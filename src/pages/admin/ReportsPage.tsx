@@ -3,13 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Download, Printer, FileText } from "lucide-react";
+import { Download, Share2, FileText } from "lucide-react";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { accountKey, accountLabel, fmtMoney } from "@/lib/balance";
 import type { LedgerTx } from "@/lib/billing";
 import { summarizeIncome, toCsv, MESES, yearsWithData } from "@/lib/reports";
 import { valorPorExtenso } from "@/lib/extenso";
+import { saveOrShareFile, canOnlyShare } from "@/lib/saveFile";
+import { buildReceiptPdf } from "@/lib/receiptPdf";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 
@@ -52,18 +55,17 @@ export default function ReportsPage() {
   const [month, setMonth] = useState<number | null>(null);
   const summary = useMemo(() => summarizeIncome(txs, year, month), [txs, year, month]);
 
+  const [busy, setBusy] = useState(false);
+  const shareOnly = canOnlyShare();
+
   const exportCsv = () => {
     const csv = toCsv(
       ["Data", "Família", "Descrição", "Valor"],
       summary.rows.map(r => [format(new Date(r.date), "dd/MM/yyyy"), r.accountLabel, r.description, r.amount.toFixed(2).replace(".", ",")]),
     );
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `recebido-${year}${month !== null ? `-${String(month + 1).padStart(2, "0")}` : ""}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const name = `recebido-${year}${month !== null ? `-${String(month + 1).padStart(2, "0")}` : ""}.csv`;
+    saveOrShareFile(name, blob, "Recebido no período").catch(e => toast.error(`Não foi possível exportar: ${e?.message ?? e}`));
   };
 
   // ---- Recibo ----
@@ -89,6 +91,29 @@ export default function ReportsPage() {
   const receiptTotal = useMemo(() => Math.round(receiptRows.reduce((s, r) => s + r.amount, 0) * 100) / 100, [receiptRows]);
   const receiptAcc = accounts.find(a => a.key === receiptAccount);
   const receiptLabel = receiptAcc?.label ?? "";
+
+  const downloadReceipt = async () => {
+    if (!receiptAcc || receiptRows.length === 0) return;
+    setBusy(true);
+    try {
+      const pdf = await buildReceiptPdf({
+        issuer: accountName,
+        issuerDocument: settings.issuer_document?.trim() || null,
+        issuerEmail: settings.contact_email?.trim() || null,
+        payer: receiptAcc.payer,
+        period: `${MESES[receiptMonth].toLowerCase()} de ${receiptYear}`,
+        rows: receiptRows.map(r => ({ date: format(new Date(r.date), "dd/MM/yyyy"), description: r.description, amount: r.amount })),
+        total: receiptTotal,
+        issuedAt: format(new Date(), "dd/MM/yyyy"),
+      });
+      const slug = receiptAcc.payer.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase();
+      await saveOrShareFile(`recibo-${slug}-${receiptYear}-${String(receiptMonth + 1).padStart(2, "0")}.pdf`, pdf, `Recibo - ${receiptAcc.payer}`);
+    } catch (e) {
+      toast.error(`Não foi possível gerar o recibo: ${(e as Error)?.message ?? e}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (loading) return <ListSkeleton rows={4} />;
 
@@ -171,7 +196,7 @@ export default function ReportsPage() {
           <p className="text-sm text-muted-foreground">{receiptLabel} não pagou nada em {MESES[receiptMonth]} de {receiptYear}.</p>
         ) : (
           <>
-            <div id="recibo-print" className="rounded-xl border border-border p-5 space-y-4 bg-card text-sm">
+            <div className="rounded-xl border border-border p-5 space-y-4 bg-card text-sm">
               <div className="text-center space-y-0.5">
                 <div className="font-bold text-base">{accountName || "Recibo"}</div>
                 {settings.issuer_document && <div className="text-xs text-muted-foreground">{settings.issuer_document}</div>}
@@ -197,8 +222,9 @@ export default function ReportsPage() {
                 <div className="mt-1 text-xs">{accountName || "Assinatura"}</div>
               </div>
             </div>
-            <Button size="sm" className="h-9 gap-1.5 rounded-xl" onClick={() => window.print()}>
-              <Printer className="w-3.5 h-3.5" /> Imprimir / Salvar PDF
+            <Button size="sm" className="h-9 gap-1.5 rounded-xl" onClick={downloadReceipt} disabled={busy}>
+              {shareOnly ? <Share2 className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+              {shareOnly ? "Compartilhar recibo (PDF)" : "Baixar recibo (PDF)"}
             </Button>
           </>
         )}

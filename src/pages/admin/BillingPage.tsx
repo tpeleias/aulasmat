@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
@@ -19,6 +19,8 @@ import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
 import { haptics } from "@/lib/haptics";
+import { buildCollectionMessage, type PaymentInfo } from "@/lib/collectionMessage";
+import { syncBillingWidget } from "@/lib/widgetSync";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -77,6 +79,7 @@ export default function BillingPage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [discounts, setDiscounts] = useState<DiscountRow[]>([]);
+  const [payment, setPayment] = useState<PaymentInfo>({ pixKey: null, paymentLink: null });
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useSortPreference<AccountSort>("billing", ACCOUNT_SORTS, "owed");
@@ -102,12 +105,14 @@ export default function BillingPage() {
   const [dItemId, setDItemId] = useState("");
 
   const load = async () => {
-    const [tx, st, ls, dc] = await Promise.all([
+    const [tx, st, ls, dc, cfg] = await Promise.all([
       supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status"),
       supabase.from("account_discounts").select("student_name, guardian_name, kind, value"),
+      supabase.from("settings").select("pix_key, payment_link").maybeSingle(),
     ]);
+    setPayment({ pixKey: cfg.data?.pix_key ?? null, paymentLink: cfg.data?.payment_link ?? null });
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
     setLessons((ls.data ?? []) as LessonRow[]);
@@ -159,6 +164,23 @@ export default function BillingPage() {
     }));
     return sortAccounts(merged, sort);
   }, [txs, students, lessons, discounts, sort]);
+
+  // O widget de cobrança do Android lê daqui (e da tela Hoje): quem acabou de
+  // registrar um pagamento vê o widget já sem aquela dívida.
+  useEffect(() => {
+    if (loading) return;
+    const debtors = accounts.filter(a => a.owed > 0).sort((a, b) => b.owed - a.owed);
+    syncBillingWidget({
+      totalOwed: debtors.reduce((s, a) => s + a.owed, 0),
+      accounts: debtors.map(a => ({ label: a.label, owed: a.owed })),
+    });
+  }, [loading, accounts]);
+
+  const copyCollection = (a: Account) => {
+    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment));
+    haptics.success();
+    toast.success(`Mensagem de cobrança de ${a.label} copiada`);
+  };
 
   const totals = useMemo(() => ({
     received: txs.reduce((s, t) => s + (Number(t.amount) > 0 ? Number(t.amount) : 0), 0),
@@ -354,7 +376,7 @@ export default function BillingPage() {
     <PullToRefresh onRefresh={load}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Cobrança</h1>
+          <h1 className="text-2xl font-bold">Financeiro</h1>
           <p className="text-sm text-muted-foreground">
             Cada aula realizada vira uma cobrança. Registre o que recebeu e as aulas mais antigas são quitadas sozinhas.
           </p>
@@ -435,6 +457,11 @@ export default function BillingPage() {
                         <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
                           <Plus className="w-4 h-4" /> Pagamento
                         </Button>
+                        {a.owed > 0 && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyCollection(a)}>
+                            <Copy className="w-3.5 h-3.5" /> Copiar cobrança
+                          </Button>
+                        )}
                         {plan.packages && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
                             <Percent className="w-3.5 h-3.5" /> Desconto
