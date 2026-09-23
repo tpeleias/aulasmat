@@ -1526,3 +1526,25 @@ ordem certa é:
 3. publicar no Lovable (`deploy_project`) e conferir o `latest_commit_sha`;
 4. `.aab` novo só se quiser as telas no app da loja.
 
+
+## Mensagem de cobrança reorganizada (23/09)
+
+Pedido do Thiago: a lista de aulas estava amontoada ("sexta 15/05 às 16:30 —
+Luana — Matemática (60 min) — R$ 200,00" numa linha só) e o desconto não
+aparecia. A montagem saiu de `OrganizationPage.tsx` para
+`src/lib/collectionMessage.ts`, com teste.
+
+- Cada aula virou um bloco de 3 linhas (data em negrito / matéria e duração /
+  valor). O WhatsApp não alinha colunas (fonte proporcional), então bloco lê
+  melhor que tabela.
+- O nome do aluno sai do bloco e vai para a frase de abertura quando a conta
+  tem um aluno só; com irmãos, o nome volta para cada aula.
+- **Com desconto:** valor cheio riscado → valor com desconto em negrito, linha
+  "🎁 Desconto de 10%: você economiza R$ 20,00" em cada aula, e no fim
+  "Aulas / Descontos / Total a pagar" mais uma frase dizendo quanto a família
+  está economizando. Sem desconto, só o total - nada de linha "Descontos: R$ 0".
+- Aula paga em parte mostra quanto já entrou e quanto falta, e o resumo ganha
+  "Já pago", para a conta fechar na frente da família.
+- "Chave CPF" estava cravado para toda empresa; agora diz CPF, CNPJ ou e-mail
+  conforme o formato da chave, ou só "Chave".
+- "de *Luana*" e não "da/do": adivinhar gênero pelo nome erra.
