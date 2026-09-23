@@ -1699,3 +1699,33 @@ apagar `admin-create-user` no painel do Supabase.
 **Próxima sessão (provavelmente semana que vem):** a lista "Revisão de
 vendabilidade" acima, começando por excluir a própria conta dentro do app
 (exigência da Google Play).
+
+## PEDIDO (23/09) — Resumo da semana / do mês — primeiro da próxima sessão
+
+Pedido do Thiago: um lugar com o resumo do período - quanto recebeu, quanto
+falta receber, o total (inclusive o que já deveria ter entrado), quantas aulas
+foram dadas e afins. Absorve o item 13 da revisão ("saúde do negócio").
+
+**Proposta (validar com ele antes de construir):** cartão no topo do
+Financeiro e um resumo curto na tela Hoje, com seletor Semana / Mês e setas
+para períodos anteriores.
+
+- **Aulas:** dadas (e horas), canceladas, recusadas, e quantas ainda estão
+  marcadas até o fim do período.
+- **Valor das aulas dadas** no período (cheio), **descontos** concedidos e o
+  **líquido** - é o "total que deveria ter recebido".
+- **Recebido no período:** dinheiro que entrou (pagamento/pacote, pela data do
+  lançamento).
+- **Em aberto:** quanto das aulas do período ainda falta pagar, e o total em
+  aberto geral.
+- **Previsto:** aulas marcadas até o fim do período × valor.
+- Comparação com o período anterior; separação por professor quando houver
+  mais de um.
+
+**Cuidado de definição que precisa ir escrito na tela:** "recebido" é pela
+data do pagamento e "valor das aulas" é pela data da aula. Num mês qualquer
+os dois não batem - um pacote pago em agosto cobre aulas de setembro. Sem
+explicar isso, o professor acha que a conta está errada.
+
+Dados: tudo já existe (`wallet_transactions` + `lessons`); `computeStatements`
+e `summarizeIncome` cobrem boa parte das contas. Sem migration.
