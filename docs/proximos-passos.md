@@ -1470,7 +1470,10 @@ Decisão do Thiago: "trava tudo e o usuário escolhe o que liberar". Migration
   ("o cadastro está pausado, fale com o professor"), porque a família também
   pode recebê-la pelo portal.
 
-### O que precisa de decisão sua ⚠️
+### Decidido (23/09): bloqueio recorrente e desconto fixo continuam valendo
+
+O Thiago confirmou: **ficam valendo depois do rebaixamento**, como já estava
+no código. O Essencial só impede criar novos.
 
 **Bloqueio recorrente e desconto fixo que já existiam NÃO são pausados.** "Trava
 tudo" pediria pausar, mas os dois têm efeito colateral ruim:
@@ -1481,9 +1484,8 @@ tudo" pediria pausar, mas os dois têm efeito colateral ruim:
 - pausar o **desconto fixo** faz a conta da família subir sem ninguém avisar -
   o desconto é um combinado entre professor e família, não com a Cronys.
 
-Hoje os dois continuam valendo e o Essencial só impede criar novos (como já
-era). Se quiser pausá-los mesmo assim, é uma mudança pequena - mas é decisão
-de produto, não técnica.
+Por isso os dois continuam valendo e o Essencial só impede criar novos. O
+teste do bloco 18 do espelho cobre exatamente isso.
 
 ### Outras coisas para saber
 
