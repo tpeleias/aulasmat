@@ -1350,3 +1350,56 @@ pro pool geral). `tsc`, lint (no nível já existente) e build limpos.
 **Falta:** nada no banco muda, então não há migration a aplicar - é só o
 front-end, publica com o próximo merge/deploy normal.
 
+## Exportação IR + Recibo (23/09) — feito no código, falta aplicar a migration
+
+Pedido do Thiago, item 1 do roteiro do Pro ("o mais fácil da lista inteira").
+Tela nova, `/admin/relatorios` (nav "Relatórios"), com duas partes.
+
+**Resumo do período:** ano (e opcionalmente mês) → quanto cada família pagou
+de verdade, e o total. "De verdade" quer dizer `kind IN ('package',
+'adjustment')` com valor positivo - aula é cobrança, nunca entrada, e voucher
+é desconto, crédito sem dinheiro trocando de mão; nenhum dos dois é renda pra
+declarar nem prova de pagamento recebido. Botão exporta CSV com BOM (abre
+certo no Excel em português) das linhas do período.
+
+**Recibo:** escolhe família + mês/ano, soma o que ela pagou nesse período, e
+monta um recibo (nome da empresa, CPF/CNPJ e e-mail de quem recebe, valor em
+número E por extenso, lista do que foi pago, data de emissão, linha de
+assinatura). "Imprimir / Salvar PDF" chama `window.print()` — sem lib nova,
+`#recibo-print` é a única coisa visível na folha via `@media print` em
+`index.css`, o resto do app (nav, cabeçalho) some da impressão.
+
+**Duas coisas pequenas que vieram junto:**
+- `settings.issuer_document` (CPF/CNPJ de quem recebe) — campo novo em
+  Configurações → Contato, pra aparecer no recibo. Nulo sai em branco pra
+  preencher à mão. Não entra na lista que o `anon` lê (allowlist da migration
+  20260920120000) — não tem por que ser pública.
+- `src/lib/extenso.ts` — valor por extenso em português (obrigatório em
+  recibo de verdade). Cobre reais e centavos até 999.999.999, com a regra de
+  vírgula/"e" entre os grupos (ex.: "mil, duzentos e trinta e quatro reais",
+  mas "mil e cinquenta reais" - "e" só quando o último grupo é redondo ou
+  menor que 100).
+
+**Não é Pro-exclusivo.** O roteiro listava isso como ideia de Pro, mas o
+Thiago não pediu a trava agora e o plano em si ainda não está em produção
+(migration `20260921160000_plans.sql`). Fica registrado: se quiser gated,
+é adicionar `reports: boolean` em `usePlan.ts`/`plan_features()` e envolver a
+tela com `<ProUpsell>` — mesmo padrão de `packages`/`recurring_blocks`.
+
+Testes novos: `src/test/extenso.test.ts` (8 casos) e `src/test/reports.test.ts`
+(8 casos, cobrindo o filtro de renda, o período e o CSV). `tsc`, lint (no
+nível já existente) e build limpos.
+
+**O que falta, e depende de você:**
+1. **Aplicar a migration `20260923010000_receipt_issuer_document.sql`** na
+   produção — só adiciona a coluna, não tem RLS nem trigger novo.
+2. **Não foi possível testar a tela num navegador de verdade daqui.** O
+   ambiente não tem o pacote `playwright` instalado no projeto (só o Chromium
+   do sistema) e a tela exige login contra o Supabase de produção, que este
+   ambiente não alcança (mesma limitação já registrada para as edge
+   functions). A conferência foi `tsc` + lint + build + os testes de unidade
+   acima - vale abrir a tela de verdade depois de publicar antes de confiar
+   nela para um recibo real.
+3. Preencher CPF/CNPJ em Configurações, senão o recibo sai com a linha em
+   branco.
+

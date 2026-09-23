@@ -28,6 +28,7 @@ type Settings = {
   scarcity: Scarcity;
   pix_key: string | null; payment_link: string | null;
   contact_email: string | null;
+  issuer_document: string | null;
   show_payment_info_to_students: boolean;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
@@ -39,7 +40,7 @@ export default function SettingsPage() {
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     default_lesson_price: FALLBACK_LESSON_PRICE,
     scarcity: SCARCITY_PADRAO,
-    pix_key: "", payment_link: "", contact_email: "",
+    pix_key: "", payment_link: "", contact_email: "", issuer_document: "",
     show_payment_info_to_students: false,
     allow_student_booking: true,
     show_availability_to_students: false,
@@ -79,6 +80,7 @@ export default function SettingsPage() {
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
+      issuer_document: (s.issuer_document || "").trim() || null,
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) toast.error(error.message);
@@ -213,6 +215,17 @@ export default function SettingsPage() {
             onChange={e => setS({ ...s, contact_email: e.target.value })}
             placeholder="seu@email.com"
           />
+        </div>
+        <div>
+          <Label>CPF ou CNPJ</Label>
+          <Input
+            value={s.issuer_document ?? ""}
+            onChange={e => setS({ ...s, issuer_document: e.target.value })}
+            placeholder="000.000.000-00"
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            Impresso nos recibos, em Relatórios. Em branco, o recibo sai com a linha vazia para preencher à mão.
+          </p>
         </div>
       </Card>
 

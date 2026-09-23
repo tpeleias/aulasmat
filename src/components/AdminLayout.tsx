@@ -4,7 +4,7 @@ import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, ClipboardList, Home, Moon, Sun, ShieldCheck } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, ClipboardList, Home, Moon, Sun, ShieldCheck, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -27,6 +27,7 @@ const primary: NavItem[] = [
 ];
 
 const secondary: NavItem[] = [
+  { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
   { to: "/admin/alunos", label: "Alunos", icon: Users },
   { to: "/admin/organizacao", label: "Organização", icon: ClipboardList },
   { to: "/admin/acessos", label: "Acessos", icon: ShieldCheck },

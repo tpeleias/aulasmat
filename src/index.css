@@ -214,3 +214,17 @@
        saiu. Na Work Sans não fazem nada. */
   }
 }
+
+/* Recibo (ReportsPage): imprime só o #recibo-print, escondendo o resto do
+   app (nav, cabeçalho, botões) - sem isso "Imprimir" sairia com a barra
+   lateral e a lista de aulas junto do recibo. */
+@media print {
+  body * { visibility: hidden; }
+  #recibo-print, #recibo-print * { visibility: visible; }
+  #recibo-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+}
