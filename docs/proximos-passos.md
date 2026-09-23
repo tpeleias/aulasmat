@@ -1849,6 +1849,17 @@ Migration `20260924010000_payment_per_account_and_pix.sql`.
   Escola X, a empresa de teste no Essencial - não é deste lote.)
 - **Edge functions:** `delete-my-account` e `create-teacher-login` publicadas
   (JWT obrigatório).
+- **PR #22** mesclado no `main` (`e0f3656`), depois do build Android do PR
+  passar.
+- **Lovable:** publicado, `latest_commit_sha` = `e0f3656`.
+- **`.aab` 1.9.0** (código 17) gerado do `main`. Artefato
+  `aulas-play-1.9.0-17` em
+  https://github.com/tpeleias/aulasmat/actions/runs/35905537566 (baixa como
+  `.zip`, descompactar antes de subir).
+- **Falta, e é com o Thiago:** cadastrar
+  `https://cronys.lovable.app/excluir-conta` na Play Console (Segurança dos
+  dados → Exclusão de conta); preencher nome e cidade do recebedor do Pix em
+  Configurações; revisão jurídica dos termos.
 
 ### Ordem para publicar (como foi feito)
 
