@@ -11,11 +11,14 @@ import { WhatsAppButton } from "@/components/WhatsAppButton";
 import { scopeToAccount } from "@/lib/balance";
 import { isDiscarded, isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
+import { useWords } from "@/hooks/useVocabulary";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentLessons() {
   const { student, isChild } = useStudent();
+  const w = useWords();
+  const ap = w.appointment;
   const { role } = useAuth();
   const hideFinancial = role === "child" || isChild;
   const settings = useAppSettings({ enabled: !hideFinancial });
@@ -41,11 +44,11 @@ export default function StudentLessons() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Minhas aulas</h1>
+      <h1 className="text-2xl font-bold">{ap.pick("Meus", "Minhas")} {ap.lp}</h1>
       <Tabs defaultValue="upcoming">
         <TabsList>
-          <TabsTrigger value="upcoming">Próximas e pedidos ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="past">Aulas realizadas ({past.length})</TabsTrigger>
+          <TabsTrigger value="upcoming">{ap.pick("Próximos", "Próximas")} e pedidos ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">{ap.p} {ap.pick("realizados", "realizadas")} ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} onChanged={load} /></TabsContent>
         <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={hideFinancial} /></TabsContent>
@@ -55,6 +58,7 @@ export default function StudentLessons() {
 }
 
 function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }: any) {
+  const w = useWords();
   if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">Nada por aqui.</Card>;
   return (
     <div className="space-y-2">
@@ -63,7 +67,7 @@ function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {l.teacher}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{l.teacher}</div>
             </div>
             <div className="flex items-center gap-2">
               {/* Pedido sem resposta, recusado ou cancelado não tem cobrança para
@@ -72,14 +76,14 @@ function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }
               {!hideFinancial && !isRequest(l.status) && !isDiscarded(l.status) && (
                 <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
               )}
-              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
               {/* Quem pede é o responsável, então quem retira é ele. O filho abre
                   esta mesma tela pelo /meu-painel e não deve ver o botão. */}
               {!hideFinancial && isRequest(l.status) && onChanged && (
                 <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={onChanged} />
               )}
               {!hideFinancial && (
-                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
               )}
             </div>
           </div>

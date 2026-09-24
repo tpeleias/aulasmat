@@ -1264,4 +1264,124 @@ SELECT public.assert((SELECT count(*) FROM public.teachers WHERE account_id = cu
 SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.t')::uuid) = 2,
   'mas cadastra aluno novo');
 
+\echo ''
+\echo '--- 26. Tipo de negocio e vocabulario por empresa ---'
+
+SELECT public.assert((SELECT business_model FROM public.accounts WHERE slug = 'portaldeaulas') = 'aulas',
+  'a empresa que ja existia fica como aulas');
+SELECT public.assert((SELECT business_model FROM public.accounts WHERE id = current_setting('teste.a24')::uuid) IS NULL,
+  'empresa criada pelo cadastro nasce sem tipo (vai para a tela de boas-vindas)');
+
+-- Sem login: as palavras da empresa do endereco publico.
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert((public.my_vocabulary() ->> 'business_model') = 'aulas',
+  'a pagina publica le o tipo da empresa do endereco');
+DO $$
+BEGIN
+  PERFORM public.set_business_model('saude');
+  RAISE EXCEPTION 'FALHOU: visitante trocou o tipo';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - visitante nao troca o tipo';
+END $$;
+COMMIT;
+
+-- A escola do bloco 24 esta no Pro (o gestor definiu).
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.u24'), true);
+SELECT public.assert(public.my_vocabulary() ->> 'business_model' IS NULL, 'o dono ve que ainda nao escolheu');
+SELECT public.assert((public.set_business_model('saude') ->> 'business_model') = 'saude', 'o dono escolhe o tipo');
+DO $$
+BEGIN
+  PERFORM public.set_business_model('cassino');
+  RAISE EXCEPTION 'FALHOU: aceitou tipo inventado';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - tipo inventado e recusado';
+END $$;
+SELECT public.assert((public.set_custom_vocabulary('{"staff":{"s":"Dentista","p":"Dentistas","g":"m"}}')
+                       -> 'custom' -> 'staff' ->> 'p') = 'Dentistas',
+  'no Pro, o dono edita as palavras');
+DO $$
+BEGIN
+  PERFORM public.set_custom_vocabulary('{"senha":{"s":"x","p":"x","g":"m"}}');
+  RAISE EXCEPTION 'FALHOU: aceitou termo desconhecido';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - termo desconhecido e recusado';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_custom_vocabulary('{"staff":{"s":"Dentista","p":"","g":"m"}}');
+  RAISE EXCEPTION 'FALHOU: aceitou plural vazio';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - plural vazio e recusado';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_custom_vocabulary('{"staff":{"s":"Dentista","p":"Dentistas","g":"x"}}');
+  RAISE EXCEPTION 'FALHOU: aceitou genero invalido';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - genero invalido e recusado';
+END $$;
+COMMIT;
+
+SELECT public.assert((SELECT business_model FROM public.accounts WHERE slug = 'escola-t') IS NULL
+                     AND (SELECT vocabulary FROM public.accounts WHERE slug = 'escola-t') IS NULL,
+  'a escolha de uma empresa nao alcanca outra');
+
+-- O professor le, mas nao muda.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+SELECT public.assert(public.my_vocabulary() IS NOT NULL, 'o professor le as palavras da propria empresa');
+DO $$
+BEGIN
+  PERFORM public.set_business_model('beleza');
+  RAISE EXCEPTION 'FALHOU: professor trocou o tipo';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - professor nao troca o tipo';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_custom_vocabulary('{"staff":{"s":"X","p":"Xs","g":"m"}}');
+  RAISE EXCEPTION 'FALHOU: professor editou as palavras';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - professor nao edita as palavras';
+END $$;
+COMMIT;
+
+-- Saindo do Pro: as palavras editadas ficam guardadas, mas deixam de valer.
+UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.a24')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.u24'), true);
+SELECT public.assert((public.my_vocabulary() -> 'custom') = 'null'::jsonb
+                     AND (public.my_vocabulary() ->> 'custom_saved')::boolean
+                     AND (public.my_vocabulary() ->> 'business_model') = 'saude',
+  'no Essencial vale o tipo, e as palavras editadas ficam guardadas sem valer');
+DO $$
+BEGIN
+  PERFORM public.set_custom_vocabulary('{"staff":{"s":"X","p":"Xs","g":"m"}}');
+  RAISE EXCEPTION 'FALHOU: Essencial editou as palavras';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - Essencial nao edita as palavras';
+END $$;
+
+-- Mensagem neutra, com a chave que a tela traduz.
+DO $$
+DECLARE _h text;
+BEGIN
+  INSERT INTO public.teachers (name, active) VALUES ('segundo', true);
+  RAISE EXCEPTION 'FALHOU: passou do limite de professores';
+EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
+  PERFORM public.assert(_h = 'limite_profissionais_cadastrar:1', 'o limite do plano vem com a chave para a tela (' || _h || ')');
+  PERFORM public.assert(sqlerrm NOT ILIKE '%professor%', 'e a mensagem nao fala em professor');
+END $$;
+
+SELECT public.assert(public.set_custom_vocabulary(NULL) ->> 'custom_saved' = 'false',
+  'mas volta as palavras do tipo em qualquer plano');
+SELECT public.assert((public.set_business_model('oficina') ->> 'business_model') = 'oficina',
+  'e troca de tipo em qualquer plano');
+COMMIT;
+
 \echo '=== FIM ==='

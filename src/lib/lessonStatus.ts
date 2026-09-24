@@ -6,6 +6,8 @@
 // "não é aula confirmada" em vários outros. Um esquecido é uma tela mostrando
 // "solicitada" como se a aula estivesse marcada.
 
+import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
+
 export const LESSON_STATUSES = ["solicitada", "agendada", "realizada", "recusada", "cancelada"] as const;
 export type LessonStatus = (typeof LESSON_STATUSES)[number];
 
@@ -21,16 +23,21 @@ export const isDiscarded = (status?: string | null) =>
 
 // O que a família e o professor leem na tela. "solicitada" virou uma frase e não
 // uma palavra porque "solicitada" sozinha não diz de quem se espera a ação.
+// O valor no banco é sempre o feminino (de "aula"); o rótulo concorda com a
+// palavra da empresa - "consulta realizada", "atendimento realizado".
 const LABELS: Record<string, string> = {
   solicitada: "aguardando aprovação",
-  agendada: "agendada",
-  realizada: "realizada",
-  recusada: "recusada",
-  cancelada: "cancelada",
+  agendada: "agendad",
+  realizada: "realizad",
+  recusada: "recusad",
+  cancelada: "cancelad",
 };
 
-export const statusLabel = (status?: string | null) =>
-  LABELS[status ?? ""] ?? status ?? "agendada";
+export const statusLabel = (status?: string | null, v: Vocabulary = DEFAULT_VOCABULARY) => {
+  const base = LABELS[status ?? "agendada"];
+  if (!base) return status ?? "";
+  return base.endsWith("d") ? base + v.appointment.pick("o", "a") : base;
+};
 
 // Cor do selo. Pedido é amarelo (pendente de alguém), recusado e cancelado são
 // vermelhos, aula realizada é o estado "pronto".

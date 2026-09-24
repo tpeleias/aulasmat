@@ -7,11 +7,14 @@ import { format } from "date-fns";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
+import { useWords } from "@/hooks/useVocabulary";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentBilling() {
   const { student } = useStudent();
+  const w = useWords();
+  const ap = w.appointment;
   const settings = useAppSettings();
   const [txs, setTxs] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);
@@ -27,8 +30,8 @@ export default function StudentBilling() {
   // Same ledger rule as the teacher's screen: money received pays the oldest lesson first,
   // so what is listed adds up to exactly what is owed.
   const statement = useMemo(
-    () => computeStatements(txs as LedgerTx[], lessons as LedgerLesson[])[0] ?? null,
-    [txs, lessons]
+    () => computeStatements(txs as LedgerTx[], lessons as LedgerLesson[], w)[0] ?? null,
+    [txs, lessons, w]
   );
   const owed = statement?.owed ?? 0;
   const credit = statement && statement.balance > 0 ? statement.balance : 0;
@@ -48,14 +51,14 @@ export default function StudentBilling() {
           <div className="text-2xl font-bold tabular-nums">{fmt(credit)}</div>
         </Card>
         <Card className="p-5">
-          <div className="text-xs text-muted-foreground">Aulas realizadas</div>
+          <div className="text-xs text-muted-foreground">{ap.p} {ap.pick("realizados", "realizadas")}</div>
           <div className="text-2xl font-bold tabular-nums">{lessons.length}</div>
         </Card>
       </div>
 
       {openItems.length > 0 && (
         <Card className="p-5">
-          <h2 className="mb-3 font-semibold">Aulas em aberto</h2>
+          <h2 className="mb-3 font-semibold">{ap.p} em aberto</h2>
           <div className="space-y-2">
             {openItems.map(i => (
               <div key={i.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-0 first:pt-0">
@@ -84,7 +87,7 @@ export default function StudentBilling() {
           {txs.map(t => (
             <div key={t.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0 text-sm">
               <div>
-                <div>{t.description ?? (t.kind === "lesson" ? "Aula" : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? "Pacote" : "Lançamento")}</div>
+                <div>{t.description ?? (t.kind === "lesson" ? ap.s : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? "Pacote" : "Lançamento")}</div>
                 <div className="text-xs text-muted-foreground">{format(new Date(t.created_at), "dd/MM/yyyy HH:mm")}</div>
               </div>
               <Badge variant={Number(t.amount) >= 0 ? "default" : "destructive"}>{fmt(Number(t.amount))}</Badge>

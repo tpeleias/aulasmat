@@ -15,11 +15,16 @@ import { toast } from "sonner";
 import { capitalize } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
+import { useWords } from "@/hooks/useVocabulary";
+import { dbErrorMessage } from "@/lib/dbErrors";
+import { cap } from "@/lib/vocabulary";
 
 const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 
 export default function TeachersPage() {
   const { plan } = usePlan();
+  const w = useWords();
+  const st = w.staff;
   const { teachers, reload } = useTeachers(false);
   // O limite conta professor ATIVO, igual ao gatilho do banco.
   const ativos = teachers.filter(t => t.active).length;
@@ -36,11 +41,11 @@ export default function TeachersPage() {
 
   const add = async () => {
     const v = name.trim().toLowerCase();
-    if (!v) { toast.error("Informe o nome do professor"); return; }
+    if (!v) { toast.error(`Informe o nome ${st.do} ${st.l}`); return; }
     setBusy(true);
     const { error } = await supabase.from("teachers" as any).insert({ name: v });
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Professor cadastrado"); setName(""); reload(); }
+    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(`${st.s} ${st.pick("cadastrado", "cadastrada")}`); setName(""); reload(); }
   };
 
   // Renomear passa pelo banco (rename_teacher) porque aulas e bloqueios
@@ -70,7 +75,7 @@ export default function TeachersPage() {
 
   const callAccess = async (action: "create" | "reset" | "remove") => {
     if (!accessFor) return;
-    if (action === "remove" && !confirm(`Remover o acesso de ${capitalize(accessFor.name)}? As aulas dele continuam.`)) return;
+    if (action === "remove" && !confirm(`Remover o acesso de ${capitalize(accessFor.name)}? ${cap(w.appointment.os)} ${w.appointment.lp} continuam.`)) return;
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("create-teacher-login", {
       body: { teacher_id: accessFor.id, action, username: accessUser.trim().toLowerCase(), password: accessPw },
@@ -92,8 +97,8 @@ export default function TeachersPage() {
   const rename = async () => {
     if (!renaming) return;
     const v = newName.trim().toLowerCase();
-    if (!v || !newSlug) { toast.error("Informe o nome do professor"); return; }
-    if (slugTaken) { toast.error("Já existe um professor com esse nome"); return; }
+    if (!v || !newSlug) { toast.error(`Informe o nome ${st.do} ${st.l}`); return; }
+    if (slugTaken) { toast.error(`Já existe ${st.um} ${st.l} com esse nome`); return; }
     setBusy(true);
     const { data, error } = await supabase.rpc("rename_teacher" as never, {
       _teacher: renaming.id, _new_name: v, _old_slug: oldSlug, _new_slug: newSlug,
@@ -101,14 +106,15 @@ export default function TeachersPage() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     const n = (data as { aulas?: number } | null)?.aulas ?? 0;
-    toast.success(`Professor renomeado${n ? ` - ${n} aula${n === 1 ? "" : "s"} atualizada${n === 1 ? "" : "s"}` : ""}`);
+    const ap = w.appointment;
+    toast.success(`${st.s} ${st.pick("renomeado", "renomeada")}${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} ${ap.pick("atualizado", "atualizada")}${n === 1 ? "" : "s"}` : ""}`);
     setRenaming(null);
     reload();
   };
 
   const toggleActive = async (id: string, active: boolean) => {
     const { error } = await supabase.from("teachers" as any).update({ active }).eq("id", id);
-    if (error) toast.error(error.message); else reload();
+    if (error) toast.error(dbErrorMessage(error, w)); else reload();
   };
 
   // O número fica guardado mesmo com o botão desligado: desligar é "não quero
@@ -132,7 +138,7 @@ export default function TeachersPage() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Excluir este professor? (As aulas e bloqueios já criados continuam intactos)")) return;
+    if (!confirm(`Excluir ${st.este} ${st.l}? (${cap(w.appointment.os)} ${w.appointment.lp} e bloqueios já criados continuam intactos)`)) return;
     const { error } = await supabase.from("teachers" as any).delete().eq("id", id);
     if (error) toast.error(error.message); else { toast.success("Removido"); reload(); }
   };
@@ -140,14 +146,14 @@ export default function TeachersPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><GraduationCap className="w-6 h-6" /> Professores</h1>
-        <p className="text-sm text-muted-foreground">Cadastre os professores que aparecem na agenda e o WhatsApp de cada um. Não cria conta de acesso — somente registro de nome.</p>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><GraduationCap className="w-6 h-6" /> {st.p}</h1>
+        <p className="text-sm text-muted-foreground">Cadastre {st.os} {st.lp} que aparecem na agenda e o WhatsApp de cada um. O acesso próprio de cada um é opcional, pelo ícone da chave.</p>
       </div>
 
       <Card className="p-4">
         <div className="flex gap-2 items-end">
           <div className="flex-1">
-            <label className="text-xs text-muted-foreground">Nome do professor</label>
+            <label className="text-xs text-muted-foreground">Nome {st.do} {st.l}</label>
             <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: João" onKeyDown={e => e.key === "Enter" && add()} />
           </div>
           <Button onClick={add} disabled={busy || semVaga} className="gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
@@ -155,7 +161,7 @@ export default function TeachersPage() {
         <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
         {semVaga && (
           <div className="mt-3">
-            <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_teachers} professor${plan.max_teachers === 1 ? "" : "es"}`} icon={GraduationCap} compacto>
+            <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`} icon={GraduationCap} compacto>
               você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Pro não há limite —
               é o plano de quem tem equipe.
             </ProUpsell>
@@ -164,7 +170,7 @@ export default function TeachersPage() {
       </Card>
 
       <div className="space-y-2">
-        {teachers.length === 0 && <Card className="p-6 text-center text-sm text-muted-foreground">Nenhum professor cadastrado.</Card>}
+        {teachers.length === 0 && <Card className="p-6 text-center text-sm text-muted-foreground">{st.nenhum} {st.l} {st.pick("cadastrado", "cadastrada")}.</Card>}
         {teachers.map(t => (
           <Card key={t.id} className="p-3 space-y-3">
             <div className="flex items-center justify-between gap-3">
@@ -178,7 +184,7 @@ export default function TeachersPage() {
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />
                 {hasAccessColumn && (
-                  <Button size="icon" variant="ghost" title={t.user_id ? "Acesso do professor" : "Criar acesso para o professor"} onClick={() => openAccess(t)}>
+                  <Button size="icon" variant="ghost" title={t.user_id ? `Acesso ${st.do} ${st.l}` : `Criar acesso para ${st.o} ${st.l}`} onClick={() => openAccess(t)}>
                     <KeyRound className={`w-4 h-4 ${t.user_id ? "text-primary" : ""}`} />
                   </Button>
                 )}
@@ -266,13 +272,13 @@ export default function TeachersPage() {
       <Dialog open={!!renaming} onOpenChange={v => !v && setRenaming(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar nome do professor</DialogTitle>
-            <DialogDescription>As aulas e os bloqueios dele acompanham o nome novo.</DialogDescription>
+            <DialogTitle>Editar nome {st.do} {st.l}</DialogTitle>
+            <DialogDescription>{cap(w.appointment.os)} {w.appointment.lp} e os bloqueios acompanham o nome novo.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <Label>Nome</Label>
             <Input value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
-            {slugTaken && <p className="text-xs text-destructive">Já existe um professor com esse nome.</p>}
+            {slugTaken && <p className="text-xs text-destructive">Já existe {st.um} {st.l} com esse nome.</p>}
             {renaming && newSlug && newSlug !== oldSlug && (
               <p className="text-xs text-muted-foreground">
                 O link público de horários muda de <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{oldSlug}</span> para{" "}
@@ -292,8 +298,8 @@ export default function TeachersPage() {
           <DialogHeader>
             <DialogTitle>Acesso de {accessFor ? capitalize(accessFor.name) : ""}</DialogTitle>
             <DialogDescription>
-              Com o acesso próprio, o professor vê e marca só as aulas dele, vê os alunos e cadastra
-              novos, e mexe nos próprios bloqueios. Não vê o financeiro, os valores nem as configurações.
+              Com o acesso próprio, {st.o} {st.l} vê e marca só {w.appointment.os} {w.appointment.lp} {st.pick("dele", "dela")}, vê {w.client.os} {w.client.lp} e cadastra
+              {" "}{w.client.pick("novos", "novas")}, e mexe nos próprios bloqueios. Não vê o financeiro, os valores nem as configurações.
             </DialogDescription>
           </DialogHeader>
           {accessFor?.user_id ? (

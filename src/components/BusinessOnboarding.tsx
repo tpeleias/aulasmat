@@ -1,0 +1,61 @@
+import { useState } from "react";
+import { ArrowRight, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useVocabulary } from "@/hooks/useVocabulary";
+import { Button } from "@/components/ui/button";
+import { CronysWordmark } from "@/components/brand";
+import { BusinessModelPicker } from "@/components/BusinessModelPicker";
+import { haptics } from "@/lib/haptics";
+import type { BusinessModel } from "@/lib/vocabulary";
+
+/**
+ * Primeiro acesso do dono de uma empresa nova: escolher o ramo.
+ *
+ * Aparece enquanto accounts.business_model for nulo - toda empresa criada pelo
+ * cadastro ou pelo painel do gestor nasce assim. O ramo decide as palavras da
+ * tela inteira (Professor/Médico, Aula/Consulta...). Dá para trocar depois em
+ * Configurações, então aqui a escolha é rápida e sem medo.
+ */
+export default function BusinessOnboarding() {
+  const { signOut } = useAuth();
+  const { apply } = useVocabulary();
+  const [choice, setChoice] = useState<BusinessModel | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const confirm = async () => {
+    if (!choice) return;
+    setBusy(true);
+    const { data, error } = await supabase.rpc("set_business_model", { _model: choice });
+    setBusy(false);
+    if (error) { haptics.warning(); toast.error(error.message); return; }
+    haptics.success();
+    apply(data);
+  };
+
+  return (
+    <div className="flex flex-1 justify-center overflow-y-auto bg-background px-4 py-8">
+      <div className="w-full max-w-2xl space-y-6">
+        <div className="space-y-2">
+          <CronysWordmark tamanho="1.5rem" />
+          <h1 className="text-2xl font-semibold">Que tipo de negócio é o seu?</h1>
+          <p className="text-sm text-muted-foreground">
+            O app usa as palavras do seu ramo em todas as telas - para você, para a sua equipe e para os seus clientes.
+            Dá para trocar depois em Configurações.
+          </p>
+        </div>
+
+        <BusinessModelPicker value={choice} onChange={setChoice} disabled={busy} />
+
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <Button variant="ghost" className="rounded-xl" onClick={signOut}>Sair</Button>
+          <Button className="h-12 gap-2 rounded-xl px-6 text-base" disabled={!choice || busy} onClick={confirm}>
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+            Continuar
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}

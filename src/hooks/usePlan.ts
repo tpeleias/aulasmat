@@ -19,9 +19,11 @@ export type Plan = {
   assistant_override: boolean | null;
   packages: boolean;
   recurring_blocks: boolean;
+  /** Escrever as próprias palavras da tela (o ramo em si é de todos). */
+  custom_vocabulary?: boolean;
   /** Fim do teste grátis do Pro; nulo quando não está em teste. */
   trial_ends_at?: string | null;
-  /** Código que a família digita no cadastro pelo app (o apelido da escola). */
+  /** Código que o cliente digita no cadastro pelo app (o apelido da empresa). */
   school_code?: string | null;
 };
 
@@ -37,6 +39,7 @@ export const PLANO_DESCONHECIDO: Plan = {
   assistant_override: null,
   packages: false,
   recurring_blocks: false,
+  custom_vocabulary: false,
 };
 
 let cached: Plan | null = null;

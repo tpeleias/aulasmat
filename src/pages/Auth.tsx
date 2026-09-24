@@ -65,15 +65,15 @@ export default function Auth() {
       return;
     }
     if (signup && signupKind === "school" && (!schoolName.trim() || !teacherName.trim())) {
-      toast.error("Informe o nome da escola e o seu nome.");
+      toast.error("Informe o nome da empresa e o seu nome.");
       return;
     }
     if (signup && signupKind === "family" && codeRequired && !schoolCode.trim()) {
-      toast.error("Informe o código da escola - peça ao professor.");
+      toast.error("Informe o código da empresa - peça a quem te atende.");
       return;
     }
     if (signup && isUsername) {
-      toast.error("Para criar uma conta é preciso um e-mail. Peça ao professor um acesso por usuário.");
+      toast.error("Para criar uma conta é preciso um e-mail. Peça a quem te atende um acesso por usuário.");
       return;
     }
     const loginEmail = isUsername ? usernameToEmail(typed) : typed;
@@ -94,8 +94,8 @@ export default function Auth() {
     if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? "Usuário ou senha incorretos." : "E-mail ou senha incorretos."); return; }
     haptics.success();
     if (signup) toast.success(signupKind === "school"
-      ? "Escola criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre."
-      : "Conta criada! Peça ao professor para vincular seu acesso ao cadastro do aluno.");
+      ? "Empresa criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre."
+      : "Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.");
   };
 
   const submitChild = async (e: React.FormEvent) => {
@@ -126,7 +126,7 @@ export default function Auth() {
                 a cor da marca, e um quadradinho por cima só somaria borda. */}
             <div>
               <CronysWordmark tamanho="2.25rem" className="text-brand-ink" />
-              <div className="text-sm text-sidebar-foreground/70">Agenda, alunos e cobrança</div>
+              <div className="text-sm text-sidebar-foreground/70">Agenda, clientes e cobrança</div>
             </div>
           </div>
         </div>
@@ -134,7 +134,7 @@ export default function Auth() {
         {/* Form panel overlapping the hero */}
         <div className="relative -mt-8 rounded-t-[2rem] bg-background px-6 pb-8 pt-6" style={{ paddingBottom: "calc(2rem + env(safe-area-inset-bottom))" }}>
           <div className="mb-5 grid grid-cols-2 rounded-2xl bg-muted p-1 text-sm font-medium">
-            {([["account", "Professor / Responsável"], ["child", "Aluno"]] as [Mode, string][]).map(([m, label]) => (
+            {([["account", "Conta"], ["child", "Criança ou adolescente"]] as [Mode, string][]).map(([m, label]) => (
               <button
                 key={m}
                 type="button"
@@ -150,17 +150,17 @@ export default function Auth() {
             <form onSubmit={submitAccount} className="space-y-4">
               {signup && signupKind === "school" && (
                 <>
-                  <Field label="Nome da escola (ou o seu, se dá aula sozinho)">
+                  <Field label="Nome da empresa (ou o seu, se trabalha sozinho)">
                     <Input required value={schoolName} onChange={e => setSchoolName(e.target.value)} className="h-12 rounded-xl" maxLength={120} />
                   </Field>
-                  <Field label="Seu nome, como professor">
+                  <Field label="Seu nome, como profissional">
                     <Input required value={teacherName} onChange={e => setTeacherName(e.target.value)} className="h-12 rounded-xl" maxLength={60} autoComplete="given-name" />
                   </Field>
                 </>
               )}
               {signup && signupKind === "family" && (
-                <Field label={codeRequired ? "Código da escola" : "Código da escola (se o professor passou)"}>
-                  <Input required={codeRequired} value={schoolCode} onChange={e => setSchoolCode(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="ex.: escola-avila" className="h-12 rounded-xl" />
+                <Field label={codeRequired ? "Código da empresa" : "Código da empresa (se te passaram)"}>
+                  <Input required={codeRequired} value={schoolCode} onChange={e => setSchoolCode(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="ex.: clinica-avila" className="h-12 rounded-xl" />
                 </Field>
               )}
               <Field label={signup ? "E-mail" : "E-mail ou usuário"}>
@@ -189,7 +189,7 @@ export default function Auth() {
               )}
               <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                {signup ? (signupKind === "school" ? "Criar minha escola" : "Criar conta") : "Entrar"}
+                {signup ? (signupKind === "school" ? "Criar minha empresa" : "Criar conta") : "Entrar"}
               </Button>
               {signup ? (
                 <p className="text-center text-xs text-muted-foreground">
@@ -197,13 +197,13 @@ export default function Auth() {
                 </p>
               ) : (
                 <div className="space-y-1 text-center text-xs text-muted-foreground">
-                  <p>Responsável novo? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>Criar conta</button></p>
-                  <p>Professor ou escola? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>Criar minha escola - 14 dias de Pro grátis</button></p>
+                  <p>Cliente novo? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>Criar conta</button></p>
+                  <p>Tem um negócio? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>Criar minha empresa - 14 dias de Pro grátis</button></p>
                 </div>
               )}
               {signup && signupKind === "family" && (
                 <p className="text-center text-xs text-muted-foreground">
-                  Depois de criar, o professor vincula sua conta ao cadastro do aluno.
+                  Depois de criar, quem te atende vincula sua conta ao seu cadastro.
                 </p>
               )}
             </form>
@@ -217,14 +217,14 @@ export default function Auth() {
               </Field>
               <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                Entrar como aluno
+                Entrar
               </Button>
-              <p className="text-center text-xs text-muted-foreground">Acesso criado pelo responsável ou pelo professor.</p>
+              <p className="text-center text-xs text-muted-foreground">Acesso criado pelo responsável ou por quem te atende.</p>
             </form>
           )}
 
           <div className="mt-8 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-            Ainda não é aluno?{" "}
+            Ainda não é cliente?{" "}
             <Link to="/inicio" className="font-medium text-primary">Veja os horários disponíveis</Link>
           </div>
         </div>
@@ -250,8 +250,8 @@ function PendingScreen() {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
         <h2 className="text-xl font-semibold">Conta aguardando liberação</h2>
         <p className="text-sm text-muted-foreground">
-          Sua conta ({user?.email}) foi criada, mas o professor ainda precisa vincular você ao cadastro do aluno.
-          Avise o professor com este e-mail para liberar seu acesso.
+          Sua conta ({user?.email}) foi criada, mas quem te atende ainda precisa vincular você ao seu cadastro.
+          Avise com este e-mail para liberar seu acesso.
         </p>
         <Button onClick={signOut} variant="outline" className="rounded-xl">Sair</Button>
       </div>

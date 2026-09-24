@@ -10,6 +10,10 @@ import { FALLBACK_LESSON_PRICE, primeLessonPrice } from "@/hooks/useLessonPrice"
 import { fmtMoney } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
+import { useWords } from "@/hooks/useVocabulary";
+import { dbErrorMessage } from "@/lib/dbErrors";
+import { cap } from "@/lib/vocabulary";
+import VocabularySettings from "@/components/VocabularySettings";
 
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
@@ -36,6 +40,7 @@ type Settings = {
 
 export default function SettingsPage() {
   const { plan, loading: planLoading } = usePlan();
+  const v = useWords();
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     default_lesson_price: FALLBACK_LESSON_PRICE,
@@ -74,7 +79,7 @@ export default function SettingsPage() {
     // O banco recusa valor zerado ou negativo; avisar aqui evita a mensagem
     // crua do Postgres, e a checagem de lá continua sendo a que vale.
     if (!(Number(s.default_lesson_price) > 0)) {
-      toast.error("O valor da aula precisa ser maior que zero");
+      toast.error(`O valor ${v.appointment.do} ${v.appointment.l} precisa ser maior que zero`);
       return;
     }
     const { id: _id, account_id: _account, issuer_document: _doc, ...rest } = s as any;
@@ -96,7 +101,7 @@ export default function SettingsPage() {
       ) : {}),
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
-    if (error) toast.error(error.message);
+    if (error) toast.error(dbErrorMessage(error, v));
     else {
       setS({ ...s, ...payload } as any);
       // As outras telas leem o valor de um cache; sem isto, o diálogo de nova
@@ -110,8 +115,10 @@ export default function SettingsPage() {
     <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">Janela de trabalho, pagamento e contato.</p>
+        <p className="text-sm text-muted-foreground">Tipo de negócio, janela de trabalho, pagamento e contato.</p>
       </div>
+
+      <VocabularySettings />
 
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-sm uppercase text-muted-foreground">Janela de trabalho</h2>
@@ -136,11 +143,11 @@ export default function SettingsPage() {
           )}
           <ul className="space-y-1 text-sm">
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Professores</span>
+              <span className="text-muted-foreground">{v.staff.p}</span>
               <strong>{plan.max_teachers ?? "sem limite"}</strong>
             </li>
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Alunos</span>
+              <span className="text-muted-foreground">{v.client.p}</span>
               <strong>{plan.max_students ?? "sem limite"}</strong>
             </li>
             <li className="flex justify-between gap-3">
@@ -150,6 +157,10 @@ export default function SettingsPage() {
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">Bloqueio que se repete toda semana</span>
               <strong>{plan.recurring_blocks ? "sim" : "não"}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">Nomes sob medida</span>
+              <strong>{plan.custom_vocabulary ? "sim" : "não"}</strong>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">Assistente</span>
@@ -172,10 +183,10 @@ export default function SettingsPage() {
 
       <Card className="p-5 space-y-4">
         <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Valor da aula</h2>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Valor {v.appointment.do} {v.appointment.l}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Quanto custa uma hora de aula. É com este valor que toda aula nova
-            nasce — na agenda, no portal da família e no assistente.
+            Quanto custa uma hora de {v.appointment.l}. É com este valor que {v.appointment.pick("todo", "toda")} {v.appointment.l} {v.appointment.pick("novo", "nova")}{" "}
+            nasce — na agenda, no portal e no assistente.
           </p>
         </div>
         <div>
@@ -189,17 +200,17 @@ export default function SettingsPage() {
             onChange={e => setS({ ...s, default_lesson_price: Number(e.target.value) })}
           />
           <p className="text-[11px] text-muted-foreground mt-1">
-            Uma aula de 1 hora sai por{" "}
+            {cap(v.appointment.um)} {v.appointment.l} de 1 hora sai por{" "}
             <strong className="text-foreground">{fmtMoney(Number(s.default_lesson_price) || 0)}</strong>;
-            uma de 90 min, por{" "}
+            {v.appointment.um} de 90 min, por{" "}
             <strong className="text-foreground">{fmtMoney((Number(s.default_lesson_price) || 0) * 1.5)}</strong>.
           </p>
         </div>
         <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-          Mudar aqui vale para as <strong className="text-foreground">próximas</strong> aulas.
-          As que já estão na agenda ficam com o valor que tinham — para mudar uma
-          delas, abra a aula e edite o valor. Para cobrar menos de uma família
-          sem mexer no valor da aula, use <strong className="text-foreground">Desconto</strong> na
+          Mudar aqui vale para {v.appointment.os} <strong className="text-foreground">{v.appointment.pick("próximos", "próximas")}</strong> {v.appointment.lp}.
+          {" "}{cap(v.appointment.os)} que já estão na agenda ficam com o valor que tinham — para mudar {v.appointment.um}{" "}
+          {v.appointment.pick("deles", "delas")}, abra {v.appointment.o} {v.appointment.l} e edite o valor. Para cobrar menos de {v.guardian.um} {v.guardian.l}{" "}
+          sem mexer no valor {v.appointment.do} {v.appointment.l}, use <strong className="text-foreground">Desconto</strong> na
           tela Financeiro.
         </p>
       </Card>
@@ -216,7 +227,7 @@ export default function SettingsPage() {
             <div><Label>Nome de quem recebe</Label><Input value={(s as any).pix_receiver_name ?? ""} onChange={e => setS({ ...s, pix_receiver_name: e.target.value } as any)} placeholder="Como está no banco" /></div>
             <div><Label>Cidade</Label><Input value={(s as any).pix_city ?? ""} onChange={e => setS({ ...s, pix_city: e.target.value } as any)} placeholder="Ex.: São Paulo" /></div>
             <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
-              Com nome e cidade, a cobrança e o portal da família levam o <strong>Pix copia e cola já com o valor</strong> - a família só cola no app do banco.
+              Com nome e cidade, a cobrança e o portal levam o <strong>Pix copia e cola já com o valor</strong> - {v.guardian.o} {v.guardian.l} só cola no app do banco.
             </p>
           </div>
         )}
@@ -229,8 +240,8 @@ export default function SettingsPage() {
         )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
-            <Label className="cursor-pointer">Exibir dados de pagamento ao aluno</Label>
-            <p className="text-xs text-muted-foreground">Mostra PIX e link de pagamento no portal do aluno.</p>
+            <Label className="cursor-pointer">Exibir dados de pagamento no portal</Label>
+            <p className="text-xs text-muted-foreground">Mostra PIX e link de pagamento no portal.</p>
           </div>
           <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
         </div>
@@ -241,7 +252,7 @@ export default function SettingsPage() {
           <h2 className="font-semibold text-sm uppercase text-muted-foreground">Contato</h2>
           <p className="text-xs text-muted-foreground mt-1">
             Aparece na página pública de privacidade, que a Play Store exige. Em branco,
-            a página pede para a família falar com o professor, em vez de mostrar um
+            a página pede para quem lê falar direto com você, em vez de mostrar um
             e-mail que não é seu.
           </p>
         </div>
@@ -268,14 +279,14 @@ export default function SettingsPage() {
       </Card>
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold text-sm uppercase text-muted-foreground">Portal do Aluno</h2>
+        <h2 className="font-semibold text-sm uppercase text-muted-foreground">Portal {v.client.do} {v.client.s}</h2>
         {plan.school_code && (
           <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
             <div className="min-w-0">
-              <Label>Código da escola</Label>
+              <Label>Código {v.business.do} {v.business.l}</Label>
               <p className="text-xs text-muted-foreground">
-                A família que baixar o app e criar a conta sozinha digita este código para entrar na sua escola.
-                Depois você liga o cadastro dela ao aluno em Acessos.
+                Quem baixar o app e criar a conta sozinho digita este código para entrar {v.business.no} {v.business.seu} {v.business.l}.
+                Depois você liga o cadastro {v.client.ao} {v.client.l} em Acessos.
               </p>
             </div>
             <Button type="button" variant="outline" size="sm" className="shrink-0 font-mono"
@@ -286,15 +297,15 @@ export default function SettingsPage() {
         )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
-            <Label className="cursor-pointer">Permitir que alunos agendem aulas diretamente</Label>
-            <p className="text-xs text-muted-foreground">Quando desligado, o portal do aluno fica apenas para visualização.</p>
+            <Label className="cursor-pointer">Permitir que {v.client.lp} agendem {v.appointment.lp} diretamente</Label>
+            <p className="text-xs text-muted-foreground">Quando desligado, o portal fica apenas para visualização.</p>
           </div>
           <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
         </div>
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
-            <Label className="cursor-pointer">Exibir disponibilidade dos professores ao responsável</Label>
-            <p className="text-xs text-muted-foreground">Mostra os links de agenda dos professores no portal do aluno.</p>
+            <Label className="cursor-pointer">Exibir disponibilidade {v.staff.dos} {v.staff.lp} no portal</Label>
+            <p className="text-xs text-muted-foreground">Mostra os links de agenda {v.staff.dos} {v.staff.lp} no portal.</p>
           </div>
           <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
         </div>

@@ -16,11 +16,13 @@ import { capitalize } from "@/lib/balance";
 
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
+import { useWords } from "@/hooks/useVocabulary";
 
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null; teacher: string };
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
 export default function BlocksPage() {
+  const w = useWords();
   // Bloqueio pontual vale nos dois planos: dizer "dia 14 nao dou aula" e
   // funcao basica de agenda. O que o Pro vende e nao repetir isso toda semana.
   const { plan } = usePlan();
@@ -37,7 +39,7 @@ export default function BlocksPage() {
       ? "Todos"
       : capitalize(teachers.find(t => teacherSlug(t.name) === slug)?.name ?? slug);
   const [blocks, setBlocks] = useState<Block[]>([]);
-  const [recForm, setRecForm] = useState({ title: "Escola", weekday: 1, start_time: "07:00", end_time: "13:00", teacher: "both" });
+  const [recForm, setRecForm] = useState({ title: "Compromisso fixo", weekday: 1, start_time: "07:00", end_time: "13:00", teacher: "both" });
   const [oneForm, setOneForm] = useState({ title: "Lazer", start_at: "", end_at: "", teacher: "both" });
   useEffect(() => {
     if (!isTeacher || !own) return;
@@ -67,7 +69,7 @@ export default function BlocksPage() {
       <div><h1 className="text-2xl font-bold">Bloqueios de horário</h1><p className="text-sm text-muted-foreground">Marque períodos indisponíveis na sua agenda.</p></div>
 
       <Tabs defaultValue="recurring">
-        <TabsList><TabsTrigger value="recurring">Recorrentes (escola)</TabsTrigger><TabsTrigger value="oneoff">Pontuais (lazer)</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="recurring">Recorrentes</TabsTrigger><TabsTrigger value="oneoff">Pontuais</TabsTrigger></TabsList>
 
         <TabsContent value="recurring" className="space-y-4">
           {!plan.recurring_blocks && (
@@ -80,7 +82,7 @@ export default function BlocksPage() {
             <h3 className="font-semibold mb-3">Novo bloqueio recorrente</h3>
             <div className="grid md:grid-cols-6 gap-3 items-end">
               <div className="md:col-span-2"><Label>Título</Label><Input value={recForm.title} onChange={e => setRecForm({ ...recForm, title: e.target.value })} /></div>
-              <div><Label>Professor(a)</Label>
+              <div><Label>{w.staff.s}</Label>
                 <Select value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -121,7 +123,7 @@ export default function BlocksPage() {
             <h3 className="font-semibold mb-3">Novo bloqueio pontual</h3>
             <div className="grid md:grid-cols-4 gap-3 items-end">
               <div><Label>Título</Label><Input value={oneForm.title} onChange={e => setOneForm({ ...oneForm, title: e.target.value })} /></div>
-              <div><Label>Professor(a)</Label>
+              <div><Label>{w.staff.s}</Label>
                 <Select value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>

@@ -178,6 +178,31 @@ const tools = [
   },
 ];
 
+// As palavras da empresa (Professor/Médico, Aula/Consulta...), mandadas pela
+// tela a partir de accounts.business_model (migration 20260924060000). As
+// regras abaixo continuam falando em professor/aula/aluno, que é como as
+// ferramentas se chamam; esta nota só troca o que o usuário lê. Vem do
+// próprio admin logado, então não abre nada - mas é texto do cliente dentro do
+// prompt, por isso só passa palavra curta, sem quebra de linha.
+function vocabularyNote(raw: unknown): string {
+  if (!raw || typeof raw !== "object") return "";
+  const v = raw as Record<string, { s?: unknown; p?: unknown } | undefined>;
+  const word = (x: unknown) =>
+    typeof x === "string" ? x.replace(/[\r\n`"]/g, " ").trim().slice(0, 40) : "";
+  const pairs: [string, string][] = [
+    ["professor", "staff"], ["aula", "appointment"], ["aluno", "client"], ["responsável", "guardian"],
+  ];
+  const lines = pairs
+    .map(([tecnico, k]) => {
+      const s = word(v[k]?.s);
+      const p = word(v[k]?.p);
+      return s && p && s.toLowerCase() !== tecnico ? `"${tecnico}" → "${s}" (plural "${p}")` : "";
+    })
+    .filter(Boolean);
+  if (lines.length === 0) return "";
+  return `\nVocabulário desta empresa: ela não é necessariamente uma escola. Ao falar com o usuário, use as palavras dela no lugar das técnicas: ${lines.join("; ")}. Os nomes das ferramentas e dos campos continuam os técnicos.\n`;
+}
+
 // A constraint lessons_sem_sobreposicao (23P01) impede duas aulas no mesmo horário do
 // mesmo professor. A mensagem crua do Postgres não serve para o assistente repetir ao
 // professor, então vira um texto que ele pode ler em voz alta.
@@ -416,7 +441,7 @@ Deno.serve(async (req) => {
     }
 
     // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
-    const { messages } = await req.json();
+    const { messages, vocabulary } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
 
     const nowSaoPaulo = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "full", timeStyle: "short" });
@@ -440,6 +465,7 @@ Deno.serve(async (req) => {
         ).join("; ");
 
     const systemPrompt = `Você é o assistente do Cronys, o app que um professor particular usa para gerenciar aulas, alunos e financeiro (carteira).
+${vocabularyNote(vocabulary)}
 
 Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 

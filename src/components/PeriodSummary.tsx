@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownRight, Info } from "l
 import { fmtMoney, capitalize } from "@/lib/balance";
 import type { AccountStatement, LedgerTx } from "@/lib/billing";
 import { change, periodRange, summarizePeriod, type PeriodKind, type SummaryLesson } from "@/lib/periodSummary";
+import { useWords } from "@/hooks/useVocabulary";
 
 type Props = {
   lessons: SummaryLesson[];
@@ -42,6 +43,9 @@ function Tile({ label, value, hint, className = "", children }: { label: string;
 }
 
 export default function PeriodSummary({ lessons, txs, statements, compact = false }: Props) {
+  const w = useWords();
+  const ap = w.appointment;
+  const dadas = `${ap.p} ${ap.pick("realizados", "realizadas")}`;
   const [kind, setKind] = useState<PeriodKind>("month");
   const [offset, setOffset] = useState(0);
   const now = useMemo(() => new Date(), []);
@@ -62,7 +66,7 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
           <dl className="divide-y divide-border text-sm">
             {[
               ["Recebido no mês", fmtMoney(s.recebido)],
-              ["Aulas dadas", `${s.aulasDadas} · ${s.horas.toLocaleString("pt-BR")} h`],
+              [dadas, `${s.aulasDadas} · ${s.horas.toLocaleString("pt-BR")} h`],
               ["Em aberto (total)", fmtMoney(s.emAbertoGeral)],
             ].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 py-1.5">
@@ -98,21 +102,21 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
         <Tile label="Recebido" value={fmtMoney(s.recebido)} hint="dinheiro que entrou">
           <Delta now={s.recebido} before={p.recebido} label={prevLabel} />
         </Tile>
-        <Tile label="Valor das aulas" value={fmtMoney(s.liquido)}
+        <Tile label={`Valor ${ap.dos} ${ap.lp}`} value={fmtMoney(s.liquido)}
           hint={s.descontos > 0 ? `${fmtMoney(s.valorCheio)} − ${fmtMoney(s.descontos)} de desconto` : "o que deveria entrar"}>
           <Delta now={s.liquido} before={p.liquido} label={prevLabel} />
         </Tile>
-        <Tile label="Falta receber" value={fmtMoney(s.emAbertoDoPeriodo)} hint={`destas aulas · ${fmtMoney(s.emAbertoGeral)} no total`} />
+        <Tile label="Falta receber" value={fmtMoney(s.emAbertoDoPeriodo)} hint={`d${ap.pick("estes", "estas")} ${ap.lp} · ${fmtMoney(s.emAbertoGeral)} no total`} />
         <Tile label="Previsto" value={fmtMoney(s.previsto)}
-          hint={offset >= 0 ? `${s.aindaMarcadas} aula${s.aindaMarcadas === 1 ? "" : "s"} ainda marcada${s.aindaMarcadas === 1 ? "" : "s"}` : "período encerrado"} />
+          hint={offset >= 0 ? `${s.aindaMarcadas} ${s.aindaMarcadas === 1 ? ap.l : ap.lp} ainda ${ap.pick("marcado", "marcada")}${s.aindaMarcadas === 1 ? "" : "s"}` : "período encerrado"} />
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Tile className="flex-1 basis-[7.5rem]" label="Aulas dadas" value={String(s.aulasDadas)} hint={`${s.horas.toLocaleString("pt-BR")} h`}>
+        <Tile className="flex-1 basis-[7.5rem]" label={dadas} value={String(s.aulasDadas)} hint={`${s.horas.toLocaleString("pt-BR")} h`}>
           <Delta now={s.aulasDadas} before={p.aulasDadas} label={prevLabel} />
         </Tile>
-        <Tile className="flex-1 basis-[7.5rem]" label="Canceladas" value={String(s.canceladas)} />
-        <Tile className="flex-1 basis-[7.5rem]" label="Recusadas" value={String(s.recusadas)} hint="pedidos" />
+        <Tile className="flex-1 basis-[7.5rem]" label={ap.pick("Cancelados", "Canceladas")} value={String(s.canceladas)} />
+        <Tile className="flex-1 basis-[7.5rem]" label={ap.pick("Recusados", "Recusadas")} value={String(s.recusadas)} hint="pedidos" />
       </div>
 
       {s.porProfessor.length > 1 && (
@@ -120,7 +124,7 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
           {s.porProfessor.map(t => (
             <li key={t.teacher} className="flex items-center justify-between gap-2 px-3 py-1.5">
               <span className="capitalize">{capitalize(t.teacher)}</span>
-              <span className="tabular-nums text-muted-foreground">{t.aulas} aula{t.aulas === 1 ? "" : "s"} · <span className="text-foreground">{fmtMoney(t.valor)}</span></span>
+              <span className="tabular-nums text-muted-foreground">{t.aulas} {t.aulas === 1 ? ap.l : ap.lp} · <span className="text-foreground">{fmtMoney(t.valor)}</span></span>
             </li>
           ))}
         </ul>
@@ -128,8 +132,8 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
 
       <p className="flex gap-1.5 text-[11px] leading-snug text-muted-foreground">
         <Info className="mt-0.5 h-3 w-3 shrink-0" />
-        "Recebido" conta pela data do pagamento; "valor das aulas", pela data da aula. Os dois não precisam bater:
-        um pacote pago no mês anterior cobre aulas deste. "Previsto" é o valor cheio das aulas ainda marcadas, sem descontos.
+        "Recebido" conta pela data do pagamento; "valor {ap.dos} {ap.lp}", pela data {ap.do} {ap.l}. Os dois não precisam bater:
+        um pacote pago no mês anterior cobre {ap.lp} deste. "Previsto" é o valor cheio {ap.dos} {ap.lp} ainda {ap.pick("marcados", "marcadas")}, sem descontos.
       </p>
     </Card>
   );

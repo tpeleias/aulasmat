@@ -1,3 +1,4 @@
+import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 // Helpers for the new financial labels.
 export const fmtMoney = (v: number) =>
   v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -22,9 +23,9 @@ export function accountKey(t: { guardian_name: string | null; student_name: stri
   return g ? `g:${g.toLowerCase()}` : `s:${t.student_name.toLowerCase()}`;
 }
 
-export function accountLabel(t: { guardian_name: string | null; student_name: string }) {
+export function accountLabel(t: { guardian_name: string | null; student_name: string }, v: Vocabulary = DEFAULT_VOCABULARY) {
   const g = (t.guardian_name ?? "").trim();
-  return g || `Aluno: ${t.student_name}`;
+  return g || `${v.client.s}: ${t.student_name}`;
 }
 
 // Narrows a lessons/wallet_transactions query to a single account. Matching on

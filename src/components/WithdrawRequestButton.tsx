@@ -18,7 +18,7 @@ const MENSAGENS: Record<string, string> = {
   ok: "Pedido retirado. O horário volta a ficar livre.",
   "ja-respondido": "Esse pedido já foi respondido — não dá mais para retirar. Veja na lista como ficou.",
   "nao-encontrado": "Não encontramos esse pedido.",
-  "sem-empresa": "Sua conta não está vinculada. Avise o professor.",
+  "sem-empresa": "Sua conta não está vinculada. Avise quem te atende.",
 };
 
 /**
@@ -70,7 +70,7 @@ export function WithdrawRequestButton({
                   {format(new Date(startAt), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
                 </p>
                 <p>
-                  O horário volta a ficar livre e o pedido sai da lista do professor.
+                  O horário volta a ficar livre e o pedido sai da lista de pedidos.
                   Você pode pedir outro horário depois.
                 </p>
               </div>

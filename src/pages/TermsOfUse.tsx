@@ -33,9 +33,10 @@ export default function TermsOfUse() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base">1. O que é o Cronys</h2>
             <p>
-              O Cronys é uma ferramenta para professores particulares e escolas organizarem agenda,
-              cadastro de alunos, cobrança, materiais e tarefas. Quem contrata o Cronys é o professor
-              ou a escola ("escola"). Responsáveis e alunos usam o app a convite da escola.
+              O Cronys é uma ferramenta para profissionais e empresas que atendem com hora marcada
+              (escolas e professores, clínicas, consultórios, salões, oficinas e outros) organizarem
+              agenda, cadastro de clientes, cobrança, materiais e tarefas. Quem contrata o Cronys é o
+              profissional ou a empresa ("empresa"). Clientes e responsáveis usam o app a convite da empresa.
             </p>
           </section>
 
@@ -43,19 +44,19 @@ export default function TermsOfUse() {
             <h2 className="font-semibold text-base">2. Conta e acesso</h2>
             <p>
               Cada pessoa é responsável pelo sigilo da própria senha e pelo que é feito com o seu
-              acesso. A escola é responsável pelos acessos que cria para responsáveis, alunos e
-              professores da sua equipe, e por removê-los quando deixarem de ser necessários.
+              acesso. A empresa é responsável pelos acessos que cria para clientes, responsáveis e
+              profissionais da sua equipe, e por removê-los quando deixarem de ser necessários.
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="font-semibold text-base">3. Planos, teste e cancelamento</h2>
             <ul className="list-disc space-y-1 pl-5">
-              <li>O plano <strong>Cronys Essencial</strong> é gratuito e tem limites de alunos e professores.</li>
+              <li>O plano <strong>Cronys Essencial</strong> é gratuito e tem limites de clientes e profissionais.</li>
               <li>O plano <strong>Cronys Pro</strong> é pago e libera os recursos descritos no app.</li>
-              <li>A escola nova começa com um período de teste do Pro. Ao fim dele, se não houver
+              <li>A empresa nova começa com um período de teste do Pro. Ao fim dele, se não houver
                 contratação, a conta passa para o Essencial: nada é apagado, e o que passar do
-                limite do Essencial fica pausado até ser liberado pela escola.</li>
+                limite do Essencial fica pausado até ser liberado pela empresa.</li>
               <li>A assinatura pode ser cancelada a qualquer momento, valendo até o fim do período já
                 pago, respeitado o direito de arrependimento previsto no Código de Defesa do
                 Consumidor.</li>
@@ -63,20 +64,20 @@ export default function TermsOfUse() {
           </section>
 
           <section className="space-y-2">
-            <h2 className="font-semibold text-base">4. Pagamentos entre a escola e as famílias</h2>
+            <h2 className="font-semibold text-base">4. Pagamentos entre a empresa e os clientes</h2>
             <p>
-              O Cronys ajuda a escola a registrar aulas e cobrar, mas <strong>não recebe, não
-              intermedeia e não garante</strong> pagamentos entre a escola e as famílias. A chave Pix,
-              o link de pagamento e os valores são definidos pela escola, que responde por eles.
+              O Cronys ajuda a empresa a registrar atendimentos e cobrar, mas <strong>não recebe, não
+              intermedeia e não garante</strong> pagamentos entre a empresa e os clientes. A chave Pix,
+              o link de pagamento e os valores são definidos pela empresa, que responde por eles.
             </p>
           </section>
 
           <section className="space-y-2">
             <h2 className="font-semibold text-base">5. Dados pessoais</h2>
             <p>
-              Os dados de alunos e responsáveis pertencem à escola, que decide como usá-los
+              Os dados de clientes e responsáveis pertencem à empresa, que decide como usá-los
               (controladora, nos termos da LGPD). O Cronys guarda e processa esses dados em nome da
-              escola, só para fazer o app funcionar (operador). Os detalhes estão na{" "}
+              empresa, só para fazer o app funcionar (operador). Os detalhes estão na{" "}
               <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.
             </p>
           </section>
@@ -85,7 +86,7 @@ export default function TermsOfUse() {
             <h2 className="font-semibold text-base">6. Uso permitido</h2>
             <p>
               Não é permitido usar o Cronys para fins ilegais, cadastrar dados de terceiros sem
-              autorização, tentar acessar dados de outra escola, sobrecarregar o serviço ou
+              autorização, tentar acessar dados de outra empresa, sobrecarregar o serviço ou
               contornar os limites do plano.
             </p>
           </section>
@@ -95,7 +96,7 @@ export default function TermsOfUse() {
             <p>
               O Cronys é oferecido como está. Buscamos mantê-lo sempre no ar e com os dados
               protegidos, mas podem ocorrer interrupções para manutenção ou por falhas de terceiros
-              (hospedagem, lojas de aplicativo, internet). Recomendamos que a escola exporte seus
+              (hospedagem, lojas de aplicativo, internet). Recomendamos que a empresa exporte seus
               relatórios periodicamente.
             </p>
           </section>
@@ -106,8 +107,8 @@ export default function TermsOfUse() {
               Qualquer pessoa pode excluir o próprio acesso pelo app, em <strong>Minha conta →
               Excluir minha conta</strong>, ou seguindo as instruções em{" "}
               <Link to="/excluir-conta" className="text-primary underline">/excluir-conta</Link>. O
-              histórico de aulas e pagamentos continua com a escola, que pode precisar dele para
-              controle financeiro; pedidos de exclusão desses dados vão para a escola.
+              histórico de atendimentos e pagamentos continua com a empresa, que pode precisar dele para
+              controle financeiro; pedidos de exclusão desses dados vão para a empresa.
             </p>
           </section>
 
@@ -121,7 +122,7 @@ export default function TermsOfUse() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base">10. Contato</h2>
             <p>
-              {contact ? <>Dúvidas sobre estes termos: {contact}.</> : "Para dúvidas sobre estes termos, fale com a escola responsável pelas aulas."}
+              {contact ? <>Dúvidas sobre estes termos: {contact}.</> : "Para dúvidas sobre estes termos, fale com a empresa que te atende."}
             </p>
           </section>
         </div>

@@ -19,6 +19,9 @@ import { CronysWordmark } from "@/components/brand";
 import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
 import { publicSiteUrl } from "@/lib/publicUrl";
+import { useVocabulary } from "@/hooks/useVocabulary";
+import type { Vocabulary } from "@/lib/vocabulary";
+import BusinessOnboarding from "@/components/BusinessOnboarding";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
@@ -27,12 +30,14 @@ const primary: NavItem[] = [
   { to: "/admin/financeiro", label: "Financeiro", icon: Wallet },
 ];
 
-const secondary: NavItem[] = [
+// Os endereços (/admin/alunos, /admin/professores) ficam: widgets e links
+// salvos apontam para eles. O que muda com o ramo é só o rótulo.
+const secondaryFor = (v: Vocabulary): NavItem[] => [
   { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
   { to: "/admin/evolucao", label: "Evolução", icon: TrendingUp },
-  { to: "/admin/alunos", label: "Alunos", icon: Users },
+  { to: "/admin/alunos", label: v.client.p, icon: Users },
   { to: "/admin/acessos", label: "Acessos", icon: ShieldCheck },
-  { to: "/admin/professores", label: "Professores", icon: UserCog },
+  { to: "/admin/professores", label: v.staff.p, icon: UserCog },
   { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
   { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
@@ -45,6 +50,7 @@ const teacherCan = (path: string) => TEACHER_PATHS.includes(path.replace(/\/+$/,
 
 export default function AdminLayout() {
   const { plan, loading: planLoading } = usePlan();
+  const { v, needsOnboarding } = useVocabulary();
   const { session, isAdmin, isTeacher, role, loading, signOut } = useAuth();
   const location = useLocation();
   const defaultTeacher = useDefaultTeacher();
@@ -71,7 +77,7 @@ export default function AdminLayout() {
       <Badge
         variant={plan.plano === "pro" ? "default" : "outline"}
         className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
-        title={plan.plano === "pro" ? "Sua conta tem todas as funções" : "Cronys Essencial: 1 professor e 5 alunos"}
+        title={plan.plano === "pro" ? "Sua conta tem todas as funções" : `Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`}
       >
         {plan.plano === "pro" ? "PRO" : "ESSENCIAL"}
       </Badge>
@@ -87,9 +93,14 @@ export default function AdminLayout() {
     </div>
   );
 
+  // Empresa nova: o dono escolhe o ramo antes de tudo. Só com a resposta do
+  // banco na mão - ver needsOnboarding em useVocabulary.
+  if (isAdmin && needsOnboarding) return <BusinessOnboarding />;
+
+  const secondary = secondaryFor(v);
   const primaryNav = isTeacher ? primary.filter(it => teacherCan(it.to)) : primary;
   const secondaryNav = isTeacher ? secondary.filter(it => teacherCan(it.to)) : secondary;
-  // O professor só divulga o próprio link de disponibilidade.
+  // Quem tem login de profissional só divulga o próprio link de disponibilidade.
   const linkTeachers = isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
 
   const copyLink = (path: string, label: string) => {
@@ -117,7 +128,7 @@ export default function AdminLayout() {
             <div>
               <CronysWordmark tamanho="1.25rem" />
               <div className="mt-1 flex items-center gap-1.5">
-                <span className="text-xs text-sidebar-foreground/60">{isTeacher ? "Minha agenda" : "Professor"}</span>
+                <span className="text-xs text-sidebar-foreground/60">{isTeacher ? "Minha agenda" : v.business.s}</span>
                 {!isTeacher && <SeloPlano />}
               </div>
             </div>
@@ -162,7 +173,7 @@ export default function AdminLayout() {
               className="h-12 w-full justify-start gap-2 rounded-2xl"
               onClick={() => { haptics.tap(); close(); setQuickOpen(true); }}
             >
-              <Plus className="h-4 w-4" /> Nova aula
+              <Plus className="h-4 w-4" /> {v.appointment.novo} {v.appointment.l}
             </Button>
             <div className="grid grid-cols-2 gap-2">
               {secondaryNav.map(it => (

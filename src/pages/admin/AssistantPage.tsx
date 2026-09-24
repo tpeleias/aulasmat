@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import ChatMarkdown from "@/components/ChatMarkdown";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
+import { useWords } from "@/hooks/useVocabulary";
 
 type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
@@ -47,6 +48,7 @@ async function extractErrorMessage(e: any): Promise<string> {
 
 export default function AssistantPage() {
   const { plan, loading: planLoading } = usePlan();
+  const w = useWords();
   const [messages, setMessages] = useState<ChatMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -102,7 +104,11 @@ export default function AssistantPage() {
     setBusy(true);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("assistant-chat", {
-        body: { messages: nextMessages },
+        body: {
+          messages: nextMessages,
+          vocabulary: Object.fromEntries((["staff", "appointment", "client", "guardian"] as const)
+            .map(k => [k, { s: w[k].s, p: w[k].p }])),
+        },
       });
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
@@ -138,7 +144,7 @@ export default function AssistantPage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold">Assistente</h1>
           <p className="text-sm text-muted-foreground">
-            Marcar aula, remarcar, registrar pagamento e consultar o financeiro — conversando.
+            Marcar {w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.
           </p>
         </div>
         {plan.assistant_override === false ? (
@@ -162,7 +168,7 @@ export default function AssistantPage() {
           <ProUpsell titulo="O Assistente é do Cronys Pro" icon={Bot}>
             Em vez de abrir a agenda e preencher formulário, você escreve
             &ldquo;marca com o Miguel quinta às 15h&rdquo; e ele marca. Também
-            registra pagamento, responde quanto uma família deve e remarca aula.
+            registra pagamento, responde quanto {w.guardian.um} {w.guardian.l} deve e remarca {w.appointment.l}.
           </ProUpsell>
         )}
       </div>
@@ -175,7 +181,7 @@ export default function AssistantPage() {
         <div>
           <h1 className="text-2xl font-bold">Assistente</h1>
           <p className="text-sm text-muted-foreground">
-            Converse pra marcar aulas, editar, registrar pagamentos e consultar o financeiro.
+            Converse pra marcar {w.appointment.lp}, editar, registrar pagamentos e consultar o financeiro.
           </p>
         </div>
         {messages.length > 0 && (
@@ -189,7 +195,7 @@ export default function AssistantPage() {
         {visibleMessages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center text-muted-foreground text-sm py-12">
             Peça algo como <br />
-            <span className="italic">"marca uma aula do Miguel quinta às 16h"</span>
+            <span className="italic">"marca {w.appointment.um} {w.appointment.l} do Miguel quinta às 16h"</span>
           </div>
         ) : (
           <div className="space-y-4">

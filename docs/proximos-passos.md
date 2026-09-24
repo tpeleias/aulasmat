@@ -66,6 +66,54 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
+## Vários ramos de negócio (24/09)
+
+O app deixou de ser só de aula particular. Cada empresa escolhe o ramo e a tela
+troca as palavras: Professor/Médico/Mecânico, Aula/Consulta/Revisão,
+Aluno/Paciente/Cliente, Responsável/Tutor, Escola/Clínica/Oficina e
+Matéria/Especialidade/Serviço.
+
+- **As tabelas NÃO foram renomeadas** (`lessons`, `teachers`, `students`
+  continuam). Medido antes de decidir: 20 funções do banco, 67 consultas do app,
+  9 edge functions e as colunas (`student_name`, `teacher`, `class_summary`)
+  teriam de mudar, sem nada visível para o usuário. Se um dia valer a pena, o
+  melhor momento é junto com trocar `lessons.teacher` (apelido em texto) por
+  um `teacher_id` de verdade.
+- **Banco** (migration `20260924060000`): `accounts.business_model` (nulo = não
+  escolheu ainda) e `accounts.vocabulary` (palavras editadas, Pro). Funções
+  `my_vocabulary()`, `set_business_model()`, `set_custom_vocabulary()`. Quem já
+  existia virou `aulas`.
+- **As palavras de cada ramo moram só no front-end** (`src/lib/vocabulary.ts`),
+  com singular, plural e gênero. O banco não precisa delas: as mensagens de erro
+  dele ficaram neutras e levam uma chave em `HINT`, que `src/lib/dbErrors.ts`
+  traduz. Mensagem nova do banco que cite professor/aula/aluno deve seguir esse
+  padrão.
+- **Plano**: escolher o ramo é de todos; escrever as próprias palavras é do Pro
+  (`plan_features.custom_vocabulary`). Saindo do Pro, as palavras editadas ficam
+  guardadas mas deixam de valer.
+- **Primeiro acesso**: empresa nova (cadastro ou painel do gestor) nasce sem
+  ramo, e o dono vê a tela de boas-vindas (`BusinessOnboarding`) antes de tudo.
+  Depois troca em Configurações → Tipo de negócio.
+- **Assistente**: a tela manda as palavras junto com a conversa e o prompt
+  ganha uma nota de vocabulário. As regras do prompt continuam em
+  professor/aula/aluno, que é como as ferramentas se chamam.
+- Endereços (`/admin/alunos`, `/aluno`) e o domínio interno dos logins por
+  usuário (`aluno.sistema.local`) **não mudam**: widgets, links salvos e
+  logins existentes dependem deles.
+
+Fica para depois:
+
+- `PublicHome` e `PublicAvailability` são a vitrine da escola do Thiago (o texto
+  fala de Matemática e Química). Viram página por empresa junto com o endereço
+  próprio de cada uma.
+- Módulos que só fazem sentido em escola (lição de casa, acesso de criança)
+  continuam aparecendo para todos os ramos; o acesso de criança some só no
+  ramo pet. Ligar/desligar módulo por ramo é o próximo passo natural.
+- **Saúde e psicologia guardam dado sensível pela LGPD** (resumo da consulta,
+  observações). A política de privacidade foi generalizada, mas não trata dado
+  de saúde - rever com alguém da área antes de vender para clínica.
+- O painel do gestor (`PlatformPage`) ainda não mostra o ramo de cada empresa.
+
 ## Multi-empresa (SaaS) — EM ANDAMENTO
 
 Contexto: não é "adicionar professores" à escola do Thiago — são **empresas

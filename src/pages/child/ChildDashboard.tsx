@@ -7,9 +7,12 @@ import { Calendar, Clock, FolderOpen, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useWords } from "@/hooks/useVocabulary";
 
 export default function ChildDashboard() {
   const { student, loading } = useStudent();
+  const w = useWords();
+  const ap = w.appointment;
   const [lessons, setLessons] = useState<any[]>([]);
   const [homework, setHomework] = useState<any[]>([]);
 
@@ -34,7 +37,7 @@ export default function ChildDashboard() {
   if (!student) return (
     <Card className="p-6">
       <h2 className="font-semibold mb-2">Conta sem vínculo</h2>
-      <p className="text-sm text-muted-foreground">Avise o professor ou seu responsável.</p>
+      <p className="text-sm text-muted-foreground">Avise {w.staff.o} {w.staff.l} ou {w.guardian.seu} {w.guardian.l}.</p>
     </Card>
   );
 
@@ -52,7 +55,7 @@ export default function ChildDashboard() {
       <Card className="p-6 space-y-4 border-primary/30">
         <div className="flex items-center gap-2 text-primary">
           <Calendar className="w-5 h-5" />
-          <h2 className="font-semibold">Próxima aula</h2>
+          <h2 className="font-semibold">{ap.proximo} {ap.l}</h2>
         </div>
         {nextLesson ? (
           <div className="space-y-2">
@@ -66,18 +69,18 @@ export default function ChildDashboard() {
             {nextLesson.subject && <Badge variant="secondary">{nextLesson.subject}</Badge>}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>
+          <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("agendado", "agendada")}.</p>
         )}
       </Card>
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Próximas aulas</h2>
-        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>}
+        <h2 className="font-semibold">{ap.proximos} {ap.lp}</h2>
+        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("agendado", "agendada")}.</p>}
         {upcoming.slice(0, 8).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
               <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
             </div>
           </div>
         ))}

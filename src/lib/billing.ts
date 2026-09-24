@@ -1,4 +1,5 @@
 import { accountKey, accountLabel } from "@/lib/balance";
+import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 
 export type LedgerTx = {
   id: string;
@@ -52,7 +53,7 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // The wallet ledger is the single source of truth. Credits pay off the oldest charges
 // first, so what's listed always adds up to exactly what the balance says is owed —
 // lessons.payment_status is a separate flag that can disagree and is deliberately ignored.
-export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): AccountStatement[] {
+export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[], v: Vocabulary = DEFAULT_VOCABULARY): AccountStatement[] {
   const lessonById = new Map(lessons.map(l => [l.id, l]));
   type Charge = OpenItem & { lessonId: string | null };
   const accounts = new Map<string, {
@@ -70,7 +71,7 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
   for (const t of txs) {
     const k = accountKey(t);
     const acc = accounts.get(k) ?? {
-      key: k, label: accountLabel(t), student: t.student_name,
+      key: k, label: accountLabel(t, v), student: t.student_name,
       guardian: (t.guardian_name ?? "").trim() || null,
       balance: 0, credits: 0, charges: [], lessonVouchers: new Map(),
     };
@@ -91,7 +92,7 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[]): Acc
         lessonId: t.lesson_id,
         date: lesson?.start_at ?? t.created_at,
         student: lesson?.student_name ?? t.student_name,
-        detail: lesson ? `${lesson.subject ?? "Aula"} (${lesson.duration_minutes} min)` : (t.description ?? "Lançamento"),
+        detail: lesson ? `${lesson.subject ?? v.appointment.s} (${lesson.duration_minutes} min)` : (t.description ?? "Lançamento"),
         amount: -amount,
         partial: false,
       });

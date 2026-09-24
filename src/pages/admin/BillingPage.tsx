@@ -27,6 +27,9 @@ import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
 import SortMenu, { useSortPreference } from "@/components/SortMenu";
 import PeriodSummary from "@/components/PeriodSummary";
+import { useWords } from "@/hooks/useVocabulary";
+import { dbErrorMessage } from "@/lib/dbErrors";
+import { cap, type Vocabulary } from "@/lib/vocabulary";
 
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
@@ -50,11 +53,11 @@ type QuickOption = {
 // a partir do valor da hora. Quando o valor da aula mudar nas Configurações,
 // eles precisam ser revistos à mão - a caixa de aviso do diálogo mostra
 // quanto sobra em aberto se não fecharem.
-const quickOptions = (listPrice: number): QuickOption[] => [
+const quickOptions = (listPrice: number, v: Vocabulary): QuickOption[] => [
   { key: "all", label: "Quitar tudo", kind: "adjustment" },
-  { key: "pack10", label: "Pacote 10 aulas", amount: 2000, voucher: 200, kind: "package", hint: "R$ 2.000 + voucher R$ 200" },
-  { key: "pack5", label: "Pacote 5 aulas", amount: 1050, voucher: 50, kind: "package", hint: "R$ 1.050 + voucher R$ 50" },
-  { key: "single", label: "1 aula avulsa", amount: listPrice, kind: "adjustment" },
+  { key: "pack10", label: `Pacote 10 ${v.appointment.lp}`, amount: 2000, voucher: 200, kind: "package", hint: "R$ 2.000 + voucher R$ 200" },
+  { key: "pack5", label: `Pacote 5 ${v.appointment.lp}`, amount: 1050, voucher: 50, kind: "package", hint: "R$ 1.050 + voucher R$ 50" },
+  { key: "single", label: `1 ${v.appointment.l} ${v.appointment.pick("avulso", "avulsa")}`, amount: listPrice, kind: "adjustment" },
   { key: "voucher", label: "Voucher (desconto)", kind: "voucher", hint: "crédito sem dinheiro" },
   { key: "custom", label: "Outro valor", kind: "adjustment" },
 ];
@@ -64,8 +67,8 @@ const quickOptions = (listPrice: number): QuickOption[] => [
 // que entra como voucher e fica parado onde está.
 type DiscountScope = "lesson" | "open" | "always";
 
-const kindLabel = (t: Tx) =>
-  t.kind === "lesson" ? "Aula"
+const kindLabel = (t: Tx, v: Vocabulary) =>
+  t.kind === "lesson" ? v.appointment.s
     : t.kind === "package" ? "Pacote"
       : t.kind === "voucher" ? "Voucher"
         : Number(t.amount) >= 0 ? "Pagamento" : "Ajuste";
@@ -76,7 +79,10 @@ export default function BillingPage() {
   // com a familia - e ficam juntos no Pro. Registrar o dinheiro que entrou
   // continua no Essencial: cobrar e o minimo que o app precisa fazer.
   const { plan } = usePlan();
-  const QUICK = useMemo(() => quickOptions(listPrice), [listPrice]);
+  const v = useWords();
+  const ap = v.appointment;
+  const g = v.guardian;
+  const QUICK = useMemo(() => quickOptions(listPrice, v), [listPrice, v]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
@@ -127,14 +133,14 @@ export default function BillingPage() {
 
   const accounts = useMemo<Account[]>(() => {
     const done = lessons.filter(l => l.status === "realizada");
-    const byKey = new Map(computeStatements(txs, done).map(s => [s.key, s]));
+    const byKey = new Map(computeStatements(txs, done, v).map(s => [s.key, s]));
 
     // Students with no ledger activity yet still get a card, so nobody "disappears".
     for (const s of students) {
       const k = accountKey(s);
       if (!byKey.has(k)) {
         byKey.set(k, {
-          key: k, label: accountLabel(s), student: s.student_name,
+          key: k, label: accountLabel(s, v), student: s.student_name,
           guardian: (s.guardian_name ?? "").trim() || null,
           balance: 0, credits: 0, owed: 0, items: [], oldestOpenDate: null,
         });
@@ -167,7 +173,7 @@ export default function BillingPage() {
       discount: discountByKey.get(s.key) ?? null,
     }));
     return sortAccounts(merged, sort);
-  }, [txs, students, lessons, discounts, sort]);
+  }, [txs, students, lessons, discounts, sort, v]);
 
   // O widget de cobrança do Android lê daqui (e da tela Hoje): quem acabou de
   // registrar um pagamento vê o widget já sem aquela dívida.
@@ -195,7 +201,7 @@ export default function BillingPage() {
   };
 
   const copyCollection = (a: Account) => {
-    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment));
+    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v));
     haptics.success();
     toast.success(`Mensagem de cobrança de ${a.label} copiada`);
   };
@@ -219,7 +225,7 @@ export default function BillingPage() {
     const first = a.owed > 0 ? "all" : "pack10";
     setQuick(first);
     setAmount(String(first === "all" ? a.owed : 2000));
-    setDesc(first === "all" ? "Pagamento" : "Pacote 10 aulas");
+    setDesc(first === "all" ? "Pagamento" : `Pacote 10 ${ap.lp}`);
     setVoucher(first === "all" ? "" : "200");
     setAllowNegative(false);
   };
@@ -292,7 +298,7 @@ export default function BillingPage() {
       toast.error(dKind === "percent" ? "Informe uma porcentagem entre 0 e 100" : "Informe um valor em reais");
       return;
     }
-    if (dScope === "lesson" && !dItem) { toast.error("Escolha a aula"); return; }
+    if (dScope === "lesson" && !dItem) { toast.error(`Escolha ${ap.o} ${ap.l}`); return; }
     if (dScope !== "always" && !(dPreview > 0)) { toast.error("Não há nada em aberto para abater"); return; }
 
     setBusy(true);
@@ -309,7 +315,7 @@ export default function BillingPage() {
       setBusy(false);
       if (error) { haptics.warning(); toast.error(error.message); return; }
       haptics.success();
-      toast.success(`Desconto de ${rotulo} valendo para as aulas de ${discountFor.label}`);
+      toast.success(`Desconto de ${rotulo} valendo para ${ap.os} ${ap.lp} de ${discountFor.label}`);
     } else {
       // Abatimento pontual: entra como voucher solto (sem aula vinculada), e
       // por isso o desconto fixo nunca o recalcula nem o apaga.
@@ -337,7 +343,7 @@ export default function BillingPage() {
   const removeDiscount = async () => {
     if (!discountFor?.discount) return;
     if (!confirm(
-      `Tirar o desconto fixo de ${discountFor.label}?\n\nOs créditos que ele já lançou nas aulas realizadas também saem, e o que a família deve volta ao valor cheio. Abatimentos pontuais lançados à mão não são afetados.`
+      `Tirar o desconto fixo de ${discountFor.label}?\n\nOs créditos que ele já lançou ${ap.pick("nos", "nas")} ${ap.lp} ${ap.pick("realizados", "realizadas")} também saem, e o que ${g.o} ${g.l} deve volta ao valor cheio. Abatimentos pontuais lançados à mão não são afetados.`
     )) return;
     setBusy(true);
     const { error } = await supabase.rpc("set_account_discount", {
@@ -375,14 +381,14 @@ export default function BillingPage() {
   // ---- Lessons behind a charge ----
   const openLessonEdit = async (lessonId: string) => {
     const { data, error } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
-    if (error || !data) { toast.error("Aula não encontrada"); return; }
+    if (error || !data) { toast.error(`${ap.s} não ${ap.pick("encontrado", "encontrada")}`); return; }
     setEditingLesson({ ...data, start_at: format(new Date(data.start_at), "yyyy-MM-dd'T'HH:mm") });
     setLessonDlgOpen(true);
   };
   const removeLesson = async (lessonId: string) => {
-    if (!confirm("Excluir esta aula? O lançamento na carteira também será removido.")) return;
+    if (!confirm(`Excluir ${ap.este} ${ap.l}? O lançamento na carteira também será removido.`)) return;
     const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
-    if (error) toast.error(error.message); else { haptics.success(); toast.success("Aula excluída"); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success(`${ap.s} ${ap.pick("excluído", "excluída")}`); load(); }
   };
 
 
@@ -392,7 +398,7 @@ export default function BillingPage() {
         <div>
           <h1 className="text-2xl font-bold">Financeiro</h1>
           <p className="text-sm text-muted-foreground">
-            Cada aula realizada vira uma cobrança. Registre o que recebeu e as aulas mais antigas são quitadas sozinhas.
+            Cada {ap.l} {ap.pick("realizado", "realizada")} vira uma cobrança. Registre o que recebeu e {ap.os} {ap.lp} mais {ap.pick("antigos", "antigas")} são {ap.pick("quitados", "quitadas")} {ap.pick("sozinhos", "sozinhas")}.
           </p>
         </div>
 
@@ -413,7 +419,7 @@ export default function BillingPage() {
         {loading ? (
           <ListSkeleton rows={4} />
         ) : accounts.length === 0 ? (
-          <EmptyState icon={Wallet} title="Nenhuma conta ainda" description="As contas aparecem aqui assim que houver alunos ou aulas." />
+          <EmptyState icon={Wallet} title="Nenhuma conta ainda" description={`As contas aparecem aqui assim que houver ${v.client.lp} ou ${ap.lp}.`} />
         ) : (
           <div className="space-y-3">
             {accounts.map(a => {
@@ -428,8 +434,8 @@ export default function BillingPage() {
                       <div className="min-w-0">
                         <div className="font-semibold text-lg truncate">{a.label}</div>
                         <div className="text-xs text-muted-foreground truncate">
-                          Aluno: {a.student}
-                          {a.items.length > 0 ? ` · ${a.items.length} aula${a.items.length > 1 ? "s" : ""} em aberto` : " · em dia"}
+                          {v.client.s}: {a.student}
+                          {a.items.length > 0 ? ` · ${a.items.length} ${a.items.length > 1 ? v.appointment.lp : v.appointment.l} em aberto` : " · em dia"}
                         </div>
                         {a.discount && (
                           <Badge variant="outline" className="mt-1 gap-1 text-[10px] font-normal">
@@ -488,15 +494,15 @@ export default function BillingPage() {
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
-                          Próxima aula: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
-                          · {a.nextLesson.subject ?? "Aula"} ({capitalize(a.nextLesson.teacher)})
+                          {v.appointment.proximo} {v.appointment.l}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
+                          · {a.nextLesson.subject ?? v.appointment.s} ({capitalize(a.nextLesson.teacher)})
                         </div>
                       )}
 
                       <div>
                         <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Em aberto</div>
                         {a.items.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Nenhuma aula em aberto.</p>
+                          <p className="text-sm text-muted-foreground">{v.appointment.nenhum} {v.appointment.l} em aberto.</p>
                         ) : (
                           <ul className="divide-y divide-border rounded-xl border border-border">
                             {a.items.map(i => (
@@ -534,18 +540,18 @@ export default function BillingPage() {
                         ) : (
                           <ul className="space-y-1">
                             {a.txs.map(t => {
-                              const v = Number(t.amount);
+                              const val = Number(t.amount);
                               const manual = t.kind !== "lesson";
                               return (
                                 <li key={t.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
                                   <div className="flex items-center gap-2 min-w-0">
-                                    {v >= 0 ? <ArrowDownLeft className="w-3.5 h-3.5 shrink-0 text-success" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-                                    <Badge variant="outline" className="shrink-0 text-[10px]">{kindLabel(t)}</Badge>
+                                    {val >= 0 ? <ArrowDownLeft className="w-3.5 h-3.5 shrink-0 text-success" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
+                                    <Badge variant="outline" className="shrink-0 text-[10px]">{kindLabel(t, v)}</Badge>
                                     <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
                                     <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{format(new Date(t.created_at), "dd/MM", { locale: ptBR })}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
-                                    <span className={`font-medium tabular-nums whitespace-nowrap ${v >= 0 ? "text-success" : ""}`}>{v > 0 ? "+" : ""}{fmtMoney(v)}</span>
+                                    <span className={`font-medium tabular-nums whitespace-nowrap ${val >= 0 ? "text-success" : ""}`}>{val > 0 ? "+" : ""}{fmtMoney(val)}</span>
                                     {manual ? (
                                       <>
                                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title="Editar"><Pencil className="w-3 h-3" /></Button>
@@ -553,8 +559,8 @@ export default function BillingPage() {
                                       </>
                                     ) : t.lesson_id ? (
                                       <>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title="Editar aula"><Pencil className="w-3 h-3" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title="Excluir aula"><Trash2 className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title={`Editar ${v.appointment.l}`}><Pencil className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title={`Excluir ${v.appointment.l}`}><Trash2 className="w-3 h-3" /></Button>
                                       </>
                                     ) : null}
                                   </div>
@@ -618,9 +624,9 @@ export default function BillingPage() {
                   <Label>Voucher junto (R$)</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Desconto do pacote em crédito, já que as aulas entram a {fmtMoney(listPrice)}/h.
+                    Desconto do pacote em crédito, já que {ap.os} {ap.lp} entram a {fmtMoney(listPrice)}/h.
                     Os botões de pacote acima trazem R$ 200 e R$ 50, que são os valores
-                    combinados para a aula a R$ 220/h — se você mudou o valor da aula,
+                    combinados para {ap.o} {ap.l} a R$ 220/h — se você mudou o valor {ap.do} {ap.l},
                     confira no aviso abaixo quanto sobra em aberto.
                   </p>
                 </div>
@@ -635,10 +641,10 @@ export default function BillingPage() {
                         ? `${fmtMoney(voucherValue)} de crédito, sem entrada de dinheiro. `
                         : ""}
                     {payFor.owed <= 0
-                      ? `Fica como crédito para as próximas aulas.`
+                      ? `Fica como crédito para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`
                       : leftover >= 0
-                        ? `Quita todas as aulas em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`
-                        : `Quita as aulas mais antigas; ficam ${fmtMoney(-leftover)} em aberto.`}
+                        ? `Quita ${ap.pick("todos", "todas")} ${ap.os} ${ap.lp} em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`
+                        : `Quita ${ap.os} ${ap.lp} mais ${ap.pick("antigos", "antigas")}; ficam ${fmtMoney(-leftover)} em aberto.`}
                   </span>
                 </div>
               )}
@@ -681,7 +687,7 @@ export default function BillingPage() {
                   </div>
                 </div>
                 <div>
-                  <Label>{dKind === "percent" ? "Porcentagem" : "Valor por aula (R$)"}</Label>
+                  <Label>{dKind === "percent" ? "Porcentagem" : `Valor por ${ap.l} (R$)`}</Label>
                   <Input
                     type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl"
                     value={dValue} onChange={e => setDValue(e.target.value)}
@@ -695,19 +701,19 @@ export default function BillingPage() {
                 {([
                   {
                     key: "always" as const,
-                    title: "Todas as aulas desta família, sempre",
-                    body: "Vale para as aulas que já aconteceram e para as próximas, sozinho. Mudar ou tirar depois recalcula tudo.",
+                    title: `${cap(ap.pick("todos", "todas"))} ${ap.os} ${ap.lp} d${g.este} ${g.l}, sempre`,
+                    body: `Vale para ${ap.os} ${ap.lp} que já aconteceram e para ${ap.os} ${ap.pick("próximos", "próximas")}, sozinho. Mudar ou tirar depois recalcula tudo.`,
                   },
                   {
                     key: "open" as const,
                     title: `Só o que está em aberto agora${discountFor.items.length ? ` (${discountFor.items.length})` : ""}`,
-                    body: "Um abatimento de uma vez, sobre cada cobrança em aberto. Não vale para as próximas aulas.",
+                    body: `Um abatimento de uma vez, sobre cada cobrança em aberto. Não vale para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`,
                     disabled: discountFor.items.length === 0,
                   },
                   {
                     key: "lesson" as const,
-                    title: "Só uma aula",
-                    body: "Um abatimento de uma vez, na aula escolhida.",
+                    title: `Só ${ap.um} ${ap.l}`,
+                    body: `Um abatimento de uma vez, ${ap.no} ${ap.l} ${ap.pick("escolhido", "escolhida")}.`,
                     disabled: discountFor.items.length === 0,
                   },
                 ]).map(o => (
@@ -724,7 +730,7 @@ export default function BillingPage() {
 
               {dScope === "lesson" && (
                 <div>
-                  <Label>Qual aula</Label>
+                  <Label>Qual {ap.l}</Label>
                   <select
                     className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                     value={dItemId} onChange={e => setDItemId(e.target.value)}
@@ -744,29 +750,29 @@ export default function BillingPage() {
                   {!dOk ? (
                     dKind === "percent"
                       ? "Informe uma porcentagem entre 0 e 100."
-                      : "Informe quanto sai de cada aula, em reais."
+                      : `Informe quanto sai de cada ${ap.l}, em reais.`
                   ) : dScope === "always" ? (
                     <>
-                      Cada aula continua valendo o preço cheio e o desconto entra como
+                      Cada {ap.l} continua valendo o preço cheio e o desconto entra como
                       crédito na carteira — é isso que mantém o extrato fechando.
                       {discountFor.items.length > 0
                         ? ` Nas ${discountFor.items.length} cobrança(s) em aberto de hoje, isso dá ${fmtMoney(dPreview)}.`
-                        : " Ainda não há aulas em aberto, então o efeito aparece na próxima aula realizada."}
+                        : ` Ainda não há ${ap.lp} em aberto, então o efeito aparece ${ap.no} ${ap.pick("próximo", "próxima")} ${ap.l} ${ap.pick("realizado", "realizada")}.`}
                     </>
                   ) : dScope === "lesson" ? (
                     dItem
-                      ? `Entra um crédito de ${fmtMoney(dPreview)} na carteira da família. As próximas aulas seguem pelo valor cheio.`
-                      : "Escolha a aula."
+                      ? `Entra um crédito de ${fmtMoney(dPreview)} na carteira ${g.do} ${g.l}. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`
+                      : `Escolha ${ap.o} ${ap.l}.`
                   ) : (
-                    `Entra um crédito de ${fmtMoney(dPreview)}, somando o abatimento de cada uma das ${discountFor.items.length} cobrança(s) em aberto. As próximas aulas seguem pelo valor cheio.`
+                    `Entra um crédito de ${fmtMoney(dPreview)}, somando o abatimento de cada uma das ${discountFor.items.length} cobrança(s) em aberto. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`
                   )}
                 </span>
               </div>
 
               {dKind === "amount" && dScope !== "lesson" && (
                 <p className="text-[11px] text-muted-foreground">
-                  Em reais o valor sai de <strong className="text-foreground">cada</strong> aula,
-                  não do total, e nunca passa do que a própria aula custa.
+                  Em reais o valor sai de <strong className="text-foreground">cada</strong> {ap.l},
+                  não do total, e nunca passa do que {ap.o} {ap.pick("próprio", "própria")} {ap.l} custa.
                 </p>
               )}
             </div>
@@ -790,7 +796,7 @@ export default function BillingPage() {
           <DialogHeader><DialogTitle>Editar lançamento</DialogTitle></DialogHeader>
           {editingTx && (
             <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">Conta: <strong className="text-foreground">{accountLabel(editingTx)}</strong></div>
+              <div className="text-sm text-muted-foreground">Conta: <strong className="text-foreground">{accountLabel(editingTx, v)}</strong></div>
               <div><Label>Valor (R$) — negativo para estorno</Label><Input type="number" step="0.01" className="h-11 rounded-xl" value={editAmount} onChange={e => setEditAmount(e.target.value)} /></div>
               <div><Label>Descrição</Label><Input className="h-11 rounded-xl" value={editDesc} onChange={e => setEditDesc(e.target.value)} /></div>
             </div>

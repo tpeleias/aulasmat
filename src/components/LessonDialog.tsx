@@ -17,6 +17,9 @@ import { isSlotConflict, lessonErrorMessage } from "@/lib/lessonErrors";
 import { useLessonPrice, FALLBACK_LESSON_PRICE } from "@/hooks/useLessonPrice";
 import { DateTimeField } from "@/components/DateTimeField";
 import { useAuth } from "@/hooks/useAuth";
+import { useWords } from "@/hooks/useVocabulary";
+import { statusLabel } from "@/lib/lessonStatus";
+import { cap } from "@/lib/vocabulary";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -29,7 +32,6 @@ type Lesson = {
 // Every lesson is charged at the list price. The package discount is not a cheaper lesson:
 // it is a voucher credited on the Financeiro page, which keeps the ledger closing at zero.
 // O mesmo vale para o desconto de uma família: o valor da aula não muda.
-const PACKAGE_LABEL: Record<string, string> = { single: "Avulsa", pack5: "Pacote 5 aulas", pack10: "Pacote 10 aulas" };
 
 export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, defaultTeacher, initialStudent }: {
   open: boolean; onOpenChange: (v: boolean) => void; slotStart?: Date; lesson?: Lesson | null; onSaved: () => void;
@@ -37,6 +39,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   initialStudent?: { student_name: string; guardian_name?: string | null; address?: string | null } | null;
 }) {
   const { teachers: allTeachers } = useTeachers(true);
+  const v = useWords();
+  const a = v.appointment;
+  const PACKAGE_LABEL: Record<string, string> = {
+    single: a.pick("Avulso", "Avulsa"), pack5: `Pacote 5 ${a.lp}`, pack10: `Pacote 10 ${a.lp}`,
+  };
   // Login de professor marca só as próprias aulas e não mexe em valor nem
   // apaga (o banco também não deixa - migration 20260924040000).
   const { isTeacher } = useAuth();
@@ -111,7 +118,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const studentOptionLabel = (s: { student_name: string; guardian_name: string | null }) => {
     const dupes = students.filter(o => o.student_name.toLowerCase() === s.student_name.toLowerCase());
     if (dupes.length <= 1) return s.student_name;
-    return `${s.student_name} (${s.guardian_name || "sem responsável"})`;
+    return `${s.student_name} (${s.guardian_name || `sem ${v.guardian.l}`})`;
   };
 
   const pickStudent = (name: string) => {
@@ -164,8 +171,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       guardian_name: (form.guardian_name ?? "").trim() || null,
       address: form.is_online ? null : ((form.address ?? "").trim() || null),
     });
-    if (error) console.warn("Não foi possível cadastrar aluno automaticamente:", error.message);
-    else toast.success(`Aluno "${name}" cadastrado automaticamente`);
+    if (error) console.warn("Não foi possível cadastrar automaticamente:", error.message);
+    else toast.success(`${v.client.s} "${name}" ${v.client.pick("cadastrado", "cadastrada")} automaticamente`);
   };
 
   // "Série" é inferida, não gravada no banco: outras aulas do mesmo aluno/professor,
@@ -192,8 +199,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   };
 
   const save = async () => {
-    if (!form.student_name.trim()) { toast.error("Nome do aluno obrigatório"); return; }
-    if (!form.start_at || Number.isNaN(new Date(form.start_at).getTime())) { toast.error("Escolha o dia e o horário da aula"); return; }
+    if (!form.student_name.trim()) { toast.error(`Nome ${v.client.do} ${v.client.l} obrigatório`); return; }
+    if (!form.start_at || Number.isNaN(new Date(form.start_at).getTime())) { toast.error(`Escolha o dia e o horário ${a.do} ${a.l}`); return; }
     setBusy(true);
     setConflictMsg(null);
 
@@ -209,14 +216,14 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     if (lesson?.id) {
       const futureMatches = await findFutureSeriesMatches(lesson);
       const applyToAll = futureMatches.length > 0 && confirm(
-        `Esta aula parece fazer parte de uma série: mesmo aluno, professor, dia da semana e horário se repetem em ${futureMatches.length} aula(s) futura(s).\n\nOK = aplicar esta alteração a esta e às futuras.\nCancelar = alterar só esta aula.`
+        `${cap(a.este)} ${a.l} parece fazer parte de uma série: mesmo ${v.client.l}, ${v.staff.l}, dia da semana e horário se repetem em ${futureMatches.length} ${futureMatches.length === 1 ? a.l : a.lp} ${a.pick("futuro", "futura")}${futureMatches.length === 1 ? "" : "s"}.\n\nOK = aplicar esta alteração ${a.pick("a este e aos futuros", "a esta e às futuras")}.\nCancelar = alterar só ${a.este} ${a.l}.`
       );
 
       // payment_status is derived from the wallet by the database; never send it back.
       const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
-      if (error) { setBusy(false); toast.error(lessonErrorMessage(error)); return; }
+      if (error) { setBusy(false); toast.error(lessonErrorMessage(error, v)); return; }
 
       if (applyToAll) {
         // status/class_summary/start_at ficam de fora: são específicos de cada aula,
@@ -233,12 +240,13 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             start = d.toISOString();
           }
           const { error: futureError } = await supabase.from("lessons").update({ ...futureRest, ...names, start_at: start }).eq("id", m.id);
-          if (futureError) toast.error(`${format(new Date(m.start_at), "dd/MM")}: ${lessonErrorMessage(futureError)}`);
+          if (futureError) toast.error(`${format(new Date(m.start_at), "dd/MM")}: ${lessonErrorMessage(futureError, v)}`);
         }
       }
 
       setBusy(false);
-      toast.success(applyToAll ? `Aula salva e aplicada a ${futureMatches.length} aula(s) futura(s)` : "Aula salva");
+      const salva = `${a.s} ${a.pick("salvo", "salva")}`;
+      toast.success(applyToAll ? `${salva} e ${a.pick("aplicado", "aplicada")} a mais ${futureMatches.length} ${futureMatches.length === 1 ? a.l : a.lp}` : salva);
       onOpenChange(false); onSaved();
       return;
     }
@@ -249,7 +257,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").insert(payload);
       setBusy(false);
-      if (error) toast.error(lessonErrorMessage(error)); else { toast.success("Aula salva"); onOpenChange(false); onSaved(); }
+      if (error) toast.error(lessonErrorMessage(error, v)); else { toast.success(`${a.s} ${a.pick("salvo", "salva")}`); onOpenChange(false); onSaved(); }
       return;
     }
 
@@ -285,15 +293,15 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       // criada. Acontece quando alguém marcou no meio do caminho, depois de a
       // checagem acima ter lido a agenda.
       toast.error(isSlotConflict(error)
-        ? "Um dos horários foi ocupado enquanto você preenchia. Nenhuma aula foi criada - abra de novo para ver a agenda atual."
-        : lessonErrorMessage(error));
+        ? `Um dos horários foi ocupado enquanto você preenchia. ${a.nenhum} ${a.l} foi ${a.pick("criado", "criada")} - abra de novo para ver a agenda atual.`
+        : lessonErrorMessage(error, v));
       return;
     }
 
     if (conflicts.length > 0) {
-      toast.success(`${toInsert.length} aulas criadas. ${conflicts.length} ignoradas por conflito: ${conflicts.join(", ")}`);
+      toast.success(`${toInsert.length} ${a.lp} ${a.pick("criados", "criadas")}. ${conflicts.length} ${a.pick("ignorados", "ignoradas")} por conflito: ${conflicts.join(", ")}`);
     } else {
-      toast.success(`${toInsert.length} aulas recorrentes criadas`);
+      toast.success(`${toInsert.length} ${a.lp} recorrentes ${a.pick("criados", "criadas")}`);
     }
     onOpenChange(false);
     onSaved();
@@ -301,19 +309,19 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   const remove = async () => {
     if (!lesson?.id) return;
-    if (!confirm("Excluir esta aula?")) return;
+    if (!confirm(`Excluir ${a.este} ${a.l}?`)) return;
     await supabase.from("wallet_transactions").delete().eq("lesson_id", lesson.id);
     const { error } = await supabase.from("lessons").delete().eq("id", lesson.id);
-    if (error) toast.error(error.message); else { toast.success("Aula excluída"); onOpenChange(false); onSaved(); }
+    if (error) toast.error(error.message); else { toast.success(`${a.s} ${a.pick("excluído", "excluída")}`); onOpenChange(false); onSaved(); }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{lesson?.id ? "Editar aula" : "Nova aula"}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{lesson?.id ? `Editar ${a.l}` : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Professor(a)</Label>
+            <div><Label>{v.staff.s}</Label>
               {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara
                   na trava de plano e nas permissões do professor. */}
               <Select value={form.teacher} onValueChange={setTeacher} disabled={isTeacher}>
@@ -324,7 +332,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </Select>
             </div>
             <div>
-              <Label>Aluno</Label>
+              <Label>{v.client.s}</Label>
               <Input
                 list="students-list"
                 value={form.student_name}
@@ -339,8 +347,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>Responsável</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
-            <div><Label>Assunto</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
+            <div><Label>{v.guardian.s}</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
+            <div><Label>{v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
           </div>
           <div>
             <Label>Dia e horário</Label>
@@ -362,11 +370,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
             <div>
-              <Label>Endereço do aluno</Label>
+              <Label>Endereço {v.client.do} {v.client.l}</Label>
               <Input
                 value={form.address ?? ""}
                 disabled={form.is_online}
-                placeholder={form.is_online ? "Aula on-line" : "Rua, número, bairro, cidade"}
+                placeholder={form.is_online ? `${a.s} on-line` : "Rua, número, bairro, cidade"}
                 onChange={e => setForm({ ...form, address: e.target.value })}
               />
               {form.address && !form.is_online && (
@@ -405,7 +413,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           </div>
           <div className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-            Toda aula entra pelo valor cheio (R$ {listPrice}/h). O desconto do pacote é lançado
+            {cap(a.pick("todo", "toda"))} {a.l} entra pelo valor cheio (R$ {listPrice}/h). O desconto do pacote é lançado
             como <strong className="text-foreground">voucher</strong> no Financeiro ao registrar o pagamento.
           </div>
           </>}
@@ -424,7 +432,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                   Pagamento é marcado na página Financeiro (isso mantém a carteira correta).
                 </p>
               </div>}
-              <div><Label>Situação da aula</Label>
+              <div><Label>Situação {a.do} {a.l}</Label>
                 <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -432,20 +440,19 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                         pedido aqui também, e não só pela tela Hoje - ele chega neste
                         diálogo clicando no pedido na agenda. */}
                     <SelectItem value="solicitada">Solicitada (aguardando você)</SelectItem>
-                    <SelectItem value="agendada">Agendada</SelectItem>
-                    <SelectItem value="realizada">Realizada</SelectItem>
-                    <SelectItem value="recusada">Recusada</SelectItem>
-                    <SelectItem value="cancelada">Cancelada</SelectItem>
+                    {(["agendada", "realizada", "recusada", "cancelada"] as const).map(st => (
+                      <SelectItem key={st} value={st}>{cap(statusLabel(st, v))}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               {form.status === "realizada" && (
                 <div>
-                  <Label>Resumo da aula (visível para o aluno)</Label>
+                  <Label>Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
                   <Textarea
                     value={form.class_summary ?? ""}
                     onChange={e => setForm({ ...form, class_summary: e.target.value })}
-                    placeholder='Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."'
+                    placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
                     rows={3}
                   />
                 </div>
@@ -461,11 +468,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               </label>
               {recurring && (
                 <div className="grid grid-cols-[auto_100px_1fr] items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">Nº de aulas</Label>
+                  <Label className="text-xs text-muted-foreground">Nº de {a.lp}</Label>
                   <Input type="number" min={2} max={52} value={repeatCount}
                     onChange={e => setRepeatCount(Math.max(1, Number(e.target.value) || 1))} />
                   <span className="text-xs text-muted-foreground">
-                    Cria {repeatCount} aulas, uma por semana, a partir do início informado.
+                    Cria {repeatCount} {a.lp}, {a.um} por semana, a partir do início informado.
                   </span>
                 </div>
               )}
