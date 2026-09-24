@@ -1,0 +1,50 @@
+name: Checagens
+
+# Roda em todo PR e no main: tipos, testes, build e o espelho do banco.
+# O APK continua no outro workflow; este existe para um erro aparecer no PR,
+# e não quando alguém reclama.
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  front:
+    name: Tipos, testes e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Com -p: o tsconfig.json da raiz não olha arquivo nenhum (ver README).
+      - name: Tipos
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Testes
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  banco:
+    name: Espelho do banco (migrations + RLS)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # O runner já traz o Postgres 16 instalado, parado. O script cria o
+      # próprio cluster numa porta separada e precisa de root para o stub do
+      # pg_cron e para o usuário dono do cluster.
+      - name: Replay das migrations e testes de acesso
+        run: sudo PGBIN=/usr/lib/postgresql/16/bin ./scripts/espelho-local.sh

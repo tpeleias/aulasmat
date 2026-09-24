@@ -15,4 +15,18 @@ if (Capacitor.isNativePlatform()) {
   Preferences.configure({ group: "AulasMatPrefs" });
 }
 
+// As telas são arquivos separados com nome de hash. Quem está com a página
+// aberta durante uma publicação pede um arquivo que já não existe; recarregar
+// busca o índice novo. Uma vez só por minuto, para não entrar em laço se o
+// erro for outro (sem internet, por exemplo).
+window.addEventListener("vite:preloadError", (event) => {
+  const key = "cronys-reload-after-deploy";
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(key) ?? 0); } catch { /* sem storage */ }
+  if (Date.now() - last < 60_000) return;
+  try { sessionStorage.setItem(key, String(Date.now())); } catch { /* sem storage */ }
+  event.preventDefault();
+  window.location.reload();
+});
+
 createRoot(document.getElementById("root")!).render(<App />);
