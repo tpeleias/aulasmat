@@ -3,6 +3,7 @@ import { ptBR } from "date-fns/locale";
 import { fmtMoney } from "@/lib/balance";
 import type { OpenItem } from "@/lib/billing";
 import { buildPixPayload } from "@/lib/pix";
+import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 
 // Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
 // saía na cobrança de qualquer escola.
@@ -55,7 +56,8 @@ function pixLine(key: string) {
   return kind ? `Chave (${kind}): ${key}` : `Chave: ${key}`;
 }
 
-export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) {
+export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, v: Vocabulary = DEFAULT_VOCABULARY) {
+  const ap = v.appointment;
   const students = new Set(items.map(i => i.student.trim().toLowerCase()));
   const single = students.size === 1 ? items[0]?.student : null;
 
@@ -82,7 +84,7 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) 
       lines.push(`💰 ${fmtMoney(full)}`);
     }
     if (alreadyPaid > 0) {
-      lines.push(`✅ _Já recebemos ${fmtMoney(alreadyPaid)} desta aula; falta *${fmtMoney(i.amount)}*_`);
+      lines.push(`✅ _Já recebemos ${fmtMoney(alreadyPaid)} d${ap.este} ${ap.l}; falta *${fmtMoney(i.amount)}*_`);
     }
     return lines.join("\n");
   });
@@ -92,7 +94,7 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) 
   const summary = discounts > 0 || paid > 0
     ? [
         rule,
-        `Aulas: ${fmtMoney(round2(gross))}`,
+        `${ap.p}: ${fmtMoney(round2(gross))}`,
         discounts > 0 && `🎁 Descontos: − ${fmtMoney(round2(discounts))}`,
         paid > 0 && `✅ Já pago: − ${fmtMoney(round2(paid))}`,
         `*Total a pagar: ${fmtMoney(total)}*`,
@@ -101,7 +103,7 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) 
     : `${rule}\n*Total a pagar: ${fmtMoney(total)}*\n${rule}`;
 
   const savings = discounts > 0
-    ? `\n\n💚 Com o seu desconto, você está economizando *${fmtMoney(round2(discounts))}* nestas aulas.`
+    ? `\n\n💚 Com o seu desconto, você está economizando *${fmtMoney(round2(discounts))}* n${ap.pick("estes", "estas")} ${ap.lp}.`
     : "";
 
   const pix = payment.pixKey?.trim();
@@ -123,8 +125,8 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo) 
   const howToPay = ways.length ? `\n\n*Como pagar* (do jeito mais fácil pra você):\n\n${ways.join("\n\n")}` : "";
 
   const intro = single
-    ? `Passando pra fechar as aulas de *${single.trim()}* que já aconteceram e ainda estão em aberto:`
-    : "Passando pra fechar as aulas que já aconteceram e ainda estão em aberto:";
+    ? `Passando pra fechar ${ap.os} ${ap.lp} de *${single.trim()}* que já aconteceram e ainda estão em aberto:`
+    : `Passando pra fechar ${ap.os} ${ap.lp} que já aconteceram e ainda estão em aberto:`;
 
   return `Oi! Tudo bem? 😊
 

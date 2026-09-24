@@ -17,6 +17,8 @@ import PullToRefresh from "@/components/PullToRefresh";
 import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { usePlan } from "@/hooks/usePlan";
+import { useWords } from "@/hooks/useVocabulary";
+import { cap, type Vocabulary } from "@/lib/vocabulary";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null;
@@ -38,14 +40,16 @@ const FILTERS = [
 
 type Filter = typeof FILTERS[number]["key"];
 
-const TOGGLES: { key: keyof Visibility; label: string; hint: string }[] = [
-  { key: "allow_student_booking", label: "Deixar marcar aula", hint: "O responsável escolhe um horário livre e agenda sozinho." },
-  { key: "show_availability_to_students", label: "Mostrar disponibilidade", hint: "Link com os horários livres de cada professor." },
-  { key: "show_payment_info_to_students", label: "Mostrar como pagar", hint: "Chave Pix e link de pagamento no portal da família." },
+const toggles = (w: Vocabulary): { key: keyof Visibility; label: string; hint: string }[] => [
+  { key: "allow_student_booking", label: `Deixar marcar ${w.appointment.l}`, hint: `${cap(w.guardian.o)} ${w.guardian.l} escolhe um horário livre e agenda sozinho.` },
+  { key: "show_availability_to_students", label: "Mostrar disponibilidade", hint: `Link com os horários livres de cada ${w.staff.l}.` },
+  { key: "show_payment_info_to_students", label: "Mostrar como pagar", hint: "Chave Pix e link de pagamento no portal." },
 ];
 
 export default function AccessPage() {
   const { plan } = usePlan();
+  const w = useWords();
+  const TOGGLES = toggles(w);
   const [students, setStudents] = useState<Student[]>([]);
   const [visibility, setVisibility] = useState<Visibility | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,16 +101,16 @@ export default function AccessPage() {
   const inviteText = (s: Student, password: string) => {
     const who = (s.guardian_name?.trim() || s.student_name).split(" ")[0];
     const lines = [
-      `Oi, ${who}! Criei um acesso no app das aulas para você acompanhar ${s.student_name}.`,
+      `Oi, ${who}! Criei um acesso no app ${w.business.do} ${w.business.l} para você acompanhar ${s.student_name}.`,
       "",
       `Link: ${publicSiteUrl()}/`,
     ];
-    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Professor / Responsável”).`);
-    else if (s.user_id) lines.push("Entre na aba “Professor / Responsável” com o seu e-mail.");
-    else if (plan.school_code) lines.push(`Para criar sua conta pelo app, use o código da escola: ${plan.school_code}`);
-    if (s.child_username) lines.push(`Acesso do aluno: usuário ${s.child_username}.`);
+    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Conta”).`);
+    else if (s.user_id) lines.push("Entre na aba “Conta” com o seu e-mail.");
+    else if (plan.school_code) lines.push(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`);
+    if (s.child_username) lines.push(`Acesso ${w.client.do} ${w.client.l} (aba “Criança ou adolescente”): usuário ${s.child_username}.`);
     if (password.trim()) lines.push(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`);
-    lines.push("", "Por lá você vê as próximas aulas, o que está em aberto, os materiais e as tarefas.");
+    lines.push("", `Por lá você vê ${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}, o que está em aberto, os materiais e as tarefas.`);
     return lines.join("\n");
   };
 
@@ -129,17 +133,17 @@ export default function AccessPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="h-6 w-6" /> Acessos</h1>
           <p className="text-sm text-muted-foreground">
-            Quem da família entra no app e o que enxerga por lá.
+            Quem entra no portal e o que enxerga por lá.
           </p>
         </div>
 
         <Card className="rounded-2xl p-4 md:p-5">
-          <div className="text-xs uppercase text-muted-foreground">Famílias com acesso</div>
+          <div className="text-xs uppercase text-muted-foreground">{w.guardian.p} com acesso</div>
           <div className="mt-1 text-3xl font-bold tabular-nums">{withAccess}<span className="text-base font-normal text-muted-foreground"> de {students.length}</span></div>
         </Card>
 
         <Card className="rounded-2xl p-4 md:p-5 space-y-4">
-          <div className="text-sm font-semibold">O que a família pode fazer</div>
+          <div className="text-sm font-semibold">O que {w.guardian.o} {w.guardian.l} pode fazer</div>
           {TOGGLES.map(t => (
             <div key={t.key} className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -170,7 +174,7 @@ export default function AccessPage() {
         {loading ? (
           <ListSkeleton rows={5} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={Users} title="Nenhum aluno aqui" description="Troque o filtro para ver os outros cadastros." />
+          <EmptyState icon={Users} title={`${w.client.nenhum} ${w.client.l} aqui`} description="Troque o filtro para ver os outros cadastros." />
         ) : (
           <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
             {visible.map(s => (
@@ -178,18 +182,18 @@ export default function AccessPage() {
                 <div>
                   <div className="font-medium">{s.student_name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {s.guardian_name ? `Resp.: ${s.guardian_name}` : "Sem responsável cadastrado"}
+                    {s.guardian_name ? `${w.guardian.s}: ${s.guardian_name}` : `Sem ${w.guardian.l} ${w.guardian.pick("cadastrado", "cadastrada")}`}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant={s.user_id ? "default" : "outline"} className="rounded-full text-[10px]">
                     {s.guardian_username
-                      ? `Responsável: ${s.guardian_username}`
-                      : s.user_id ? "Responsável por e-mail" : "Responsável sem acesso"}
+                      ? `${w.guardian.s}: ${s.guardian_username}`
+                      : s.user_id ? `${w.guardian.s} por e-mail` : `${w.guardian.s} sem acesso`}
                   </Badge>
                   <Badge variant={s.child_user_id ? "default" : "outline"} className="rounded-full text-[10px]">
-                    {s.child_username ? `Aluno: ${s.child_username}` : "Aluno sem acesso"}
+                    {s.child_username ? `${w.client.s}: ${s.child_username}` : `${w.client.s} sem acesso`}
                   </Badge>
                 </div>
 

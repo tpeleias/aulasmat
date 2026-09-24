@@ -21,16 +21,18 @@ import PeriodSummary from "@/components/PeriodSummary";
 import type { SummaryLesson } from "@/lib/periodSummary";
 import { useAuth } from "@/hooks/useAuth";
 import TrialBanner from "@/components/TrialBanner";
+import { useWords } from "@/hooks/useVocabulary";
+import type { Vocabulary } from "@/lib/vocabulary";
 
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
   start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean;
 };
 
-const SUGGESTIONS = [
-  "Quais aulas tenho essa semana?",
+const suggestions = (w: Vocabulary) => [
+  `Quais ${w.appointment.lp} tenho essa semana?`,
   "Quem está devendo?",
-  "Marca uma aula amanhã às 16h",
+  `Marca ${w.appointment.um} ${w.appointment.l} amanhã às 16h`,
 ];
 
 function greeting(d: Date) {
@@ -46,6 +48,8 @@ function openWaze(address: string) {
 
 export default function HomePage() {
   const navigate = useNavigate();
+  const w = useWords();
+  const ap = w.appointment;
   const teacher = useDefaultTeacher();
   // Login de professor: agenda sim, dinheiro e assistente não.
   const { isTeacher } = useAuth();
@@ -86,7 +90,7 @@ export default function HomePage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const statements = useMemo(() => computeStatements(txs, doneLessons), [txs, doneLessons]);
+  const statements = useMemo(() => computeStatements(txs, doneLessons, w), [txs, doneLessons, w]);
   const debtors = useMemo(() => statements.filter(s => s.owed > 0), [statements]);
   const totalOwed = useMemo(() => debtors.reduce((s, a) => s + a.owed, 0), [debtors]);
 
@@ -121,11 +125,11 @@ export default function HomePage() {
           ) : today.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="Nenhuma aula hoje"
+              title={`${ap.nenhum} ${ap.l} hoje`}
               description={next
                 ? `Próxima: ${format(new Date(next.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} · ${next.student_name}`
                 : "Nada agendado nos próximos dias."}
-              action={<Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> Nova aula</Button>}
+              action={<Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> {ap.novo} {ap.l}</Button>}
             />
           ) : (
             <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
@@ -145,7 +149,7 @@ export default function HomePage() {
                         {isNext && <Badge className="h-5 rounded-full px-2 text-[10px]">próxima</Badge>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {l.subject ?? "Aula"} · {capitalize(l.teacher)}{l.is_online ? " · online" : ""}
+                        {l.subject ?? ap.s} · {capitalize(l.teacher)}{l.is_online ? " · online" : ""}
                       </div>
                     </div>
                     {l.is_online ? (
@@ -178,7 +182,7 @@ export default function HomePage() {
               <Sparkles className="h-4 w-4 text-primary" /> Peça algo: marcar, editar, cobrar…
             </button>
             <div className="flex flex-wrap gap-2">
-              {SUGGESTIONS.map(s => (
+              {suggestions(w).map(s => (
                 <button key={s} onClick={() => askAssistant(s)} className="rounded-full border border-border px-3 py-1.5 text-xs transition-colors hover:bg-muted">
                   {s}
                 </button>
@@ -188,7 +192,7 @@ export default function HomePage() {
         </section>}
 
         <section className="grid grid-cols-2 gap-3">
-          <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> Nova aula</Button>
+          <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> {ap.novo} {ap.l}</Button>
           <Button asChild variant="secondary" className="h-12 justify-start gap-2 rounded-2xl"><Link to="/admin/bloqueios"><Ban className="h-4 w-4" /> Bloquear horário</Link></Button>
         </section>
 

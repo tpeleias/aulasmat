@@ -18,6 +18,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useWords } from "@/hooks/useVocabulary";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -47,6 +48,8 @@ function openWaze(address: string) {
 
 export default function CalendarPage() {
   const defaultTeacher = useDefaultTeacher();
+  const w = useWords();
+  const ap = w.appointment;
   const { teachers } = useTeachers(true);
   const [dayCount, setDayCount] = useState<DayCount>(() => {
     try {
@@ -293,10 +296,10 @@ export default function CalendarPage() {
       >
         <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
         <div className="text-[10px] text-muted-foreground truncate leading-tight">
-          {isPending ? `${format(ls, "HH:mm")} · pedido` : `${format(ls, "HH:mm")} · ${lesson.subject ?? "Aula"}`}
+          {isPending ? `${format(ls, "HH:mm")} · pedido` : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}
         </div>
         {lesson.is_online ? (
-          <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title="Aula on-line"><Wifi className="w-3 h-3" /></span>
+          <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={`${ap.s} on-line`}><Wifi className="w-3 h-3" /></span>
         ) : lesson.address ? (
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lesson.address)}`}
@@ -445,7 +448,7 @@ export default function CalendarPage() {
         <div className="bg-card rounded-xl shadow-[var(--shadow-card)] p-5">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold">Próximas aulas — próximos 7 dias</h2>
+            <h2 className="font-semibold">{ap.proximos} {ap.lp} — próximos 7 dias</h2>
             <span className="text-xs text-muted-foreground">({shownUpcomingCount})</span>
           </div>
 
@@ -476,7 +479,9 @@ export default function CalendarPage() {
 
           {shownUpcomingCount === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-8">
-              {upcoming.length === 0 ? "Nenhuma aula agendada nos próximos 7 dias." : "Nenhuma aula dos professores selecionados."}
+              {upcoming.length === 0
+                ? `${ap.nenhum} ${ap.l} ${ap.pick("agendado", "agendada")} nos próximos 7 dias.`
+                : `${ap.nenhum} ${ap.l} ${w.staff.dos} ${w.staff.lp} ${w.staff.pick("selecionados", "selecionadas")}.`}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -484,7 +489,7 @@ export default function CalendarPage() {
                 <section key={group.teacher} className="rounded-lg border border-border bg-background/40 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <h3 className="text-sm font-semibold capitalize">{group.label}</h3>
-                    <span className="text-xs text-muted-foreground">{group.items.length} aulas</span>
+                    <span className="text-xs text-muted-foreground">{group.items.length} {group.items.length === 1 ? ap.l : ap.lp}</span>
                   </div>
                   <ul className="divide-y divide-border">
                     {group.items.map(l => {
@@ -556,7 +561,7 @@ export default function CalendarPage() {
             </span>
           );
         })}
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>Aula paga</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>{ap.s} {ap.pick("pago", "paga")}</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
       </div>
 

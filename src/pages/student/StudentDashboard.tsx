@@ -18,11 +18,15 @@ import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
+import { useWords } from "@/hooks/useVocabulary";
+import { cap } from "@/lib/vocabulary";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export default function StudentDashboard() {
   const { student, loading } = useStudent();
+  const w = useWords();
+  const ap = w.appointment;
 
   const settings = useAppSettings();
   const [lessons, setLessons] = useState<any[]>([]);
@@ -70,8 +74,8 @@ export default function StudentDashboard() {
   // covered by money received. A lesson still to come is not a pending payment.
   const statement = useMemo(() => {
     const realized = lessons.filter(l => l.status === "realizada") as LedgerLesson[];
-    return computeStatements(txs as LedgerTx[], realized)[0] ?? null;
-  }, [txs, lessons]);
+    return computeStatements(txs as LedgerTx[], realized, w)[0] ?? null;
+  }, [txs, lessons, w]);
   const owed = statement?.owed ?? 0;
   const credit = statement && statement.balance > 0 ? statement.balance : 0;
   const openItems = statement?.items ?? [];
@@ -80,7 +84,7 @@ export default function StudentDashboard() {
   if (!student) return (
     <Card className="p-6">
       <h2 className="font-semibold mb-2">Conta sem vínculo</h2>
-      <p className="text-sm text-muted-foreground">Avise o professor para vincular sua conta a um aluno cadastrado.</p>
+      <p className="text-sm text-muted-foreground">Avise quem te atende para vincular sua conta ao cadastro.</p>
     </Card>
   );
 
@@ -88,11 +92,11 @@ export default function StudentDashboard() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Olá, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
-        <p className="text-sm text-muted-foreground">Aqui está um resumo das suas aulas e tarefas.</p>
+        <p className="text-sm text-muted-foreground">Aqui está um resumo {ap.pick("dos seus", "das suas")} {ap.lp} e tarefas.</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard icon={Calendar} label="Próximas aulas" value={upcoming.length} href="/aluno/aulas" />
+        <StatCard icon={Calendar} label={`${ap.proximos} ${ap.lp}`} value={upcoming.length} href="/aluno/aulas" />
         <StatCard
           icon={Wallet}
           label={owed > 0 ? "Em aberto" : "Crédito"}
@@ -114,7 +118,7 @@ export default function StudentDashboard() {
                 <div className="text-xs text-muted-foreground">{l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
               </div>
               <div className="flex items-center gap-1">
-                <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+                <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
                 {/* Só enquanto ninguém respondeu: depois disso quem manda é quem respondeu. */}
                 {isRequest(l.status) && (
                   <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={loadLessons} />
@@ -126,15 +130,15 @@ export default function StudentDashboard() {
       )}
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Próximas aulas</h2>
-        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula agendada.</p>}
+        <h2 className="font-semibold">{ap.proximos} {ap.lp}</h2>
+        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("agendado", "agendada")}.</p>}
         {upcoming.slice(0, 5).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
               <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
             </div>
-            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre a aula em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
           </div>
         ))}
       </Card>
@@ -142,7 +146,7 @@ export default function StudentDashboard() {
       {owed > 0 && (
         <Card className="p-5 space-y-3 border-destructive/40">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-destructive">Aulas em aberto</h2>
+            <h2 className="font-semibold text-destructive">{ap.p} em aberto</h2>
             <span className="text-sm font-bold text-destructive tabular-nums">{fmtMoney(owed)}</span>
           </div>
           {openItems.slice(0, 6).map(i => (
@@ -163,24 +167,24 @@ export default function StudentDashboard() {
             <h2 className="font-semibold">Crédito disponível</h2>
             <span className="text-sm font-bold tabular-nums">{fmtMoney(credit)}</span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Vale para as próximas aulas. Nada em aberto por aqui.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Vale para {ap.os} {ap.pick("próximos", "próximas")} {ap.lp}. Nada em aberto por aqui.</p>
         </Card>
       )}
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Últimas aulas realizadas</h2>
+        <h2 className="font-semibold">{ap.pick("Últimos", "Últimas")} {ap.lp} {ap.pick("realizados", "realizadas")}</h2>
         {past.slice(0, 5).map(l => (
           <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">{format(new Date(l.start_at), "dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status)}</Badge>
+              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
             </div>
             {l.class_summary && (
               <div className="text-xs text-muted-foreground mt-1 italic">📝 {l.class_summary}</div>
             )}
           </div>
         ))}
-        {past.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma aula realizada ainda.</p>}
+        {past.length === 0 && <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("realizado", "realizada")} ainda.</p>}
       </Card>
 
       <ChildAccessCard student={student} />
@@ -189,6 +193,7 @@ export default function StudentDashboard() {
 }
 
 function ChildAccessCard({ student }: { student: any }) {
+  const w = useWords();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -218,7 +223,7 @@ function ChildAccessCard({ student }: { student: any }) {
     });
     setBusy(false);
     if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
-    toast.success("Senha redefinida. O aluno será solicitado a trocá-la no próximo acesso.");
+    toast.success(`Senha redefinida. ${cap(w.client.o)} ${w.client.l} vai trocá-la no próximo acesso.`);
     setResetPw(""); setShowReset(false);
   };
 
@@ -226,10 +231,10 @@ function ChildAccessCard({ student }: { student: any }) {
     <Card className="p-5 space-y-3">
       <div className="flex items-center gap-2">
         <UserPlus className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold">Acesso do aluno</h2>
+        <h2 className="font-semibold">Acesso {w.client.do} {w.client.l}</h2>
       </div>
       <p className="text-xs text-muted-foreground">
-        Crie um login simples para o seu filho(a) acessar somente as aulas, materiais e tarefas (sem dados financeiros).
+        Crie um login simples para o seu filho(a) acessar somente {w.appointment.os} {w.appointment.lp}, materiais e tarefas (sem dados financeiros).
       </p>
 
       {created ? (

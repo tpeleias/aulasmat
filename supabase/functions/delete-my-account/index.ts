@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
         .eq("account_id", r.account_id).eq("role", "admin");
       if ((count ?? 0) <= 1) {
         return json({
-          error: "Você é o único administrador desta escola. Para encerrar a escola e apagar os dados dela, fale com o suporte do Cronys.",
+          error: "Você é o único administrador desta empresa. Para encerrar a empresa e apagar os dados dela, fale com o suporte do Cronys.",
           code: "unico-admin",
         }, 409);
       }

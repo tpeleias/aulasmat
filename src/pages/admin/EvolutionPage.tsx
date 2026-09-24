@@ -11,6 +11,7 @@ import { capitalize } from "@/lib/balance";
 import { buildTimeline, computeAttendance, type EvolutionLesson, type EvolutionHomework } from "@/lib/evolution";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
+import { useWords } from "@/hooks/useVocabulary";
 
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SubmissionRow = { homework_id: string; teacher_feedback: string | null; submitted_at: string };
@@ -25,6 +26,7 @@ const studentMatchKey = (name: string, guardian: string | null) =>
   `${name.trim().toLowerCase()}|${(guardian ?? "").trim().toLowerCase()}`;
 
 export default function EvolutionPage() {
+  const w = useWords();
   const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [homework, setHomework] = useState<(EvolutionHomework & { studentId: string })[]>([]);
@@ -82,26 +84,26 @@ export default function EvolutionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Evolução do aluno</h1>
-        <p className="text-sm text-muted-foreground">Presença, resumo das aulas e devolutiva das lições, numa linha do tempo.</p>
+        <h1 className="text-2xl font-bold">Evolução {w.client.do} {w.client.l}</h1>
+        <p className="text-sm text-muted-foreground">Presença, resumo {w.appointment.dos} {w.appointment.lp} e devolutiva das tarefas, numa linha do tempo.</p>
       </div>
 
       <Select value={studentId} onValueChange={v => setSearchParams({ aluno: v })}>
-        <SelectTrigger className="w-full max-w-sm h-10 rounded-xl"><SelectValue placeholder="Escolha o aluno" /></SelectTrigger>
+        <SelectTrigger className="w-full max-w-sm h-10 rounded-xl"><SelectValue placeholder={`Escolha ${w.client.o} ${w.client.l}`} /></SelectTrigger>
         <SelectContent>
           {students.map(s => <SelectItem key={s.id} value={s.id}>{s.student_name}</SelectItem>)}
         </SelectContent>
       </Select>
 
       {!student ? (
-        <EmptyState icon={GraduationCap} title="Escolha um aluno" description="A evolução é individual - escolha quem você quer acompanhar." />
+        <EmptyState icon={GraduationCap} title={`Escolha ${w.client.um} ${w.client.l}`} description="A evolução é individual - escolha quem você quer acompanhar." />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">
             <Card className="rounded-2xl p-4">
               <div className="text-xs text-muted-foreground uppercase">Presença</div>
               <div className="mt-1 text-2xl font-bold tabular-nums">{attendance.total > 0 ? `${attendance.taxa}%` : "—"}</div>
-              <div className="text-xs text-muted-foreground">{attendance.realizadas} de {attendance.total} aulas</div>
+              <div className="text-xs text-muted-foreground">{attendance.realizadas} de {attendance.total} {attendance.total === 1 ? w.appointment.l : w.appointment.lp}</div>
             </Card>
             <Card className="rounded-2xl p-4">
               <div className="text-xs text-muted-foreground uppercase">Canceladas</div>
@@ -116,7 +118,7 @@ export default function EvolutionPage() {
           <div>
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linha do tempo</div>
             {timeline.length === 0 ? (
-              <EmptyState icon={TrendingUp} title="Nada ainda" description="Aulas realizadas e lições aparecem aqui conforme acontecem." />
+              <EmptyState icon={TrendingUp} title="Nada ainda" description={`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} e tarefas aparecem aqui conforme acontecem.`} />
             ) : (
               <ul className="space-y-2">
                 {timeline.map((e, i) => (
@@ -127,7 +129,7 @@ export default function EvolutionPage() {
                           <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="font-medium capitalize">{format(new Date(e.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
-                            <span className="text-muted-foreground">· {e.subject ?? "Aula"} · {capitalize(e.teacher)}</span>
+                            <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
                           </div>
                           {e.summary ? (
                             <p className="mt-1.5 text-sm text-muted-foreground">{e.summary}</p>

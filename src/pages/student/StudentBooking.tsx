@@ -22,11 +22,16 @@ import { toast } from "sonner";
 import { Calendar, Clock, AlertCircle, Flame } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { capitalize } from "@/lib/balance";
+import { useWords } from "@/hooks/useVocabulary";
+import { cap } from "@/lib/vocabulary";
 
 const DAYS_AHEAD = 5;
 
 export default function StudentBooking() {
   const settings = useAppSettings();
+  const w = useWords();
+  const ap = w.appointment;
+  const st = w.staff;
   const { student } = useStudent();
   const { teachers } = useTeachers(true);
   const [teacher, setTeacher] = useState<string>("");
@@ -118,11 +123,11 @@ export default function StudentBooking() {
     });
     if (error) {
       setBusy(false);
-      toast.error(lessonErrorMessage(error));
+      toast.error(lessonErrorMessage(error, w));
       load();
       return;
     }
-    toast.success("Pedido enviado! O professor vai avaliar e você recebe a resposta por aqui.");
+    toast.success(`Pedido enviado! ${cap(st.o)} ${st.l} vai avaliar e você recebe a resposta por aqui.`);
     // Só libera os botões depois que a lista terminar de recarregar. Antes, o
     // horário recém-pedido continuava na tela por um instante, e um segundo
     // toque nele mandava o mesmo pedido de novo.
@@ -137,19 +142,19 @@ export default function StudentBooking() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Calendar className="w-6 h-6" /> Solicitar aula</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2"><Calendar className="w-6 h-6" /> Solicitar {ap.l}</h1>
         <p className="text-sm text-muted-foreground">
-          Escolha o professor e um horário livre. O pedido vai para o professor aprovar — a aula
+          Escolha {st.o} {st.l} e um horário livre. O pedido vai para {st.o} {st.l} aprovar — {ap.o} {ap.l}
           só entra na agenda depois disso.
         </p>
       </div>
 
       {teachers.length === 0 ? (
-        <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> Nenhum professor disponível no momento.</Card>
+        <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {st.nenhum} {st.l} disponível no momento.</Card>
       ) : (
         <>
           <div className="max-w-xs">
-            <label className="text-xs text-muted-foreground">Professor</label>
+            <label className="text-xs text-muted-foreground">{st.s}</label>
             <Select value={teacher} onValueChange={setTeacher}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -201,7 +206,7 @@ export default function StudentBooking() {
             <AlertDialogTitle>Deseja solicitar este horário?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>Você vai pedir uma aula com <strong>{capitalize(teacher)}</strong>:</p>
+                <p>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(teacher)}</strong>:</p>
                 {pending && (
                   <p className="text-foreground font-medium">
                     {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -210,8 +215,8 @@ export default function StudentBooking() {
                   </p>
                 )}
                 <p>
-                  O horário fica reservado enquanto o professor não responde, e a aula
-                  entra na agenda só depois que ele aprovar.
+                  O horário fica reservado enquanto {st.o} {st.l} não responde, e {ap.o} {ap.l}
+                  entra na agenda só depois da aprovação.
                 </p>
               </div>
             </AlertDialogDescription>
@@ -219,27 +224,27 @@ export default function StudentBooking() {
 
           <div className="space-y-3">
             <div>
-              <Label htmlFor="disciplina">Disciplina</Label>
+              <Label htmlFor="disciplina">{w.topic.s}</Label>
               <Input
                 id="disciplina"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
-                placeholder={teacherSubject ? `Ex: ${teacherSubject}` : "Ex: Matemática"}
+                placeholder={teacherSubject ? `Ex: ${teacherSubject}` : w.model === "aulas" ? "Ex: Matemática" : ""}
                 autoComplete="off"
               />
             </div>
 
             <div>
-              <Label htmlFor="assunto">O que você quer trabalhar? (opcional)</Label>
+              <Label htmlFor="assunto">{w.model === "aulas" ? "O que você quer trabalhar?" : "Quer contar algo antes?"} (opcional)</Label>
               <Textarea
                 id="assunto"
                 value={topic}
                 onChange={e => setTopic(e.target.value)}
-                placeholder="Ex: prova na sexta sobre função quadrática; não entendi limites"
+                placeholder={w.model === "aulas" ? "Ex: prova na sexta sobre função quadrática; não entendi limites" : "Ex: o que você precisa, sintomas, o que quer fazer"}
                 rows={3}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Ajuda o professor a chegar preparado, em vez de descobrir o assunto na hora.
+                Ajuda {st.o} {st.l} a chegar {st.pick("preparado", "preparada")}, em vez de descobrir o assunto na hora.
               </p>
             </div>
 
@@ -248,9 +253,9 @@ export default function StudentBooking() {
             {student?.address && (
               <div className="flex items-center justify-between rounded-md border border-border p-3">
                 <div>
-                  <Label htmlFor="online" className="cursor-pointer">Aula on-line</Label>
+                  <Label htmlFor="online" className="cursor-pointer">{ap.s} on-line</Label>
                   <p className="text-xs text-muted-foreground">
-                    Desligado, a aula é presencial em {student.address}.
+                    Desligado, {ap.o} {ap.l} é presencial em {student.address}.
                   </p>
                 </div>
                 <Switch id="online" checked={online} onCheckedChange={setOnline} />

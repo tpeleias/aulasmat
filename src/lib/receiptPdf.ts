@@ -7,6 +7,8 @@ export type ReceiptData = {
   issuerEmail: string | null;
   payer: string;
   period: string;
+  /** "aulas", "consultas"... - o que o recibo diz que foi pago. */
+  servicePlural?: string;
   rows: { date: string; description: string; amount: number }[];
   total: number;
   issuedAt: string;
@@ -48,7 +50,7 @@ export async function buildReceiptPdf(d: ReceiptData): Promise<Blob> {
   y += 14;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  const body = `Recebi de ${d.payer} a quantia de ${money(d.total)} (${valorPorExtenso(d.total).toLowerCase()}), referente a aulas de ${d.period}, conforme discriminado abaixo:`;
+  const body = `Recebi de ${d.payer} a quantia de ${money(d.total)} (${valorPorExtenso(d.total).toLowerCase()}), referente a ${d.servicePlural ?? "aulas"} de ${d.period}, conforme discriminado abaixo:`;
   const wrapped = doc.splitTextToSize(body, W - 2 * M);
   doc.text(wrapped, M, y);
   y += wrapped.length * 6 + 6;

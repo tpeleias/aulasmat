@@ -21,6 +21,9 @@ import { haptics } from "@/lib/haptics";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/hooks/useAuth";
 import { ProUpsell } from "@/components/ProUpsell";
+import { useWords } from "@/hooks/useVocabulary";
+import { dbErrorMessage } from "@/lib/dbErrors";
+import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
@@ -32,12 +35,14 @@ type Lesson = SheetLesson & { student_name: string; guardian_name: string | null
 
 type StudentSort = "name" | "owed" | "next" | "lessons";
 
-const STUDENT_SORTS: { key: StudentSort; label: string }[] = [
+const studentSorts = (w: Vocabulary): { key: StudentSort; label: string }[] => [
   { key: "name", label: "Nome (A–Z)" },
   { key: "owed", label: "Maior valor em aberto" },
-  { key: "next", label: "Próxima aula" },
-  { key: "lessons", label: "Mais aulas" },
+  { key: "next", label: `${w.appointment.proximo} ${w.appointment.l}` },
+  { key: "lessons", label: `Mais ${w.appointment.lp}` },
 ];
+// Só as chaves importam para lembrar a ordem escolhida.
+const STUDENT_SORTS = studentSorts(DEFAULT_VOCABULARY);
 
 const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map(p => p[0]?.toUpperCase() ?? "").join("");
 
@@ -46,6 +51,9 @@ export default function StudentsPage() {
   // Login de professor: vê os alunos e cadastra novo, mas não o financeiro
   // nem a administração do cadastro (editar, acessos, excluir, pausar).
   const { isTeacher } = useAuth();
+  const w = useWords();
+  const c = w.client;
+  const SORTS = studentSorts(w);
   const navigate = useNavigate();
   const [students, setStudents] = useState<Student[]>([]);
   const [lessons, setLessons] = useState<Lesson[]>([]);
@@ -77,8 +85,8 @@ export default function StudentsPage() {
 
   const statements = useMemo(() => {
     const done = lessons.filter(l => l.status === "realizada");
-    return new Map(computeStatements(txs, done).map(s => [s.key, s]));
-  }, [txs, lessons]);
+    return new Map(computeStatements(txs, done, w).map(s => [s.key, s]));
+  }, [txs, lessons, w]);
 
   const lessonsByAccount = useMemo(() => {
     const map = new Map<string, Lesson[]>();
@@ -130,7 +138,7 @@ export default function StudentsPage() {
   }, [students, query, sort, statements, lessonsByAccount, nextByAccount]);
 
   const save = async () => {
-    if (!editing?.student_name?.trim()) { toast.error("Nome do aluno obrigatório"); return; }
+    if (!editing?.student_name?.trim()) { toast.error(`Nome ${c.do} ${c.l} obrigatório`); return; }
     setBusy(true);
     const payload = {
       student_name: editing.student_name.trim(),
@@ -141,14 +149,14 @@ export default function StudentsPage() {
       ? await supabase.from("students").update(payload).eq("id", editing.id)
       : await supabase.from("students").insert(payload);
     setBusy(false);
-    if (error) { haptics.warning(); toast.error(error.message); }
-    else { haptics.success(); toast.success("Aluno salvo"); setEditing(null); setSelected(null); load(); }
+    if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
+    else { haptics.success(); toast.success(`${c.s} ${c.pick("salvo", "salva")}`); setEditing(null); setSelected(null); load(); }
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Excluir este aluno do cadastro? (Não afeta aulas existentes)")) return;
+    if (!confirm(`Excluir ${c.este} ${c.l} do cadastro? (Não afeta ${w.appointment.lp} existentes)`)) return;
     const { error } = await supabase.from("students").delete().eq("id", id);
-    if (error) toast.error(error.message); else { haptics.success(); toast.success("Aluno excluído"); setSelected(null); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success(`${c.s} ${c.pick("excluído", "excluída")}`); setSelected(null); load(); }
   };
 
   const locked = useMemo(() => students.filter(s => s.plan_locked), [students]);
@@ -158,15 +166,15 @@ export default function StudentsPage() {
   // O banco confere o limite (students_plan_unlock); aqui é só o pedido.
   const unlock = async (st: Student) => {
     const { error } = await supabase.from("students").update({ plan_locked: false } as never).eq("id", st.id);
-    if (error) { haptics.warning(); toast.error(error.message); }
-    else { haptics.success(); toast.success(`${st.student_name} liberado`); load(); }
+    if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
+    else { haptics.success(); toast.success(`${st.student_name} ${c.pick("liberado", "liberada")}`); load(); }
   };
 
   const pause = async (st: Student) => {
-    if (!confirm(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar aula nova até liberar de novo.`)) return;
+    if (!confirm(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")} até liberar de novo.`)) return;
     const { error } = await supabase.from("students").update({ plan_locked: true } as never).eq("id", st.id);
     if (error) { haptics.warning(); toast.error(error.message); }
-    else { haptics.success(); toast.success(`${st.student_name} pausado`); setSelected(null); load(); }
+    else { haptics.success(); toast.success(`${st.student_name} ${c.pick("pausado", "pausada")}`); setSelected(null); load(); }
   };
 
   const selectedStatement = selected ? statements.get(accountKey(selected)) : undefined;
@@ -177,7 +185,7 @@ export default function StudentsPage() {
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> Alunos</h1>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> {c.p}</h1>
             <p className="text-sm text-muted-foreground">
               {locked.length > 0
                 ? `${unlockedCount} liberado${unlockedCount === 1 ? "" : "s"} de ${plan.max_students ?? "∞"} · ${locked.length} pausado${locked.length === 1 ? "" : "s"}`
@@ -196,11 +204,11 @@ export default function StudentsPage() {
           <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-3">
             <div>
               <div className="font-semibold text-sm">
-                {locked.length} aluno{locked.length === 1 ? "" : "s"} pausado{locked.length === 1 ? "" : "s"} pela mudança de plano
+                {locked.length} {locked.length === 1 ? c.l : c.lp} {c.pick("pausado", "pausada")}{locked.length === 1 ? "" : "s"} pela mudança de plano
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Nada deles foi apagado - histórico, aulas e financeiro continuam. Só não dá para marcar aula nova.
-                {plan.max_students !== null && ` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já liberado${unlockedCount === 1 ? "" : "s"})` : ""}.`}
+                Nada foi apagado - histórico, {w.appointment.lp} e financeiro continuam. Só não dá para marcar {w.appointment.l} {w.appointment.pick("novo", "nova")}.
+                {plan.max_students !== null && ` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já ${c.pick("liberado", "liberada")}${unlockedCount === 1 ? "" : "s"})` : ""}.`}
               </p>
             </div>
             <ul className="divide-y divide-border rounded-xl border border-border bg-card">
@@ -220,8 +228,8 @@ export default function StudentsPage() {
         )}
 
         {!isTeacher && atLimit && locked.length === 0 && (
-          <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} alunos`} icon={Users} compacto>
-            os {students.length} que você já tem continuam aqui, com tudo deles.
+          <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} ${c.lp}`} icon={Users} compacto>
+            {c.os} {students.length} que você já tem continuam aqui, com tudo.
             Para cadastrar o próximo, é o Cronys Pro.
           </ProUpsell>
         )}
@@ -229,18 +237,18 @@ export default function StudentsPage() {
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Buscar aluno ou responsável" className="h-11 rounded-xl pl-9" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={`Buscar ${c.l} ou ${w.guardian.l}`} className="h-11 rounded-xl pl-9" />
           </div>
-          <SortMenu value={sort} options={isTeacher ? STUDENT_SORTS.filter(o => o.key !== "owed") : STUDENT_SORTS} onChange={setSort} className="h-11" />
+          <SortMenu value={sort} options={isTeacher ? SORTS.filter(o => o.key !== "owed") : SORTS} onChange={setSort} className="h-11" />
         </div>
 
         {loading ? (
           <ListSkeleton rows={5} />
         ) : students.length === 0 ? (
-          <EmptyState icon={Users} title="Nenhum aluno cadastrado" description="Cadastre o primeiro aluno para começar a agendar."
-            action={<Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> Novo aluno</Button>} />
+          <EmptyState icon={Users} title={`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`} description={`Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`}
+            action={<Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> {c.novo} {c.l}</Button>} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={Search} title="Nada encontrado" description={`Nenhum aluno ou responsável com "${query}".`} />
+          <EmptyState icon={Search} title="Nada encontrado" description={`${c.nenhum} ${c.l} ou ${w.guardian.l} com "${query}".`} />
         ) : (
           <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
             {visible.map(st => {
@@ -303,12 +311,12 @@ export default function StudentsPage() {
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>{editing?.id ? "Editar aluno" : "Novo aluno"}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing?.id ? `Editar ${c.l}` : `${c.novo} ${c.l}`}</DialogTitle></DialogHeader>
           <div className="grid gap-3">
-            <div><Label>Nome do aluno</Label>
+            <div><Label>Nome {c.do} {c.l}</Label>
               <Input className="h-11 rounded-xl" value={editing?.student_name ?? ""} onChange={e => setEditing(p => ({ ...p!, student_name: e.target.value }))} />
             </div>
-            <div><Label>Responsável</Label>
+            <div><Label>{w.guardian.s}</Label>
               <Input className="h-11 rounded-xl" value={editing?.guardian_name ?? ""} onChange={e => setEditing(p => ({ ...p!, guardian_name: e.target.value }))} />
             </div>
             <div><Label>Endereço</Label>

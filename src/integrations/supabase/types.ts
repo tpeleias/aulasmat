@@ -694,6 +694,18 @@ export type Database = {
         Args: never
         Returns: Json
       }
+      my_vocabulary: {
+        Args: never
+        Returns: Json
+      }
+      set_business_model: {
+        Args: { _model: string }
+        Returns: Json
+      }
+      set_custom_vocabulary: {
+        Args: { _vocab: Json | null }
+        Returns: Json
+      }
       platform_rename_account: {
         Args: { _account: string; _name: string }
         Returns: Json

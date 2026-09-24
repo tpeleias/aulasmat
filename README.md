@@ -1,6 +1,8 @@
 # Cronys
 
-Agenda, alunos e cobrança para quem dá aula particular.
+Agenda, clientes e cobrança para quem atende com hora marcada: nasceu para aula
+particular e hoje fala a língua de cada ramo (clínica, consultório, salão, pet,
+academia, oficina).
 
 O professor vê a agenda, quem deve, quem está em aberto e os pedidos de aula
 que as famílias mandaram. A família entra no portal, vê as próprias aulas e o
@@ -41,6 +43,7 @@ de RLS, não o segredo da chave.
 | O quê | Onde |
 | --- | --- |
 | Telas do professor | `src/pages/admin/` |
+| Palavras de cada ramo (Professor/Médico, Aula/Consulta...) | `src/lib/vocabulary.ts`, `src/hooks/useVocabulary.tsx` |
 | Portal da família | `src/pages/student/` |
 | Páginas públicas (sem login) | `src/pages/Public*.tsx` |
 | Banco: tudo que já foi aplicado | `supabase/migrations/` |

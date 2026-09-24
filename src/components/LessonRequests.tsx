@@ -14,6 +14,7 @@ import { capitalize } from "@/lib/balance";
 import { haptics } from "@/lib/haptics";
 import { toast } from "sonner";
 import { Check, X, Clock, MapPin, Wifi } from "lucide-react";
+import { useWords } from "@/hooks/useVocabulary";
 
 type Request = {
   id: string; student_name: string; guardian_name: string | null; teacher: string;
@@ -33,6 +34,7 @@ type Request = {
  * esperando resposta de um horário que segue reservado.
  */
 export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
+  const w = useWords();
   const [requests, setRequests] = useState<Request[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refusing, setRefusing] = useState<Request | null>(null);
@@ -63,9 +65,9 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
     haptics.tap();
     const { error } = await supabase.from("lessons").update({ status }).eq("id", req.id);
     setBusyId(null);
-    if (error) { toast.error(lessonErrorMessage(error)); return; }
+    if (error) { toast.error(lessonErrorMessage(error, w)); return; }
     toast.success(status === "agendada"
-      ? `Aula de ${req.student_name} confirmada na agenda.`
+      ? `${w.appointment.s} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} na agenda.`
       : `Pedido de ${req.student_name} recusado e o horário liberado.`);
     await load();
     onChanged?.();
@@ -78,7 +80,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
       <Card className="rounded-2xl border-primary/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-semibold">
-            <Clock className="h-4 w-4 text-primary" /> Solicitações de aula
+            <Clock className="h-4 w-4 text-primary" /> Solicitações de {w.appointment.l}
           </h2>
           <Badge variant="outline">{requests.length}</Badge>
         </div>
@@ -99,7 +101,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                         vira tooltip em navegador nenhum, e o tipo do lucide nem
                         aceita a prop. */}
                     {r.is_online ? (
-                      <span title="Aula on-line" className="shrink-0 leading-none">
+                      <span title={`${w.appointment.s} on-line`} className="shrink-0 leading-none">
                         <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
                       </span>
                     ) : r.address ? (

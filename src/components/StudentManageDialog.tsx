@@ -13,6 +13,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
+import { useWords } from "@/hooks/useVocabulary";
+import { cap } from "@/lib/vocabulary";
 
 type Student = { id: string; student_name: string; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
 
@@ -46,6 +48,7 @@ export function StudentManageDialog({ student, open, onOpenChange, onChanged }: 
 }
 
 function AccountTab({ student, onChanged }: { student: Student; onChanged: () => void }) {
+  const w = useWords();
   const [byUsername, setByUsername] = useState(false);
   const [email, setEmail] = useState("");
   const [guardianUser, setGuardianUser] = useState("");
@@ -75,13 +78,13 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
   };
 
   const unlink = async () => {
-    if (!confirm("Desvincular a conta deste aluno?")) return;
+    if (!confirm(`Desvincular a conta d${w.client.este} ${w.client.l}?`)) return;
     const { error } = await supabase.from("students").update({ user_id: null }).eq("id", student.id);
     if (error) toast.error(error.message); else { toast.success("Desvinculado"); onChanged(); }
   };
 
   const resetPassword = async () => {
-    if (!confirm("Gerar uma nova senha provisória? O aluno deverá trocá-la no próximo acesso.")) return;
+    if (!confirm(`Gerar uma nova senha provisória? ${cap(w.guardian.o)} ${w.guardian.l} deverá trocá-la no próximo acesso.`)) return;
     setBusy(true); setNewPw(null);
     const { data, error } = await supabase.functions.invoke("admin-reset-student-password", {
       body: { student_id: student.id },
@@ -106,7 +109,7 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
           </div>
           <div className="border-t border-border pt-3 space-y-2">
             <p className="text-xs text-muted-foreground">
-              Por segurança, senhas são armazenadas com hash e não podem ser visualizadas. Em vez disso, gere uma nova senha provisória — o aluno será forçado a trocá-la no próximo login.
+              Por segurança, senhas são armazenadas com hash e não podem ser visualizadas. Em vez disso, gere uma nova senha provisória — {w.guardian.o} {w.guardian.l} {w.guardian.pick("será forçado", "será forçada")} a trocá-la no próximo login.
             </p>
             <Button onClick={resetPassword} disabled={busy} variant="outline" size="sm">Resetar senha</Button>
             {newPw && (
@@ -152,12 +155,14 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
         </Card>
       )}
 
-      <ChildAccessSection student={student} onChanged={onChanged} />
+      {/* Pet não entra no app; o login é do tutor. */}
+      {w.model !== "pet" && <ChildAccessSection student={student} onChanged={onChanged} />}
     </div>
   );
 }
 
 function ChildAccessSection({ student, onChanged }: { student: Student; onChanged: () => void }) {
+  const w = useWords();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [resetPw, setResetPw] = useState("");
@@ -193,9 +198,9 @@ function ChildAccessSection({ student, onChanged }: { student: Student; onChange
   return (
     <Card className="p-4 space-y-3">
       <div>
-        <div className="text-sm font-medium mb-1">Acesso do aluno (filho)</div>
+        <div className="text-sm font-medium mb-1">Acesso próprio {w.client.do} {w.client.l} (ex.: criança ou adolescente)</div>
         <p className="text-xs text-muted-foreground">
-          Login simples por username, com acesso restrito a aulas, materiais e tarefas (sem dados financeiros).
+          Login simples por username, com acesso restrito a {w.appointment.lp}, materiais e tarefas (sem dados financeiros).
         </p>
       </div>
       {student.child_username ? (
@@ -223,7 +228,7 @@ function ChildAccessSection({ student, onChanged }: { student: Student; onChange
             <Input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" />
           </div>
           <div><Label>Senha</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
-          <Button onClick={create} disabled={busy} size="sm">Gerar acesso do aluno</Button>
+          <Button onClick={create} disabled={busy} size="sm">Gerar acesso {w.client.do} {w.client.l}</Button>
         </div>
       )}
     </Card>
@@ -314,6 +319,7 @@ function MaterialsTab({ student }: { student: Student }) {
 }
 
 function HomeworkTab({ student }: { student: Student }) {
+  const w = useWords();
   const [items, setItems] = useState<any[]>([]);
   const [subs, setSubs] = useState<Record<string, any[]>>({});
   const [form, setForm] = useState({ title: "", description: "", deadline: "" });
@@ -350,7 +356,7 @@ function HomeworkTab({ student }: { student: Student }) {
   };
 
   const giveFeedback = async (sub: any) => {
-    const fb = prompt("Feedback para o aluno:", sub.teacher_feedback ?? "");
+    const fb = prompt(`Feedback para ${w.client.o} ${w.client.l}:`, sub.teacher_feedback ?? "");
     if (fb === null) return;
     await supabase.from("homework_submissions").update({ teacher_feedback: fb }).eq("id", sub.id);
     toast.success("Feedback salvo"); load();

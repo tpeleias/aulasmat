@@ -34,10 +34,10 @@ export default function DeleteAccountInfo() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base">O que é apagado e o que fica</h2>
             <p>
-              É apagado o seu login (e-mail ou usuário e senha) e o vínculo dele com o cadastro do
-              aluno. O histórico de aulas e pagamentos pertence à escola que dá as aulas e continua
-              com ela, pelo tempo necessário ao controle financeiro. Para pedir a exclusão desses
-              dados também, fale com a escola.
+              É apagado o seu login (e-mail ou usuário e senha) e o vínculo dele com o seu
+              cadastro. O histórico de atendimentos e pagamentos pertence à empresa que te atende e
+              continua com ela, pelo tempo necessário ao controle financeiro. Para pedir a exclusão
+              desses dados também, fale com a empresa.
             </p>
           </section>
           <section className="space-y-2">
@@ -45,7 +45,7 @@ export default function DeleteAccountInfo() {
             <p>
               {contact
                 ? <>Escreva para {contact} com o e-mail ou usuário da conta, pedindo a exclusão.</>
-                : "Peça a exclusão à escola responsável pelas aulas, informando o e-mail ou usuário da conta."}
+                : "Peça a exclusão à empresa que te atende, informando o e-mail ou usuário da conta."}
             </p>
           </section>
         </div>

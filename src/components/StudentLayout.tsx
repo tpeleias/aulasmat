@@ -10,6 +10,7 @@ import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 import { UserRound, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
 import { CronysWordmark } from "@/components/brand";
+import { useWords } from "@/hooks/useVocabulary";
 
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
@@ -17,6 +18,7 @@ export default function StudentLayout() {
   const settings = useAppSettings();
   const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
+  const w = useWords();
 
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/" replace />;
@@ -27,7 +29,7 @@ export default function StudentLayout() {
 
   const items: NavItem[] = [
     { to: "/aluno", label: "Início", icon: LayoutDashboard, end: true },
-    { to: "/aluno/aulas", label: "Aulas", icon: Calendar },
+    { to: "/aluno/aulas", label: w.appointment.p, icon: Calendar },
     ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: "Agendar", icon: CalendarPlus }] : []),
     { to: "/aluno/financeiro", label: "Financeiro", icon: Wallet },
     { to: "/aluno/materiais", label: "Materiais", icon: FolderOpen },
@@ -40,7 +42,7 @@ export default function StudentLayout() {
     <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">Responsável</div></div>
+          <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">{w.guardian.s}</div></div>
         </div>
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {items.map(it => (

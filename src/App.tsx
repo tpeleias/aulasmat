@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { VocabularyProvider } from "@/hooks/useVocabulary";
 import { ThemeProvider } from "@/hooks/useTheme";
 import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
@@ -50,6 +51,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+        <VocabularyProvider>
           <AndroidBackButton />
           <Routes>
             <Route path="/" element={<Auth />} />
@@ -95,6 +97,7 @@ const App = () => (
             <Route path="/gestor" element={<PlatformPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+        </VocabularyProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

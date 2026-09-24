@@ -15,6 +15,7 @@ import { saveOrShareFile, canOnlyShare } from "@/lib/saveFile";
 import { buildReceiptPdf } from "@/lib/receiptPdf";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
+import { useWords } from "@/hooks/useVocabulary";
 
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SettingsRow = { contact_email: string | null; issuer_document: string | null };
@@ -22,6 +23,7 @@ type SettingsRow = { contact_email: string | null; issuer_document: string | nul
 const TODO_ANO = "todo-ano";
 
 export default function ReportsPage() {
+  const w = useWords();
   const [txs, setTxs] = useState<LedgerTx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [accountName, setAccountName] = useState("");
@@ -75,12 +77,12 @@ export default function ReportsPage() {
     const map = new Map<string, { label: string; payer: string }>();
     const add = (r: { student_name: string; guardian_name: string | null }) => {
       const k = accountKey(r);
-      if (!map.has(k)) map.set(k, { label: accountLabel(r), payer: (r.guardian_name ?? "").trim() || r.student_name });
+      if (!map.has(k)) map.set(k, { label: accountLabel(r, w), payer: (r.guardian_name ?? "").trim() || r.student_name });
     };
     students.forEach(add);
     txs.forEach(add);
     return [...map.entries()].map(([key, v]) => ({ key, ...v })).sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
-  }, [students, txs]);
+  }, [students, txs, w]);
 
   const [receiptAccount, setReceiptAccount] = useState("");
   const [receiptYear, setReceiptYear] = useState(now.getFullYear());
@@ -102,6 +104,7 @@ export default function ReportsPage() {
         issuerEmail: settings.contact_email?.trim() || null,
         payer: receiptAcc.payer,
         period: `${MESES[receiptMonth].toLowerCase()} de ${receiptYear}`,
+        servicePlural: w.appointment.lp,
         rows: receiptRows.map(r => ({ date: format(new Date(r.date), "dd/MM/yyyy"), description: r.description, amount: r.amount })),
         total: receiptTotal,
         issuedAt: format(new Date(), "dd/MM/yyyy"),
@@ -128,7 +131,7 @@ export default function ReportsPage() {
         <div>
           <h2 className="font-semibold">Resumo do período</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Só o que é dinheiro de verdade (pacote e pagamento) - aula em aberto e desconto não entram aqui.
+            Só o que é dinheiro de verdade (pacote e pagamento) - {w.appointment.l} em aberto e desconto não entram aqui.
           </p>
         </div>
 

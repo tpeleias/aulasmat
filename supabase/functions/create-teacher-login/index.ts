@@ -38,7 +38,7 @@ Deno.serve(async (req) => {
     const { data: adminRole } = await admin.from("user_roles").select("account_id")
       .eq("user_id", user.id).eq("role", "admin").not("account_id", "is", null).limit(1).maybeSingle();
     const accountId = (adminRole?.account_id ?? null) as string | null;
-    if (!accountId) return json({ error: "Só o administrador da escola cria acesso de professor." }, 403);
+    if (!accountId) return json({ error: "Só o administrador da empresa cria acesso para a equipe." }, 403);
 
     const body = await req.json().catch(() => ({}));
     const teacherId = String(body?.teacher_id ?? "");
@@ -48,10 +48,10 @@ Deno.serve(async (req) => {
 
     const { data: teacher } = await admin.from("teachers").select("id, name, user_id")
       .eq("id", teacherId).eq("account_id", accountId).maybeSingle();
-    if (!teacher) return json({ error: "Professor não encontrado." }, 404);
+    if (!teacher) return json({ error: "Cadastro não encontrado." }, 404);
 
     if (action === "create") {
-      if (teacher.user_id) return json({ error: "Este professor já tem acesso. Use trocar senha." }, 400);
+      if (teacher.user_id) return json({ error: "Este cadastro já tem acesso. Use trocar senha." }, 400);
       if (!USERNAME_RE.test(username)) {
         return json({ error: "Usuário inválido. Use 3-30 caracteres: letras minúsculas, números, ponto, traço ou underline." }, 400);
       }
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "reset") {
-      if (!teacher.user_id) return json({ error: "Este professor ainda não tem acesso." }, 400);
+      if (!teacher.user_id) return json({ error: "Este cadastro ainda não tem acesso." }, 400);
       if (password.length < 6) return json({ error: "A senha precisa ter ao menos 6 caracteres." }, 400);
       const { error } = await admin.auth.admin.updateUserById(teacher.user_id, { password });
       if (error) return json({ error: error.message }, 400);

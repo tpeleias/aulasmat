@@ -26,7 +26,7 @@ export default function StudentMaterials() {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Materiais</h1>
-      <p className="text-sm text-muted-foreground">Arquivos compartilhados pelo professor.</p>
+      <p className="text-sm text-muted-foreground">Arquivos compartilhados com você.</p>
       {materials.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">Nenhum material disponível.</Card>}
       {materials.map(m => (
         <Card key={m.id} className="p-4 flex items-center gap-3">

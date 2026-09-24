@@ -75,9 +75,9 @@ export default function MyAccount() {
           <div>
             <h2 className="font-semibold">Excluir minha conta</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Apaga o seu acesso: você não consegue mais entrar com este login. O histórico de aulas e
-              pagamentos continua com a escola, que pode precisar dele para o controle financeiro -
-              para pedir a exclusão desses dados, fale com a escola.
+              Apaga o seu acesso: você não consegue mais entrar com este login. O histórico de atendimentos e
+              pagamentos continua com a empresa, que pode precisar dele para o controle financeiro -
+              para pedir a exclusão desses dados, fale com a empresa.
             </p>
           </div>
           <Button variant="destructive" className="gap-2 rounded-xl" onClick={() => { setTyped(""); setOpen(true); }}>

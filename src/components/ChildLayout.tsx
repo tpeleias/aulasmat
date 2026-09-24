@@ -8,11 +8,13 @@ import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useTheme } from "@/hooks/useTheme";
 import { UserRound, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks, Moon, Sun } from "lucide-react";
 import { CronysMark } from "@/components/brand";
+import { useWords } from "@/hooks/useVocabulary";
 
 export default function ChildLayout() {
   const { session, role, loading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
   const { theme, toggleTheme } = useTheme();
+  const w = useWords();
 
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/" replace />;
@@ -23,7 +25,7 @@ export default function ChildLayout() {
 
   const items: NavItem[] = [
     { to: "/meu-painel", label: "Início", icon: LayoutDashboard, end: true },
-    { to: "/meu-painel/aulas", label: "Aulas", icon: Calendar },
+    { to: "/meu-painel/aulas", label: w.appointment.p, icon: Calendar },
     { to: "/meu-painel/materiais", label: "Materiais", icon: FolderOpen },
     { to: "/meu-painel/tarefas", label: "Tarefas", icon: ListChecks },
   ];
@@ -35,7 +37,7 @@ export default function ChildLayout() {
           <CronysMark className="w-8 h-8 shrink-0" />
           <div>
             <div className="font-semibold text-sm">Meu painel</div>
-            <div className="text-xs text-sidebar-foreground/60">{student?.student_name?.split(" ")[0] ?? "Aluno"}</div>
+            <div className="text-xs text-sidebar-foreground/60">{student?.student_name?.split(" ")[0] ?? w.client.s}</div>
           </div>
         </div>
         <nav className="flex flex-col gap-1 p-3 flex-1">

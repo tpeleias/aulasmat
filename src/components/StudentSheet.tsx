@@ -8,6 +8,7 @@ import { fmtMoney, capitalize } from "@/lib/balance";
 import { isDiscarded, statusLabel } from "@/lib/lessonStatus";
 import type { AccountStatement } from "@/lib/billing";
 import { daysOpen, isOverdue } from "@/lib/billing";
+import { useWords } from "@/hooks/useVocabulary";
 
 export type SheetStudent = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
@@ -39,6 +40,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
   // troca quem ocupa as vagas do Essencial.
   onPause?: () => void;
 }) {
+  const w = useWords();
   if (!student) return null;
 
   const done = lessons.filter(l => l.status === "realizada");
@@ -91,18 +93,18 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         </div>
 
         <div className="mt-5">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Últimas aulas</div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{w.appointment.pick("Últimos", "Últimas")} {w.appointment.lp}</div>
           {recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma aula registrada ainda.</p>
+            <p className="text-sm text-muted-foreground">{w.appointment.nenhum} {w.appointment.l} {w.appointment.pick("registrado", "registrada")} ainda.</p>
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border">
               {recent.map(l => (
                 <li key={l.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
                   <div className="min-w-0">
                     <div className="font-medium capitalize">{format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-                    <div className="truncate text-xs text-muted-foreground">{l.subject ?? "Aula"} · {l.duration_minutes} min · {capitalize(l.teacher)}</div>
+                    <div className="truncate text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {capitalize(l.teacher)}</div>
                   </div>
-                  <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{statusLabel(l.status)}</Badge>
+                  <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{statusLabel(l.status, w)}</Badge>
                 </li>
               ))}
             </ul>
