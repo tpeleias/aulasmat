@@ -166,7 +166,7 @@ export default function SettingsPage() {
               <span className="text-muted-foreground">Assistente</span>
               <strong>
                 {plan.assistant ? "sim"
-                  : plan.assistant_override === false ? "desativado pela Cronys"
+                  : plan.assistant_override === false ? "sob liberação"
                     : "não"}
               </strong>
             </li>

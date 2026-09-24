@@ -681,7 +681,8 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
 SELECT public.assert(public.account_limit('students') IS NULL, 'no Pro o limite de alunos some');
-SELECT public.assert(public.account_can('assistant'), 'e o assistente liga');
+-- Desde 20260924070000 o Pro nao traz o assistente: so a liberacao do gestor.
+SELECT public.assert(public.account_can('assistant') = false, 'mas o assistente continua bloqueado ate o gestor liberar');
 INSERT INTO public.students (student_name) VALUES ('A6');
 SELECT public.assert((SELECT count(*) FROM public.students) = 6, 'o sexto aluno agora entra');
 INSERT INTO public.teachers (name, active) VALUES ('Segundo', true);
@@ -1385,6 +1386,35 @@ SELECT public.assert(public.set_custom_vocabulary(NULL) ->> 'custom_saved' = 'fa
   'mas volta as palavras do tipo em qualquer plano');
 SELECT public.assert((public.set_business_model('oficina') ->> 'business_model') = 'oficina',
   'e troca de tipo em qualquer plano');
+COMMIT;
+
+\echo ''
+\echo '--- 27. Assistente so com liberacao do gestor, em qualquer plano ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('27000000-0000-0000-0000-000000000001', 'nova@x', '{"signup_kind":"school","school_name":"Clinica Nova","teacher_name":"Dra Ana"}');
+SELECT set_config('teste.a27', (SELECT account_id::text FROM public.user_roles WHERE user_id = '27000000-0000-0000-0000-000000000001'), false);
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '27000000-0000-0000-0000-000000000001', true);
+SELECT public.assert(public.account_plan() = 'pro' AND public.account_can('assistant') = false,
+  'empresa nova, no teste do Pro, nasce sem assistente');
+SELECT public.assert((public.my_plan() ->> 'assistant') = 'false' AND (public.my_plan() ->> 'assistant_override') = 'false',
+  'e a tela recebe "nao liberado" (e nao a venda do Pro)');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, true) ->> 'assistant') = 'true',
+  'o gestor libera');
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, false) ->> 'assistant') = 'false',
+  'e bloqueia de novo');
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
+  'o painel antigo (que manda "limpar" para ligar no Pro) continua ligando');
 COMMIT;
 
 \echo '=== FIM ==='

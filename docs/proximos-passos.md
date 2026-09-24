@@ -66,6 +66,22 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
+## Assistente só com liberação (24/09)
+
+O assistente não vem mais com o Pro: fica bloqueado em qualquer plano, inclusive
+no teste de 14 dias, até o gestor liberar a empresa no painel (switch
+"Assistente"). Motivo: cada conversa custa dinheiro de verdade.
+
+- Migration `20260924070000`: `account_can('assistant')` = `assistant_override`
+  verdadeiro, e nada mais. Quem era Pro com o assistente pelo plano virou
+  liberação explícita (na prática, só o Portal de Aulas).
+- `my_plan()` devolve `assistant_override` falso quando nulo: é o que faz até o
+  app antigo mostrar "fale com quem cuida da sua conta" em vez de vender o Pro.
+- O painel do gestor até o app 1.10.1 manda "limpar a exceção" para LIGAR numa
+  empresa Pro. `platform_set_account_plan` traduz isso (no Pro, limpar = liberar)
+  para o botão antigo continuar funcionando. O painel novo manda sempre
+  ligado/desligado explícito.
+
 ## Vários ramos de negócio (24/09)
 
 O app deixou de ser só de aula particular. Cada empresa escolhe o ramo e a tela

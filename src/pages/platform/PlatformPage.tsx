@@ -148,24 +148,19 @@ export default function PlatformPage() {
     load();
   };
 
-  // O switch do assistente e uma EXCECAO ao plano, nao o plano. Ligar para uma
-  // empresa Essencial e cortesia ou teste; o terceiro toque limpa a excecao e
-  // devolve a decisao ao plano.
+  // O assistente não vem com plano nenhum: só funciona para quem o gestor
+  // liberar aqui (migration 20260924070000). O switch grava sempre ligado ou
+  // desligado, explícito.
   const alternarAssistente = async (r: Row) => {
     setBusy(true);
-    const segueOPlano = r.plan === "pro";
-    const proximo = r.assistant ? false : true;
-    const limpar = proximo === segueOPlano;
+    const proximo = !r.assistant;
     const { error } = await supabase.rpc("platform_set_account_plan", {
       _account: r.id,
-      _assistant_override: limpar ? null : proximo,
-      _clear_override: limpar,
+      _assistant_override: proximo,
     });
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    toast.success(limpar
-      ? `Assistente de "${r.name}" voltou a seguir o plano`
-      : `Assistente ${proximo ? "ligado" : "desligado"} para "${r.name}"`);
+    toast.success(`Assistente ${proximo ? "liberado" : "bloqueado"} para "${r.name}"`);
     load();
   };
 
@@ -241,10 +236,9 @@ export default function PlatformPage() {
           não chegam até aqui — a trava está no banco, não nesta tela.
           <br />
           <span className="mt-1 inline-flex items-center gap-1">
-            <Bot className="h-3 w-3" /> O switch do Assistente é uma exceção ao plano:
-            ligar para uma empresa Essencial é cortesia. Marcado
-            <strong className="text-foreground">à mão</strong>, ele não segue mais o plano —
-            toque de novo para devolver a decisão ao plano.
+            <Bot className="h-3 w-3" /> O Assistente fica bloqueado em qualquer plano,
+            inclusive no Pro e no teste: só funciona para a empresa que você
+            <strong className="text-foreground">liberar</strong> aqui.
           </span>
         </Card>
 
@@ -303,8 +297,8 @@ export default function PlatformPage() {
                     <td className="px-3 py-2.5">
                       <div className="flex flex-col items-center gap-0.5">
                         <Switch checked={r.assistant} disabled={busy} onCheckedChange={() => alternarAssistente(r)} />
-                        {r.assistant_override !== null && (
-                          <span className="text-[9px] uppercase tracking-wide text-primary">à mão</span>
+                        {r.assistant && (
+                          <span className="text-[9px] uppercase tracking-wide text-primary">liberado</span>
                         )}
                       </div>
                     </td>
