@@ -207,6 +207,54 @@ até parece aceitar "Essencial", mas o banco devolve Pro. Para desfazer: só
 O assistente dela continua com o limite do mês (150 mensagens, US$ 5) - o
 painel do gestor aumenta. Espelho: bloco 31.
 
+### PENDÊNCIAS DO THIAGO - lista única (consolidada em 24/09, fim do dia)
+
+Tudo o que ficou com o Thiago, desta e das sessões anteriores. Conferido na
+produção em 24/09: `admin-create-user` e a tabela de backup ainda existem; o
+código FUNDADOR ainda está ativo.
+
+**Rápido (minutos, no painel)**
+1. Play Console → Fichas da loja: colar nome, breve descrição e descrição
+   completa (textos passados na conversa de 24/09).
+2. Play Console → Definições da loja: conferir o e-mail de contato.
+3. Stripe → Cupons → "Preço de lançamento" → desativar o código FUNDADOR.
+4. Netlify → Domain management: cronys.com.br como Primary domain.
+5. Supabase → Edge Functions → `admin-create-user` → Delete (desativada
+   desde 20/09; nenhuma tela usa).
+6. GitHub → Settings → Branches: marcar "Checagens" como obrigatório no
+   `main`.
+7. Testar uma assinatura pelo site numa empresa de teste (cartão 4242...,
+   código LANCAMENTO, "Gerenciar assinatura").
+
+**Decisões**
+8. Tabela `lessons_payment_status_backup_20260912` (backup manual de 12/09,
+   84 linhas reais, fora do escopo por empresa): apagar ou manter.
+9. Preço final do assistente (hoje R$ 39, provisório) e quando vender.
+10. Política de falta com cobrança: as 4 perguntas da seção de 24/09.
+11. Botões de pacote com valores fixos (R$ 2.000 + voucher R$ 200 e
+    R$ 1.050 + voucher R$ 50): continuar fixos ou virar configuração.
+12. A Demonstração (conta do revisor da Play) fica Pro Equipe de cortesia
+    para sempre? (O Portal de Aulas já está.)
+13. Descontos "por 3 meses" no plano anual (cai a fatura do ano inteira):
+    anunciar só no mensal ou trocar por valor fixo.
+
+**Antes de abrir para clientes de verdade**
+14. Stripe no modo real: ativar a conta (CNPJ, conta bancária), recriar
+    produtos/preços com os mesmos lookup_key, cupons e códigos, portal e
+    webhook, e trocar as duas secrets.
+15. Religar "Confirm email" no Supabase, junto com Site URL / Redirect URLs
+    (`https://cronys.com.br/**`) e SMTP com remetente @cronys.com.br.
+16. Revisão jurídica dos termos (identificação do fornecedor, cancelamento,
+    reembolso) - obrigatória agora que há cobrança.
+17. Saúde e psicologia guardam dado sensível (LGPD): rever a política de
+    privacidade com alguém da área antes de vender para clínica.
+
+**Quando quiser as próximas funções (depende de algo seu)**
+18. Notificação no app: criar projeto no Firebase e passar a chave.
+19. E-mail automático (lembrete de aula): escolher provedor (Resend etc.) -
+    é o mesmo SMTP do item 15.
+20. Monitoramento de erros: criar conta no Sentry e passar o DSN.
+
 ### O QUE FALTA - lista para fazer depois
 
 **Feito em 24/09 (tarde):** secrets do Stripe colocadas pelo Thiago; webhook
