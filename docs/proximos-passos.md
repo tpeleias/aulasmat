@@ -1931,20 +1931,124 @@ O front aguenta rodar antes das migrations (colunas novas são lidas com
 `select("*")` e conferidas antes de usar), mas o cadastro de escola e o
 papel de professor só funcionam depois delas.
 
-## PARA DEPOIS (anotado em 24/09)
+## Lote de 24/09 (tarde) — itens da lista "PARA DEPOIS"
 
-Da revisão de vendabilidade:
+Pedido: "desenvolve os próximos passos; pode aceitar as mudanças de SQL sem
+me perguntar". Ramo `claude/sql-development-next-steps-vsn464`.
 
-- **Primeira experiência de escola nova** (lista "valor da aula → professor →
-  primeiro aluno → link público"). Ficou mais urgente: agora a escola se
-  cadastra sozinha e cai numa tela vazia.
-- **Importar alunos de planilha.**
-- **Monitoramento de erros** (Sentry, plano grátis).
-- **CI com `tsc`, testes e o espelho em cada PR.**
-- **Abertura mais rápida:** dividir o JS por tela (hoje ~1,25 MB de uma vez).
-- **Página de venda do Cronys**, com preço e botão de teste.
-- Família pedir **troca** de horário.
-- **Política de falta/cancelamento** configurável.
+**Situação:** a migration já está **aplicada na produção**; o código está no
+ramo, **falta mesclar** (o Netlify publica sozinho), publicar o Lovable e
+gerar `.aab` novo (as telas novas do portal e a divisão do JS só chegam ao
+Android com ele).
+
+### 1. Telas em arquivos separados (abertura mais rápida)
+
+- `App.tsx` carrega cada tela com `React.lazy`; o login fica no pacote
+  principal. JS principal: **1,31 MB → 585 kB** (gzip 388 → 176 kB).
+- `AnimatedOutlet` tem o `Suspense`: o menu fica e só o miolo espera.
+- Quem estiver com a página aberta durante uma publicação pede um arquivo que
+  o Netlify já apagou; `main.tsx` recarrega uma vez (`vite:preloadError`, no
+  máximo uma vez por minuto).
+- Dá para cortar mais (framer-motion e Radix ainda estão no principal), mas o
+  ganho grande já veio.
+
+### 2. CI em todo PR
+
+- Workflow **Checagens** (`.github/workflows/checks.yml`): `tsc -p`, testes,
+  build e o **espelho do banco** (replay das migrations + testes de RLS, via
+  `sudo ./scripts/espelho-local.sh` no Postgres 16 que o runner já traz).
+  Roda em PR, no `main` e nos ramos `claude/**`. Primeira execução verde.
+- O lint ficou de fora: já tem 131 erros antigos. Limpar e ligar é um item.
+- Para o PR não mesclar vermelho, marcar "Checagens" como obrigatório em
+  Settings → Branches (só o Thiago faz).
+
+### 3. Primeiros passos da empresa nova
+
+- Cartão na Hoje (só admin), `FirstSteps.tsx` + `lib/firstSteps.ts`:
+  valor e forma de pagamento (Pix/link preenchido) → primeiro cliente →
+  primeiro atendimento → convite para o portal (algum login ligado).
+- Cada passo se marca pelo que existe no banco; o cartão some quando tudo está
+  feito (quem já usa o app nunca vê) e o x esconde no aparelho.
+- O "link público" da ideia original ficou de fora: só a empresa padrão tem
+  página pública até existir endereço por empresa. O passo virou o convite
+  para o portal, que é o que a escola nova consegue usar.
+
+### 4. Importar clientes de planilha
+
+- Alunos → **Importar** (só admin; também no estado vazio). Cola-se o que se
+  copia da planilha (TAB) ou abre-se um CSV (`,` ou `;`, UTF-8 ou
+  Windows-1252, que é como o Excel em português salva).
+- Colunas nome, responsável, endereço — na ordem, ou com cabeçalho
+  reconhecido pelo nome (aluno, paciente, cliente, tutor, endereço...).
+- Mostra a lista antes de gravar; repetido (mesmo nome + responsável, sem
+  acento/maiúscula) do cadastro ou da própria planilha fica de fora; o que
+  passa do limite do plano também, e o banco confere de novo.
+- `.xlsx` direto não: exigiria uma biblioteca de ~400 kB. A tela explica
+  "salve como CSV ou copie e cole".
+
+### 5. Família pede troca de horário — **no banco da produção**
+
+Migration `20260924080000_reschedule_requests.sql` (aplicada em 24/09 como
+`reschedule_requests`; antes conferido que a política substituída era igual
+à do repositório).
+
+- Em Minhas aulas, aula marcada ganha **Trocar** → a tela de pedido abre em
+  modo troca (mesmo profissional e assunto já preenchidos).
+- O pedido é um pedido comum com `lessons.reschedule_of` = aula que sai.
+  **Aprovar** confirma a nova e desmarca a antiga na mesma transação (gatilho
+  `lessons_apply_reschedule`, que só mexe nela se ainda estiver `agendada` —
+  nunca desfaz aula realizada, nem cobrança). **Recusar** ou **retirar**
+  deixa a antiga como estava. Um pedido de troca aberto por aula (índice).
+- Na Hoje do professor o pedido mostra "Troca da aula de ter 12/10 às 14:00 -
+  aprovar desmarca essa".
+- A política de inserção da família exige que a aula que sai seja dela, da
+  mesma empresa e ainda marcada (`can_request_reschedule`). Sem isso, um
+  pedido apontando a aula de outra família a cancelaria na aprovação.
+- Limitação: trocar para um horário que encosta na própria aula (mesmo
+  professor, meia hora depois) dá "horário ocupado" — a trava de sobreposição
+  vale entre o pedido e a aula antiga. Afrouxar não valia o risco.
+
+### 6. Antecedência mínima dos pedidos — **no banco da produção**
+
+- Configurações → Portal: "Antecedência mínima dos pedidos (horas)", 0 a 168,
+  **padrão 0** (nada muda para ninguém até alguém preencher).
+- Vale para pedir horário e para pedir troca; a tela esconde os horários
+  dentro do prazo e o banco recusa de novo.
+- Mudança de comportamento, pequena: mesmo com 0, a família não consegue mais
+  pedir horário que **já passou** (antes o banco aceitava; a tela nunca
+  oferecia).
+
+Espelho: bloco 28, 9 testes novos. Todos os anteriores seguem passando.
+
+### Política de falta/cancelamento: só metade — DECISÃO SUA
+
+A antecedência (acima) é a parte que não mexe em dinheiro. **Cobrar quem
+desmarca em cima da hora não foi feito**, porque muda a conta de tudo
+(carteira, desconto, recibo, IR, resumo do mês) e tem perguntas que são suas:
+
+1. Cobra o valor cheio ou uma porcentagem?
+2. O desconto da família vale sobre a multa?
+3. Aparece no recibo/IR como aula ou como "taxa de cancelamento"?
+4. Quem decide é o professor na hora ("desmarcar e cobrar") ou é automático?
+
+Minha sugestão: botão "Desmarcar com cobrança" no diálogo da aula, que marca
+a aula como `realizada` com um aviso "falta" no resumo — reaproveita toda a
+conta que já existe e não cria status novo. Mas é você quem diz.
+
+## PARA DEPOIS (anotado em 24/09, atualizado à tarde)
+
+Feitos na tarde de 24/09 (ver acima): primeira experiência, importar
+planilha, CI, abertura mais rápida, troca de horário, antecedência mínima.
+
+Ainda da revisão de vendabilidade:
+
+- **Monitoramento de erros** (Sentry, plano grátis) — precisa que você crie
+  a conta e me passe o DSN (é público, pode ir no `.env`).
+- **Página de venda do Cronys**, com preço e botão de teste — precisa do
+  preço dos planos e de onde vende (ver cobrança da assinatura).
+- **Política de falta com cobrança** — as 4 perguntas acima.
+- Lint limpo e ligado no CI.
+- Painel do gestor mostrar o ramo de cada empresa.
 
 Do roteiro antigo: lembrete de aula por WhatsApp; push no app; domínio →
 endereço por empresa → e-mail automático; assinar a agenda (.ics); marca
