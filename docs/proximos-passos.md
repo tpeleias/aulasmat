@@ -114,6 +114,25 @@ Nada disso foi começado. Decisões do Thiago já tomadas estão marcadas como t
 - Já está certo hoje: só admin usa o assistente (a edge function recusa quem não é admin
   daquela empresa, e o login de professor nem vê o menu).
 
+### 4. Domínio cronys.com.br (comprado na GoDaddy, já no ar pelo Netlify em 24/09)
+
+- Código: `src/lib/publicUrl.ts` ainda tem `https://cronys.lovable.app` como endereço
+  padrão do app Android (convites, disponibilidade, redirect do cadastro). Trocar para
+  `https://cronys.com.br` - vale no app só no próximo .aab.
+- Thiago, no Supabase: Authentication -> URL Configuration -> Site URL
+  `https://cronys.com.br` e Redirect URLs + `https://cronys.com.br/**` (manter os antigos).
+- Netlify: conferir cronys.com.br como Primary domain (redireciona o .netlify.app).
+- Play Console: política de privacidade -> `https://cronys.com.br/privacidade`,
+  exclusão de conta -> `https://cronys.com.br/excluir-conta`.
+- Página inicial pública (o que é, planos e preços, contato, termos/privacidade): o
+  Stripe olha o site para aprovar a conta, e hoje a raiz é a tela de login.
+- Stripe: decidido (Thiago já usou). O conector do Stripe apareceu nesta sessão;
+  usar em modo de teste para criar produtos e preços. Descrição do negócio para o
+  cadastro do Stripe já foi passada ao Thiago (SaaS por assinatura para negócios com
+  hora marcada; fatura "CRONYS").
+- Também pendente: SMTP próprio (Resend etc.) com remetente @cronys.com.br, e religar
+  "Confirm email" no Supabase antes de abrir para clientes (está DESLIGADO para testes).
+
 ## Assistente só com liberação (24/09)
 
 O assistente não vem mais com o Pro: fica bloqueado em qualquer plano, inclusive
