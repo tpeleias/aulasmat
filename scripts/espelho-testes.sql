@@ -1588,6 +1588,18 @@ SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() -
   'Solo: plano "pro" para o app antigo, faixa pro_solo para o novo');
 DO $$
 BEGIN
+  PERFORM public.account_extra_teachers(current_setting('teste.a')::uuid);
+  RAISE EXCEPTION 'FALHOU: contou a equipe de outra empresa';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao conta a equipe nem o uso do assistente de outra empresa';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.assistant_usage_status(current_setting('teste.a')::uuid);
+  RAISE EXCEPTION 'FALHOU: viu o uso do assistente de outra empresa';
+EXCEPTION WHEN insufficient_privilege THEN NULL;
+END $$;
+DO $$
+BEGIN
   UPDATE public.teachers SET active = true WHERE name = 'p2';
   RAISE EXCEPTION 'FALHOU: Solo reativou um segundo profissional';
 EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - no Solo, so 1 profissional ativo';

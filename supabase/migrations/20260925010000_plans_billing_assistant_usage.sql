@@ -126,7 +126,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS accounts_stripe_customer_key
 -- Quantos dias uma assinatura atrasada segue valendo. Um número só, aqui:
 -- mudar é trocar esta linha (decisão provisória de 25/09: 7 dias).
 CREATE OR REPLACE FUNCTION public.billing_grace_days()
-RETURNS int LANGUAGE sql IMMUTABLE AS $$ SELECT 7 $$;
+RETURNS int LANGUAGE sql IMMUTABLE SET search_path TO 'public' AS $$ SELECT 7 $$;
 
 -- Profissionais ativos que passam dos incluídos: é o que vira cobrança extra.
 CREATE OR REPLACE FUNCTION public.account_extra_teachers(_account uuid)
@@ -138,8 +138,10 @@ AS $$
     - coalesce((public.plan_features(public.account_plan(_account)) ->> 'included_teachers')::int, 1))
 $$;
 
-REVOKE ALL ON FUNCTION public.account_extra_teachers(uuid) FROM public, anon;
-GRANT EXECUTE ON FUNCTION public.account_extra_teachers(uuid) TO authenticated, service_role;
+-- Recebe qualquer empresa: só a chave mestra (e my_plan, que roda como dono)
+-- chama. Aberto a authenticated, contaria a equipe de outra empresa.
+REVOKE ALL ON FUNCTION public.account_extra_teachers(uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.account_extra_teachers(uuid) TO service_role;
 
 -- O que o webhook do Stripe manda aplicar. Só a chave mestra chama (a edge
 -- function, depois de conferir a assinatura do Stripe).
@@ -270,7 +272,7 @@ REVOKE INSERT, UPDATE, DELETE ON public.assistant_usage FROM authenticated;
 
 -- O mês é o de Brasília: a virada do mês para o cliente é à meia-noite dele.
 CREATE OR REPLACE FUNCTION public.assistant_month()
-RETURNS date LANGUAGE sql STABLE AS $$
+RETURNS date LANGUAGE sql STABLE SET search_path TO 'public' AS $$
   SELECT date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date
 $$;
 
@@ -295,8 +297,8 @@ AS $$
   FROM a, u
 $$;
 
-REVOKE ALL ON FUNCTION public.assistant_usage_status(uuid) FROM public, anon;
-GRANT EXECUTE ON FUNCTION public.assistant_usage_status(uuid) TO authenticated, service_role;
+REVOKE ALL ON FUNCTION public.assistant_usage_status(uuid) FROM public, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.assistant_usage_status(uuid) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.assistant_usage_add(
   _account uuid, _input bigint, _output bigint, _cache_read bigint, _cache_write bigint, _cost numeric

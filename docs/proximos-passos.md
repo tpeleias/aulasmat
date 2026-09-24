@@ -66,72 +66,117 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
-## PRÓXIMO (combinado em 24/09 para fazer no dia seguinte)
+## PRÓXIMO → FEITO em 24/09 (tarde): planos, Stripe, limite do assistente, domínio
 
-Nada disso foi começado. Decisões do Thiago já tomadas estão marcadas como tal.
+Pedido: "começa pela seção PRÓXIMO". Como o Thiago não podia acompanhar, as
+três decisões que estavam com ele foram tomadas com o padrão mais seguro e
+ficaram fáceis de trocar - **revisar**:
 
-### 1. Planos novos (decidido: gostou da proposta)
-
-| Plano | O que tem | Preço |
+| Decisão | O que ficou | Como trocar |
 |---|---|---|
-| Essencial | 1 profissional, até 5 clientes, nomes genéricos | grátis |
-| Pro Solo | 1 profissional, clientes sem limite, palavras do ramo, pacotes, bloqueio recorrente | R$ 49/mês |
-| Pro Equipe | até 5 profissionais, cada um com acesso próprio | R$ 99/mês + R$ 19 por profissional extra |
-| Anual | qualquer Pro | 2 meses grátis |
-| Assistente | adicional, liberado sob pedido, com limite de uso | R$ 29–39/mês |
+| Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
+| Tolerância de atraso | **7 dias** | `billing_grace_days()` na migration, uma linha |
+| Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
+| Preço de fundador | cupom **FUNDADOR**: 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20) | painel do Stripe → Cupons |
+| Assistente adicional | **sem preço no Stripe ainda**: continua liberado à mão pelo gestor | decidir o valor (R$ 29-39) |
 
-- Preço de fundador para os primeiros 10–20 clientes (ex.: R$ 39 para sempre).
-- No banco: hoje `accounts.plan` é 'essencial' | 'pro'. Vira 'essencial' | 'pro_solo' |
-  'pro_equipe' (ou 'pro' + limite de profissionais). `plan_features` ganha
-  `max_teachers` 1 no Solo e 5 no Equipe; o extra acima de 5 é cobrado, não bloqueado.
-  As contas Pro de hoje precisam de um destino (Solo ou Equipe) - perguntar.
+### O que está na produção
 
-### 2. Cobrança automática (a decidir: Asaas ou Stripe)
+- **Banco** (migration `20260925010000`, aplicada como
+  `plans_billing_assistant_usage`; antes, as funções substituídas foram
+  comparadas com o repositório - iguais). Depois: 104 aulas, 22 alunos, 105
+  lançamentos, nada travado a mais; as 3 contas Pro aparecem como Pro Equipe.
+- **Edge functions**: `billing` (JWT) e `stripe-webhook` (sem JWT - quem
+  chama é o Stripe; a prova é a assinatura HMAC) publicadas; `assistant-chat`
+  v15 com limite, registro de custo e cache de prompt.
+- **Stripe (modo teste)**: produtos Pro Solo, Pro Equipe e "profissional
+  extra", 6 preços (mensal/anual, `lookup_key` cronys_*), cupom + código
+  FUNDADOR, portal do cliente (trocar plano, cartão, faturas, cancelar no fim
+  do período) e o endpoint do webhook apontando para a função.
 
-- Asaas: Pix Automático, boleto, cartão, nota fiscal automática; profissional extra via
-  atualização do valor da assinatura pela API (sem proporcional nativo).
-- Stripe: Thiago já usou; profissional extra nativo (quantidade + proporcional); Pix
-  recorrente a confirmar no Brasil; sem nota fiscal.
-- Recomendação: Asaas, pelo público (pequeno negócio, Pix/boleto). Decisão é dele.
-- O que construir: página /assinar no SITE (nunca no app - regra da Google Play), edge
-  function do webhook (pago -> Pro com "pago até"; atraso -> aviso; após X dias de
-  tolerância -> Essencial pela trava de rebaixamento que já existe), rotina diária de
-  segurança igual à expire_trials, situação de cada empresa no painel do gestor, e
-  profissional extra atualizando a cobrança quando muda o número de ativos.
-- Começar no sandbox. Precisa do Thiago: CNPJ (ver enquadramento com contador), conta no
-  provedor, chave da API nos segredos do Supabase, dias de tolerância.
+### Planos no banco
 
-### 3. Limite de uso do assistente por conta
+- `accounts.plan`: `essencial` | `pro_solo` | `pro`. **`pro` = Pro Equipe**,
+  de propósito: as contas de hoje e o teste de 14 dias continuam valendo sem
+  migrar nada, e o app já instalado (que compara `plano === 'pro'`) segue
+  certo. `my_plan()` devolve `plano: 'pro'` nas duas faixas e a faixa exata em
+  `tier`.
+- Solo: 1 profissional, clientes sem limite. Equipe: `max_teachers` nulo e
+  `included_teachers` 5 - do sexto em diante é **cobrado** (R$ 19), não
+  bloqueado.
+- `apply_plan_locks()` substituiu o "virou Pro libera tudo, senão trava":
+  Equipe → Solo pausa os profissionais (o dono reativa 1) e não mexe nos
+  clientes.
 
-- Tabela de uso por empresa e mês, gravando os tokens que a API devolve em cada resposta.
-- assistant-chat confere o limite ANTES de chamar a API; passou, responde "limite do mês
-  atingido" sem gastar nada.
-- Limite mostrado ao cliente em conversas; controle interno por custo.
-- Configurações mostra o uso do mês; painel do gestor mostra o gasto por empresa e deixa
-  aumentar o limite à mão.
-- Medir antes o custo real de uma conversa (logs das conversas existentes) para fechar o
-  preço do adicional.
-- Já está certo hoje: só admin usa o assistente (a edge function recusa quem não é admin
-  daquela empresa, e o login de professor nem vê o menu).
+### Cobrança
 
-### 4. Domínio cronys.com.br (comprado na GoDaddy, já no ar pelo Netlify em 24/09)
+- Fluxo: `/assinar` (só no SITE) → função `billing` cria o Checkout → Stripe
+  → webhook → `billing_apply_subscription()` no banco muda o plano. A tela
+  nunca muda plano.
+- Atrasou: segue no plano por 7 dias (aviso em Configurações com a data);
+  depois `expire_unpaid_subscriptions()` (pg_cron, 03:30) passa para o
+  Essencial com a trava de rebaixamento. Pagou depois: o webhook devolve.
+  Cancelou: Essencial no fim do período pago.
+- Empresa **sem assinatura no Stripe** (as de hoje, ligadas à mão) nunca é
+  tocada pela rotina.
+- Profissional extra: ao ativar/desativar alguém na Equipe, a tela chama
+  `billing` → `sync_seats`, que acerta a quantidade na assinatura (com
+  proporcional). O webhook também acerta depois de troca de plano.
+- **No app Android não aparece preço nem link de compra** (regra da Google
+  Play): `canSellHere()` em `src/lib/subscription.ts`. No site, os avisos
+  "isto é do Pro" levam para `/assinar`.
+- Limitação: o portal do Stripe não troca plano de assinatura com mais de um
+  item (Equipe com extras). Raro; nesse caso troca-se pelo painel do Stripe.
 
-- Código: `src/lib/publicUrl.ts` ainda tem `https://cronys.lovable.app` como endereço
-  padrão do app Android (convites, disponibilidade, redirect do cadastro). Trocar para
-  `https://cronys.com.br` - vale no app só no próximo .aab.
-- Thiago, no Supabase: Authentication -> URL Configuration -> Site URL
-  `https://cronys.com.br` e Redirect URLs + `https://cronys.com.br/**` (manter os antigos).
-- Netlify: conferir cronys.com.br como Primary domain (redireciona o .netlify.app).
-- Play Console: política de privacidade -> `https://cronys.com.br/privacidade`,
-  exclusão de conta -> `https://cronys.com.br/excluir-conta`.
-- Página inicial pública (o que é, planos e preços, contato, termos/privacidade): o
-  Stripe olha o site para aprovar a conta, e hoje a raiz é a tela de login.
-- Stripe: decidido (Thiago já usou). O conector do Stripe apareceu nesta sessão;
-  usar em modo de teste para criar produtos e preços. Descrição do negócio para o
-  cadastro do Stripe já foi passada ao Thiago (SaaS por assinatura para negócios com
-  hora marcada; fatura "CRONYS").
-- Também pendente: SMTP próprio (Resend etc.) com remetente @cronys.com.br, e religar
-  "Confirm email" no Supabase antes de abrir para clientes (está DESLIGADO para testes).
+### Limite do assistente
+
+- `assistant_usage` por empresa e mês (horário de Brasília): mensagens,
+  tokens e custo em dólar. A função confere **antes** de chamar a API e
+  responde "usou as N mensagens do mês" sem gastar nada.
+- Custo calculado com o preço do Sonnet 5 (US$ 2 / US$ 10 por milhão;
+  cache a 10%/125%) - `PRICE_PER_MTOK` na função; trocou o modelo, troca lá.
+- **Cache de prompt ligado**: a hora saiu do texto cacheado. Estimativa antes
+  de medir: ~US$ 0,04-0,06 por mensagem sem cache; com cache, bem menos. O
+  número real aparece no painel do gestor (passe o mouse no "x/150 msg") - com
+  uma semana de uso dá para fechar o preço do adicional.
+- A tela do assistente mostra "x de 150 mensagens este mês".
+
+### Domínio e página inicial
+
+- `publicUrl.ts`: endereço padrão agora `https://cronys.com.br` (vale no app
+  só no próximo `.aab`).
+- **`/` no site, sem login, é a página do Cronys** (o que é, ramos,
+  recursos, planos e preços, perguntas, termos/privacidade/exclusão/contato) -
+  o que o Stripe olha. O login foi para **`/entrar`** (`/auth` redireciona).
+  No app e para quem já está logado, `/` continua sendo o login.
+  `/entrar?criar=empresa` abre direto o cadastro de empresa.
+
+### FALTA, e é do Thiago (nada disso eu consigo daqui)
+
+1. **Supabase → Edge Functions → Secrets**: `STRIPE_SECRET_KEY` (a chave
+   secreta de TESTE, `sk_test_...`, em Stripe → Developers → API keys) e
+   `STRIPE_WEBHOOK_SECRET` (Stripe → Developers → Webhooks → endpoint
+   "Cronys - assinatura" → Signing secret → Reveal). Sem as duas, `/assinar`
+   dá erro e o webhook recusa tudo.
+2. **Mesclar o PR** (o Netlify publica a página inicial e `/assinar`) e
+   publicar o Lovable.
+3. Testar uma assinatura com o cartão de teste `4242 4242 4242 4242` numa
+   empresa de teste (a Escola X, por exemplo): o plano deve mudar sozinho em
+   segundos.
+4. **Supabase → Authentication → URL Configuration**: Site URL
+   `https://cronys.com.br`; Redirect URLs + `https://cronys.com.br/**`
+   (manter os antigos).
+5. **Netlify**: conferir cronys.com.br como Primary domain.
+6. **Play Console**: privacidade → `https://cronys.com.br/privacidade`;
+   exclusão de conta → `https://cronys.com.br/excluir-conta`.
+7. Antes de abrir para clientes: religar **"Confirm email"** no Supabase e
+   configurar SMTP com remetente @cronys.com.br (Resend etc.).
+8. Para cobrar de verdade: ativar a conta do Stripe (CNPJ, conta bancária),
+   recriar os mesmos produtos/preços **com os mesmos lookup_key** no modo
+   real (ou copiar do teste pelo painel), criar o webhook no modo real e
+   trocar as duas secrets. O código não muda.
+9. `.aab` novo (1.11.0) para o app levar o endereço novo e a tela de uso do
+   assistente.
 
 ## Assistente só com liberação (24/09)
 
