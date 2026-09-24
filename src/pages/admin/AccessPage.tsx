@@ -105,10 +105,10 @@ export default function AccessPage() {
       "",
       `Link: ${publicSiteUrl()}/`,
     ];
-    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username} (aba “Conta”).`);
-    else if (s.user_id) lines.push("Entre na aba “Conta” com o seu e-mail.");
+    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username}.`);
+    else if (s.user_id) lines.push("Entre com o seu e-mail.");
     else if (plan.school_code) lines.push(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`);
-    if (s.child_username) lines.push(`Acesso ${w.client.do} ${w.client.l} (aba “Criança ou adolescente”): usuário ${s.child_username}.`);
+    if (s.child_username) lines.push(`Acesso ${w.client.do} ${w.client.l}: usuário ${s.child_username} (entra na mesma tela, com a senha dele).`);
     if (password.trim()) lines.push(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`);
     lines.push("", `Por lá você vê ${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}, o que está em aberto, os materiais e as tarefas.`);
     return lines.join("\n");
