@@ -88,9 +88,12 @@ Matéria/Especialidade/Serviço.
   dele ficaram neutras e levam uma chave em `HINT`, que `src/lib/dbErrors.ts`
   traduz. Mensagem nova do banco que cite professor/aula/aluno deve seguir esse
   padrão.
-- **Plano**: escolher o ramo é de todos; escrever as próprias palavras é do Pro
-  (`plan_features.custom_vocabulary`). Saindo do Pro, as palavras editadas ficam
-  guardadas mas deixam de valer.
+- **Plano** (decisão do Thiago): as palavras do ramo, e editá-las, são do Pro
+  (`plan_features.vocabulary`). No Essencial a tela fala genérico
+  (Profissional, Atendimento, Cliente). O ramo pode ser escolhido em qualquer
+  plano e fica guardado: a empresa nova nasce no teste do Pro e já vê as
+  palavras dela; se o teste acaba sem contratar, volta ao genérico da noite
+  para o dia, de propósito.
 - **Primeiro acesso**: empresa nova (cadastro ou painel do gestor) nasce sem
   ramo, e o dono vê a tela de boas-vindas (`BusinessOnboarding`) antes de tudo.
   Depois troca em Configurações → Tipo de negócio.

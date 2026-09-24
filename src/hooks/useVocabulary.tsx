@@ -4,13 +4,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary } from "@/lib/vocabulary";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; custom: unknown; custom_saved?: boolean };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
   v: Vocabulary;
-  /** Nulo: a empresa ainda não escolheu o ramo, ou o banco ainda não respondeu. */
+  /** O ramo escolhido. Nulo: não escolheu ainda, ou o banco não respondeu. */
   model: BusinessModel | null;
+  /**
+   * Se o plano deixa usar as palavras do ramo (Pro). Falso: a tela fala
+   * genérico - Profissional, Atendimento, Cliente - mesmo com ramo escolhido.
+   */
+  active: boolean;
   /**
    * O banco respondeu, e a empresa ainda não escolheu o ramo. Só isto abre a
    * tela de boas-vindas - `model` nulo sozinho também acontece com erro de rede.
@@ -50,6 +55,8 @@ function parse(raw: unknown): Raw | null {
   const r = raw as Record<string, unknown>;
   return {
     business_model: isBusinessModel(r.business_model) ? r.business_model : null,
+    // Ausente = resposta de antes desta regra (cache antigo): vale o ramo.
+    active: r.active !== false,
     custom: r.custom ?? null,
     custom_saved: r.custom_saved === true,
   };
@@ -97,10 +104,12 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Ctx>(() => {
     const model = raw && isBusinessModel(raw.business_model) ? raw.business_model : null;
-    const fallback = !answered && !raw && !loading ? "aulas" : model;
+    const active = raw?.active !== false;
+    const shown = !answered && !raw && !loading ? "aulas" : active ? model : null;
     return {
-      v: buildVocabulary(fallback, raw?.custom),
+      v: buildVocabulary(shown, active ? raw?.custom : null),
       model,
+      active,
       needsOnboarding: answered && raw !== null && model === null,
       custom: raw?.custom ?? null,
       customSaved: raw?.custom_saved === true,
@@ -116,6 +125,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
 const FORA_DO_PROVIDER: Ctx = {
   v: buildVocabulary(null),
   model: null,
+  active: false,
   needsOnboarding: false,
   custom: null,
   customSaved: false,

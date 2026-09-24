@@ -23,15 +23,15 @@ const specOf = (model: BusinessModel | null, custom: unknown): VocabularySpec =>
 /**
  * Tipo de negócio e as palavras da tela.
  *
- * Trocar o ramo é de todos os planos. Escrever as próprias palavras é do Pro:
- * no Essencial a tabela aparece só para leitura, com o aviso do Pro.
+ * As palavras do ramo, e editá-las, são do Pro. No Essencial a tela fala
+ * genérico; o ramo ainda pode ser escolhido e fica guardado para o Pro.
  */
 export default function VocabularySettings() {
-  const { model, custom, customSaved, apply } = useVocabulary();
+  const { model, custom, customSaved, active, apply } = useVocabulary();
   const { plan, loading: planLoading } = usePlan();
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<VocabularySpec>(() => specOf(model, custom));
-  const canEdit = plan.custom_vocabulary === true;
+  const canEdit = plan.vocabulary === true;
 
   // O que vem do banco (ou de outra aba) reinicia o rascunho.
   useEffect(() => { setDraft(specOf(model, custom)); }, [model, custom]);
@@ -44,7 +44,9 @@ export default function VocabularySettings() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     apply(data);
-    toast.success(`Agora o app fala como ${PRESETS[m].nome.toLocaleLowerCase("pt-BR")}`);
+    toast.success(active
+      ? `Agora o app fala como ${PRESETS[m].nome.toLocaleLowerCase("pt-BR")}`
+      : "Tipo guardado. Os nomes dele passam a valer no Cronys Pro.");
   };
 
   const setTerm = (k: TermKey, campo: "s" | "p" | "g", valor: string) =>
@@ -135,12 +137,13 @@ export default function VocabularySettings() {
           </div>
         ) : (
           <>
-            <ProUpsell titulo="Nomes sob medida" compacto>
-              escrever os próprios nomes é do Cronys Pro. No Essencial, o app usa os nomes do tipo de negócio escolhido acima.
+            <ProUpsell titulo="Os nomes do seu negócio são do Cronys Pro" compacto>
+              no Essencial o app usa nomes genéricos: Profissional, Atendimento e Cliente. O tipo escolhido acima
+              fica guardado e passa a valer quando a conta for Pro.
             </ProUpsell>
             {customSaved && (
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                Os nomes que você editou no Pro estão guardados e voltam se você voltar ao Pro.
+                Os nomes que você editou estão guardados e voltam se você voltar ao Pro.
                 <Button variant="outline" size="sm" onClick={reset} disabled={busy}>Apagar</Button>
               </div>
             )}

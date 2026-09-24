@@ -20,7 +20,7 @@ import type { BusinessModel } from "@/lib/vocabulary";
  */
 export default function BusinessOnboarding() {
   const { signOut } = useAuth();
-  const { apply } = useVocabulary();
+  const { apply, active } = useVocabulary();
   const [choice, setChoice] = useState<BusinessModel | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -44,6 +44,12 @@ export default function BusinessOnboarding() {
             O app usa as palavras do seu ramo em todas as telas - para você, para a sua equipe e para os seus clientes.
             Dá para trocar depois em Configurações.
           </p>
+          {!active && (
+            <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+              Sua conta está no Cronys Essencial, que usa nomes genéricos (Profissional, Atendimento, Cliente).
+              O tipo escolhido fica guardado e passa a valer no Cronys Pro.
+            </p>
+          )}
         </div>
 
         <BusinessModelPicker value={choice} onChange={setChoice} disabled={busy} />

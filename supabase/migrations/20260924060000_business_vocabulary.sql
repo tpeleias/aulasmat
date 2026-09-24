@@ -13,15 +13,17 @@
 -- O que fica aqui:
 --   accounts.business_model  o ramo. Nulo = a empresa ainda não escolheu, e o
 --                            dono vê a tela de boas-vindas no primeiro acesso.
---   accounts.vocabulary      palavras editadas à mão pelo dono (Pro). Nulo =
---                            usa as do ramo, que moram no front-end
+--   accounts.vocabulary      palavras editadas à mão pelo dono. Nulo = usa as
+--                            do ramo, que moram no front-end
 --                            (src/lib/vocabulary.ts) - o banco não precisa
 --                            delas para decidir nada.
 --
--- Plano: escolher o ramo é de todos; editar as palavras é do Pro. Quando a
--- empresa sai do Pro, as palavras editadas ficam guardadas mas deixam de
--- valer (my_vocabulary não as devolve); voltando ao Pro, voltam. Nada é
--- apagado - o mesmo espírito da trava de rebaixamento.
+-- Plano (decisão do Thiago, 24/09): as palavras do ramo, e editá-las, são do
+-- Pro. No Essencial o app fala genérico (Profissional, Atendimento, Cliente),
+-- mesmo que a empresa tenha escolhido um ramo. A escolha fica guardada: a
+-- empresa nova nasce no teste do Pro e já vê as palavras dela; se o teste
+-- acaba sem contratar, a tela volta ao genérico, e voltando ao Pro volta
+-- tudo. Nada é apagado - o mesmo espírito da trava de rebaixamento.
 
 ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS business_model text;
 ALTER TABLE public.accounts ADD COLUMN IF NOT EXISTS vocabulary jsonb;
@@ -41,10 +43,10 @@ COMMENT ON COLUMN public.accounts.vocabulary IS
 UPDATE public.accounts SET business_model = 'aulas' WHERE business_model IS NULL;
 
 -- ---------------------------------------------------------------------------
--- Plano: editar as palavras é do Pro
+-- Plano: as palavras do ramo são do Pro
 -- ---------------------------------------------------------------------------
 
--- Igual à versão de 20260921160000, com custom_vocabulary.
+-- Igual à versão de 20260921160000, com vocabulary.
 CREATE OR REPLACE FUNCTION public.plan_features(_plan text)
 RETURNS jsonb
 LANGUAGE sql IMMUTABLE
@@ -57,7 +59,7 @@ AS $$
       'assistant',         true,
       'packages',          true,
       'recurring_blocks',  true,
-      'custom_vocabulary', true
+      'vocabulary',        true
     )
     ELSE jsonb_build_object(
       'nome',              'Cronys Essencial',
@@ -70,9 +72,8 @@ AS $$
       -- horário que o professor não tem. O que se paga é não repetir o
       -- trabalho toda semana.
       'recurring_blocks',  false,
-      -- O ramo (e as palavras dele) vale para todos. O que é do Pro é
-      -- escrever as próprias.
-      'custom_vocabulary', false
+      -- Palavras do ramo e as editadas: no Essencial, tudo genérico.
+      'vocabulary',        false
     )
   END
 $$;
@@ -86,13 +87,17 @@ GRANT EXECUTE ON FUNCTION public.plan_features(text) TO authenticated, service_r
 -- Serve ao dono, ao professor, à família e à página pública (sem login):
 -- effective_account_id() é a empresa de quem está logado, ou a dona do
 -- endereço. Palavras não são segredo - são o que a própria tela mostra.
+--   business_model  o ramo escolhido (nulo = tela de boas-vindas)
+--   active          se o plano deixa usar as palavras do ramo; falso = genérico
+--   custom          as palavras editadas que valem agora
 CREATE OR REPLACE FUNCTION public.my_vocabulary()
 RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $$
   SELECT jsonb_build_object(
            'business_model', a.business_model,
-           'custom', CASE WHEN public.account_can('custom_vocabulary', a.id)
+           'active', public.account_can('vocabulary', a.id),
+           'custom', CASE WHEN public.account_can('vocabulary', a.id)
                           THEN a.vocabulary END,
            'custom_saved', a.vocabulary IS NOT NULL)
     FROM public.accounts a
@@ -106,6 +111,8 @@ GRANT EXECUTE ON FUNCTION public.my_vocabulary() TO anon, authenticated;
 -- ---------------------------------------------------------------------------
 
 -- Trocar de ramo começa do zero: as palavras editadas eram do ramo anterior.
+-- Vale em qualquer plano: é a tela de boas-vindas, e no Essencial a escolha
+-- fica guardada para quando a empresa for Pro.
 CREATE OR REPLACE FUNCTION public.set_business_model(_model text)
 RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
@@ -155,8 +162,8 @@ BEGIN
     RETURN public.my_vocabulary();
   END IF;
 
-  IF NOT public.account_can('custom_vocabulary', _acct) THEN
-    RAISE EXCEPTION 'Editar os nomes usados no app é do Cronys Pro.'
+  IF NOT public.account_can('vocabulary', _acct) THEN
+    RAISE EXCEPTION 'Os nomes do seu tipo de negócio são do Cronys Pro.'
       USING ERRCODE = 'check_violation';
   END IF;
   IF jsonb_typeof(_vocab) <> 'object' THEN

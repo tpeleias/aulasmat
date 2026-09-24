@@ -159,8 +159,8 @@ export default function SettingsPage() {
               <strong>{plan.recurring_blocks ? "sim" : "não"}</strong>
             </li>
             <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">Nomes sob medida</span>
-              <strong>{plan.custom_vocabulary ? "sim" : "não"}</strong>
+              <span className="text-muted-foreground">Nomes do seu tipo de negócio</span>
+              <strong>{plan.vocabulary ? "sim" : "não (genéricos)"}</strong>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">Assistente</span>

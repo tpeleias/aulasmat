@@ -1298,6 +1298,7 @@ BEGIN
   RAISE EXCEPTION 'FALHOU: aceitou tipo inventado';
 EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - tipo inventado e recusado';
 END $$;
+SELECT public.assert((public.my_vocabulary() ->> 'active')::boolean, 'no Pro, as palavras do tipo valem');
 SELECT public.assert((public.set_custom_vocabulary('{"staff":{"s":"Dentista","p":"Dentistas","g":"m"}}')
                        -> 'custom' -> 'staff' ->> 'p') = 'Dentistas',
   'no Pro, o dono edita as palavras');
@@ -1349,16 +1350,18 @@ EXCEPTION WHEN raise_exception THEN
 END $$;
 COMMIT;
 
--- Saindo do Pro: as palavras editadas ficam guardadas, mas deixam de valer.
+-- Saindo do Pro: o app volta ao generico; o tipo e as palavras editadas ficam
+-- guardados, sem valer.
 UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.a24')::uuid;
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.u24'), true);
-SELECT public.assert((public.my_vocabulary() -> 'custom') = 'null'::jsonb
+SELECT public.assert(NOT (public.my_vocabulary() ->> 'active')::boolean
+                     AND (public.my_vocabulary() -> 'custom') = 'null'::jsonb
                      AND (public.my_vocabulary() ->> 'custom_saved')::boolean
                      AND (public.my_vocabulary() ->> 'business_model') = 'saude',
-  'no Essencial vale o tipo, e as palavras editadas ficam guardadas sem valer');
+  'no Essencial fica generico, com o tipo e as palavras editadas guardados');
 DO $$
 BEGIN
   PERFORM public.set_custom_vocabulary('{"staff":{"s":"X","p":"Xs","g":"m"}}');

@@ -30,9 +30,15 @@ describe("VocabularyProvider", () => {
   });
 
   it("empresa com ramo usa as palavras dele", async () => {
-    rpcResult = { data: { business_model: "saude", custom: null, custom_saved: false }, error: null };
+    rpcResult = { data: { business_model: "saude", active: true, custom: null, custom_saved: false }, error: null };
     const { getByTestId } = renderProbe();
     await waitFor(() => expect(getByTestId("out").textContent).toBe("app|Consulta"));
+  });
+
+  it("no Essencial fala genérico, mesmo com ramo escolhido", async () => {
+    rpcResult = { data: { business_model: "saude", active: false, custom: null, custom_saved: true }, error: null };
+    const { getByTestId } = renderProbe();
+    await waitFor(() => expect(getByTestId("out").textContent).toBe("app|Atendimento"));
   });
 
   it("sem resposta do banco (ex.: migration ainda não aplicada) não pede o ramo e fala de aula", async () => {
