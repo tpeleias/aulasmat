@@ -231,11 +231,11 @@ release (Play)", execução 22) - falta subir na Play.
 **B. Domínio cronys.com.br**
 4. Netlify → Domain management: cronys.com.br como **Primary domain** (o
    .netlify.app passa a redirecionar para ele).
-5. Play Console → política de privacidade:
-   `https://cronys.com.br/privacidade`; Segurança dos dados → exclusão de
-   conta: `https://cronys.com.br/excluir-conta`.
-6. `.aab` novo (1.11.0): leva o endereço novo para os convites e links que o
-   app gera.
+5. ~~Play Console: links de privacidade e exclusão de conta para
+   cronys.com.br~~ - FEITO pelo Thiago em 24/09.
+6. ~~`.aab` 1.11.0~~ - FEITO: gerado (execução 22) e enviado à Play em 24/09.
+   Ficha da loja (nome, descrições, novidades): textos passados na conversa;
+   ficam em Aumentar número de utilizadores → Presença na loja → Fichas da loja.
 
 **C. Quando for abrir para clientes de verdade**
 7. Ativar a conta do Stripe (CNPJ, conta bancária) e passar para o modo real:
