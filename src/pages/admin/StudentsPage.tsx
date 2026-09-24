@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Users, ChevronRight, Search, Link2 } from "lucide-react";
+import { Plus, Users, ChevronRight, Search, Link2, FileUp } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { StudentManageDialog } from "@/components/StudentManageDialog";
+import StudentImportDialog from "@/components/StudentImportDialog";
 import StudentSheet, { type SheetLesson } from "@/components/StudentSheet";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -66,6 +67,7 @@ export default function StudentsPage() {
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
   const [manageFor, setManageFor] = useState<Student | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const defaultTeacher = useDefaultTeacher();
 
   const load = async () => {
@@ -192,12 +194,20 @@ export default function StudentsPage() {
                 : <>{students.length} cadastrado{students.length === 1 ? "" : "s"}{plan.max_students !== null && ` de ${plan.max_students}`}</>}
             </p>
           </div>
-          <Button
-            className="rounded-xl gap-1.5"
-            disabled={atLimit}
-            onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
-            <Plus className="w-4 h-4" /> Novo
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            {!isTeacher && (
+              <Button variant="outline" className="rounded-xl gap-1.5" disabled={atLimit} title="Cadastrar vários de uma planilha"
+                onClick={() => { haptics.tap(); setImportOpen(true); }}>
+                <FileUp className="w-4 h-4" /> Importar
+              </Button>
+            )}
+            <Button
+              className="rounded-xl gap-1.5"
+              disabled={atLimit}
+              onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
+              <Plus className="w-4 h-4" /> Novo
+            </Button>
+          </div>
         </div>
 
         {!isTeacher && locked.length > 0 && (
@@ -246,7 +256,10 @@ export default function StudentsPage() {
           <ListSkeleton rows={5} />
         ) : students.length === 0 ? (
           <EmptyState icon={Users} title={`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`} description={`Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`}
-            action={<Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> {c.novo} {c.l}</Button>} />
+            action={<div className="flex flex-wrap justify-center gap-2">
+              <Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> {c.novo} {c.l}</Button>
+              {!isTeacher && <Button variant="outline" className="rounded-xl" onClick={() => setImportOpen(true)}><FileUp className="mr-1.5 h-4 w-4" /> Importar de planilha</Button>}
+            </div>} />
         ) : visible.length === 0 ? (
           <EmptyState icon={Search} title="Nada encontrado" description={`${c.nenhum} ${c.l} ou ${w.guardian.l} com "${query}".`} />
         ) : (
@@ -340,6 +353,14 @@ export default function StudentsPage() {
           address: scheduleFor.address,
         } : null}
         onSaved={() => { setScheduleFor(null); load(); }}
+      />
+
+      <StudentImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existing={students}
+        room={plan.max_students === null ? null : Math.max(0, plan.max_students - unlockedCount)}
+        onImported={load}
       />
 
       <StudentManageDialog
