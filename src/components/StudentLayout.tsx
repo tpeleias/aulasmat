@@ -21,7 +21,7 @@ export default function StudentLayout() {
   const w = useWords();
 
   if (loading || stLoading) return null;
-  if (!session) return <Navigate to="/" replace />;
+  if (!session) return <Navigate to="/entrar" replace />;
   if (role === "admin") return <Navigate to="/admin" replace />;
   if (role === "child") return <Navigate to="/meu-painel" replace />;
   if (role !== "student") return <Navigate to="/" replace />;

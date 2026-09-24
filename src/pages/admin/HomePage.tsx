@@ -21,6 +21,7 @@ import PeriodSummary from "@/components/PeriodSummary";
 import type { SummaryLesson } from "@/lib/periodSummary";
 import { useAuth } from "@/hooks/useAuth";
 import TrialBanner from "@/components/TrialBanner";
+import FirstSteps from "@/components/FirstSteps";
 import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
@@ -60,6 +61,8 @@ export default function HomePage() {
   const [allLessons, setAllLessons] = useState<SummaryLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
+  // Recarregar a tela (puxar para baixo, aula salva) reconfere os primeiros passos.
+  const [reloads, setReloads] = useState(0);
 
   const load = useCallback(async () => {
     const now = new Date();
@@ -86,6 +89,7 @@ export default function HomePage() {
     setAllLessons(all);
     setDoneLessons(all.filter(l => l.status === "realizada"));
     setLoading(false);
+    setReloads(n => n + 1);
   }, [isTeacher]);
 
   useEffect(() => { load(); }, [load]);
@@ -115,6 +119,8 @@ export default function HomePage() {
         </header>
 
         {!isTeacher && <TrialBanner />}
+
+        {!isTeacher && <FirstSteps refreshKey={reloads} />}
 
         <LessonRequests onChanged={load} />
 

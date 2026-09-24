@@ -66,6 +66,154 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
+## PRÓXIMO → FEITO em 24/09 (tarde): planos, Stripe, limite do assistente, domínio
+
+Pedido: "começa pela seção PRÓXIMO". Como o Thiago não podia acompanhar, as
+três decisões que estavam com ele foram tomadas com o padrão mais seguro e
+ficaram fáceis de trocar - **revisar**:
+
+| Decisão | O que ficou | Como trocar |
+|---|---|---|
+| Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
+| Tolerância de atraso | **2 dias** (Thiago, 24/09; era 7) | `billing_grace_days()`, uma linha numa migration |
+| Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
+| Preço de fundador | cupom **FUNDADOR**: 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20) | painel do Stripe → Cupons |
+| Assistente | **desligado em todas as empresas e fora de venda** (Thiago, 24/09: sem gasto de API até começar a cobrar). Pronto como adicional: produto "Cronys Assistente" no Stripe, R$ 39/mês ou R$ 390/ano (provisório) | ver "Para ligar o assistente" abaixo |
+
+### O que está na produção
+
+- **Banco** (migration `20260925010000`, aplicada como
+  `plans_billing_assistant_usage`; antes, as funções substituídas foram
+  comparadas com o repositório - iguais). Depois: 104 aulas, 22 alunos, 105
+  lançamentos, nada travado a mais; as 3 contas Pro aparecem como Pro Equipe.
+- **Edge functions**: `billing` (JWT) e `stripe-webhook` (sem JWT - quem
+  chama é o Stripe; a prova é a assinatura HMAC) publicadas; `assistant-chat`
+  v15 com limite, registro de custo e cache de prompt.
+- **Stripe (modo teste)**: produtos Pro Solo, Pro Equipe e "profissional
+  extra", 6 preços (mensal/anual, `lookup_key` cronys_*), cupom + código
+  FUNDADOR, portal do cliente (trocar plano, cartão, faturas, cancelar no fim
+  do período) e o endpoint do webhook apontando para a função.
+
+### Planos no banco
+
+- `accounts.plan`: `essencial` | `pro_solo` | `pro`. **`pro` = Pro Equipe**,
+  de propósito: as contas de hoje e o teste de 14 dias continuam valendo sem
+  migrar nada, e o app já instalado (que compara `plano === 'pro'`) segue
+  certo. `my_plan()` devolve `plano: 'pro'` nas duas faixas e a faixa exata em
+  `tier`.
+- Solo: 1 profissional, clientes sem limite. Equipe: `max_teachers` nulo e
+  `included_teachers` 5 - do sexto em diante é **cobrado** (R$ 19), não
+  bloqueado.
+- `apply_plan_locks()` substituiu o "virou Pro libera tudo, senão trava":
+  Equipe → Solo pausa os profissionais (o dono reativa 1) e não mexe nos
+  clientes.
+
+### Cobrança
+
+- Fluxo: `/assinar` (só no SITE) → função `billing` cria o Checkout → Stripe
+  → webhook → `billing_apply_subscription()` no banco muda o plano. A tela
+  nunca muda plano.
+- Atrasou: segue no plano por 7 dias (aviso em Configurações com a data);
+  depois `expire_unpaid_subscriptions()` (pg_cron, 03:30) passa para o
+  Essencial com a trava de rebaixamento. Pagou depois: o webhook devolve.
+  Cancelou: Essencial no fim do período pago.
+- Empresa **sem assinatura no Stripe** (as de hoje, ligadas à mão) nunca é
+  tocada pela rotina.
+- Profissional extra: ao ativar/desativar alguém na Equipe, a tela chama
+  `billing` → `sync_seats`, que acerta a quantidade na assinatura (com
+  proporcional). O webhook também acerta depois de troca de plano.
+- **No app Android não aparece preço nem link de compra** (regra da Google
+  Play): `canSellHere()` em `src/lib/subscription.ts`. No site, os avisos
+  "isto é do Pro" levam para `/assinar`.
+- Limitação: o portal do Stripe não troca plano de assinatura com mais de um
+  item (Equipe com extras). Raro; nesse caso troca-se pelo painel do Stripe.
+
+### Limite do assistente
+
+- `assistant_usage` por empresa e mês (horário de Brasília): mensagens,
+  tokens e custo em dólar. A função confere **antes** de chamar a API e
+  responde "usou as N mensagens do mês" sem gastar nada.
+- Custo calculado com o preço do Sonnet 5 (US$ 2 / US$ 10 por milhão;
+  cache a 10%/125%) - `PRICE_PER_MTOK` na função; trocou o modelo, troca lá.
+- **Cache de prompt ligado**: a hora saiu do texto cacheado. Estimativa antes
+  de medir: ~US$ 0,04-0,06 por mensagem sem cache; com cache, bem menos. O
+  número real aparece no painel do gestor (passe o mouse no "x/150 msg") - com
+  uma semana de uso dá para fechar o preço do adicional.
+- A tela do assistente mostra "x de 150 mensagens este mês".
+
+### Domínio e página inicial
+
+- `publicUrl.ts`: endereço padrão agora `https://cronys.com.br` (vale no app
+  só no próximo `.aab`).
+- **`/` no site, sem login, é a página do Cronys** (o que é, ramos,
+  recursos, planos e preços, perguntas, termos/privacidade/exclusão/contato) -
+  o que o Stripe olha. O login foi para **`/entrar`** (`/auth` redireciona).
+  No app e para quem já está logado, `/` continua sendo o login.
+  `/entrar?criar=empresa` abre direto o cadastro de empresa.
+
+### Para ligar o assistente (quando começar a cobrar)
+
+Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
+
+1. Migration nova com `assistant_on_sale()` devolvendo `true`. A partir daí
+   `/assinar` mostra "Incluir o Assistente" no pagamento, e quem já assina ganha
+   o botão "Adicionar o Assistente". Comprou → o webhook liga; tirou ou deixou
+   de pagar → desliga. Cortesia dada à mão pelo gestor não é afetada.
+2. Se o preço não for R$ 39: criar preço novo no produto "Cronys Assistente"
+   no Stripe com o mesmo `lookup_key` (marcar "transferir lookup key") e trocar
+   `ASSISTANT_ADDON` em `src/lib/subscription.ts`.
+3. Tirar o "Em breve" da página inicial (`Landing.tsx`).
+4. Para uma empresa usar sem comprar (teste, cortesia): painel do gestor →
+   switch "Assistente".
+
+Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
+`20260925020000`.
+
+### O QUE FALTA - lista para fazer depois
+
+**A. Para testar a cobrança (modo teste do Stripe)** - nesta ordem
+1. Supabase → Edge Functions → **Secrets** (Thiago disse que vai pôr):
+   `STRIPE_SECRET_KEY` = `sk_test_...` (Stripe → Developers → API keys) e
+   `STRIPE_WEBHOOK_SECRET` = Stripe → Developers → Webhooks → "Cronys -
+   assinatura" → Signing secret → Reveal.
+2. **Mesclar o PR** → o Netlify publica sozinho (página inicial, `/entrar`,
+   `/assinar`). Depois publicar o Lovable.
+3. Testar numa empresa de teste (Escola X): Configurações → Ver planos e
+   assinar → cartão `4242 4242 4242 4242`, qualquer validade futura e CVC.
+   O selo deve virar PRO em segundos. Testar também o código FUNDADOR e o
+   "Gerenciar assinatura" (portal).
+
+**B. Domínio cronys.com.br**
+4. Netlify → Domain management: cronys.com.br como **Primary domain** (o
+   .netlify.app passa a redirecionar para ele).
+5. Play Console → política de privacidade:
+   `https://cronys.com.br/privacidade`; Segurança dos dados → exclusão de
+   conta: `https://cronys.com.br/excluir-conta`.
+6. `.aab` novo (1.11.0): leva o endereço novo para os convites e links que o
+   app gera.
+
+**C. Quando for abrir para clientes de verdade**
+7. Ativar a conta do Stripe (CNPJ, conta bancária) e passar para o modo real:
+   recriar produtos/preços com os **mesmos lookup_key** (dá para copiar do
+   teste pelo painel), criar o webhook no modo real para o mesmo endereço e
+   trocar as duas secrets por `sk_live_...` e o novo signing secret. O código
+   não muda.
+8. Religar **"Confirm email"** no Supabase. Junto com ele, e só então:
+   - Supabase → Authentication → **URL Configuration**: *Site URL*
+     `https://cronys.com.br` e, em *Redirect URLs*, acrescentar
+     `https://cronys.com.br/**` (manter os antigos). É para onde o link do
+     e-mail de confirmação leva; com a confirmação desligada, não é usado.
+   - SMTP próprio com remetente @cronys.com.br (Resend ou parecido), senão
+     os e-mails saem do remetente padrão do Supabase, com limite baixo.
+9. Revisão jurídica dos termos (identificação do fornecedor, cancelamento e
+   reembolso) - agora que existe cobrança, é obrigatório antes de vender.
+
+**D. Decisões de negócio ainda abertas**
+10. Preço final do assistente (hoje R$ 39, provisório) e quando ligar.
+11. Política de falta com cobrança (as 4 perguntas na seção de 24/09).
+12. Contas Pro de hoje: continuam Pro Equipe sem cobrança (ligadas à mão).
+    Decidir se o Portal de Aulas e a Demonstração ficam de cortesia para sempre.
+
 ## Assistente só com liberação (24/09)
 
 O assistente não vem mais com o Pro: fica bloqueado em qualquer plano, inclusive
@@ -1931,20 +2079,124 @@ O front aguenta rodar antes das migrations (colunas novas são lidas com
 `select("*")` e conferidas antes de usar), mas o cadastro de escola e o
 papel de professor só funcionam depois delas.
 
-## PARA DEPOIS (anotado em 24/09)
+## Lote de 24/09 (tarde) — itens da lista "PARA DEPOIS"
 
-Da revisão de vendabilidade:
+Pedido: "desenvolve os próximos passos; pode aceitar as mudanças de SQL sem
+me perguntar". Ramo `claude/sql-development-next-steps-vsn464`.
 
-- **Primeira experiência de escola nova** (lista "valor da aula → professor →
-  primeiro aluno → link público"). Ficou mais urgente: agora a escola se
-  cadastra sozinha e cai numa tela vazia.
-- **Importar alunos de planilha.**
-- **Monitoramento de erros** (Sentry, plano grátis).
-- **CI com `tsc`, testes e o espelho em cada PR.**
-- **Abertura mais rápida:** dividir o JS por tela (hoje ~1,25 MB de uma vez).
-- **Página de venda do Cronys**, com preço e botão de teste.
-- Família pedir **troca** de horário.
-- **Política de falta/cancelamento** configurável.
+**Situação:** a migration já está **aplicada na produção**; o código está no
+ramo, **falta mesclar** (o Netlify publica sozinho), publicar o Lovable e
+gerar `.aab` novo (as telas novas do portal e a divisão do JS só chegam ao
+Android com ele).
+
+### 1. Telas em arquivos separados (abertura mais rápida)
+
+- `App.tsx` carrega cada tela com `React.lazy`; o login fica no pacote
+  principal. JS principal: **1,31 MB → 585 kB** (gzip 388 → 176 kB).
+- `AnimatedOutlet` tem o `Suspense`: o menu fica e só o miolo espera.
+- Quem estiver com a página aberta durante uma publicação pede um arquivo que
+  o Netlify já apagou; `main.tsx` recarrega uma vez (`vite:preloadError`, no
+  máximo uma vez por minuto).
+- Dá para cortar mais (framer-motion e Radix ainda estão no principal), mas o
+  ganho grande já veio.
+
+### 2. CI em todo PR
+
+- Workflow **Checagens** (`.github/workflows/checks.yml`): `tsc -p`, testes,
+  build e o **espelho do banco** (replay das migrations + testes de RLS, via
+  `sudo ./scripts/espelho-local.sh` no Postgres 16 que o runner já traz).
+  Roda em PR, no `main` e nos ramos `claude/**`. Primeira execução verde.
+- O lint ficou de fora: já tem 131 erros antigos. Limpar e ligar é um item.
+- Para o PR não mesclar vermelho, marcar "Checagens" como obrigatório em
+  Settings → Branches (só o Thiago faz).
+
+### 3. Primeiros passos da empresa nova
+
+- Cartão na Hoje (só admin), `FirstSteps.tsx` + `lib/firstSteps.ts`:
+  valor e forma de pagamento (Pix/link preenchido) → primeiro cliente →
+  primeiro atendimento → convite para o portal (algum login ligado).
+- Cada passo se marca pelo que existe no banco; o cartão some quando tudo está
+  feito (quem já usa o app nunca vê) e o x esconde no aparelho.
+- O "link público" da ideia original ficou de fora: só a empresa padrão tem
+  página pública até existir endereço por empresa. O passo virou o convite
+  para o portal, que é o que a escola nova consegue usar.
+
+### 4. Importar clientes de planilha
+
+- Alunos → **Importar** (só admin; também no estado vazio). Cola-se o que se
+  copia da planilha (TAB) ou abre-se um CSV (`,` ou `;`, UTF-8 ou
+  Windows-1252, que é como o Excel em português salva).
+- Colunas nome, responsável, endereço — na ordem, ou com cabeçalho
+  reconhecido pelo nome (aluno, paciente, cliente, tutor, endereço...).
+- Mostra a lista antes de gravar; repetido (mesmo nome + responsável, sem
+  acento/maiúscula) do cadastro ou da própria planilha fica de fora; o que
+  passa do limite do plano também, e o banco confere de novo.
+- `.xlsx` direto não: exigiria uma biblioteca de ~400 kB. A tela explica
+  "salve como CSV ou copie e cole".
+
+### 5. Família pede troca de horário — **no banco da produção**
+
+Migration `20260924080000_reschedule_requests.sql` (aplicada em 24/09 como
+`reschedule_requests`; antes conferido que a política substituída era igual
+à do repositório).
+
+- Em Minhas aulas, aula marcada ganha **Trocar** → a tela de pedido abre em
+  modo troca (mesmo profissional e assunto já preenchidos).
+- O pedido é um pedido comum com `lessons.reschedule_of` = aula que sai.
+  **Aprovar** confirma a nova e desmarca a antiga na mesma transação (gatilho
+  `lessons_apply_reschedule`, que só mexe nela se ainda estiver `agendada` —
+  nunca desfaz aula realizada, nem cobrança). **Recusar** ou **retirar**
+  deixa a antiga como estava. Um pedido de troca aberto por aula (índice).
+- Na Hoje do professor o pedido mostra "Troca da aula de ter 12/10 às 14:00 -
+  aprovar desmarca essa".
+- A política de inserção da família exige que a aula que sai seja dela, da
+  mesma empresa e ainda marcada (`can_request_reschedule`). Sem isso, um
+  pedido apontando a aula de outra família a cancelaria na aprovação.
+- Limitação: trocar para um horário que encosta na própria aula (mesmo
+  professor, meia hora depois) dá "horário ocupado" — a trava de sobreposição
+  vale entre o pedido e a aula antiga. Afrouxar não valia o risco.
+
+### 6. Antecedência mínima dos pedidos — **no banco da produção**
+
+- Configurações → Portal: "Antecedência mínima dos pedidos (horas)", 0 a 168,
+  **padrão 0** (nada muda para ninguém até alguém preencher).
+- Vale para pedir horário e para pedir troca; a tela esconde os horários
+  dentro do prazo e o banco recusa de novo.
+- Mudança de comportamento, pequena: mesmo com 0, a família não consegue mais
+  pedir horário que **já passou** (antes o banco aceitava; a tela nunca
+  oferecia).
+
+Espelho: bloco 28, 9 testes novos. Todos os anteriores seguem passando.
+
+### Política de falta/cancelamento: só metade — DECISÃO SUA
+
+A antecedência (acima) é a parte que não mexe em dinheiro. **Cobrar quem
+desmarca em cima da hora não foi feito**, porque muda a conta de tudo
+(carteira, desconto, recibo, IR, resumo do mês) e tem perguntas que são suas:
+
+1. Cobra o valor cheio ou uma porcentagem?
+2. O desconto da família vale sobre a multa?
+3. Aparece no recibo/IR como aula ou como "taxa de cancelamento"?
+4. Quem decide é o professor na hora ("desmarcar e cobrar") ou é automático?
+
+Minha sugestão: botão "Desmarcar com cobrança" no diálogo da aula, que marca
+a aula como `realizada` com um aviso "falta" no resumo — reaproveita toda a
+conta que já existe e não cria status novo. Mas é você quem diz.
+
+## PARA DEPOIS (anotado em 24/09, atualizado à tarde)
+
+Feitos na tarde de 24/09 (ver acima): primeira experiência, importar
+planilha, CI, abertura mais rápida, troca de horário, antecedência mínima.
+
+Ainda da revisão de vendabilidade:
+
+- **Monitoramento de erros** (Sentry, plano grátis) — precisa que você crie
+  a conta e me passe o DSN (é público, pode ir no `.env`).
+- **Página de venda do Cronys**, com preço e botão de teste — precisa do
+  preço dos planos e de onde vende (ver cobrança da assinatura).
+- **Política de falta com cobrança** — as 4 perguntas acima.
+- Lint limpo e ligado no CI.
+- Painel do gestor mostrar o ramo de cada empresa.
 
 Do roteiro antigo: lembrete de aula por WhatsApp; push no app; domínio →
 endereço por empresa → e-mail automático; assinar a agenda (.ics); marca

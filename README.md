@@ -52,6 +52,7 @@ de RLS, não o segredo da chave.
 | Marca: paleta e tipografia | `src/index.css`, `src/components/brand.tsx` |
 | Marca: ícones, splash, og-image | `scripts/gerar-identidade.py` |
 | Espelho local do banco, para testar RLS | `scripts/espelho-local.sh` |
+| Checagens de todo PR (tipos, testes, build, espelho) | `.github/workflows/checks.yml` |
 | Notas de trabalho entre conversas | `docs/proximos-passos.md` |
 | Publicar na Play Store | `docs/publicar-na-play.md` |
 

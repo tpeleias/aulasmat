@@ -77,14 +77,14 @@ export default function AdminLayout() {
       <Badge
         variant={plan.plano === "pro" ? "default" : "outline"}
         className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
-        title={plan.plano === "pro" ? "Sua conta tem todas as funções" : `Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`}
+        title={plan.plano === "pro" ? plan.nome : `Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`}
       >
-        {plan.plano === "pro" ? "PRO" : "ESSENCIAL"}
+        {plan.plano !== "pro" ? "ESSENCIAL" : plan.tier === "pro_solo" ? "PRO SOLO" : "PRO"}
       </Badge>
     );
 
   if (loading) return null;
-  if (!session) return <Navigate to="/auth" replace />;
+  if (!session) return <Navigate to="/entrar" replace />;
   if (role === "child") return <Navigate to="/meu-painel" replace />;
   if (isTeacher && !teacherCan(location.pathname)) return <Navigate to="/admin" replace />;
   if (!isAdmin && !isTeacher) return (

@@ -13,14 +13,17 @@ import { lessonErrorMessage } from "@/lib/lessonErrors";
 import { capitalize } from "@/lib/balance";
 import { haptics } from "@/lib/haptics";
 import { toast } from "sonner";
-import { Check, X, Clock, MapPin, Wifi } from "lucide-react";
+import { Check, X, Clock, MapPin, Wifi, Repeat } from "lucide-react";
 import { useWords } from "@/hooks/useVocabulary";
 
 type Request = {
   id: string; student_name: string; guardian_name: string | null; teacher: string;
   start_at: string; duration_minutes: number; address: string | null; is_online: boolean;
   subject: string | null; notes: string | null;
+  /** Pedido de troca: a aula que sai quando este for aprovado (migration 20260924080000). */
+  reschedule_of?: string | null;
 };
+type Original = { id: string; start_at: string; status: string; teacher: string };
 
 /**
  * Os pedidos de aula que o aluno mandou e o professor ainda não respondeu.
@@ -38,14 +41,22 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
   const [requests, setRequests] = useState<Request[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [refusing, setRefusing] = useState<Request | null>(null);
+  const [originals, setOriginals] = useState<Map<string, Original>>(new Map());
 
   const load = useCallback(async () => {
+    // "*" e não a lista de colunas: reschedule_of só existe depois da migration
+    // 20260924080000, e pedir uma coluna que não existe derrubaria a lista toda.
     const { data } = await supabase
       .from("lessons")
-      .select("id, student_name, guardian_name, teacher, start_at, duration_minutes, address, is_online, subject, notes")
+      .select("*")
       .eq("status", "solicitada")
       .order("start_at");
-    setRequests((data ?? []) as Request[]);
+    const reqs = (data ?? []) as unknown as Request[];
+    setRequests(reqs);
+    const ids = reqs.map(r => r.reschedule_of).filter((x): x is string => !!x);
+    if (ids.length === 0) { setOriginals(new Map()); return; }
+    const { data: o } = await supabase.from("lessons").select("id, start_at, status, teacher").in("id", ids);
+    setOriginals(new Map(((o ?? []) as Original[]).map(x => [x.id, x])));
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -66,9 +77,14 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
     const { error } = await supabase.from("lessons").update({ status }).eq("id", req.id);
     setBusyId(null);
     if (error) { toast.error(lessonErrorMessage(error, w)); return; }
+    const orig = req.reschedule_of ? originals.get(req.reschedule_of) : undefined;
     toast.success(status === "agendada"
-      ? `${w.appointment.s} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} na agenda.`
-      : `Pedido de ${req.student_name} recusado e o horário liberado.`);
+      ? orig && orig.status === "agendada"
+        ? `Troca feita: ${w.appointment.l} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} e a de ${format(new Date(orig.start_at), "dd/MM HH:mm")} desmarcada.`
+        : `${w.appointment.s} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} na agenda.`
+      : orig
+        ? `Troca recusada: ${req.student_name} continua com ${w.appointment.o} ${w.appointment.l} de ${format(new Date(orig.start_at), "dd/MM HH:mm")}.`
+        : `Pedido de ${req.student_name} recusado e o horário liberado.`);
     await load();
     onChanged?.();
   };
@@ -117,6 +133,19 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     {format(start, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })} · {r.duration_minutes} min · {capitalize(r.teacher)}
                     {r.subject ? ` · ${r.subject}` : ""}
                   </div>
+                  {r.reschedule_of && (() => {
+                    const o = originals.get(r.reschedule_of);
+                    if (!o) return null;
+                    return (
+                      <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
+                        <Repeat className="h-3 w-3 shrink-0" />
+                        Troca {w.appointment.do} {w.appointment.l} de {format(new Date(o.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
+                        {o.status === "agendada"
+                          ? " - aprovar desmarca essa"
+                          : ` (essa já está ${o.status}; aprovar não mexe nela)`}
+                      </div>
+                    );
+                  })()}
                   {/* O que a família escreveu. É isto que decide se você aceita e
                       como se prepara, então fica visível sem precisar abrir nada. */}
                   {r.notes && (

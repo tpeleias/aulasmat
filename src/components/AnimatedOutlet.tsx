@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, useOutlet } from "react-router-dom";
 
@@ -15,7 +16,9 @@ export default function AnimatedOutlet() {
         exit={{ opacity: 0, y: -10 }}
         transition={{ duration: 0.22, ease: [0.4, 0, 0.2, 1] }}
       >
-        {element}
+        {/* Cada tela é baixada na primeira visita (App.tsx): o menu fica e só o
+            miolo espera. */}
+        <Suspense fallback={null}>{element}</Suspense>
       </motion.div>
     </AnimatePresence>
   );

@@ -19,13 +19,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { lessonErrorMessage } from "@/lib/lessonErrors";
 import { toast } from "sonner";
-import { Calendar, Clock, AlertCircle, Flame } from "lucide-react";
-import { Navigate } from "react-router-dom";
+import { Calendar, Clock, AlertCircle, Flame, Repeat } from "lucide-react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { capitalize } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
 const DAYS_AHEAD = 5;
+
+// A aula que a família quer trocar (?troca=<id>, vindo de "Minhas aulas").
+type Original = { id: string; start_at: string; teacher: string; subject: string | null; status: string; is_online: boolean };
 
 export default function StudentBooking() {
   const settings = useAppSettings();
@@ -34,6 +37,12 @@ export default function StudentBooking() {
   const st = w.staff;
   const { student } = useStudent();
   const { teachers } = useTeachers(true);
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const trocaId = params.get("troca");
+  const [original, setOriginal] = useState<Original | null>(null);
+  // Horas de antecedência que a escola exige; o banco confere de novo no pedido.
+  const noticeHours = Number(settings?.min_request_notice_hours ?? 0) || 0;
   const [teacher, setTeacher] = useState<string>("");
   const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
   const [busy, setBusy] = useState(false);
@@ -46,6 +55,17 @@ export default function StudentBooking() {
   const [subject, setSubject] = useState("");
   const [topic, setTopic] = useState("");
   const [online, setOnline] = useState(false);
+
+  useEffect(() => {
+    if (!trocaId) { setOriginal(null); return; }
+    supabase.from("lessons").select("id, start_at, teacher, subject, status, is_online").eq("id", trocaId).maybeSingle()
+      .then(({ data }) => {
+        const o = data as Original | null;
+        setOriginal(o);
+        // Na troca, começa pelo mesmo profissional; a família pode mudar.
+        if (o && teachers.some(t => t.name === o.teacher)) setTeacher(o.teacher);
+      });
+  }, [trocaId, teachers]);
 
   useEffect(() => { if (!teacher && teachers[0]) setTeacher(teachers[0].name); }, [teachers, teacher]);
 
@@ -74,6 +94,8 @@ export default function StudentBooking() {
     const candidatesPool = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, blocksOnly, rec);
     const s: any = settings;
     const now = new Date();
+    // Nada que comece antes da antecedência mínima: o banco recusaria o pedido.
+    const earliest = new Date(now.getTime() + noticeHours * 3600_000);
     const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
     for (let i = 0; i < DAYS_AHEAD; i++) {
       const day = addDays(from, i);
@@ -84,14 +106,14 @@ export default function StudentBooking() {
       const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teachers.find(t => t.name === teacher)?.scarcity);
       const picked = pickScarcityCandidates(day, dayCandidates, teacher, minN, maxN);
       const visible = picked
-        .filter(start => freeStartTimes.has(start.getTime()))
+        .filter(start => freeStartTimes.has(start.getTime()) && start >= earliest)
         .map(start => ({ start, end: new Date(start.getTime() + settings.slot_minutes * 60000) }));
       grouped.push({ day, slots: visible });
     }
     setSlotsByDay(grouped);
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start, noticeHours]);
 
   const request = async () => {
     if (!student || !pending) return;
@@ -120,11 +142,26 @@ export default function StudentBooking() {
       status: "solicitada",
       notes: topic.trim() || null,
       is_online: online,
-    });
+      // Numa troca, o pedido aponta a aula que sai. Ela só é desmarcada quando
+      // o pedido for aprovado (gatilho lessons_apply_reschedule).
+      ...(original ? { reschedule_of: original.id } : {}),
+    } as never);
     if (error) {
       setBusy(false);
-      toast.error(lessonErrorMessage(error, w));
+      // 42501: a política recusou - fora da antecedência mínima, ou a aula a
+      // trocar já não está marcada.
+      toast.error(error.code === "42501"
+        ? noticeHours > 0
+          ? `Pedidos precisam de pelo menos ${noticeHours}h de antecedência. Para algo mais em cima da hora, fale com ${st.o} ${st.l}.`
+          : `Não foi possível enviar o pedido. Atualize a tela e tente de novo.`
+        : lessonErrorMessage(error, w));
       load();
+      return;
+    }
+    if (original) {
+      toast.success(`Pedido de troca enviado! ${cap(ap.o)} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} responder.`);
+      setBusy(false);
+      navigate("/aluno/aulas");
       return;
     }
     toast.success(`Pedido enviado! ${cap(st.o)} ${st.l} vai avaliar e você recebe a resposta por aqui.`);
@@ -142,12 +179,32 @@ export default function StudentBooking() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold flex items-center gap-2"><Calendar className="w-6 h-6" /> Solicitar {ap.l}</h1>
+        <h1 className="text-2xl font-bold flex items-center gap-2">
+          {original ? <><Repeat className="w-6 h-6" /> Trocar horário</> : <><Calendar className="w-6 h-6" /> Solicitar {ap.l}</>}
+        </h1>
         <p className="text-sm text-muted-foreground">
           Escolha {st.o} {st.l} e um horário livre. O pedido vai para {st.o} {st.l} aprovar — {ap.o} {ap.l}
           só entra na agenda depois disso.
+          {noticeHours > 0 && ` Pedidos com pelo menos ${noticeHours}h de antecedência.`}
         </p>
       </div>
+
+      {trocaId && original && (
+        <Card className="flex flex-wrap items-center justify-between gap-2 border-primary/40 p-4 text-sm">
+          <div>
+            Trocando {ap.o} {ap.l} de <b>{format(new Date(original.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</b>.
+            <p className="text-xs text-muted-foreground">
+              Ela continua {ap.pick("marcado", "marcada")} até {st.o} {st.l} aprovar o horário novo; se recusar, nada muda.
+            </p>
+          </div>
+          <Button asChild size="sm" variant="ghost"><Link to="/aluno/agendar">Pedir {ap.l} {ap.pick("novo", "nova")} em vez disso</Link></Button>
+        </Card>
+      )}
+      {trocaId && !original && (
+        <Card className="p-4 text-sm text-muted-foreground">
+          Não encontramos {ap.o} {ap.l} a trocar. <Link to="/aluno/aulas" className="text-primary">Voltar</Link>
+        </Card>
+      )}
 
       {teachers.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {st.nenhum} {st.l} disponível no momento.</Card>
@@ -186,7 +243,12 @@ export default function StudentBooking() {
                       key={s.start.toISOString()}
                       variant="outline"
                       disabled={busy}
-                      onClick={() => { setSubject(""); setTopic(""); setOnline(!student?.address); setPending(s); }}
+                      onClick={() => {
+                        setSubject(original?.subject ?? "");
+                        setTopic("");
+                        setOnline(original ? original.is_online : !student?.address);
+                        setPending(s);
+                      }}
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="flex items-center gap-1 text-sm font-semibold"><Clock className="w-3 h-3" />{fmtTime(s.start)}</span>
@@ -203,10 +265,14 @@ export default function StudentBooking() {
       <AlertDialog open={!!pending} onOpenChange={open => { if (!open) setPending(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Deseja solicitar este horário?</AlertDialogTitle>
+            <AlertDialogTitle>{original ? "Pedir a troca para este horário?" : "Deseja solicitar este horário?"}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
-                <p>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(teacher)}</strong>:</p>
+                <p>
+                  {original
+                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com <strong>{capitalize(teacher)}</strong>:</>
+                    : <>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(teacher)}</strong>:</>}
+                </p>
                 {pending && (
                   <p className="text-foreground font-medium">
                     {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
@@ -266,7 +332,7 @@ export default function StudentBooking() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={request} disabled={!subject.trim()}>
-              Solicitar horário
+              {original ? "Pedir troca" : "Solicitar horário"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

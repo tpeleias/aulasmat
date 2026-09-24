@@ -1,13 +1,15 @@
 import { differenceInCalendarDays, format } from "date-fns";
 import { Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { usePlan } from "@/hooks/usePlan";
+import { canSellHere } from "@/lib/subscription";
 
 /**
  * Aviso do teste grátis do Pro, para a escola que se cadastrou sozinha.
  *
  * Como o ProUpsell, não tem botão de compra (regra da Google Play para bem
  * digital vendido fora da cobrança dela): só avisa até quando vai e o que
- * acontece depois.
+ * acontece depois. No site, leva para /assinar.
  */
 export default function TrialBanner() {
   const { plan, loading } = usePlan();
@@ -27,6 +29,7 @@ export default function TrialBanner() {
         <p className="mt-0.5 text-xs text-muted-foreground">
           Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do limite fica
           pausado até você escolher o que liberar.
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Assinar agora</Link></>}
         </p>
       </div>
     </div>

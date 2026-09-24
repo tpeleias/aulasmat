@@ -14,6 +14,8 @@ import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
+import { Link } from "react-router-dom";
+import { canSellHere } from "@/lib/subscription";
 
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
@@ -36,6 +38,8 @@ type Settings = {
   show_payment_info_to_students: boolean;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
+  /** Só existe depois da migration 20260924080000. */
+  min_request_notice_hours?: number;
 };
 
 export default function SettingsPage() {
@@ -94,6 +98,9 @@ export default function SettingsPage() {
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
+      ...("min_request_notice_hours" in s
+        ? { min_request_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.min_request_notice_hours) || 0))) }
+        : {}),
       ...(hasIssuerColumn ? { issuer_document: (s.issuer_document || "").trim() || null } : {}),
       ...(hasPayColumns ? Object.fromEntries(
         ["payment_link_label", "payment_link_note", "pix_receiver_name", "pix_city"]
@@ -144,7 +151,7 @@ export default function SettingsPage() {
           <ul className="space-y-1 text-sm">
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{v.staff.p}</span>
-              <strong>{plan.max_teachers ?? "sem limite"}</strong>
+              <strong>{plan.max_teachers ?? (plan.included_teachers ? `${plan.included_teachers} incluídos, e mais sob cobrança` : "sem limite")}</strong>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{v.client.p}</span>
@@ -171,12 +178,33 @@ export default function SettingsPage() {
               </strong>
             </li>
           </ul>
+          {plan.billing_status === "active" && plan.paid_until && (
+            <p className="text-xs text-muted-foreground">
+              Assinatura {plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em {new Date(plan.paid_until).toLocaleDateString("pt-BR")}.
+              {(plan.extra_teachers ?? 0) > 0 && ` Inclui ${plan.extra_teachers} ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp} a mais.`}
+            </p>
+          )}
+          {plan.billing_status === "past_due" && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              O pagamento da assinatura não passou.
+              {plan.grace_until && ` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString("pt-BR")}, a conta passa para o Essencial (nada é apagado).`}
+            </p>
+          )}
           {plan.plano !== "pro" && (
             <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
               O que você já cadastrou continua aqui, sempre. Os limites valem só
-              para cadastrar coisa nova. Para mudar de plano, fale com quem cuida
-              da sua conta.
+              para cadastrar coisa nova.
+              {!canSellHere() && " Para mudar de plano, fale com quem cuida da sua conta."}
             </p>
+          )}
+          {/* Só no site: no app a Google Play não deixa vender nem apontar para
+              onde se compra (ver lib/subscription.ts). */}
+          {canSellHere() && (
+            <Button asChild variant={plan.billing_status === "active" ? "outline" : "default"} className="w-full">
+              <Link to="/assinar">
+                {plan.billing_status === "active" || plan.billing_status === "past_due" ? "Gerenciar assinatura" : "Ver planos e assinar"}
+              </Link>
+            </Button>
           )}
         </Card>
       )}
@@ -302,6 +330,20 @@ export default function SettingsPage() {
           </div>
           <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
         </div>
+        {"min_request_notice_hours" in s && s.allow_student_booking && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div>
+              <Label htmlFor="antecedencia">Antecedência mínima dos pedidos (horas)</Label>
+              <p className="text-xs text-muted-foreground">
+                Vale para pedir horário e para pedir troca: com 24, ninguém pede para amanhã cedo nem troca {v.appointment.o} {v.appointment.l} de
+                {" "}amanhã pelo portal - precisa falar com você. 0 = sem mínimo.
+              </p>
+            </div>
+            <Input id="antecedencia" type="number" min={0} max={168} className="w-20 shrink-0"
+              value={s.min_request_notice_hours ?? 0}
+              onChange={e => setS({ ...s, min_request_notice_hours: Number(e.target.value) })} />
+          </div>
+        )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="cursor-pointer">Exibir disponibilidade {v.staff.dos} {v.staff.lp} no portal</Label>

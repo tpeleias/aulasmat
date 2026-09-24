@@ -25,7 +25,7 @@ export default function ChangePassword() {
 
   const { role } = useAuth();
   if (authLoading || stLoading) return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
-  if (!session) return <Navigate to="/" replace />;
+  if (!session) return <Navigate to="/entrar" replace />;
   const isChild = role === "child";
   const destination = isChild ? "/meu-painel" : "/aluno";
   const needsChange = isChild ? !!student?.child_must_change_password : !!student?.must_change_password;

@@ -1,46 +1,65 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { MotionConfig } from "framer-motion";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { Capacitor } from "@capacitor/core";
 import { VocabularyProvider } from "@/hooks/useVocabulary";
 import { ThemeProvider } from "@/hooks/useTheme";
-import NotFound from "./pages/NotFound";
 import Auth from "./pages/Auth";
-import PublicAvailability from "./pages/PublicAvailability";
-import PublicHome from "./pages/PublicHome";
-import PrivacyPolicy from "./pages/PrivacyPolicy";
-import TermsOfUse from "./pages/TermsOfUse";
-import DeleteAccountInfo from "./pages/DeleteAccountInfo";
-import MyAccount from "./pages/MyAccount";
-import AdminLayout from "./components/AdminLayout";
-import HomePage from "./pages/admin/HomePage";
-import CalendarPage from "./pages/admin/CalendarPage";
-import BlocksPage from "./pages/admin/BlocksPage";
-import BillingPage from "./pages/admin/BillingPage";
-import ReportsPage from "./pages/admin/ReportsPage";
-import EvolutionPage from "./pages/admin/EvolutionPage";
-import SettingsPage from "./pages/admin/SettingsPage";
-import StudentsPage from "./pages/admin/StudentsPage";
-import TeachersPage from "./pages/admin/TeachersPage";
-import AssistantPage from "./pages/admin/AssistantPage";
-import AccessPage from "./pages/admin/AccessPage";
-import StudentLayout from "./components/StudentLayout";
-import StudentDashboard from "./pages/student/StudentDashboard";
-import StudentLessons from "./pages/student/StudentLessons";
-import StudentBilling from "./pages/student/StudentBilling";
-import StudentMaterials from "./pages/student/StudentMaterials";
-import StudentHomework from "./pages/student/StudentHomework";
-import StudentBooking from "./pages/student/StudentBooking";
-import ChangePassword from "./pages/student/ChangePassword";
-import ChildLayout from "./components/ChildLayout";
-import ChildDashboard from "./pages/child/ChildDashboard";
 import AndroidBackButton from "./components/AndroidBackButton";
-import PlatformPage from "./pages/platform/PlatformPage";
+
+// Cada tela vira um arquivo à parte: a vitrine e o login não baixam o app
+// inteiro (antes, ~1,3 MB de uma vez). O login fica no pacote principal porque
+// é a primeira tela de quase todo mundo.
+const NotFound = lazy(() => import("./pages/NotFound"));
+const PublicAvailability = lazy(() => import("./pages/PublicAvailability"));
+const PublicHome = lazy(() => import("./pages/PublicHome"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
+const DeleteAccountInfo = lazy(() => import("./pages/DeleteAccountInfo"));
+const MyAccount = lazy(() => import("./pages/MyAccount"));
+const AdminLayout = lazy(() => import("./components/AdminLayout"));
+const HomePage = lazy(() => import("./pages/admin/HomePage"));
+const CalendarPage = lazy(() => import("./pages/admin/CalendarPage"));
+const BlocksPage = lazy(() => import("./pages/admin/BlocksPage"));
+const BillingPage = lazy(() => import("./pages/admin/BillingPage"));
+const ReportsPage = lazy(() => import("./pages/admin/ReportsPage"));
+const EvolutionPage = lazy(() => import("./pages/admin/EvolutionPage"));
+const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const StudentsPage = lazy(() => import("./pages/admin/StudentsPage"));
+const TeachersPage = lazy(() => import("./pages/admin/TeachersPage"));
+const AssistantPage = lazy(() => import("./pages/admin/AssistantPage"));
+const AccessPage = lazy(() => import("./pages/admin/AccessPage"));
+const StudentLayout = lazy(() => import("./components/StudentLayout"));
+const StudentDashboard = lazy(() => import("./pages/student/StudentDashboard"));
+const StudentLessons = lazy(() => import("./pages/student/StudentLessons"));
+const StudentBilling = lazy(() => import("./pages/student/StudentBilling"));
+const StudentMaterials = lazy(() => import("./pages/student/StudentMaterials"));
+const StudentHomework = lazy(() => import("./pages/student/StudentHomework"));
+const StudentBooking = lazy(() => import("./pages/student/StudentBooking"));
+const ChangePassword = lazy(() => import("./pages/student/ChangePassword"));
+const ChildLayout = lazy(() => import("./components/ChildLayout"));
+const ChildDashboard = lazy(() => import("./pages/child/ChildDashboard"));
+const PlatformPage = lazy(() => import("./pages/platform/PlatformPage"));
+const Subscribe = lazy(() => import("./pages/Subscribe"));
+const Landing = lazy(() => import("./pages/Landing"));
 
 const queryClient = new QueryClient();
+
+// A raiz do endereço. No site, para quem não está logado, é a página do
+// Cronys (o que é, planos e preços) - é ela que o Stripe e quem chega pelo
+// Google veem. No app Android e para quem já entrou, continua sendo o login,
+// que manda cada um para a sua tela.
+function Root() {
+  const { session, loading } = useAuth();
+  if (Capacitor.isNativePlatform()) return <Auth />;
+  if (loading) return null;
+  return session ? <Auth /> : <Landing />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -53,9 +72,12 @@ const App = () => (
         <AuthProvider>
         <VocabularyProvider>
           <AndroidBackButton />
+          <Suspense fallback={null}>
           <Routes>
-            <Route path="/" element={<Auth />} />
-            <Route path="/auth" element={<Navigate to="/" replace />} />
+            <Route path="/" element={<Root />} />
+            <Route path="/entrar" element={<Auth />} />
+            <Route path="/auth" element={<Navigate to="/entrar" replace />} />
+            <Route path="/assinar" element={<Subscribe />} />
             <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/inicio" element={<PublicHome />} />
             <Route path="/privacidade" element={<PrivacyPolicy />} />
@@ -97,6 +119,7 @@ const App = () => (
             <Route path="/gestor" element={<PlatformPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </VocabularyProvider>
         </AuthProvider>
       </BrowserRouter>

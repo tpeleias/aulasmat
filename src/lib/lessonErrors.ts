@@ -21,5 +21,8 @@ export function isSlotConflict(error: SupabaseError): boolean {
 export function lessonErrorMessage(error: SupabaseError, v: Vocabulary = DEFAULT_VOCABULARY): string {
   if (!error) return "";
   if (isSlotConflict(error)) return `Esse horário já está ocupado para ${v.staff.este} ${v.staff.l}.`;
+  // 23505 no índice de troca: já existe um pedido de troca aberto para essa aula.
+  if (error.code === "23505" && (error.message ?? "").includes("lessons_one_open_reschedule"))
+    return `Já existe um pedido de troca para ${v.appointment.este} ${v.appointment.l}. Retire o pedido anterior para pedir outro horário.`;
   return dbErrorMessage(error, v, `Não foi possível salvar ${v.appointment.o} ${v.appointment.l}.`);
 }

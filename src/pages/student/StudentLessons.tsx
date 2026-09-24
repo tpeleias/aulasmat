@@ -12,6 +12,9 @@ import { scopeToAccount } from "@/lib/balance";
 import { isDiscarded, isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 import { useWords } from "@/hooks/useVocabulary";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Repeat } from "lucide-react";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -50,15 +53,24 @@ export default function StudentLessons() {
           <TabsTrigger value="upcoming">{ap.pick("Próximos", "Próximas")} e pedidos ({upcoming.length})</TabsTrigger>
           <TabsTrigger value="past">{ap.p} {ap.pick("realizados", "realizadas")} ({past.length})</TabsTrigger>
         </TabsList>
-        <TabsContent value="upcoming"><LessonList lessons={upcoming} settings={settings} hideFinancial={hideFinancial} onChanged={load} /></TabsContent>
+        <TabsContent value="upcoming"><LessonList lessons={upcoming} all={lessons} settings={settings} hideFinancial={hideFinancial} onChanged={load} /></TabsContent>
         <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={hideFinancial} /></TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }: any) {
+function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChanged }: any) {
   const w = useWords();
+  const ap = w.appointment;
+  // Troca: o pedido aponta a aula que sai (reschedule_of). Os dois lados se
+  // mostram - o pedido diz de qual aula é, e a aula diz que tem troca pedida.
+  const byId = new Map<string, any>((all ?? lessons).map((l: any) => [l.id, l]));
+  const openSwapFor = new Set((all ?? lessons).filter((l: any) => l.reschedule_of && isRequest(l.status)).map((l: any) => l.reschedule_of));
+  const noticeMs = Number(settings?.min_request_notice_hours ?? 0) * 3600_000;
+  const canSwap = (l: any) =>
+    !hideFinancial && onChanged && settings?.allow_student_booking && l.status === "agendada"
+    && new Date(l.start_at).getTime() >= Date.now() + noticeMs && !openSwapFor.has(l.id);
   if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">Nada por aqui.</Card>;
   return (
     <div className="space-y-2">
@@ -68,6 +80,16 @@ function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }
             <div>
               <div className="font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{l.teacher}</div>
+              {l.reschedule_of && isRequest(l.status) && byId.get(l.reschedule_of) && (
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
+                  <Repeat className="h-3 w-3" /> Troca {ap.do} {ap.l} de {format(new Date(byId.get(l.reschedule_of).start_at), "dd/MM 'às' HH:mm")}
+                </div>
+              )}
+              {openSwapFor.has(l.id) && l.status === "agendada" && (
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Repeat className="h-3 w-3" /> Troca pedida - continua {ap.pick("marcado", "marcada")} até a resposta
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {/* Pedido sem resposta, recusado ou cancelado não tem cobrança para
@@ -81,6 +103,11 @@ function LessonList({ lessons, settings, showSummary, hideFinancial, onChanged }
                   esta mesma tela pelo /meu-painel e não deve ver o botão. */}
               {!hideFinancial && isRequest(l.status) && onChanged && (
                 <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={onChanged} />
+              )}
+              {canSwap(l) && (
+                <Button asChild size="sm" variant="outline" className="h-8 rounded-xl">
+                  <Link to={`/aluno/agendar?troca=${l.id}`}><Repeat className="mr-1 h-3.5 w-3.5" /> Trocar</Link>
+                </Button>
               )}
               {!hideFinancial && (
                 <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
