@@ -37,6 +37,10 @@ export type Plan = {
   grace_until?: string | null;
   extra_teachers?: number;
   assistant_usage?: { used: number; limit: number; allowed: boolean } | null;
+  /** O adicional do assistente está à venda (assistant_on_sale() no banco). */
+  assistant_on_sale?: boolean;
+  /** O assistente desta empresa veio do adicional comprado, e não de cortesia. */
+  assistant_billed?: boolean;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a

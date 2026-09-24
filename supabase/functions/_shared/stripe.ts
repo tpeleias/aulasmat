@@ -21,6 +21,16 @@ export const LOOKUP: Record<Tier | "extra", Record<Interval, string>> = {
   extra: { month: "cronys_extra_mensal", year: "cronys_extra_anual" },
 };
 
+// O adicional do assistente. Só entra na assinatura quando o banco diz que
+// está à venda (assistant_on_sale).
+export const ASSISTANT_LOOKUP: Record<Interval, string> = {
+  month: "cronys_assistente_mensal", year: "cronys_assistente_anual",
+};
+
+export function isAssistantLookup(key: string | null | undefined) {
+  return !!key && key.startsWith("cronys_assistente_");
+}
+
 /** De lookup_key para a faixa do Cronys; nulo para o que não é plano (o extra). */
 export function tierOfLookup(key: string | null | undefined): Tier | null {
   if (!key) return null;

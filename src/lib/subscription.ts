@@ -19,6 +19,8 @@ export type PlanCard = {
 };
 
 export const EXTRA_TEACHER = { mensal: 19, anual: 190 };
+/** Adicional do assistente (lookup_key cronys_assistente_*). Só é oferecido quando o banco diz que está à venda. */
+export const ASSISTANT_ADDON = { mensal: 39, anual: 390 };
 export const EQUIPE_INCLUDED = 5;
 
 export const PLANS: PlanCard[] = [

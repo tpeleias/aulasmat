@@ -10,11 +10,13 @@
 //                cancelar
 //   sync_seats - acerta a cobrança de profissional extra (a tela chama depois
 //                de ativar/desativar alguém na Equipe)
+//   assistant  - põe ou tira o adicional do assistente de quem já assina
+//                (pôr só quando assistant_on_sale() no banco for verdadeiro)
 //
 // Quem muda o plano no banco nunca é esta função: é o webhook, quando o Stripe
 // confirma o pagamento. Aqui só se abre a porta.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { LOOKUP, priceIds, stripe, syncExtraSeats, type Interval, type Tier } from "../_shared/stripe.ts";
+import { ASSISTANT_LOOKUP, LOOKUP, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, type Interval, type Tier } from "../_shared/stripe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -58,6 +60,35 @@ Deno.serve(async (req) => {
 
     if (action === "sync_seats") return json(await syncExtraSeats(admin, accountId));
 
+    const { data: onSale } = await admin.rpc("assistant_on_sale");
+    const wantsAssistant = body?.assistant === true;
+    if (wantsAssistant && onSale !== true) {
+      return json({ error: "O Assistente ainda não está à venda." }, 400);
+    }
+
+    // Pôr ou tirar o adicional numa assinatura que já existe. Quem liga ou
+    // desliga no banco é o webhook, quando o Stripe confirmar a mudança.
+    if (action === "assistant") {
+      if (!acc.stripe_subscription_id || acc.billing_status === "canceled") {
+        return json({ error: "Assine um plano antes de adicionar o Assistente." }, 400);
+      }
+      const sub = await stripe("GET", `/subscriptions/${acc.stripe_subscription_id}`);
+      const items: any[] = sub.items?.data ?? [];
+      const current = items.find((i) => isAssistantLookup(i.price?.lookup_key));
+      const base = items.find((i) => tierOfLookup(i.price?.lookup_key));
+      const interval: Interval = base?.price?.recurring?.interval === "year" ? "year" : "month";
+      if (wantsAssistant && !current) {
+        const ids = await priceIds([ASSISTANT_LOOKUP[interval]]);
+        await stripe("POST", "/subscription_items", {
+          subscription: acc.stripe_subscription_id, price: ids[ASSISTANT_LOOKUP[interval]], quantity: 1,
+          proration_behavior: "create_prorations",
+        });
+      } else if (!wantsAssistant && current) {
+        await stripe("DELETE", `/subscription_items/${current.id}`, { proration_behavior: "create_prorations" });
+      }
+      return json({ ok: true });
+    }
+
     // Cliente no Stripe: um por empresa, criado na primeira vez.
     let customer = acc.stripe_customer_id as string | null;
     if (!customer) {
@@ -86,7 +117,8 @@ Deno.serve(async (req) => {
     const interval: Interval = body?.interval === "year" ? "year" : "month";
     const baseKey = LOOKUP[tier][interval];
     const extraKey = LOOKUP.extra[interval];
-    const ids = await priceIds(tier === "pro" ? [baseKey, extraKey] : [baseKey]);
+    const assistantKey = ASSISTANT_LOOKUP[interval];
+    const ids = await priceIds([baseKey, ...(tier === "pro" ? [extraKey] : []), ...(wantsAssistant ? [assistantKey] : [])]);
 
     // Quem assina a Equipe já com mais de 5 profissionais ativos paga os extras
     // desde o começo. Conta como se já estivesse na Equipe.
@@ -96,6 +128,7 @@ Deno.serve(async (req) => {
 
     const lineItems: Record<string, unknown>[] = [{ price: ids[baseKey], quantity: 1 }];
     if (extra > 0) lineItems.push({ price: ids[extraKey], quantity: extra });
+    if (wantsAssistant) lineItems.push({ price: ids[assistantKey], quantity: 1 });
 
     const session = await stripe("POST", "/checkout/sessions", {
       mode: "subscription",

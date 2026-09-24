@@ -75,10 +75,10 @@ ficaram fáceis de trocar - **revisar**:
 | Decisão | O que ficou | Como trocar |
 |---|---|---|
 | Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
-| Tolerância de atraso | **7 dias** | `billing_grace_days()` na migration, uma linha |
+| Tolerância de atraso | **2 dias** (Thiago, 24/09; era 7) | `billing_grace_days()`, uma linha numa migration |
 | Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
 | Preço de fundador | cupom **FUNDADOR**: 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20) | painel do Stripe → Cupons |
-| Assistente adicional | **sem preço no Stripe ainda**: continua liberado à mão pelo gestor | decidir o valor (R$ 29-39) |
+| Assistente | **desligado em todas as empresas e fora de venda** (Thiago, 24/09: sem gasto de API até começar a cobrar). Pronto como adicional: produto "Cronys Assistente" no Stripe, R$ 39/mês ou R$ 390/ano (provisório) | ver "Para ligar o assistente" abaixo |
 
 ### O que está na produção
 
@@ -151,32 +151,68 @@ ficaram fáceis de trocar - **revisar**:
   No app e para quem já está logado, `/` continua sendo o login.
   `/entrar?criar=empresa` abre direto o cadastro de empresa.
 
-### FALTA, e é do Thiago (nada disso eu consigo daqui)
+### Para ligar o assistente (quando começar a cobrar)
 
-1. **Supabase → Edge Functions → Secrets**: `STRIPE_SECRET_KEY` (a chave
-   secreta de TESTE, `sk_test_...`, em Stripe → Developers → API keys) e
-   `STRIPE_WEBHOOK_SECRET` (Stripe → Developers → Webhooks → endpoint
-   "Cronys - assinatura" → Signing secret → Reveal). Sem as duas, `/assinar`
-   dá erro e o webhook recusa tudo.
-2. **Mesclar o PR** (o Netlify publica a página inicial e `/assinar`) e
-   publicar o Lovable.
-3. Testar uma assinatura com o cartão de teste `4242 4242 4242 4242` numa
-   empresa de teste (a Escola X, por exemplo): o plano deve mudar sozinho em
-   segundos.
-4. **Supabase → Authentication → URL Configuration**: Site URL
-   `https://cronys.com.br`; Redirect URLs + `https://cronys.com.br/**`
-   (manter os antigos).
-5. **Netlify**: conferir cronys.com.br como Primary domain.
-6. **Play Console**: privacidade → `https://cronys.com.br/privacidade`;
-   exclusão de conta → `https://cronys.com.br/excluir-conta`.
-7. Antes de abrir para clientes: religar **"Confirm email"** no Supabase e
-   configurar SMTP com remetente @cronys.com.br (Resend etc.).
-8. Para cobrar de verdade: ativar a conta do Stripe (CNPJ, conta bancária),
-   recriar os mesmos produtos/preços **com os mesmos lookup_key** no modo
-   real (ou copiar do teste pelo painel), criar o webhook no modo real e
-   trocar as duas secrets. O código não muda.
-9. `.aab` novo (1.11.0) para o app levar o endereço novo e a tela de uso do
-   assistente.
+Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
+
+1. Migration nova com `assistant_on_sale()` devolvendo `true`. A partir daí
+   `/assinar` mostra "Incluir o Assistente" no pagamento, e quem já assina ganha
+   o botão "Adicionar o Assistente". Comprou → o webhook liga; tirou ou deixou
+   de pagar → desliga. Cortesia dada à mão pelo gestor não é afetada.
+2. Se o preço não for R$ 39: criar preço novo no produto "Cronys Assistente"
+   no Stripe com o mesmo `lookup_key` (marcar "transferir lookup key") e trocar
+   `ASSISTANT_ADDON` em `src/lib/subscription.ts`.
+3. Tirar o "Em breve" da página inicial (`Landing.tsx`).
+4. Para uma empresa usar sem comprar (teste, cortesia): painel do gestor →
+   switch "Assistente".
+
+Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
+`20260925020000`.
+
+### O QUE FALTA - lista para fazer depois
+
+**A. Para testar a cobrança (modo teste do Stripe)** - nesta ordem
+1. Supabase → Edge Functions → **Secrets** (Thiago disse que vai pôr):
+   `STRIPE_SECRET_KEY` = `sk_test_...` (Stripe → Developers → API keys) e
+   `STRIPE_WEBHOOK_SECRET` = Stripe → Developers → Webhooks → "Cronys -
+   assinatura" → Signing secret → Reveal.
+2. **Mesclar o PR** → o Netlify publica sozinho (página inicial, `/entrar`,
+   `/assinar`). Depois publicar o Lovable.
+3. Testar numa empresa de teste (Escola X): Configurações → Ver planos e
+   assinar → cartão `4242 4242 4242 4242`, qualquer validade futura e CVC.
+   O selo deve virar PRO em segundos. Testar também o código FUNDADOR e o
+   "Gerenciar assinatura" (portal).
+
+**B. Domínio cronys.com.br**
+4. Netlify → Domain management: cronys.com.br como **Primary domain** (o
+   .netlify.app passa a redirecionar para ele).
+5. Play Console → política de privacidade:
+   `https://cronys.com.br/privacidade`; Segurança dos dados → exclusão de
+   conta: `https://cronys.com.br/excluir-conta`.
+6. `.aab` novo (1.11.0): leva o endereço novo para os convites e links que o
+   app gera.
+
+**C. Quando for abrir para clientes de verdade**
+7. Ativar a conta do Stripe (CNPJ, conta bancária) e passar para o modo real:
+   recriar produtos/preços com os **mesmos lookup_key** (dá para copiar do
+   teste pelo painel), criar o webhook no modo real para o mesmo endereço e
+   trocar as duas secrets por `sk_live_...` e o novo signing secret. O código
+   não muda.
+8. Religar **"Confirm email"** no Supabase. Junto com ele, e só então:
+   - Supabase → Authentication → **URL Configuration**: *Site URL*
+     `https://cronys.com.br` e, em *Redirect URLs*, acrescentar
+     `https://cronys.com.br/**` (manter os antigos). É para onde o link do
+     e-mail de confirmação leva; com a confirmação desligada, não é usado.
+   - SMTP próprio com remetente @cronys.com.br (Resend ou parecido), senão
+     os e-mails saem do remetente padrão do Supabase, com limite baixo.
+9. Revisão jurídica dos termos (identificação do fornecedor, cancelamento e
+   reembolso) - agora que existe cobrança, é obrigatório antes de vender.
+
+**D. Decisões de negócio ainda abertas**
+10. Preço final do assistente (hoje R$ 39, provisório) e quando ligar.
+11. Política de falta com cobrança (as 4 perguntas na seção de 24/09).
+12. Contas Pro de hoje: continuam Pro Equipe sem cobrança (ligadas à mão).
+    Decidir se o Portal de Aulas e a Demonstração ficam de cortesia para sempre.
 
 ## Assistente só com liberação (24/09)
 

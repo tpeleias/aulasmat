@@ -110,7 +110,7 @@ export default function Landing() {
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Pro Equipe: 5 profissionais incluídos; a partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
-            Assistente com inteligência artificial disponível como adicional, sob pedido.
+            Em breve: assistente com inteligência artificial, como adicional.
             Assinatura cobrada por cartão, pelo Stripe; na fatura aparece CRONYS.
           </p>
         </section>

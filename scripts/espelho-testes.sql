@@ -891,7 +891,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
 SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
-SELECT public.assert(public.account_can('assistant'), 'com assistente');
+SELECT public.assert(NOT public.account_can('assistant'), 'sem assistente por enquanto (decisao de 24/09: desligado ate comecar a cobrar)');
 SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro Equipe' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Pro Equipe (plano "pro")');
 COMMIT;
 
@@ -1689,6 +1689,49 @@ EXCEPTION WHEN raise_exception THEN
 END $$;
 SELECT public.assert((SELECT count(*) FROM public.assistant_usage) = 1,
   'o admin le o uso da propria empresa');
+COMMIT;
+
+
+\echo ''
+\echo '--- 30. Tolerancia de 2 dias; assistente como adicional, fora de venda ---'
+
+SELECT public.assert(public.billing_grace_days() = 2, 'tolerancia de atraso: 2 dias');
+SELECT public.assert(NOT public.assistant_on_sale(), 'o assistente esta fora de venda');
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('30000000-0000-0000-0000-000000000001', 'addon@x', '{"signup_kind":"school","school_name":"Clinica Addon","teacher_name":"Lia"}');
+SELECT set_config('teste.a30', (SELECT account_id::text FROM public.user_roles WHERE user_id = '30000000-0000-0000-0000-000000000001'), false);
+
+-- Assinou com o adicional: assistente ligado e marcado como comprado.
+SELECT public.billing_apply_subscription(current_setting('teste.a30')::uuid, 'cus_30', 'sub_30', 'active', 'pro', 'month', now() + interval '1 month', true);
+SELECT public.assert((SELECT assistant_override AND assistant_billed FROM public.accounts WHERE id = current_setting('teste.a30')::uuid),
+  'comprou o adicional: assistente ligado');
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a30')::uuid), 'e o banco libera o uso');
+
+-- Tirou o adicional (portal): desliga.
+SELECT public.billing_apply_subscription(current_setting('teste.a30')::uuid, 'cus_30', 'sub_30', 'active', 'pro', 'month', now() + interval '1 month', false);
+SELECT public.assert((SELECT NOT assistant_override AND NOT assistant_billed FROM public.accounts WHERE id = current_setting('teste.a30')::uuid),
+  'tirou o adicional: assistente desligado');
+
+-- Cortesia do gestor nao e desligada por uma assinatura sem o adicional.
+UPDATE public.accounts SET assistant_override = true, assistant_billed = false WHERE id = current_setting('teste.a30')::uuid;
+SELECT public.billing_apply_subscription(current_setting('teste.a30')::uuid, 'cus_30', 'sub_30', 'active', 'pro', 'month', now() + interval '1 month', false);
+SELECT public.assert((SELECT assistant_override FROM public.accounts WHERE id = current_setting('teste.a30')::uuid),
+  'cortesia do gestor continua ligada');
+
+-- Adicional comprado + atraso alem da tolerancia: perde o assistente junto.
+SELECT public.billing_apply_subscription(current_setting('teste.a30')::uuid, 'cus_30', 'sub_30', 'active', 'pro', 'month', now() + interval '1 month', true);
+SELECT public.billing_apply_subscription(current_setting('teste.a30')::uuid, 'cus_30', 'sub_30', 'past_due', 'pro', 'month', NULL, NULL);
+UPDATE public.accounts SET past_due_since = now() - interval '3 days' WHERE id = current_setting('teste.a30')::uuid;
+SELECT public.expire_unpaid_subscriptions();
+SELECT public.assert((SELECT plan = 'essencial' AND NOT assistant_override FROM public.accounts WHERE id = current_setting('teste.a30')::uuid),
+  '3 dias de atraso: Essencial e sem o assistente comprado');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+SELECT public.assert((public.my_plan() ->> 'assistant_on_sale')::boolean = false, 'a tela sabe que o adicional esta fora de venda');
 COMMIT;
 
 \echo '=== FIM ==='

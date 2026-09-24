@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { forgetPlan, type Plan } from "@/hooks/usePlan";
-import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
+import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
 
 /**
  * Assinar o Cronys - só no SITE. O pagamento é no Checkout do Stripe; quem
@@ -24,6 +24,8 @@ export default function Subscribe() {
   const [interval, setInterval_] = useState<Interval>("month");
   const [plan, setPlan] = useState<Plan | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  // O adicional do assistente: só aparece quando o banco diz que está à venda.
+  const [withAssistant, setWithAssistant] = useState(false);
 
   useEffect(() => { document.title = "Assinar — Cronys"; }, []);
 
@@ -46,9 +48,24 @@ export default function Subscribe() {
 
   if (!canSellHere()) return <Navigate to="/admin/configuracoes" replace />;
 
+  const onSale = plan?.assistant_on_sale === true;
+
+  const toggleAssistant = async (on: boolean) => {
+    setBusy("assistant");
+    const { data, error } = await supabase.functions.invoke("billing", { body: { action: "assistant", assistant: on } });
+    setBusy(null);
+    if (error || (data as { error?: string } | null)?.error) {
+      toast.error((data as { error?: string } | null)?.error ?? "Não foi possível mudar o Assistente agora.");
+      return;
+    }
+    toast.success(on ? "Assistente adicionado. Ele fica disponível em instantes." : "Assistente removido da assinatura.");
+  };
+
   const go = async (action: "checkout" | "portal", tier?: Tier) => {
     setBusy(tier ?? action);
-    const { data, error } = await supabase.functions.invoke("billing", { body: { action, tier, interval } });
+    const { data, error } = await supabase.functions.invoke("billing", {
+      body: { action, tier, interval, assistant: onSale && withAssistant },
+    });
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
       setBusy(null);
@@ -93,6 +110,11 @@ export default function Subscribe() {
                   </p>
                 : plan.paid_until && <p className="text-muted-foreground">Renova em {format(new Date(plan.paid_until), "dd/MM/yyyy")}.</p>}
             </div>
+            {onSale && isAdmin && plan.billing_status === "active" && (
+              <Button variant="outline" disabled={!!busy} onClick={() => toggleAssistant(!plan.assistant_billed)}>
+                {plan.assistant_billed ? "Tirar o Assistente" : `Adicionar o Assistente (+${brl(ASSISTANT_ADDON.mensal)}/mês)`}
+              </Button>
+            )}
             <Button onClick={() => go("portal")} disabled={!!busy}>
               {busy === "portal" && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
               Gerenciar assinatura
@@ -108,6 +130,16 @@ export default function Subscribe() {
             </button>
           ))}
         </div>
+
+        {onSale && !subscribed && (
+          <label className="mt-4 flex items-start gap-2 text-sm">
+            <input type="checkbox" className="mt-1" checked={withAssistant} onChange={e => setWithAssistant(e.target.checked)} />
+            <span>
+              Incluir o <b>Assistente</b> (+{brl(interval === "month" ? ASSISTANT_ADDON.mensal : ASSISTANT_ADDON.anual)}/{interval === "month" ? "mês" : "ano"}):
+              marque, remarque e consulte o financeiro conversando, com limite mensal de uso.
+            </span>
+          </label>
+        )}
 
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           {paid.map(p => {

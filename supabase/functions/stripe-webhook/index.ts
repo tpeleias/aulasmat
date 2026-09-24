@@ -13,7 +13,7 @@
 //   customer.subscription.created | updated | deleted
 //   invoice.paid | invoice.payment_failed
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { stripe, syncExtraSeats, tierOfLookup, verifyStripeSignature } from "../_shared/stripe.ts";
+import { isAssistantLookup, stripe, syncExtraSeats, tierOfLookup, verifyStripeSignature } from "../_shared/stripe.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -86,6 +86,8 @@ Deno.serve(async (req) => {
       _plan: tier,
       _interval: interval,
       _period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+      // Tem o adicional do assistente? O banco liga/desliga só o que foi comprado.
+      _assistant: deleted ? false : items.some((i) => isAssistantLookup(i.price?.lookup_key)),
     });
     if (error) throw new Error(error.message);
 
