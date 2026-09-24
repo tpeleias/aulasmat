@@ -11,10 +11,8 @@ export type Plan = {
   max_students: number | null;
   assistant: boolean;
   /**
-   * Por que o assistente está como está:
-   * `null` segue o plano, `false` a Cronys desligou à mão, `true` a Cronys
-   * ligou à mão. É isso que decide se a tela VENDE o Pro ou AVISA que foi
-   * desligado - mostrar a venda para quem já é Pro seria mentira.
+   * `true` = a Cronys liberou o assistente para esta empresa; `false` = não
+   * liberou. Desde 20260924070000 nenhum plano traz o assistente sozinho.
    */
   assistant_override: boolean | null;
   packages: boolean;
