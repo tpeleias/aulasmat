@@ -171,6 +171,13 @@ Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
 
 ### O QUE FALTA - lista para fazer depois
 
+**Feito em 24/09 (tarde):** secrets do Stripe colocadas pelo Thiago; webhook
+testado de ponta a ponta com uma empresa temporária (assinar Solo → trocar
+para Equipe → 6º profissional vira item extra → cancelar → Essencial; tudo
+refletido no banco em segundos; empresa temporária apagada). PR #27
+mesclado, Lovable publicado, `.aab` 1.11.0 gerado (workflow "Build Android
+release (Play)", execução 22) - falta subir na Play.
+
 **A. Para testar a cobrança (modo teste do Stripe)** - nesta ordem
 1. Supabase → Edge Functions → **Secrets** (Thiago disse que vai pôr):
    `STRIPE_SECRET_KEY` = `sk_test_...` (Stripe → Developers → API keys) e
