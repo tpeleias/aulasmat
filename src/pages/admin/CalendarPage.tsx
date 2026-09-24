@@ -296,7 +296,9 @@ export default function CalendarPage() {
       >
         <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
         <div className="text-[10px] text-muted-foreground truncate leading-tight">
-          {isPending ? `${format(ls, "HH:mm")} · pedido` : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}
+          {isPending ? `${format(ls, "HH:mm")} · pedido`
+            : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, "HH:mm")} · falta cobrada`
+            : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}
         </div>
         {lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={`${ap.s} on-line`}><Wifi className="w-3 h-3" /></span>

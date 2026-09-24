@@ -98,7 +98,11 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
               {!hideFinancial && !isRequest(l.status) && !isDiscarded(l.status) && (
                 <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
               )}
-              <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
+              {/* Falta cobrada: a aula não aconteceu, mas entrou na cobrança pela
+                  política da empresa - dizer isso evita a família achar que é erro. */}
+              <Badge variant={l.absence_charged ? "destructive" : statusBadgeVariant(l.status)}>
+                {l.absence_charged ? "falta cobrada" : statusLabel(l.status, w)}
+              </Badge>
               {/* Quem pede é o responsável, então quem retira é ele. O filho abre
                   esta mesma tela pelo /meu-painel e não deve ver o botão. */}
               {!hideFinancial && isRequest(l.status) && onChanged && (

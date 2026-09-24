@@ -14,6 +14,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
+import PackagesSettings from "@/components/PackagesSettings";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
 
@@ -40,6 +41,10 @@ type Settings = {
   show_availability_to_students: boolean;
   /** Só existe depois da migration 20260924080000. */
   min_request_notice_hours?: number;
+  /** Falta cobrada (migration 20260925040000). */
+  charge_absence?: boolean;
+  absence_notice_hours?: number;
+  absence_charge_percent?: number;
 };
 
 export default function SettingsPage() {
@@ -101,6 +106,11 @@ export default function SettingsPage() {
       ...("min_request_notice_hours" in s
         ? { min_request_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.min_request_notice_hours) || 0))) }
         : {}),
+      ...("charge_absence" in s ? {
+        charge_absence: !!s.charge_absence,
+        absence_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.absence_notice_hours) || 0))),
+        absence_charge_percent: Math.max(1, Math.min(100, Math.round(Number(s.absence_charge_percent) || 100))),
+      } : {}),
       ...(hasIssuerColumn ? { issuer_document: (s.issuer_document || "").trim() || null } : {}),
       ...(hasPayColumns ? Object.fromEntries(
         ["payment_link_label", "payment_link_note", "pix_receiver_name", "pix_city"]
@@ -352,6 +362,39 @@ export default function SettingsPage() {
           <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
         </div>
       </Card>
+
+      {"charge_absence" in s && (
+        <Card className="p-5 space-y-4">
+          <div>
+            <h2 className="font-semibold text-sm uppercase text-muted-foreground">Falta e desmarcação em cima da hora</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ligado, {v.appointment.o} {v.appointment.l} que {v.client.o} {v.client.l} desmarcar com pouca antecedência (ou em que não
+              aparecer) pode ser {v.appointment.pick("cobrado", "cobrada")}: ao editar {v.appointment.o} {v.appointment.l}, aparece o botão
+              "Cobrar como falta". Nada é cobrado sozinho - você decide em cada caso.
+            </p>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border p-3">
+            <Label htmlFor="cobra-falta" className="cursor-pointer">Cobrar falta</Label>
+            <Switch id="cobra-falta" checked={!!s.charge_absence} onCheckedChange={on => setS({ ...s, charge_absence: on })} />
+          </div>
+          {s.charge_absence && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="falta-horas">Desmarcou com menos de (horas)</Label>
+                <Input id="falta-horas" type="number" min={0} max={168} value={s.absence_notice_hours ?? 24}
+                  onChange={e => setS({ ...s, absence_notice_hours: Number(e.target.value) })} />
+              </div>
+              <div>
+                <Label htmlFor="falta-pct">Cobra quanto do valor (%)</Label>
+                <Input id="falta-pct" type="number" min={1} max={100} value={s.absence_charge_percent ?? 100}
+                  onChange={e => setS({ ...s, absence_charge_percent: Number(e.target.value) })} />
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {plan.packages && <PackagesSettings />}
 
       <Card className="p-5 space-y-4">
         <div>

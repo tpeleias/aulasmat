@@ -30,6 +30,7 @@ import PeriodSummary from "@/components/PeriodSummary";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap, type Vocabulary } from "@/lib/vocabulary";
+import { packageVoucher, type LessonPackage } from "@/lib/packages";
 
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
@@ -49,14 +50,18 @@ type QuickOption = {
   hint?: string;
 };
 
-// Os valores de pacote continuam fixos: são um preço negociado, não uma conta
-// a partir do valor da hora. Quando o valor da aula mudar nas Configurações,
-// eles precisam ser revistos à mão - a caixa de aviso do diálogo mostra
-// quanto sobra em aberto se não fecharem.
-const quickOptions = (listPrice: number, v: Vocabulary): QuickOption[] => [
+// Os pacotes são os que a empresa cadastrou em Configurações → Pacotes
+// (tabela lesson_packages). O voucher é a diferença para o valor cheio,
+// calculada com o valor da hora de agora.
+const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[]): QuickOption[] => [
   { key: "all", label: "Quitar tudo", kind: "adjustment" },
-  { key: "pack10", label: `Pacote 10 ${v.appointment.lp}`, amount: 2000, voucher: 200, kind: "package", hint: "R$ 2.000 + voucher R$ 200" },
-  { key: "pack5", label: `Pacote 5 ${v.appointment.lp}`, amount: 1050, voucher: 50, kind: "package", hint: "R$ 1.050 + voucher R$ 50" },
+  ...packages.filter(p => p.active).map((p): QuickOption => {
+    const voucher = packageVoucher(p.lessons, Number(p.price), listPrice);
+    return {
+      key: `pkg:${p.id}`, label: p.name, amount: Number(p.price), voucher, kind: "package",
+      hint: `${fmtMoney(Number(p.price))}${voucher > 0 ? ` + voucher ${fmtMoney(voucher)}` : ""}`,
+    };
+  }),
   { key: "single", label: `1 ${v.appointment.l} ${v.appointment.pick("avulso", "avulsa")}`, amount: listPrice, kind: "adjustment" },
   { key: "voucher", label: "Voucher (desconto)", kind: "voucher", hint: "crédito sem dinheiro" },
   { key: "custom", label: "Outro valor", kind: "adjustment" },
@@ -82,7 +87,13 @@ export default function BillingPage() {
   const v = useWords();
   const ap = v.appointment;
   const g = v.guardian;
-  const QUICK = useMemo(() => quickOptions(listPrice, v), [listPrice, v]);
+  const [packages, setPackages] = useState<LessonPackage[]>([]);
+  useEffect(() => {
+    // Sem a tabela (front antes da migration 20260925040000) fica sem pacotes.
+    supabase.from("lesson_packages" as never).select("*").order("sort_order").order("created_at")
+      .then(({ data, error }) => { if (!error) setPackages((data ?? []) as unknown as LessonPackage[]); });
+  }, []);
+  const QUICK = useMemo(() => quickOptions(listPrice, v, packages), [listPrice, v, packages]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
@@ -222,11 +233,12 @@ export default function BillingPage() {
   const openPay = (a: Account) => {
     haptics.tap();
     setPayFor(a);
-    const first = a.owed > 0 ? "all" : "pack10";
-    setQuick(first);
-    setAmount(String(first === "all" ? a.owed : 2000));
-    setDesc(first === "all" ? "Pagamento" : `Pacote 10 ${ap.lp}`);
-    setVoucher(first === "all" ? "" : "200");
+    const firstPkg = plan.packages ? QUICK.find(q => q.kind === "package") : undefined;
+    const q = a.owed > 0 ? QUICK[0] : firstPkg ?? QUICK.find(x => x.key === "custom")!;
+    setQuick(q.key);
+    setAmount(q.key === "all" ? String(a.owed) : q.amount != null ? String(q.amount) : "");
+    setDesc(q.key === "all" ? "Pagamento" : q.kind === "package" ? q.label : "");
+    setVoucher(q.voucher ? String(q.voucher) : "");
     setAllowNegative(false);
   };
 
@@ -625,9 +637,8 @@ export default function BillingPage() {
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
                   <p className="mt-1 text-[11px] text-muted-foreground">
                     Desconto do pacote em crédito, já que {ap.os} {ap.lp} entram a {fmtMoney(listPrice)}/h.
-                    Os botões de pacote acima trazem R$ 200 e R$ 50, que são os valores
-                    combinados para {ap.o} {ap.l} a R$ 220/h — se você mudou o valor {ap.do} {ap.l},
-                    confira no aviso abaixo quanto sobra em aberto.
+                    Os botões de pacote calculam esse valor sozinhos; os pacotes se cadastram em
+                    Configurações → Pacotes.
                   </p>
                 </div>
               )}

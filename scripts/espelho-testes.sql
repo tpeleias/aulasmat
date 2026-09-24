@@ -1764,4 +1764,107 @@ SELECT public.assert(public.account_can('assistant', (SELECT id FROM public.acco
   'e o assistente continua liberado');
 UPDATE public.accounts SET billing_status = 'none', past_due_since = NULL WHERE slug = 'portaldeaulas';
 
+
+\echo ''
+\echo '--- 32. Demonstracao para sempre; falta cobrada; pacotes por empresa ---'
+
+SELECT public.assert(coalesce((SELECT lifetime AND plan = 'pro' FROM public.accounts WHERE slug = 'demo'), true),
+  'Demonstracao (se existir): Pro Equipe para sempre');
+
+-- Falta cobrada. Aula marcada da Bia, na empresa A.
+INSERT INTO public.lessons (id, account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, price)
+VALUES ('32000000-0000-0000-0000-000000000001', current_setting('teste.a')::uuid, 'Bia', 'Ana', 'thiago',
+        date_trunc('hour', now()) + interval '20 days 3 hours', 60, 'agendada', 200.00);
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+DECLARE _h text;
+BEGIN
+  PERFORM public.charge_lesson_absence('32000000-0000-0000-0000-000000000001');
+  RAISE EXCEPTION 'FALHOU: cobrou falta com a politica desligada';
+EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
+  PERFORM public.assert(_h = 'falta_desligada', 'com a politica desligada, nao se cobra falta');
+END $$;
+UPDATE public.settings SET charge_absence = true, absence_charge_percent = 50 WHERE account_id = current_setting('teste.a')::uuid;
+SELECT public.charge_lesson_absence('32000000-0000-0000-0000-000000000001');
+SELECT public.assert((SELECT status = 'realizada' AND absence_charged AND price = 100.00 FROM public.lessons
+                        WHERE id = '32000000-0000-0000-0000-000000000001'),
+  'falta cobrada: vira realizada, marcada como falta, a 50% do valor');
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE lesson_id = '32000000-0000-0000-0000-000000000001' AND amount < 0) = 1,
+  'e entra na cobranca da familia');
+DO $$
+BEGIN
+  PERFORM public.charge_lesson_absence('32000000-0000-0000-0000-000000000001');
+  RAISE EXCEPTION 'FALHOU: cobrou falta duas vezes';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - nao cobra falta duas vezes';
+END $$;
+COMMIT;
+
+-- Outra empresa e a familia nao cobram falta da aula da empresa A.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.charge_lesson_absence('32000000-0000-0000-0000-000000000001');
+  RAISE EXCEPTION 'FALHOU: a familia cobrou falta';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - a familia nao cobra falta';
+END $$;
+COMMIT;
+
+-- Pacotes: cada empresa ve e mexe so nos proprios.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+INSERT INTO public.lesson_packages (name, lessons, price) VALUES ('Pacote 8', 8, 1500);
+SELECT public.assert((SELECT count(*) FROM public.lesson_packages WHERE name = 'Pacote 8') = 1, 'o admin cria pacote da propria empresa');
+UPDATE public.lesson_packages SET price = 1400 WHERE name = 'Pacote 8';
+SELECT public.assert((SELECT price FROM public.lesson_packages WHERE name = 'Pacote 8') = 1400, 'e edita');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+SELECT public.assert((SELECT count(*) FROM public.lesson_packages WHERE name = 'Pacote 8') = 0, 'outra empresa nao ve o pacote');
+DELETE FROM public.lesson_packages WHERE name = 'Pacote 8';
+COMMIT;
+SELECT public.assert((SELECT count(*) FROM public.lesson_packages WHERE name = 'Pacote 8') = 1, 'nem apaga');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((SELECT count(*) FROM public.lesson_packages) = 0, 'a familia nao ve a tabela de pacotes');
+COMMIT;
+
+-- No Essencial nao se cria pacote.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
+DO $$
+BEGIN
+  INSERT INTO public.lesson_packages (name, lessons, price) VALUES ('X', 5, 100);
+  RAISE EXCEPTION 'FALHOU: Essencial criou pacote';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - no Essencial nao se cria pacote';
+END $$;
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DELETE FROM public.lesson_packages WHERE name = 'Pacote 8';
+SELECT public.assert((SELECT count(*) FROM public.lesson_packages WHERE name = 'Pacote 8') = 0, 'o admin apaga o proprio pacote');
+COMMIT;
+
 \echo '=== FIM ==='
