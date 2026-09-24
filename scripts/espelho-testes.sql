@@ -1417,4 +1417,129 @@ SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a2
   'o painel antigo (que manda "limpar" para ligar no Pro) continua ligando');
 COMMIT;
 
+
+\echo ''
+\echo '--- 28. Troca de horario pedida pela familia, e antecedencia minima ---'
+
+-- Duas aulas marcadas da Bia (familia da Ana, empresa A) e uma do Caio, que e
+-- de outra familia para este teste: a Ana nao tem login ligado a ele.
+DO $$
+DECLARE _a uuid := current_setting('teste.a')::uuid;
+BEGIN
+  UPDATE public.settings SET allow_student_booking = true, min_request_notice_hours = 0 WHERE account_id = _a;
+  INSERT INTO public.lessons (id, account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status)
+  VALUES ('28000000-0000-0000-0000-000000000001', _a, 'Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '10 days 3 hours', 60, 'agendada'),
+         ('28000000-0000-0000-0000-000000000002', _a, 'Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '5 hours', 60, 'agendada');
+  UPDATE public.students SET user_id = NULL WHERE account_id = _a AND student_name = 'Caio';
+  INSERT INTO public.lessons (id, account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status)
+  VALUES ('28000000-0000-0000-0000-000000000003', _a, 'Caio', 'Ana', 'thiago', date_trunc('hour', now()) + interval '11 days 3 hours', 60, 'agendada');
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+
+INSERT INTO public.lessons (id, student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+VALUES ('28000000-0000-0000-0000-000000000011', 'Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '12 days 3 hours', 60, 'solicitada',
+        '28000000-0000-0000-0000-000000000001');
+SELECT public.assert(true, 'a familia pede troca de uma aula dela');
+
+SELECT public.assert((SELECT status FROM public.lessons WHERE id = '28000000-0000-0000-0000-000000000001') = 'agendada',
+  'e a aula antiga continua marcada ate o professor responder');
+
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+  VALUES ('Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '13 days 3 hours', 60, 'solicitada',
+          '28000000-0000-0000-0000-000000000001');
+  RAISE EXCEPTION 'FALHOU: dois pedidos de troca abertos para a mesma aula';
+EXCEPTION WHEN unique_violation THEN RAISE NOTICE '  ok - um pedido de troca aberto por aula';
+END $$;
+
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+  VALUES ('Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '14 days 3 hours', 60, 'solicitada',
+          '28000000-0000-0000-0000-000000000003');
+  RAISE EXCEPTION 'FALHOU: pediu troca da aula de outra familia';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao pede troca da aula de outra familia';
+END $$;
+
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, status)
+  VALUES ('Bia', 'Ana', 'thiago', now() - interval '2 hours', 60, 'solicitada');
+  RAISE EXCEPTION 'FALHOU: pediu horario que ja passou';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao pede horario que ja passou';
+END $$;
+COMMIT;
+
+-- Antecedencia de 24h: a aula daqui a 5h ja nao pode ser trocada, e nao da
+-- para pedir horario para daqui a 5h.
+UPDATE public.settings SET min_request_notice_hours = 24 WHERE account_id = current_setting('teste.a')::uuid;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+  VALUES ('Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '15 days 3 hours', 60, 'solicitada',
+          '28000000-0000-0000-0000-000000000002');
+  RAISE EXCEPTION 'FALHOU: trocou aula dentro da antecedencia minima';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - aula dentro da antecedencia minima nao se troca pelo portal';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, status)
+  VALUES ('Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '1 day 7 hours' - interval '1 day', 60, 'solicitada');
+  RAISE EXCEPTION 'FALHOU: pediu horario dentro da antecedencia minima';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nem se pede horario dentro da antecedencia minima';
+END $$;
+COMMIT;
+
+UPDATE public.settings SET min_request_notice_hours = 0 WHERE account_id = current_setting('teste.a')::uuid;
+
+-- O admin aprova: o pedido entra, a aula antiga sai.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+UPDATE public.lessons SET status = 'agendada' WHERE id = '28000000-0000-0000-0000-000000000011';
+SELECT public.assert((SELECT status FROM public.lessons WHERE id = '28000000-0000-0000-0000-000000000001') = 'cancelada',
+  'aprovar a troca desmarca a aula antiga');
+COMMIT;
+
+-- Recusar nao mexe na aula antiga.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+INSERT INTO public.lessons (id, student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+VALUES ('28000000-0000-0000-0000-000000000012', 'Bia', 'Ana', 'thiago', date_trunc('hour', now()) + interval '16 days 3 hours', 60, 'solicitada',
+        '28000000-0000-0000-0000-000000000002');
+COMMIT;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+UPDATE public.lessons SET status = 'recusada' WHERE id = '28000000-0000-0000-0000-000000000012';
+SELECT public.assert((SELECT status FROM public.lessons WHERE id = '28000000-0000-0000-0000-000000000002') = 'agendada',
+  'recusar a troca deixa a aula antiga marcada');
+COMMIT;
+
+-- Aprovar uma troca cuja aula antiga ja foi dada nao desfaz a aula dada.
+DO $$
+BEGIN
+  INSERT INTO public.lessons (id, account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, reschedule_of)
+  VALUES ('28000000-0000-0000-0000-000000000013', current_setting('teste.a')::uuid, 'Bia', 'Ana', 'thiago',
+          date_trunc('hour', now()) + interval '17 days 3 hours', 60, 'solicitada', '28000000-0000-0000-0000-000000000002');
+  UPDATE public.lessons SET status = 'realizada' WHERE id = '28000000-0000-0000-0000-000000000002';
+  UPDATE public.lessons SET status = 'agendada' WHERE id = '28000000-0000-0000-0000-000000000013';
+  PERFORM public.assert((SELECT status FROM public.lessons WHERE id = '28000000-0000-0000-0000-000000000002') = 'realizada',
+    'aprovar troca de aula ja realizada nao mexe nela (nem na cobranca)');
+END $$;
+
 \echo '=== FIM ==='

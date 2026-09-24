@@ -36,6 +36,8 @@ type Settings = {
   show_payment_info_to_students: boolean;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
+  /** Só existe depois da migration 20260924080000. */
+  min_request_notice_hours?: number;
 };
 
 export default function SettingsPage() {
@@ -94,6 +96,9 @@ export default function SettingsPage() {
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
+      ...("min_request_notice_hours" in s
+        ? { min_request_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.min_request_notice_hours) || 0))) }
+        : {}),
       ...(hasIssuerColumn ? { issuer_document: (s.issuer_document || "").trim() || null } : {}),
       ...(hasPayColumns ? Object.fromEntries(
         ["payment_link_label", "payment_link_note", "pix_receiver_name", "pix_city"]
@@ -302,6 +307,20 @@ export default function SettingsPage() {
           </div>
           <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
         </div>
+        {"min_request_notice_hours" in s && s.allow_student_booking && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div>
+              <Label htmlFor="antecedencia">Antecedência mínima dos pedidos (horas)</Label>
+              <p className="text-xs text-muted-foreground">
+                Vale para pedir horário e para pedir troca: com 24, ninguém pede para amanhã cedo nem troca {v.appointment.o} {v.appointment.l} de
+                {" "}amanhã pelo portal - precisa falar com você. 0 = sem mínimo.
+              </p>
+            </div>
+            <Input id="antecedencia" type="number" min={0} max={168} className="w-20 shrink-0"
+              value={s.min_request_notice_hours ?? 0}
+              onChange={e => setS({ ...s, min_request_notice_hours: Number(e.target.value) })} />
+          </div>
+        )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
           <div>
             <Label className="cursor-pointer">Exibir disponibilidade {v.staff.dos} {v.staff.lp} no portal</Label>

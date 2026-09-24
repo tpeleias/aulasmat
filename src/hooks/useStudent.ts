@@ -40,6 +40,8 @@ export type AppSettings = {
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
   work_start: string; work_end: string; slot_minutes: number;
+  /** Antecedência mínima dos pedidos, em horas (migration 20260924080000). Ausente = 0. */
+  min_request_notice_hours?: number;
 };
 export function useAppSettings(options?: { enabled?: boolean }) {
   const [s, setS] = useState<AppSettings | null>(null);
