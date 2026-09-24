@@ -22,6 +22,12 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
       return `O seu plano permite ${clients}. Para cadastrar mais, mude para o Cronys Pro.`;
     case "limite_clientes_liberar":
       return `O seu plano permite ${clients}. Trave outro antes, ou mude para o Cronys Pro.`;
+    case "falta_desligada":
+      return "A cobrança de falta está desligada. Ligue em Configurações → Falta e desmarcação.";
+    case "falta_status":
+      return `Só dá para cobrar falta de ${v.appointment.um} ${v.appointment.l} ${v.appointment.pick("marcado", "marcada")} ou ${v.appointment.pick("desmarcado", "desmarcada")}.`;
+    case "pacote_pro":
+      return "Pacotes são do Cronys Pro.";
     case "cliente_pausado":
       return `Não é possível marcar ${v.appointment.l} para ${v.client.este} ${v.client.l} agora: o cadastro está pausado.`;
     case "profissional_pausado":

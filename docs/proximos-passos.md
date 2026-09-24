@@ -207,6 +207,37 @@ até parece aceitar "Essencial", mas o banco devolve Pro. Para desfazer: só
 O assistente dela continua com o limite do mês (150 mensagens, US$ 5) - o
 painel do gestor aumenta. Espelho: bloco 31.
 
+### Respostas do Thiago à lista (24/09, noite) e o que foi feito
+
+- 1, 2, 7: feitos (ficha da loja, e-mail de contato, assinatura testada pelo
+  site - funcionou). `.aab` 1.11.0 enviado.
+- 3: FUNDADOR fica ativo (é teste).
+- 4: Netlify só no mês que vem (créditos acabaram).
+- 5: `admin-create-user` pode ficar - ela não faz nada (desativada em 20/09).
+- 6: não feito (era explicação: "Checagens" é o CI, não login).
+- 8: **backup NÃO apagado** - apagar perde algo: é a foto de 12/09 com o
+  preço antigo de 27 aulas, o nome antigo em 11 e o "pago" marcado à mão
+  antes da carteira. Aguarda decisão.
+- 9: assistente fica preparado e fora de venda.
+- 10: **feito** - cobrança de falta por empresa (Configurações → Falta e
+  desmarcação: liga/desliga, horas, %). Botão "Cobrar como falta" ao editar a
+  aula; aviso quando se desmarca dentro do prazo; a aula vira realizada com
+  `absence_charged` e aparece como "falta cobrada" na agenda e no portal.
+  Função `charge_lesson_absence` (só admin, só com a política ligada).
+- 11: **feito** - pacotes por empresa (Configurações → Pacotes: criar,
+  editar, ligar/desligar, excluir; tabela `lesson_packages`, só Pro). O
+  Financeiro e o diálogo de aula usam os pacotes da empresa; voucher =
+  N x valor da hora - preço. Os dois pacotes antigos foram para o Portal de
+  Aulas e a Demonstração.
+- 12: **feito** - Demonstração com tudo liberado para sempre (inclui o
+  assistente, com o limite de 150 mensagens / US$ 5 do mês).
+- 13: explicado de novo na conversa.
+- 14-17, 20: depois (ainda em teste).
+- 18-19: **próximo passo** - notificações (push e WhatsApp: confirmação e
+  lembrete de aula), junto com e-mail automático.
+
+Migration `20260925040000` (aplicada), espelho bloco 32.
+
 ### PENDÊNCIAS DO THIAGO - lista única (consolidada em 24/09, fim do dia)
 
 Tudo o que ficou com o Thiago, desta e das sessões anteriores. Conferido na

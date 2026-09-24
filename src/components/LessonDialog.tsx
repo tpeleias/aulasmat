@@ -20,13 +20,18 @@ import { useAuth } from "@/hooks/useAuth";
 import { useWords } from "@/hooks/useVocabulary";
 import { statusLabel } from "@/lib/lessonStatus";
 import { cap } from "@/lib/vocabulary";
+import type { LessonPackage } from "@/lib/packages";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
   teacher: string; address?: string | null; is_online?: boolean;
   status?: string; class_summary?: string | null;
+  /** Falta cobrada (migration 20260925040000). */
+  absence_charged?: boolean;
 };
+
+type AbsencePolicy = { on: boolean; hours: number; percent: number };
 
 
 // Every lesson is charged at the list price. The package discount is not a cheaper lesson:
@@ -41,9 +46,16 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const { teachers: allTeachers } = useTeachers(true);
   const v = useWords();
   const a = v.appointment;
+  // pack5/pack10 são os valores antigos, gravados em aulas de antes dos pacotes
+  // por empresa; continuam com nome para as aulas velhas se lerem certo.
   const PACKAGE_LABEL: Record<string, string> = {
     single: a.pick("Avulso", "Avulsa"), pack5: `Pacote 5 ${a.lp}`, pack10: `Pacote 10 ${a.lp}`,
   };
+  // Os pacotes da empresa (Configurações → Pacotes). Escolher um repete {a.o}
+  // {a.l} toda semana pelo número de {a.lp} do pacote.
+  const [packages, setPackages] = useState<LessonPackage[]>([]);
+  // A política de falta da empresa (Configurações). Só o admin cobra.
+  const [absence, setAbsence] = useState<AbsencePolicy>({ on: false, hours: 24, percent: 100 });
   // Login de professor marca só as próprias aulas e não mexe em valor nem
   // apaga (o banco também não deixa - migration 20260924040000).
   const { isTeacher } = useAuth();
@@ -77,6 +89,14 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     supabase.from("students").select("*").order("student_name").then(({ data }) => {
       setStudents(((data ?? []) as any[]).filter(s => !s.plan_locked));
     });
+    if (!isTeacher) {
+      supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
+        const d = data as { charge_absence?: boolean; absence_notice_hours?: number; absence_charge_percent?: number } | null;
+        setAbsence({ on: !!d?.charge_absence, hours: Number(d?.absence_notice_hours ?? 24), percent: Number(d?.absence_charge_percent ?? 100) });
+      });
+    }
+    supabase.from("lesson_packages" as never).select("*").eq("active", true).order("sort_order")
+      .then(({ data, error }) => { if (!error) setPackages((data ?? []) as unknown as LessonPackage[]); });
   }, [open]);
 
   useEffect(() => {
@@ -150,8 +170,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const setPackage = (pkg: string) => {
     setForm(f => ({ ...f, package_type: pkg }));
     if (!lesson?.id) {
-      if (pkg === "pack5") { setRecurring(true); setRepeatCount(5); }
-      else if (pkg === "pack10") { setRecurring(true); setRepeatCount(10); }
+      const p = packages.find(x => x.name === pkg);
+      const n = p ? p.lessons : pkg === "pack5" ? 5 : pkg === "pack10" ? 10 : 1;
+      if (n > 1) { setRecurring(true); setRepeatCount(Math.min(52, n)); }
       else { setRecurring(false); setRepeatCount(1); }
     }
   };
@@ -307,6 +328,28 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     onSaved();
   };
 
+  // Falta cobrada: a aula vira realizada, marcada como falta, ao percentual da
+  // política. Quem decide é o banco (charge_lesson_absence); aqui é o pedido.
+  const canChargeAbsence = !!lesson?.id && !isTeacher && absence.on && !lesson.absence_charged
+    && ["agendada", "cancelada"].includes(lesson.status ?? "agendada");
+  const hoursBefore = lesson?.start_at ? (new Date(lesson.start_at).getTime() - Date.now()) / 3_600_000 : Infinity;
+  const lateCancel = absence.on && form.status === "cancelada" && hoursBefore < absence.hours;
+
+  const chargeAbsence = async () => {
+    if (!lesson?.id) return;
+    const total = (lesson.price * lesson.duration_minutes / 60) * absence.percent / 100;
+    if (!confirm(`Cobrar ${a.o} ${a.l} de ${lesson.student_name} como falta?\n\n` +
+      `${cap(a.o)} ${a.l} fica como ${a.pick("realizado", "realizada")} e marcada como falta, e entra na cobrança por ` +
+      `${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} (${absence.percent}% do valor).`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("charge_lesson_absence" as never, { _lesson: lesson.id } as never);
+    setBusy(false);
+    if (error) { toast.error(lessonErrorMessage(error, v)); return; }
+    toast.success(`Falta cobrada de ${lesson.student_name}`);
+    onSaved();
+    onOpenChange(false);
+  };
+
   const remove = async () => {
     if (!lesson?.id) return;
     if (!confirm(`Excluir ${a.este} ${a.l}?`)) return;
@@ -399,8 +442,12 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="single">{PACKAGE_LABEL.single}</SelectItem>
-                  <SelectItem value="pack5">{PACKAGE_LABEL.pack5}</SelectItem>
-                  <SelectItem value="pack10">{PACKAGE_LABEL.pack10}</SelectItem>
+                  {packages.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
+                  {/* Aula antiga com pacote que não existe mais na lista: mostra o
+                      nome que ela tem, em vez de um campo vazio. */}
+                  {form.package_type !== "single" && !packages.some(p => p.name === form.package_type) && (
+                    <SelectItem value={form.package_type}>{PACKAGE_LABEL[form.package_type] ?? form.package_type}</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -446,6 +493,15 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                   </SelectContent>
                 </Select>
               </div>
+              {lateCancel && (
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
+                  Desmarcou com menos de {absence.hours}h de antecedência. Pela sua política, dá para cobrar como falta
+                  ({absence.percent}% do valor) - use o botão "Cobrar como falta" abaixo em vez de só desmarcar.
+                </p>
+              )}
+              {lesson?.absence_charged && (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs">Falta cobrada: {a.o} {a.l} não aconteceu, mas entrou na cobrança.</p>
+              )}
               {form.status === "realizada" && (
                 <div>
                   <Label>Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
@@ -482,6 +538,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         </div>
         <DialogFooter className="gap-2">
           {lesson?.id && !isTeacher && <Button variant="destructive" onClick={remove}>Excluir</Button>}
+          {canChargeAbsence && (
+            <Button variant="outline" onClick={chargeAbsence} disabled={busy} title={`Cobra ${absence.percent}% do valor`}>
+              Cobrar como falta
+            </Button>
+          )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={save} disabled={busy}>Salvar</Button>
         </DialogFooter>
