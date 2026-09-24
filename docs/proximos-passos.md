@@ -66,6 +66,73 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
+## PRÓXIMO (combinado em 24/09 para fazer no dia seguinte)
+
+Nada disso foi começado. Decisões do Thiago já tomadas estão marcadas como tal.
+
+### 1. Planos novos (decidido: gostou da proposta)
+
+| Plano | O que tem | Preço |
+|---|---|---|
+| Essencial | 1 profissional, até 5 clientes, nomes genéricos | grátis |
+| Pro Solo | 1 profissional, clientes sem limite, palavras do ramo, pacotes, bloqueio recorrente | R$ 49/mês |
+| Pro Equipe | até 5 profissionais, cada um com acesso próprio | R$ 99/mês + R$ 19 por profissional extra |
+| Anual | qualquer Pro | 2 meses grátis |
+| Assistente | adicional, liberado sob pedido, com limite de uso | R$ 29–39/mês |
+
+- Preço de fundador para os primeiros 10–20 clientes (ex.: R$ 39 para sempre).
+- No banco: hoje `accounts.plan` é 'essencial' | 'pro'. Vira 'essencial' | 'pro_solo' |
+  'pro_equipe' (ou 'pro' + limite de profissionais). `plan_features` ganha
+  `max_teachers` 1 no Solo e 5 no Equipe; o extra acima de 5 é cobrado, não bloqueado.
+  As contas Pro de hoje precisam de um destino (Solo ou Equipe) - perguntar.
+
+### 2. Cobrança automática (a decidir: Asaas ou Stripe)
+
+- Asaas: Pix Automático, boleto, cartão, nota fiscal automática; profissional extra via
+  atualização do valor da assinatura pela API (sem proporcional nativo).
+- Stripe: Thiago já usou; profissional extra nativo (quantidade + proporcional); Pix
+  recorrente a confirmar no Brasil; sem nota fiscal.
+- Recomendação: Asaas, pelo público (pequeno negócio, Pix/boleto). Decisão é dele.
+- O que construir: página /assinar no SITE (nunca no app - regra da Google Play), edge
+  function do webhook (pago -> Pro com "pago até"; atraso -> aviso; após X dias de
+  tolerância -> Essencial pela trava de rebaixamento que já existe), rotina diária de
+  segurança igual à expire_trials, situação de cada empresa no painel do gestor, e
+  profissional extra atualizando a cobrança quando muda o número de ativos.
+- Começar no sandbox. Precisa do Thiago: CNPJ (ver enquadramento com contador), conta no
+  provedor, chave da API nos segredos do Supabase, dias de tolerância.
+
+### 3. Limite de uso do assistente por conta
+
+- Tabela de uso por empresa e mês, gravando os tokens que a API devolve em cada resposta.
+- assistant-chat confere o limite ANTES de chamar a API; passou, responde "limite do mês
+  atingido" sem gastar nada.
+- Limite mostrado ao cliente em conversas; controle interno por custo.
+- Configurações mostra o uso do mês; painel do gestor mostra o gasto por empresa e deixa
+  aumentar o limite à mão.
+- Medir antes o custo real de uma conversa (logs das conversas existentes) para fechar o
+  preço do adicional.
+- Já está certo hoje: só admin usa o assistente (a edge function recusa quem não é admin
+  daquela empresa, e o login de professor nem vê o menu).
+
+### 4. Domínio cronys.com.br (comprado na GoDaddy, já no ar pelo Netlify em 24/09)
+
+- Código: `src/lib/publicUrl.ts` ainda tem `https://cronys.lovable.app` como endereço
+  padrão do app Android (convites, disponibilidade, redirect do cadastro). Trocar para
+  `https://cronys.com.br` - vale no app só no próximo .aab.
+- Thiago, no Supabase: Authentication -> URL Configuration -> Site URL
+  `https://cronys.com.br` e Redirect URLs + `https://cronys.com.br/**` (manter os antigos).
+- Netlify: conferir cronys.com.br como Primary domain (redireciona o .netlify.app).
+- Play Console: política de privacidade -> `https://cronys.com.br/privacidade`,
+  exclusão de conta -> `https://cronys.com.br/excluir-conta`.
+- Página inicial pública (o que é, planos e preços, contato, termos/privacidade): o
+  Stripe olha o site para aprovar a conta, e hoje a raiz é a tela de login.
+- Stripe: decidido (Thiago já usou). O conector do Stripe apareceu nesta sessão;
+  usar em modo de teste para criar produtos e preços. Descrição do negócio para o
+  cadastro do Stripe já foi passada ao Thiago (SaaS por assinatura para negócios com
+  hora marcada; fatura "CRONYS").
+- Também pendente: SMTP próprio (Resend etc.) com remetente @cronys.com.br, e religar
+  "Confirm email" no Supabase antes de abrir para clientes (está DESLIGADO para testes).
+
 ## Assistente só com liberação (24/09)
 
 O assistente não vem mais com o Pro: fica bloqueado em qualquer plano, inclusive
