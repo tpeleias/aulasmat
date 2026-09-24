@@ -892,7 +892,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
 SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
 SELECT public.assert(public.account_can('assistant'), 'com assistente');
-SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro', 'e my_plan() se apresenta como Cronys Pro');
+SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro Equipe' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Pro Equipe (plano "pro")');
 COMMIT;
 
 
@@ -1541,5 +1541,142 @@ BEGIN
   PERFORM public.assert((SELECT status FROM public.lessons WHERE id = '28000000-0000-0000-0000-000000000002') = 'realizada',
     'aprovar troca de aula ja realizada nao mexe nela (nem na cobranca)');
 END $$;
+
+
+\echo ''
+\echo '--- 29. Planos Solo/Equipe, assinatura pelo Stripe e limite do assistente ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('29000000-0000-0000-0000-000000000001', 'solo@x', '{"signup_kind":"school","school_name":"Estudio Solo","teacher_name":"Rita"}');
+SELECT set_config('teste.a29', (SELECT account_id::text FROM public.user_roles WHERE user_id = '29000000-0000-0000-0000-000000000001'), false);
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
+SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() ->> 'tier' = 'pro'
+                     AND public.my_plan() ->> 'nome' = 'Cronys Pro Equipe',
+  'o teste gratis e do Pro Equipe, e o app antigo continua vendo "pro"');
+-- Equipe: sem teto, 5 incluidos; o sexto e o setimo viram extra, nao erro.
+INSERT INTO public.teachers (name, active) VALUES ('p2', true), ('p3', true), ('p4', true), ('p5', true), ('p6', true), ('p7', true);
+SELECT public.assert((public.my_plan() ->> 'extra_teachers')::int = 2,
+  'no Equipe, 7 profissionais ativos = 2 extras cobrados, sem bloqueio');
+INSERT INTO public.students (student_name) SELECT 'c' || g FROM generate_series(1, 8) g;
+COMMIT;
+
+-- Cronys (gestor) passa a empresa para o Solo: profissionais passam do limite
+-- e ficam pausados; clientes, que no Solo nao tem limite, continuam liberados.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_plan(current_setting('teste.a29')::uuid, 'pro_solo');
+COMMIT;
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE account_id = current_setting('teste.a29')::uuid AND active) = 0
+                     AND (SELECT count(*) FROM public.teachers WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 7,
+  'Equipe -> Solo pausa os profissionais para a empresa escolher 1');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 0,
+  'e nao pausa cliente nenhum (Solo nao tem limite de clientes)');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
+UPDATE public.teachers SET active = true WHERE name = 'rita';
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE active) = 1, 'a empresa escolhe o profissional que fica');
+SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() ->> 'tier' = 'pro_solo',
+  'Solo: plano "pro" para o app antigo, faixa pro_solo para o novo');
+DO $$
+BEGIN
+  UPDATE public.teachers SET active = true WHERE name = 'p2';
+  RAISE EXCEPTION 'FALHOU: Solo reativou um segundo profissional';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - no Solo, so 1 profissional ativo';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_x', 'sub_x', 'active', 'pro', 'month', now() + interval '1 month');
+  RAISE EXCEPTION 'FALHOU: cliente se deu o plano chamando a funcao do webhook';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - so o webhook (chave mestra) aplica assinatura';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.assistant_usage (account_id, month, messages) VALUES (current_setting('teste.a29')::uuid, public.assistant_month(), -1000);
+  RAISE EXCEPTION 'FALHOU: cliente mexeu no proprio uso do assistente';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - cliente nao mexe no proprio uso do assistente';
+END $$;
+COMMIT;
+
+-- Webhook: pagou o Solo.
+SELECT public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_29', 'sub_29', 'active', 'pro_solo', 'month', now() + interval '1 month');
+SELECT public.assert((SELECT plan = 'pro_solo' AND billing_status = 'active' AND trial_ends_at IS NULL AND stripe_customer_id = 'cus_29'
+                        FROM public.accounts WHERE id = current_setting('teste.a29')::uuid),
+  'pagamento confirmado: plano da assinatura, teste encerrado');
+
+-- Atrasou: continua no plano durante a tolerancia.
+SELECT public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_29', 'sub_29', 'past_due', 'pro_solo', 'month', NULL);
+SELECT public.expire_unpaid_subscriptions();
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a29')::uuid) = 'pro_solo',
+  'atraso dentro da tolerancia: continua no plano');
+UPDATE public.accounts SET past_due_since = now() - make_interval(days => public.billing_grace_days() + 1)
+ WHERE id = current_setting('teste.a29')::uuid;
+SELECT public.assert(public.expire_unpaid_subscriptions() = 1, 'a rotina diaria rebaixa quem passou da tolerancia');
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a29')::uuid) = 'essencial',
+  'passou da tolerancia: cai para o Essencial');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 8,
+  'com a trava de rebaixamento (nada apagado, clientes pausados)');
+SELECT public.assert((SELECT count(*) FROM public.accounts WHERE billing_status = 'none' AND plan <> 'essencial') > 0
+                     AND (SELECT plan FROM public.accounts WHERE slug = 'portaldeaulas') = 'pro',
+  'empresa sem assinatura no Stripe nao e tocada pela rotina');
+
+-- Pagou atrasado: o plano volta e os clientes sao liberados.
+SELECT public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_29', 'sub_29', 'active', 'pro_solo', 'month', now() + interval '1 month');
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a29')::uuid) = 'pro_solo'
+                     AND (SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 0,
+  'pagou depois: plano de volta e clientes liberados');
+
+-- Cancelou: Essencial na hora.
+SELECT public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_29', 'sub_29', 'canceled', NULL, NULL, NULL);
+SELECT public.assert((SELECT plan = 'essencial' AND billing_status = 'canceled' AND stripe_subscription_id IS NULL
+                        FROM public.accounts WHERE id = current_setting('teste.a29')::uuid),
+  'assinatura cancelada: Essencial');
+
+-- Assistente: limite de mensagens e de custo.
+UPDATE public.accounts SET assistant_monthly_messages = 2, assistant_monthly_cost_usd = 1.00 WHERE id = current_setting('teste.a29')::uuid;
+SELECT public.assert((public.assistant_usage_status(current_setting('teste.a29')::uuid) ->> 'allowed')::boolean,
+  'assistente: mes novo, pode usar');
+SELECT public.assistant_usage_add(current_setting('teste.a29')::uuid, 1000, 100, 0, 0, 0.05);
+SELECT public.assistant_usage_add(current_setting('teste.a29')::uuid, 1000, 100, 0, 0, 0.05);
+SELECT public.assert(NOT (public.assistant_usage_status(current_setting('teste.a29')::uuid) ->> 'allowed')::boolean
+                     AND (public.assistant_usage_status(current_setting('teste.a29')::uuid) ->> 'used')::int = 2,
+  'assistente: bateu o limite de mensagens');
+UPDATE public.accounts SET assistant_monthly_messages = 100 WHERE id = current_setting('teste.a29')::uuid;
+SELECT public.assistant_usage_add(current_setting('teste.a29')::uuid, 1000, 100, 0, 0, 0.95);
+SELECT public.assert(NOT (public.assistant_usage_status(current_setting('teste.a29')::uuid) ->> 'allowed')::boolean,
+  'assistente: bateu o teto de custo, mesmo com mensagens sobrando');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.assert((public.platform_set_assistant_limits(current_setting('teste.a29')::uuid, 300, 10) ->> 'messages')::int = 300,
+  'o gestor aumenta o limite');
+SELECT public.assert((SELECT assistant_messages FROM public.platform_accounts_overview() WHERE id = current_setting('teste.a29')::uuid) = 3,
+  'e ve o uso do mes no painel');
+COMMIT;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
+DO $$
+BEGIN
+  PERFORM public.platform_set_assistant_limits(current_setting('teste.a29')::uuid, 99999, 999);
+  RAISE EXCEPTION 'FALHOU: cliente aumentou o proprio limite';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - cliente nao aumenta o proprio limite';
+END $$;
+SELECT public.assert((SELECT count(*) FROM public.assistant_usage) = 1,
+  'o admin le o uso da propria empresa');
+COMMIT;
 
 \echo '=== FIM ==='
