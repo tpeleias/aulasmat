@@ -77,7 +77,7 @@ ficaram fáceis de trocar - **revisar**:
 | Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
 | Tolerância de atraso | **2 dias** (Thiago, 24/09; era 7) | `billing_grace_days()`, uma linha numa migration |
 | Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
-| Preço de fundador | cupom **FUNDADOR**: 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20) | painel do Stripe → Cupons |
+| Preço de lançamento | código **LANCAMENTO** (sem ç: o Stripe só aceita letras sem acento, números e traço): 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20). Era FUNDADOR até 24/09; o cupom por trás tem id `fundador`, que não muda | painel do Stripe → Cupons |
 | Assistente | **desligado em todas as empresas e fora de venda** (Thiago, 24/09: sem gasto de API até começar a cobrar). Pronto como adicional: produto "Cronys Assistente" no Stripe, R$ 39/mês ou R$ 390/ano (provisório) | ver "Para ligar o assistente" abaixo |
 
 ### O que está na produção
@@ -91,7 +91,7 @@ ficaram fáceis de trocar - **revisar**:
   v15 com limite, registro de custo e cache de prompt.
 - **Stripe (modo teste)**: produtos Pro Solo, Pro Equipe e "profissional
   extra", 6 preços (mensal/anual, `lookup_key` cronys_*), cupom + código
-  FUNDADOR, portal do cliente (trocar plano, cartão, faturas, cancelar no fim
+  LANCAMENTO (era FUNDADOR), portal do cliente (trocar plano, cartão, faturas, cancelar no fim
   do período) e o endpoint do webhook apontando para a função.
 
 ### Planos no banco
@@ -198,7 +198,7 @@ release (Play)", execução 22) - falta subir na Play.
    `/assinar`). Depois publicar o Lovable.
 3. Testar numa empresa de teste (Escola X): Configurações → Ver planos e
    assinar → cartão `4242 4242 4242 4242`, qualquer validade futura e CVC.
-   O selo deve virar PRO em segundos. Testar também o código FUNDADOR e o
+   O selo deve virar PRO em segundos. Testar também o código LANCAMENTO e o
    "Gerenciar assinatura" (portal).
 
 **B. Domínio cronys.com.br**

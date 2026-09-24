@@ -185,7 +185,7 @@ export default function Subscribe() {
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground">
-          Pagamento processado pelo Stripe; na fatura aparece CRONYS. Tem um código de fundador? Use na
+          Pagamento processado pelo Stripe; na fatura aparece CRONYS. Tem um código de desconto? Use na
           tela de pagamento. Ao assinar você concorda com os <Link to="/termos" className="underline">termos de uso</Link>.
         </p>
       </div>
