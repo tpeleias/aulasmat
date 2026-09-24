@@ -151,6 +151,33 @@ ficaram fáceis de trocar - **revisar**:
   No app e para quem já está logado, `/` continua sendo o login.
   `/entrar?criar=empresa` abre direto o cadastro de empresa.
 
+### Cupons prontos no Stripe (teste) - todos DESATIVADOS
+
+Criados em 24/09 para ligar na época. Só nos planos (Solo e Equipe), nunca no
+profissional extra nem no assistente. Ativar/desativar: Stripe → Catálogo de
+produtos → Cupons → o desconto → Códigos promocionais → o código.
+
+| Desconto (id) | Quanto | Códigos | Quando |
+|---|---|---|---|
+| Preço de lançamento (`fundador`) | 20% para sempre, 20 usos | **LANCAMENTO** (ATIVO) | agora |
+| Primeiro mês pela metade (`primeiro-mes`) | 50% no 1º mês, só quem nunca pagou | PRIMEIROMES | fim do teste grátis, anúncios |
+| Datas comemorativas (`datas-comemorativas`) | 25% por 3 meses | CONSUMIDOR, DIADOCLIENTE, ANONOVO, VOLTAASAULAS | 15/03, 15/09, virada do ano, jan-fev e jul |
+| Dia da profissão (`dia-da-profissao`) | 30% por 3 meses | PROFESSOR, MEDICO, PSICOLOGO, VETERINARIO, FISIOTERAPEUTA, NUTRICIONISTA, EDUCADORFISICO | 15/10, 18/10, 27/08, 09/09, 13/10, 31/08, 01/09 |
+| Black Friday (`black-friday`) | 40% por 3 meses | BLACKFRIDAY, CYBERMONDAY | 27/11 e 30/11/2026 |
+| Volte para o Cronys (`volte`) | 30% por 3 meses | VOLTA | e-mail para quem cancelou |
+
+Atenção:
+- **FUNDADOR ainda está ativo** - desativar no painel (a ferramenta daqui
+  não desativa código).
+- Desconto "por 3 meses" num plano **anual** cai na primeira fatura inteira
+  (o ano é cobrado de uma vez dentro dos 3 meses): 30% de R$ 990. Se não
+  quiser isso, crie a data comemorativa como "valor fixo" ou avise nos
+  anúncios que vale só no mensal.
+- Uma empresa usa um código por assinatura; o código novo não soma com o
+  antigo.
+- No modo real, os cupons precisam ser criados de novo (o teste não passa
+  para o real). Os ids e códigos acima servem de roteiro.
+
 ### Para ligar o assistente (quando começar a cobrar)
 
 Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
