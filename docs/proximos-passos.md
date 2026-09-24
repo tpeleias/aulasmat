@@ -167,7 +167,18 @@ Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
    switch "Assistente".
 
 Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
-`20260925020000`.
+`20260925020000` e **religado no mesmo dia** pela `20260925030000` (abaixo).
+
+### Portal de Aulas: tudo liberado para sempre (24/09)
+
+Pedido do Thiago: a empresa dele com todas as funções, para sempre.
+`accounts.lifetime = true` + gatilho `accounts_keep_lifetime`: plano fica
+Pro Equipe, assistente ligado e sem teste, **qualquer que seja o caminho**
+(fim de teste, atraso ou cancelamento no Stripe, painel do gestor). O painel
+até parece aceitar "Essencial", mas o banco devolve Pro. Para desfazer: só
+à mão no banco, `UPDATE accounts SET lifetime = false WHERE slug = 'portaldeaulas'`.
+O assistente dela continua com o limite do mês (150 mensagens, US$ 5) - o
+painel do gestor aumenta. Espelho: bloco 31.
 
 ### O QUE FALTA - lista para fazer depois
 
