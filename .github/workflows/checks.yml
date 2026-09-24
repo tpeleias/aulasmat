@@ -1,6 +1,6 @@
 name: Checagens
 
-# Roda em todo PR e no main: tipos, testes, build e o espelho do banco.
+# Roda em todo PR, no main e nos ramos claude/** (como o do APK): tipos, testes, build e o espelho do banco.
 # O APK continua no outro workflow; este existe para um erro aparecer no PR,
 # e não quando alguém reclama.
 on:
@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - 'claude/**'
   workflow_dispatch: {}
 
 permissions:
