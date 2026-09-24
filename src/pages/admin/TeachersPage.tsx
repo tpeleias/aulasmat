@@ -39,13 +39,24 @@ export default function TeachersPage() {
   }, []);
   const [busy, setBusy] = useState(false);
 
+  // Pro Equipe com assinatura: cada profissional ativo acima dos incluídos é
+  // cobrado. Depois de mudar quem está ativo, acerta a assinatura no Stripe
+  // (edge function billing). Falhar aqui não desfaz nada; o webhook e a
+  // próxima mudança acertam de novo.
+  const syncSeats = () => {
+    if (plan.billing_status !== "active" && plan.billing_status !== "past_due") return;
+    supabase.functions.invoke("billing", { body: { action: "sync_seats" } }).catch(() => {});
+  };
+  const incluidos = plan.included_teachers ?? null;
+  const cobraExtra = plan.tier === "pro" && incluidos !== null && plan.max_teachers === null;
+
   const add = async () => {
     const v = name.trim().toLowerCase();
     if (!v) { toast.error(`Informe o nome ${st.do} ${st.l}`); return; }
     setBusy(true);
     const { error } = await supabase.from("teachers" as any).insert({ name: v });
     setBusy(false);
-    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(`${st.s} ${st.pick("cadastrado", "cadastrada")}`); setName(""); reload(); }
+    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(`${st.s} ${st.pick("cadastrado", "cadastrada")}`); setName(""); reload(); syncSeats(); }
   };
 
   // Renomear passa pelo banco (rename_teacher) porque aulas e bloqueios
@@ -114,7 +125,7 @@ export default function TeachersPage() {
 
   const toggleActive = async (id: string, active: boolean) => {
     const { error } = await supabase.from("teachers" as any).update({ active }).eq("id", id);
-    if (error) toast.error(dbErrorMessage(error, w)); else reload();
+    if (error) toast.error(dbErrorMessage(error, w)); else { reload(); syncSeats(); }
   };
 
   // O número fica guardado mesmo com o botão desligado: desligar é "não quero
@@ -140,7 +151,7 @@ export default function TeachersPage() {
   const remove = async (id: string) => {
     if (!confirm(`Excluir ${st.este} ${st.l}? (${cap(w.appointment.os)} ${w.appointment.lp} e bloqueios já criados continuam intactos)`)) return;
     const { error } = await supabase.from("teachers" as any).delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("Removido"); reload(); }
+    if (error) toast.error(error.message); else { toast.success("Removido"); reload(); syncSeats(); }
   };
 
   return (
@@ -159,11 +170,17 @@ export default function TeachersPage() {
           <Button onClick={add} disabled={busy || semVaga} className="gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
+        {cobraExtra && (
+          <p className="text-xs text-muted-foreground mt-1">
+            O Pro Equipe inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")} ({ativos} agora).
+            {ativos > incluidos! ? ` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.` : " A partir do próximo, cada um entra na assinatura."}
+          </p>
+        )}
         {semVaga && (
           <div className="mt-3">
-            <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`} icon={GraduationCap} compacto>
-              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Pro não há limite —
-              é o plano de quem tem equipe.
+            <ProUpsell titulo={`O ${plan.nome} vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`} icon={GraduationCap} compacto>
+              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Pro Equipe cada um tem acesso
+              próprio — é o plano de quem tem equipe.
             </ProUpsell>
           </div>
         )}

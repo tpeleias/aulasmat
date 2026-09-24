@@ -5,7 +5,8 @@ import { MotionConfig } from "framer-motion";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { Capacitor } from "@capacitor/core";
 import { VocabularyProvider } from "@/hooks/useVocabulary";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Auth from "./pages/Auth";
@@ -44,8 +45,21 @@ const ChangePassword = lazy(() => import("./pages/student/ChangePassword"));
 const ChildLayout = lazy(() => import("./components/ChildLayout"));
 const ChildDashboard = lazy(() => import("./pages/child/ChildDashboard"));
 const PlatformPage = lazy(() => import("./pages/platform/PlatformPage"));
+const Subscribe = lazy(() => import("./pages/Subscribe"));
+const Landing = lazy(() => import("./pages/Landing"));
 
 const queryClient = new QueryClient();
+
+// A raiz do endereço. No site, para quem não está logado, é a página do
+// Cronys (o que é, planos e preços) - é ela que o Stripe e quem chega pelo
+// Google veem. No app Android e para quem já entrou, continua sendo o login,
+// que manda cada um para a sua tela.
+function Root() {
+  const { session, loading } = useAuth();
+  if (Capacitor.isNativePlatform()) return <Auth />;
+  if (loading) return null;
+  return session ? <Auth /> : <Landing />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -60,8 +74,10 @@ const App = () => (
           <AndroidBackButton />
           <Suspense fallback={null}>
           <Routes>
-            <Route path="/" element={<Auth />} />
-            <Route path="/auth" element={<Navigate to="/" replace />} />
+            <Route path="/" element={<Root />} />
+            <Route path="/entrar" element={<Auth />} />
+            <Route path="/auth" element={<Navigate to="/entrar" replace />} />
+            <Route path="/assinar" element={<Subscribe />} />
             <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/inicio" element={<PublicHome />} />
             <Route path="/privacidade" element={<PrivacyPolicy />} />

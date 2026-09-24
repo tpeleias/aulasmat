@@ -52,6 +52,10 @@ export default function AssistantPage() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Mensagens usadas no mês (limite por empresa, migration 20260925010000).
+  // Começa pelo que o plano trouxe e se atualiza a cada resposta.
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const shownUsage = usage ?? plan.assistant_usage ?? null;
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const location = useLocation();
@@ -112,6 +116,7 @@ export default function AssistantPage() {
       if (fnError) throw fnError;
       if (data?.error) throw new Error(data.error);
       setMessages(data.messages as ChatMessage[]);
+      if (data.usage) setUsage(data.usage);
     } catch (e: any) {
       setError(await extractErrorMessage(e));
     } finally {
@@ -174,6 +179,11 @@ export default function AssistantPage() {
           <p className="text-sm text-muted-foreground">
             Converse pra marcar {w.appointment.lp}, editar, registrar pagamentos e consultar o financeiro.
           </p>
+          {shownUsage && (
+            <p className={`mt-0.5 text-xs ${shownUsage.used >= shownUsage.limit ? "text-destructive" : "text-muted-foreground"}`}>
+              {shownUsage.used} de {shownUsage.limit} mensagens este mês
+            </p>
+          )}
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={clearChat} className="shrink-0">

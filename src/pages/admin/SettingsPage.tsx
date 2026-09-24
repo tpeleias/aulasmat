@@ -14,6 +14,8 @@ import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
+import { Link } from "react-router-dom";
+import { canSellHere } from "@/lib/subscription";
 
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
@@ -149,7 +151,7 @@ export default function SettingsPage() {
           <ul className="space-y-1 text-sm">
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{v.staff.p}</span>
-              <strong>{plan.max_teachers ?? "sem limite"}</strong>
+              <strong>{plan.max_teachers ?? (plan.included_teachers ? `${plan.included_teachers} incluídos, e mais sob cobrança` : "sem limite")}</strong>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{v.client.p}</span>
@@ -176,12 +178,33 @@ export default function SettingsPage() {
               </strong>
             </li>
           </ul>
+          {plan.billing_status === "active" && plan.paid_until && (
+            <p className="text-xs text-muted-foreground">
+              Assinatura {plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em {new Date(plan.paid_until).toLocaleDateString("pt-BR")}.
+              {(plan.extra_teachers ?? 0) > 0 && ` Inclui ${plan.extra_teachers} ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp} a mais.`}
+            </p>
+          )}
+          {plan.billing_status === "past_due" && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              O pagamento da assinatura não passou.
+              {plan.grace_until && ` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString("pt-BR")}, a conta passa para o Essencial (nada é apagado).`}
+            </p>
+          )}
           {plan.plano !== "pro" && (
             <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
               O que você já cadastrou continua aqui, sempre. Os limites valem só
-              para cadastrar coisa nova. Para mudar de plano, fale com quem cuida
-              da sua conta.
+              para cadastrar coisa nova.
+              {!canSellHere() && " Para mudar de plano, fale com quem cuida da sua conta."}
             </p>
+          )}
+          {/* Só no site: no app a Google Play não deixa vender nem apontar para
+              onde se compra (ver lib/subscription.ts). */}
+          {canSellHere() && (
+            <Button asChild variant={plan.billing_status === "active" ? "outline" : "default"} className="w-full">
+              <Link to="/assinar">
+                {plan.billing_status === "active" || plan.billing_status === "past_due" ? "Gerenciar assinatura" : "Ver planos e assinar"}
+              </Link>
+            </Button>
           )}
         </Card>
       )}

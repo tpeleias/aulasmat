@@ -15,13 +15,13 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
   const clients = `${n} ${v.client.lp} liberados`;
   switch (key) {
     case "limite_profissionais_cadastrar":
-      return `O plano Cronys Essencial permite ${staff}. Para ter mais, mude para o Cronys Pro.`;
+      return `O seu plano permite ${staff}. Para ter mais, mude de plano.`;
     case "limite_profissionais_reativar":
-      return `O plano Cronys Essencial permite ${staff}. Desative outro antes, ou mude para o Cronys Pro.`;
+      return `O seu plano permite ${staff}. Desative outro antes, ou mude de plano.`;
     case "limite_clientes_cadastrar":
-      return `O plano Cronys Essencial permite ${clients}. Para cadastrar mais, mude para o Cronys Pro.`;
+      return `O seu plano permite ${clients}. Para cadastrar mais, mude para o Cronys Pro.`;
     case "limite_clientes_liberar":
-      return `O plano Cronys Essencial permite ${clients}. Trave outro antes, ou mude para o Cronys Pro.`;
+      return `O seu plano permite ${clients}. Trave outro antes, ou mude para o Cronys Pro.`;
     case "cliente_pausado":
       return `Não é possível marcar ${v.appointment.l} para ${v.client.este} ${v.client.l} agora: o cadastro está pausado.`;
     case "profissional_pausado":

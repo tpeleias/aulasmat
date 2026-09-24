@@ -24,7 +24,7 @@ export default function MyAccount() {
   const [pw2, setPw2] = useState("");
 
   if (loading) return null;
-  if (!session) return <Navigate to="/" replace />;
+  if (!session) return <Navigate to="/entrar" replace />;
 
   const email = user?.email ?? "";
   const login = email.endsWith(`@${USERNAME_DOMAIN}`) ? email.slice(0, -USERNAME_DOMAIN.length - 1) : email;

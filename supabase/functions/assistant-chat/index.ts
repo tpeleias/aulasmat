@@ -9,6 +9,11 @@ const CLAUDE_MODEL = "claude-sonnet-5";
 const ANTHROPIC_VERSION = "2023-06-01";
 const MAX_TOOL_ITERATIONS = 8;
 
+// Preço do CLAUDE_MODEL, em dólar por milhão de tokens. Serve para o teto de
+// custo por empresa (assistant_usage); se trocar o modelo, troque aqui também.
+// Cache: leitura sai a 10% da entrada, gravação a 125%.
+const PRICE_PER_MTOK = { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 };
+
 const DIACRITICS_RE = new RegExp("[\\u0300-\\u036f]", "g");
 
 function teacherSlug(name: string) {
@@ -440,6 +445,15 @@ Deno.serve(async (req) => {
       return json({ error: "O Assistente é do Cronys Pro. Sua conta está no Cronys Essencial." }, 402);
     }
 
+    // Limite do mês, também ANTES da API: passou, responde sem gastar nada.
+    const { data: uso } = await admin.rpc("assistant_usage_status", { _account: accountId });
+    if (uso && uso.allowed === false) {
+      return json({
+        error: `Você usou as ${uso.limit} mensagens do assistente deste mês. O limite volta no dia 1º; para aumentar, fale com quem cuida da sua conta.`,
+        usage: uso,
+      }, 429);
+    }
+
     // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
     const { messages, vocabulary } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
@@ -467,7 +481,7 @@ Deno.serve(async (req) => {
     const systemPrompt = `Você é o assistente do Cronys, o app que um professor particular usa para gerenciar aulas, alunos e financeiro (carteira).
 ${vocabularyNote(vocabulary)}
 
-Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo). Use isso para interpretar datas relativas como "amanhã", "quinta que vem", etc.
+A data e a hora atuais estão no fim destas instruções. Use-as para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
 Regras importantes:
 - Preço e duração padrão: nesta empresa a aula custa ${brl(listPrice)} por hora e dura 60 minutos. Ao criar uma aula, OMITA o campo "price" — o sistema preenche com esse valor sozinho. Só informe "price" quando o professor pedir um valor diferente para aquela aula. Nunca lance uma aula com valor menor por causa de pacote ou de desconto: o valor da aula é sempre o cheio, e o abatimento entra como voucher no financeiro. Se o professor quiser mudar o valor de todas as próximas aulas, o lugar é Configurações → Valor da aula (não dá para mudar por aqui).
@@ -488,8 +502,30 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
 4. Resultado vazio (nenhum cadastro parecido): avise o usuário que não achou esse aluno cadastrado e pergunte se é um aluno novo. Se ele confirmar que sim, colete os dados (nome completo, responsável se houver) e chame create_student antes de criar a aula. Nunca cadastre um aluno novo sem confirmação explícita — pode ser só um erro de digitação de um aluno que já existe.
 5. Nunca chame create_lesson ou update_lesson (trocando aluno) usando um nome que não veio de find_students (já existente) ou de create_student (recém-criado).`;
 
+    // A hora muda a cada minuto; fica num bloco à parte, DEPOIS do ponto de
+    // cache, para as ferramentas e as regras (a maior parte do custo de
+    // entrada) virem do cache a 10% do preço nas chamadas seguintes.
+    const system = [
+      { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
+      { type: "text", text: `Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo).` },
+    ];
+
     let convo = [...messages];
     let finalText = "";
+
+    // Soma o uso de todas as chamadas desta mensagem (o laço de ferramentas faz
+    // várias) e grava uma vez, inclusive quando a resposta termina em erro.
+    const used = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
+    const record = async () => {
+      if (used.input + used.output + used.cacheRead + used.cacheWrite === 0) return;
+      const cost = (used.input * PRICE_PER_MTOK.input + used.output * PRICE_PER_MTOK.output
+        + used.cacheRead * PRICE_PER_MTOK.cacheRead + used.cacheWrite * PRICE_PER_MTOK.cacheWrite) / 1_000_000;
+      const { error } = await admin.rpc("assistant_usage_add", {
+        _account: accountId, _input: used.input, _output: used.output,
+        _cache_read: used.cacheRead, _cache_write: used.cacheWrite, _cost: Number(cost.toFixed(4)),
+      });
+      if (error) console.error("assistant_usage_add", error.message);
+    };
 
     for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
       const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -502,7 +538,7 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 4096,
-          system: systemPrompt,
+          system,
           messages: convo,
           tools,
           output_config: { effort: "low" },
@@ -511,13 +547,19 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
 
       if (!resp.ok) {
         const errBody = await resp.text();
+        await record();
         return json({ error: `Erro da API da Claude: ${resp.status} ${errBody}` }, 502);
       }
 
       const result = await resp.json();
+      used.input += result.usage?.input_tokens ?? 0;
+      used.output += result.usage?.output_tokens ?? 0;
+      used.cacheRead += result.usage?.cache_read_input_tokens ?? 0;
+      used.cacheWrite += result.usage?.cache_creation_input_tokens ?? 0;
 
       if (result.stop_reason === "refusal") {
         const reason = result.stop_details?.category ?? "desconhecido";
+        await record();
         return json({ error: `A Claude recusou a resposta (motivo: ${reason}). Tente reformular a mensagem.` }, 502);
       }
 
@@ -542,7 +584,9 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
       convo.push({ role: "user", content: toolResults });
     }
 
-    return json({ reply: finalText, messages: convo });
+    await record();
+    const { data: usoDepois } = await admin.rpc("assistant_usage_status", { _account: accountId });
+    return json({ reply: finalText, messages: convo, usage: usoDepois ?? null });
   } catch (e: any) {
     return json({ error: e?.message || String(e) }, 500);
   }

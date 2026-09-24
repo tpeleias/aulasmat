@@ -1,6 +1,8 @@
 import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
+import { canSellHere } from "@/lib/subscription";
 
 /**
  * O aviso de que algo é do Cronys Pro.
@@ -10,6 +12,8 @@ import type { LucideIcon } from "lucide-react";
  * Google - um link para pagar por fora é motivo de recusa na revisão. Aqui a
  * tela só informa e manda falar com quem cuida da conta; a troca de plano é
  * feita pelo gestor da plataforma.
+ *
+ * No SITE a regra não vale, e aí o aviso leva para /assinar.
  */
 export function ProUpsell({
   titulo,
@@ -28,6 +32,7 @@ export function ProUpsell({
         <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <span>
           <strong className="text-foreground">{titulo}</strong> — {children}
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Ver planos</Link></>}
         </span>
       </div>
     );
@@ -40,11 +45,17 @@ export function ProUpsell({
       </div>
       <h2 className="text-lg font-semibold">{titulo}</h2>
       <p className="mt-2 text-sm text-muted-foreground">{children}</p>
-      <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-        Sua conta está no <strong className="text-foreground">Cronys Essencial</strong>.
-        Para mudar para o <strong className="text-foreground">Cronys Pro</strong>, fale
-        com quem cuida da sua conta.
-      </p>
+      {canSellHere() ? (
+        <Link to="/assinar" className="mt-4 inline-block rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
+          Ver planos e assinar
+        </Link>
+      ) : (
+        <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          Sua conta está no <strong className="text-foreground">Cronys Essencial</strong>.
+          Para mudar para o <strong className="text-foreground">Cronys Pro</strong>, fale
+          com quem cuida da sua conta.
+        </p>
+      )}
     </Card>
   );
 }

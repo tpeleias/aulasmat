@@ -64,7 +64,7 @@ export default function PublicHome() {
           <div className="flex items-center gap-2">
             <div className="hidden sm:block w-36"><ThemeToggle /></div>
             <Button asChild variant="outline" size="sm" className="gap-2">
-              <Link to="/"><LogIn className="w-4 h-4" />Entrar</Link>
+              <Link to="/entrar"><LogIn className="w-4 h-4" />Entrar</Link>
             </Button>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function PublicHome() {
           <Monitor className="w-6 h-6 text-primary mx-auto" />
           <h2 className="text-xl font-bold">Já é aluno ou responsável?</h2>
           <p className="text-sm text-muted-foreground">Acesse o portal para ver aulas, materiais, tarefas e financeiro.</p>
-          <Button asChild><Link to="/">Entrar no portal</Link></Button>
+          <Button asChild><Link to="/entrar">Entrar no portal</Link></Button>
         </section>
       </main>
 

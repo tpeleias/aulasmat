@@ -23,6 +23,20 @@ export type Plan = {
   trial_ends_at?: string | null;
   /** Código que o cliente digita no cadastro pelo app (o apelido da empresa). */
   school_code?: string | null;
+  /**
+   * A faixa exata (migration 20260925010000). `plano` continua "pro" nas duas
+   * faixas pagas, que é o que o app antigo entende; aqui se separa Solo de Equipe.
+   */
+  tier?: "essencial" | "pro_solo" | "pro";
+  included_teachers?: number;
+  /** none | active | past_due | canceled - a assinatura no Stripe. */
+  billing_status?: string;
+  billing_interval?: string | null;
+  paid_until?: string | null;
+  /** Até quando a assinatura atrasada segue valendo. */
+  grace_until?: string | null;
+  extra_teachers?: number;
+  assistant_usage?: { used: number; limit: number; allowed: boolean } | null;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a
@@ -43,6 +57,9 @@ export const PLANO_DESCONHECIDO: Plan = {
 let cached: Plan | null = null;
 
 export function primePlan(p: Plan) { cached = p; }
+
+/** Esquece o plano guardado (depois de assinar, por exemplo) - a próxima tela relê. */
+export function forgetPlan() { cached = null; }
 
 /**
  * O plano da empresa de quem está logado.

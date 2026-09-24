@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ export default function Auth() {
   // escola nova, com teste do Pro). "family": responsável entrando numa escola
   // pelo código que o professor passou.
   const [signupKind, setSignupKind] = useState<"family" | "school">("family");
+  // /entrar?criar=empresa abre direto no cadastro de empresa (botão da página inicial).
+  const [params] = useSearchParams();
+  useEffect(() => {
+    if (params.get("criar") === "empresa") { setSignupKind("school"); setSignup(true); }
+  }, [params]);
   const [schoolName, setSchoolName] = useState("");
   const [teacherName, setTeacherName] = useState("");
   const [schoolCode, setSchoolCode] = useState("");
