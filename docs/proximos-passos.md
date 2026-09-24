@@ -77,7 +77,7 @@ ficaram fáceis de trocar - **revisar**:
 | Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
 | Tolerância de atraso | **2 dias** (Thiago, 24/09; era 7) | `billing_grace_days()`, uma linha numa migration |
 | Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
-| Preço de fundador | cupom **FUNDADOR**: 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20) | painel do Stripe → Cupons |
+| Preço de lançamento | código **LANCAMENTO** (sem ç: o Stripe só aceita letras sem acento, números e traço): 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20). Era FUNDADOR até 24/09; o cupom por trás tem id `fundador`, que não muda | painel do Stripe → Cupons |
 | Assistente | **desligado em todas as empresas e fora de venda** (Thiago, 24/09: sem gasto de API até começar a cobrar). Pronto como adicional: produto "Cronys Assistente" no Stripe, R$ 39/mês ou R$ 390/ano (provisório) | ver "Para ligar o assistente" abaixo |
 
 ### O que está na produção
@@ -91,7 +91,7 @@ ficaram fáceis de trocar - **revisar**:
   v15 com limite, registro de custo e cache de prompt.
 - **Stripe (modo teste)**: produtos Pro Solo, Pro Equipe e "profissional
   extra", 6 preços (mensal/anual, `lookup_key` cronys_*), cupom + código
-  FUNDADOR, portal do cliente (trocar plano, cartão, faturas, cancelar no fim
+  LANCAMENTO (era FUNDADOR), portal do cliente (trocar plano, cartão, faturas, cancelar no fim
   do período) e o endpoint do webhook apontando para a função.
 
 ### Planos no banco
@@ -151,6 +151,33 @@ ficaram fáceis de trocar - **revisar**:
   No app e para quem já está logado, `/` continua sendo o login.
   `/entrar?criar=empresa` abre direto o cadastro de empresa.
 
+### Cupons prontos no Stripe (teste) - todos DESATIVADOS
+
+Criados em 24/09 para ligar na época. Só nos planos (Solo e Equipe), nunca no
+profissional extra nem no assistente. Ativar/desativar: Stripe → Catálogo de
+produtos → Cupons → o desconto → Códigos promocionais → o código.
+
+| Desconto (id) | Quanto | Códigos | Quando |
+|---|---|---|---|
+| Preço de lançamento (`fundador`) | 20% para sempre, 20 usos | **LANCAMENTO** (ATIVO) | agora |
+| Primeiro mês pela metade (`primeiro-mes`) | 50% no 1º mês, só quem nunca pagou | PRIMEIROMES | fim do teste grátis, anúncios |
+| Datas comemorativas (`datas-comemorativas`) | 25% por 3 meses | CONSUMIDOR, DIADOCLIENTE, ANONOVO, VOLTAASAULAS | 15/03, 15/09, virada do ano, jan-fev e jul |
+| Dia da profissão (`dia-da-profissao`) | 30% por 3 meses | PROFESSOR, MEDICO, PSICOLOGO, VETERINARIO, FISIOTERAPEUTA, NUTRICIONISTA, EDUCADORFISICO | 15/10, 18/10, 27/08, 09/09, 13/10, 31/08, 01/09 |
+| Black Friday (`black-friday`) | 40% por 3 meses | BLACKFRIDAY, CYBERMONDAY | 27/11 e 30/11/2026 |
+| Volte para o Cronys (`volte`) | 30% por 3 meses | VOLTA | e-mail para quem cancelou |
+
+Atenção:
+- **FUNDADOR ainda está ativo** - desativar no painel (a ferramenta daqui
+  não desativa código).
+- Desconto "por 3 meses" num plano **anual** cai na primeira fatura inteira
+  (o ano é cobrado de uma vez dentro dos 3 meses): 30% de R$ 990. Se não
+  quiser isso, crie a data comemorativa como "valor fixo" ou avise nos
+  anúncios que vale só no mensal.
+- Uma empresa usa um código por assinatura; o código novo não soma com o
+  antigo.
+- No modo real, os cupons precisam ser criados de novo (o teste não passa
+  para o real). Os ids e códigos acima servem de roteiro.
+
 ### Para ligar o assistente (quando começar a cobrar)
 
 Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
@@ -167,9 +194,27 @@ Tudo pronto e testado (espelho, bloco 30); o que o segura é uma linha:
    switch "Assistente".
 
 Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
-`20260925020000`.
+`20260925020000` e **religado no mesmo dia** pela `20260925030000` (abaixo).
+
+### Portal de Aulas: tudo liberado para sempre (24/09)
+
+Pedido do Thiago: a empresa dele com todas as funções, para sempre.
+`accounts.lifetime = true` + gatilho `accounts_keep_lifetime`: plano fica
+Pro Equipe, assistente ligado e sem teste, **qualquer que seja o caminho**
+(fim de teste, atraso ou cancelamento no Stripe, painel do gestor). O painel
+até parece aceitar "Essencial", mas o banco devolve Pro. Para desfazer: só
+à mão no banco, `UPDATE accounts SET lifetime = false WHERE slug = 'portaldeaulas'`.
+O assistente dela continua com o limite do mês (150 mensagens, US$ 5) - o
+painel do gestor aumenta. Espelho: bloco 31.
 
 ### O QUE FALTA - lista para fazer depois
+
+**Feito em 24/09 (tarde):** secrets do Stripe colocadas pelo Thiago; webhook
+testado de ponta a ponta com uma empresa temporária (assinar Solo → trocar
+para Equipe → 6º profissional vira item extra → cancelar → Essencial; tudo
+refletido no banco em segundos; empresa temporária apagada). PR #27
+mesclado, Lovable publicado, `.aab` 1.11.0 gerado (workflow "Build Android
+release (Play)", execução 22) - falta subir na Play.
 
 **A. Para testar a cobrança (modo teste do Stripe)** - nesta ordem
 1. Supabase → Edge Functions → **Secrets** (Thiago disse que vai pôr):
@@ -180,7 +225,7 @@ Em 24/09 só o Portal de Aulas estava ligado; foi desligado pela migration
    `/assinar`). Depois publicar o Lovable.
 3. Testar numa empresa de teste (Escola X): Configurações → Ver planos e
    assinar → cartão `4242 4242 4242 4242`, qualquer validade futura e CVC.
-   O selo deve virar PRO em segundos. Testar também o código FUNDADOR e o
+   O selo deve virar PRO em segundos. Testar também o código LANCAMENTO e o
    "Gerenciar assinatura" (portal).
 
 **B. Domínio cronys.com.br**

@@ -891,7 +891,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
 SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
-SELECT public.assert(NOT public.account_can('assistant'), 'sem assistente por enquanto (decisao de 24/09: desligado ate comecar a cobrar)');
+SELECT public.assert(public.account_can('assistant'), 'com assistente (empresa do Thiago: tudo liberado para sempre)');
 SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro Equipe' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Pro Equipe (plano "pro")');
 COMMIT;
 
@@ -900,6 +900,9 @@ COMMIT;
 \echo '--- 21. Desligar o assistente de uma empresa PRO, a mao ---'
 
 -- A empresa A e Pro. O gestor desliga o assistente dela sem rebaixar o plano.
+-- Ela e a empresa marcada como "para sempre" (bloco 31): o teste tira a marca
+-- enquanto roda, porque aqui o que se testa e uma empresa Pro comum.
+UPDATE public.accounts SET lifetime = false WHERE id = current_setting('teste.a')::uuid;
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
@@ -942,6 +945,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
   'limpar a excecao religa o assistente da empresa Pro');
 COMMIT;
+UPDATE public.accounts SET lifetime = true WHERE id = current_setting('teste.a')::uuid;
 
 \echo ''
 \echo '--- 22. Renomear empresa ---'
@@ -1733,5 +1737,31 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
 SELECT public.assert((public.my_plan() ->> 'assistant_on_sale')::boolean = false, 'a tela sabe que o adicional esta fora de venda');
 COMMIT;
+
+
+\echo ''
+\echo '--- 31. Portal de Aulas: tudo liberado para sempre ---'
+
+SELECT public.assert((SELECT lifetime AND plan = 'pro' AND assistant_override FROM public.accounts WHERE slug = 'portaldeaulas'),
+  'Portal de Aulas: Pro Equipe e assistente, marcada como para sempre');
+
+-- Todos os caminhos que rebaixam: nenhum pega.
+SELECT public.billing_apply_subscription((SELECT id FROM public.accounts WHERE slug = 'portaldeaulas'),
+  'cus_pa', 'sub_pa', 'canceled', NULL, NULL, NULL, false);
+UPDATE public.accounts SET billing_status = 'past_due', past_due_since = now() - interval '30 days' WHERE slug = 'portaldeaulas';
+SELECT public.expire_unpaid_subscriptions();
+UPDATE public.accounts SET trial_ends_at = now() - interval '1 day' WHERE slug = 'portaldeaulas';
+SELECT public.expire_trials();
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_account_plan(current_setting('teste.a')::uuid, 'essencial', false);
+COMMIT;
+SELECT public.assert((SELECT plan = 'pro' AND assistant_override AND trial_ends_at IS NULL FROM public.accounts WHERE slug = 'portaldeaulas'),
+  'cancelamento, atraso, fim de teste e o painel do gestor nao rebaixam');
+SELECT public.assert(public.account_can('assistant', (SELECT id FROM public.accounts WHERE slug = 'portaldeaulas')),
+  'e o assistente continua liberado');
+UPDATE public.accounts SET billing_status = 'none', past_due_since = NULL WHERE slug = 'portaldeaulas';
 
 \echo '=== FIM ==='
