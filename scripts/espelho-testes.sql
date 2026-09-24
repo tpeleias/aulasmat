@@ -902,7 +902,7 @@ COMMIT;
 -- A empresa A e Pro. O gestor desliga o assistente dela sem rebaixar o plano.
 -- Ela e a empresa marcada como "para sempre" (bloco 31): o teste tira a marca
 -- enquanto roda, porque aqui o que se testa e uma empresa Pro comum.
-UPDATE public.accounts SET lifetime = false WHERE id = current_setting('teste.a')::uuid;
+UPDATE public.accounts SET lifetime = false, lifetime_assistant = false WHERE id = current_setting('teste.a')::uuid;
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
@@ -945,7 +945,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
   'limpar a excecao religa o assistente da empresa Pro');
 COMMIT;
-UPDATE public.accounts SET lifetime = true WHERE id = current_setting('teste.a')::uuid;
+UPDATE public.accounts SET lifetime = true, lifetime_assistant = true WHERE id = current_setting('teste.a')::uuid;
 
 \echo ''
 \echo '--- 22. Renomear empresa ---'
@@ -1770,6 +1770,10 @@ UPDATE public.accounts SET billing_status = 'none', past_due_since = NULL WHERE 
 
 SELECT public.assert(coalesce((SELECT lifetime AND plan = 'pro' FROM public.accounts WHERE slug = 'demo'), true),
   'Demonstracao (se existir): Pro Equipe para sempre');
+SELECT public.assert(coalesce((SELECT NOT assistant_override FROM public.accounts WHERE slug = 'demo'), true),
+  'mas sem o assistente (o robo da Play clica em tudo)');
+SELECT public.assert((SELECT lifetime AND lifetime_assistant AND assistant_override FROM public.accounts WHERE slug = 'portaldeaulas'),
+  'o Portal de Aulas continua com o assistente para sempre');
 
 -- Falta cobrada. Aula marcada da Bia, na empresa A.
 INSERT INTO public.lessons (id, account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, price)
