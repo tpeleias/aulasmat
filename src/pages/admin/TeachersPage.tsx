@@ -8,7 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { GraduationCap, Plus, Trash2, ChevronDown, Pencil, KeyRound } from "lucide-react";
+import { GraduationCap, Plus, Trash2, ChevronDown, ChevronUp, Pencil, KeyRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ColorPicker } from "@/components/ColorPicker";
+import { teacherColor } from "@/lib/teacherColors";
+import { useServices } from "@/hooks/useServices";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { SCARCITY_DEFAULT, type ScarcityDay } from "@/lib/availability";
 import { toast } from "sonner";
@@ -38,6 +43,12 @@ export default function TeachersPage() {
       .then(({ data }) => setAccountScarcity(((data as any)?.scarcity ?? null)));
   }, []);
   const [busy, setBusy] = useState(false);
+  const { services, links, reload: reloadServices } = useServices(true);
+  // Serviço por profissional e "qualquer profissional" são do Max.
+  const perTeacher = !!plan.teacher_services && (services?.length ?? 0) > 0;
+  const slugs = teachers.map(t => teacherSlug(t.name));
+  // A etiqueta "faz todos os serviços", no vocabulário da empresa.
+  const todos = `Faz ${w.topic.pick("todos", "todas")} ${w.topic.os} ${w.topic.lp}`;
 
   // Max com assinatura: cada profissional ativo acima dos incluídos é
   // cobrado. Depois de mudar quem está ativo, acerta a assinatura no Stripe
@@ -148,6 +159,39 @@ export default function TeachersPage() {
     if (error) toast.error(error.message); else reload();
   };
 
+  const setColor = async (id: string, color: string | null) => {
+    const { error } = await supabase.from("teachers" as any).update({ color }).eq("id", id);
+    if (error) toast.error(dbErrorMessage(error, w)); else reload();
+  };
+
+  const setAllServices = async (id: string, all_services: boolean) => {
+    const { error } = await supabase.from("teachers" as any).update({ all_services }).eq("id", id);
+    if (error) toast.error(dbErrorMessage(error, w)); else reload();
+  };
+
+  const toggleService = async (teacherId: string, serviceId: string, on: boolean) => {
+    const { error } = on
+      ? await supabase.from("teacher_services" as never).insert({ teacher_id: teacherId, service_id: serviceId } as never)
+      : await supabase.from("teacher_services" as never).delete().eq("teacher_id", teacherId).eq("service_id", serviceId);
+    if (error) toast.error(dbErrorMessage(error, w)); else reloadServices();
+  };
+
+  // A ordem da lista é a prioridade do "qualquer profissional": sobe/desce
+  // regrava a ordem de todos (as antigas podem estar todas em zero).
+  const move = async (index: number, delta: -1 | 1) => {
+    const j = index + delta;
+    if (j < 0 || j >= teachers.length) return;
+    const order = teachers.map(t => t.id);
+    [order[index], order[j]] = [order[j], order[index]];
+    setBusy(true);
+    const results = await Promise.all(order.map((id, i) =>
+      supabase.from("teachers" as any).update({ sort_order: i + 1 }).eq("id", id)));
+    setBusy(false);
+    const err = results.find(r => r.error)?.error;
+    if (err) toast.error(dbErrorMessage(err, w));
+    reload();
+  };
+
   const remove = async (id: string) => {
     if (!confirm(`Excluir ${st.este} ${st.l}? (${cap(w.appointment.os)} ${w.appointment.lp} e bloqueios já criados continuam intactos)`)) return;
     const { error } = await supabase.from("teachers" as any).delete().eq("id", id);
@@ -188,15 +232,34 @@ export default function TeachersPage() {
 
       <div className="space-y-2">
         {teachers.length === 0 && <Card className="p-6 text-center text-sm text-muted-foreground">{st.nenhum} {st.l} {st.pick("cadastrado", "cadastrada")}.</Card>}
-        {teachers.map(t => (
-          <Card key={t.id} className="p-3 space-y-3">
+        {plan.any_teacher && teachers.length > 1 && (
+          <p className="text-xs text-muted-foreground">
+            A ordem desta lista é a prioridade quando {w.client.o} {w.client.l} pede &quot;qualquer {st.l}&quot;: fica com {st.o} primeir{st.pick("o", "a")} que estiver livre no horário. Use as setas para mudar.
+          </p>
+        )}
+        {teachers.map((t, i) => (
+          <Card key={t.id} className={`p-3 space-y-3 border-l-4 ${teacherColor(teacherSlug(t.name), slugs, { [teacherSlug(t.name)]: t.color }).border}`}>
             <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-1">
+                {plan.any_teacher && teachers.length > 1 && (
+                  <div className="flex flex-col">
+                    <Button size="icon" variant="ghost" className="h-6 w-6" title="Subir na prioridade" disabled={busy || i === 0} onClick={() => move(i, -1)}><ChevronUp className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" title="Descer na prioridade" disabled={busy || i === teachers.length - 1} onClick={() => move(i, 1)}><ChevronDown className="h-4 w-4" /></Button>
+                  </div>
+                )}
               <div>
-                <div className="font-medium">{capitalize(t.name)}</div>
+                <div className="flex flex-wrap items-center gap-1.5 font-medium">
+                  {plan.any_teacher && teachers.length > 1 && <span className="text-xs text-muted-foreground">{i + 1}º</span>}
+                  {capitalize(t.name)}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {t.active ? "Ativo" : t.plan_locked ? "Pausado pela mudança de plano - ative para liberar" : "Inativo"}
                   {t.user_id ? " · tem acesso próprio" : ""}
                 </div>
+                {perTeacher && t.all_services !== false && (
+                  <Badge variant="secondary" className="mt-1 text-[10px] font-normal">{todos}</Badge>
+                )}
+              </div>
               </div>
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />
@@ -209,6 +272,35 @@ export default function TeachersPage() {
                 <Button size="icon" variant="ghost" onClick={() => remove(t.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>
             </div>
+
+            <div className="border-t border-border pt-3">
+              <label className="text-xs text-muted-foreground">Cor na agenda</label>
+              <ColorPicker value={t.color} onChange={c => setColor(t.id, c)} allowNone noneLabel="Automática (pela posição)" />
+            </div>
+
+            {perTeacher && services && (
+              <div className="border-t border-border pt-3 space-y-2">
+                <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                  <Switch checked={t.all_services !== false} onCheckedChange={v => setAllServices(t.id, v)} />
+                  <span className="text-muted-foreground">
+                    {t.all_services !== false ? todos : `Faz só ${w.topic.os} ${w.topic.lp} marcad${w.topic.pick("o", "a")}s`}
+                  </span>
+                </label>
+                {t.all_services === false && (
+                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {services.map(sv => {
+                      const on = links.some(l => l.teacher_id === t.id && l.service_id === sv.id);
+                      return (
+                        <label key={sv.id} className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5 text-sm cursor-pointer">
+                          <Checkbox checked={on} onCheckedChange={v => toggleService(t.id, sv.id, v === true)} />
+                          {sv.name}
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex items-end gap-2">
@@ -315,8 +407,8 @@ export default function TeachersPage() {
           <DialogHeader>
             <DialogTitle>Acesso de {accessFor ? capitalize(accessFor.name) : ""}</DialogTitle>
             <DialogDescription>
-              Com o acesso próprio, {st.o} {st.l} vê e marca só {w.appointment.os} {w.appointment.lp} {st.pick("dele", "dela")}, vê {w.client.os} {w.client.lp} e cadastra
-              {" "}{w.client.pick("novos", "novas")}, e mexe nos próprios bloqueios. Não vê o financeiro, os valores nem as configurações.
+              Com o acesso próprio, {st.o} {st.l} consulta {w.appointment.os} {w.appointment.lp} {st.pick("dele", "dela")} e {w.client.os} {w.client.lp} com quem já atende,
+              põe material e tarefa e mexe nos próprios bloqueios. Quem marca e desmarca é você. Não vê o financeiro, os valores nem as configurações.
             </DialogDescription>
           </DialogHeader>
           {accessFor?.user_id ? (

@@ -24,11 +24,18 @@ import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { capitalize } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
+import { usePlan } from "@/hooks/usePlan";
+import { useServices, teacherDoes } from "@/hooks/useServices";
+
+// "Qualquer profissional" no seletor (Max): o app escolhe pela prioridade.
+const ANY = "__qualquer__";
+
+type Slot = { start: Date; end: Date; teacher: string };
 
 const DAYS_AHEAD = 5;
 
 // A aula que a família quer trocar (?troca=<id>, vindo de "Minhas aulas").
-type Original = { id: string; start_at: string; teacher: string; subject: string | null; status: string; is_online: boolean };
+type Original = { id: string; start_at: string; teacher: string; subject: string | null; status: string; is_online: boolean; service_id?: string | null };
 
 export default function StudentBooking() {
   const settings = useAppSettings();
@@ -36,7 +43,20 @@ export default function StudentBooking() {
   const ap = w.appointment;
   const st = w.staff;
   const { student } = useStudent();
-  const { teachers } = useTeachers(true);
+  const { teachers: allTeachers } = useTeachers(true);
+  const { plan } = usePlan();
+  const { services, links } = useServices(true);
+  // Essencial: um serviço só (o banco não deixa ligar outro); se sobrar mais
+  // de um ligado de outro plano, a família vê o primeiro.
+  const offered = useMemo(() => (services ?? []).slice(0, plan.services_multi ? undefined : 1), [services, plan.services_multi]);
+  const [serviceId, setServiceId] = useState<string>("");
+  const service = offered.find(x => x.id === serviceId) ?? null;
+  // Só quem faz o serviço escolhido, na ordem de prioridade do admin.
+  const teachers = useMemo(
+    () => allTeachers.filter(t => teacherDoes(t, service?.id, links, !!plan.teacher_services)),
+    [allTeachers, service?.id, links, plan.teacher_services],
+  );
+  const anyAllowed = !!plan.any_teacher && teachers.length > 1;
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const trocaId = params.get("troca");
@@ -44,11 +64,11 @@ export default function StudentBooking() {
   // Horas de antecedência que a escola exige; o banco confere de novo no pedido.
   const noticeHours = Number(settings?.min_request_notice_hours ?? 0) || 0;
   const [teacher, setTeacher] = useState<string>("");
-  const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: { start: Date; end: Date }[] }[]>([]);
+  const [slotsByDay, setSlotsByDay] = useState<{ day: Date; slots: Slot[] }[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   // Horário escolhido esperando confirmação. Antes, um toque já criava a aula.
-  const [pending, setPending] = useState<{ start: Date; end: Date } | null>(null);
+  const [pending, setPending] = useState<Slot | null>(null);
   // O que a família escreve junto com o pedido. A disciplina é obrigatória: sem
   // ela o professor aprova no escuro. O resto é opcional, mas é o que faz ele
   // chegar preparado em vez de descobrir o assunto na hora.
@@ -58,29 +78,40 @@ export default function StudentBooking() {
 
   useEffect(() => {
     if (!trocaId) { setOriginal(null); return; }
-    supabase.from("lessons").select("id, start_at, teacher, subject, status, is_online").eq("id", trocaId).maybeSingle()
+    supabase.from("lessons").select("*").eq("id", trocaId).maybeSingle()
       .then(({ data }) => {
         const o = data as Original | null;
         setOriginal(o);
         // Na troca, começa pelo mesmo profissional; a família pode mudar.
-        if (o && teachers.some(t => t.name === o.teacher)) setTeacher(o.teacher);
+        if (o?.service_id) setServiceId(o.service_id);
+        if (o && allTeachers.some(t => t.name === o.teacher)) setTeacher(o.teacher);
       });
-  }, [trocaId, teachers]);
+  }, [trocaId, allTeachers]);
 
-  useEffect(() => { if (!teacher && teachers[0]) setTeacher(teachers[0].name); }, [teachers, teacher]);
+  // Começa pelo primeiro serviço. Sem serviços cadastrados, fica como antes.
+  useEffect(() => {
+    if (!serviceId && offered[0] && !trocaId) setServiceId(offered[0].id);
+  }, [offered, serviceId, trocaId]);
+
+  // Profissional que não faz o serviço escolhido sai da seleção.
+  useEffect(() => {
+    if (teacher === ANY ? !anyAllowed : (teacher && !teachers.some(t => t.name === teacher))) setTeacher("");
+    else if (!teacher && teachers[0]) setTeacher(anyAllowed ? ANY : teachers[0].name);
+  }, [teachers, teacher, anyAllowed]);
 
   // Serve de exemplo no campo, não de valor preenchido: quem escreve é a família.
-  const teacherSubject = teachers.find(t => t.name === teacher)?.subject ?? null;
+  const teacherSubject = allTeachers.find(t => t.name === teacher)?.subject ?? null;
 
-  const load = async () => {
-    if (!teacher || !settings) return;
-    setLoading(true);
-    const from = startOfDay(new Date());
-    const to = addDays(from, DAYS_AHEAD);
+  // Duração do horário: a do serviço, ou o intervalo padrão da agenda.
+  const slotMinutes = service?.duration_minutes ?? settings?.slot_minutes ?? 60;
+
+  // Os horários que um profissional mostra, dia a dia (com a escassez dele).
+  const slotsFor = async (name: string, from: Date, to: Date) => {
+    if (!settings) return [];
     const [busyR, recR, lessonsR] = await Promise.all([
-      supabase.rpc("get_busy_ranges_by_teacher", { _from: from.toISOString(), _to: to.toISOString(), _teacher: teacher }),
-      supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: teacher }),
-      supabase.from("lessons").select("start_at, duration_minutes").eq("teacher", teacher).gte("start_at", from.toISOString()).lt("start_at", to.toISOString()),
+      supabase.rpc("get_busy_ranges_by_teacher", { _from: from.toISOString(), _to: to.toISOString(), _teacher: name }),
+      supabase.rpc("get_recurring_blocks_by_teacher", { _teacher: name }),
+      supabase.from("lessons").select("start_at, duration_minutes").eq("teacher", name).gte("start_at", from.toISOString()).lt("start_at", to.toISOString()),
     ]);
     const busyRanges = (busyR.data ?? []).map((r: any) => ({ start: new Date(r.start_at), end: new Date(r.end_at) }));
     const lessonRanges = (lessonsR.data ?? []).map((l: any) => ({
@@ -90,30 +121,55 @@ export default function StudentBooking() {
     // Candidate pool ignores lessons so the scarcity "shop window" stays fixed
     const blocksOnly = busyRanges.filter(b => !lessonRanges.some(l => l.start.getTime() === b.start.getTime() && l.end.getTime() === b.end.getTime()));
     const rec = (recR.data ?? []) as any[];
-    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, busyRanges, rec);
-    const candidatesPool = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, settings.slot_minutes, blocksOnly, rec);
+    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, slotMinutes, busyRanges, rec);
+    const candidatesPool = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, slotMinutes, blocksOnly, rec);
     const s: any = settings;
     const now = new Date();
     // Nada que comece antes da antecedência mínima: o banco recusaria o pedido.
     const earliest = new Date(now.getTime() + noticeHours * 3600_000);
-    const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];
+    const grouped: { day: Date; slots: Slot[] }[] = [];
     for (let i = 0; i < DAYS_AHEAD; i++) {
       const day = addDays(from, i);
       const sameDay = (d: Date) => d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
       const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
       const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
-      const isWeekend = day.getDay() === 0 || day.getDay() === 6;
-      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teachers.find(t => t.name === teacher)?.scarcity);
-      const picked = pickScarcityCandidates(day, dayCandidates, teacher, minN, maxN);
+      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, allTeachers.find(t => t.name === name)?.scarcity);
+      const picked = pickScarcityCandidates(day, dayCandidates, name, minN, maxN);
       const visible = picked
         .filter(start => freeStartTimes.has(start.getTime()) && start >= earliest)
-        .map(start => ({ start, end: new Date(start.getTime() + settings.slot_minutes * 60000) }));
+        .map(start => ({ start, end: new Date(start.getTime() + slotMinutes * 60000), teacher: name }));
       grouped.push({ day, slots: visible });
     }
-    setSlotsByDay(grouped);
+    return grouped;
+  };
+
+  const load = async () => {
+    if (!teacher || !settings) return;
+    setLoading(true);
+    const from = startOfDay(new Date());
+    const to = addDays(from, DAYS_AHEAD);
+    if (teacher !== ANY) {
+      setSlotsByDay(await slotsFor(teacher, from, to));
+      setLoading(false);
+      return;
+    }
+    // Qualquer profissional: junta os horários de todos que fazem o serviço.
+    // No mesmo horário, fica quem vem primeiro na prioridade do admin (a
+    // ordem da lista de profissionais).
+    const all = await Promise.all(teachers.map(t => slotsFor(t.name, from, to)));
+    const merged = Array.from({ length: DAYS_AHEAD }, (_, i) => {
+      const byStart = new Map<number, Slot>();
+      for (const perTeacher of all) {
+        for (const sl of perTeacher[i]?.slots ?? []) {
+          if (!byStart.has(sl.start.getTime())) byStart.set(sl.start.getTime(), sl);
+        }
+      }
+      return { day: addDays(from, i), slots: [...byStart.values()].sort((a, b) => a.start.getTime() - b.start.getTime()) };
+    });
+    setSlotsByDay(merged);
     setLoading(false);
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start, noticeHours]);
+  useEffect(() => { load(); /* eslint-disable-next-line */ }, [teacher, settings?.work_start, noticeHours, slotMinutes, teachers.length]);
 
   const request = async () => {
     if (!student || !pending) return;
@@ -121,6 +177,7 @@ export default function StudentBooking() {
     // caso de alguém chegar por outro caminho.
     if (!subject.trim()) return;
     const start = pending.start;
+    const who = pending.teacher;
     setPending(null);
     setBusy(true);
     const { error } = await supabase.from("lessons").insert({
@@ -130,13 +187,15 @@ export default function StudentBooking() {
       address: online ? null : student.address,
       subject: subject.trim(),
       start_at: start.toISOString(),
-      duration_minutes: settings?.slot_minutes ?? 60,
+      duration_minutes: slotMinutes,
+      // O preço sai do serviço, no banco (gatilho lessons_fill_price).
+      ...(service ? { service_id: service.id } : {}),
       // Sem preço aqui de propósito: quem preenche é o banco, com o valor da
       // empresa dona da aula (gatilho lessons_fill_price). Mandar um número
       // daqui seria cravar o preço do professor dentro do portal da família.
       package_type: "single",
       payment_status: "pendente",
-      teacher,
+      teacher: who,
       // Pedido, não aula. Quem promove para "agendada" é o professor, e o banco
       // não aceita outro status vindo daqui (política students insert own lessons).
       status: "solicitada",
@@ -206,6 +265,23 @@ export default function StudentBooking() {
         </Card>
       )}
 
+      {offered.length > 1 && (
+        <div className="max-w-xs">
+          <label className="text-xs text-muted-foreground">{w.topic.s}</label>
+          <Select value={serviceId} onValueChange={setServiceId}>
+            <SelectTrigger><SelectValue placeholder={`Escolha ${w.topic.o} ${w.topic.l}`} /></SelectTrigger>
+            <SelectContent>
+              {offered.map(sv => (
+                <SelectItem key={sv.id} value={sv.id}>
+                  {sv.name} · {sv.duration_minutes} min
+                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       {teachers.length === 0 ? (
         <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {st.nenhum} {st.l} disponível no momento.</Card>
       ) : (
@@ -215,6 +291,7 @@ export default function StudentBooking() {
             <Select value={teacher} onValueChange={setTeacher}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
+                {anyAllowed && <SelectItem value={ANY}>Qualquer {st.l} disponível</SelectItem>}
                 {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -244,9 +321,10 @@ export default function StudentBooking() {
                       variant="outline"
                       disabled={busy}
                       onClick={() => {
-                        setSubject(original?.subject ?? "");
+                        setSubject(service?.name ?? original?.subject ?? "");
                         setTopic("");
-                        setOnline(original ? original.is_online : !student?.address);
+                        setOnline(service?.mode === "online" ? true : service?.mode === "presencial" ? false
+                          : original ? original.is_online : !student?.address);
                         setPending(s);
                       }}
                       className="flex flex-col h-auto py-2"
@@ -270,8 +348,8 @@ export default function StudentBooking() {
               <div className="space-y-2">
                 <p>
                   {original
-                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com <strong>{capitalize(teacher)}</strong>:</>
-                    : <>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(teacher)}</strong>:</>}
+                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
+                    : <>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>}
                 </p>
                 {pending && (
                   <p className="text-foreground font-medium">
@@ -289,6 +367,9 @@ export default function StudentBooking() {
           </AlertDialogHeader>
 
           <div className="space-y-3">
+            {service ? (
+              <p className="text-sm"><span className="text-muted-foreground">{w.topic.s}:</span> <strong>{service.name}</strong> · {service.duration_minutes} min</p>
+            ) : (
             <div>
               <Label htmlFor="disciplina">{w.topic.s}</Label>
               <Input
@@ -299,6 +380,7 @@ export default function StudentBooking() {
                 autoComplete="off"
               />
             </div>
+            )}
 
             <div>
               <Label htmlFor="assunto">{w.model === "aulas" ? "O que você quer trabalhar?" : "Quer contar algo antes?"} (opcional)</Label>
@@ -316,7 +398,7 @@ export default function StudentBooking() {
 
             {/* Só faz sentido perguntar a quem tem endereço cadastrado. Sem
                 endereço a aula é online e não há escolha a fazer. */}
-            {student?.address && (
+            {student?.address && (!service || service.mode === "ambos") && (
               <div className="flex items-center justify-between rounded-md border border-border p-3">
                 <div>
                   <Label htmlFor="online" className="cursor-pointer">{ap.s} on-line</Label>

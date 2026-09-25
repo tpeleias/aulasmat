@@ -2022,4 +2022,116 @@ VALUES ('34000000-0000-0000-0000-000000000001', 'admin', current_setting('teste.
 SELECT public.assert((SELECT count(*) FROM public.user_roles WHERE account_id = current_setting('teste.a33')::uuid AND role = 'admin') = 2,
   'com multi_admin (so o Portal de Aulas), pode ter mais de um');
 
+
+\echo ''
+\echo '--- 35. Servicos: preco, quem faz, limite do Essencial ---'
+
+DO $$
+DECLARE
+  _m uuid; _e uuid; _o uuid;
+  _adm uuid := gen_random_uuid();
+  _adm_o uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Clinica S', 'clinica-s', 'pro') RETURNING id INTO _m;
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Clinica E', 'clinica-e', 'essencial') RETURNING id INTO _e;
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Clinica O', 'clinica-o', 'pro') RETURNING id INTO _o;
+  INSERT INTO public.settings (account_id, default_lesson_price) VALUES (_m, 100.00), (_e, 100.00), (_o, 100.00);
+  INSERT INTO auth.users (id, email) VALUES (_adm, 'adm-s@x'), (_adm_o, 'adm-o@x');
+  DELETE FROM public.user_roles WHERE user_id IN (_adm, _adm_o);
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_adm, 'admin', _m), (_adm_o, 'admin', _o);
+  INSERT INTO public.teachers (account_id, name, active, all_services, sort_order) VALUES
+    (_m, 'Lia', true, true, 1), (_m, 'Rui', true, false, 2);
+  PERFORM set_config('teste.sm', _m::text, false);
+  PERFORM set_config('teste.se', _e::text, false);
+  PERFORM set_config('teste.adm_s', _adm::text, false);
+  PERFORM set_config('teste.adm_o', _adm_o::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
+INSERT INTO public.services (name, duration_minutes, price, color) VALUES ('Limpeza', 30, 90.00, 'verde'), ('Clareamento', 90, 450.00, 'violeta');
+INSERT INTO public.teacher_services (teacher_id, service_id)
+  SELECT t.id, s.id FROM public.teachers t, public.services s WHERE t.name = 'Rui' AND s.name = 'Limpeza';
+SELECT public.assert((SELECT count(*) FROM public.services) = 2, 'admin cadastra servicos da propria empresa');
+DO $$
+BEGIN
+  INSERT INTO public.services (name, color) VALUES ('Cor torta', 'dourado');
+  RAISE EXCEPTION 'FALHOU: cor fora da paleta';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - cor so da paleta';
+END $$;
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_o'), true);
+SELECT public.assert((SELECT count(*) FROM public.services) = 0 AND (SELECT count(*) FROM public.teacher_services) = 0,
+  'outra empresa nao ve os servicos');
+DO $$
+BEGIN
+  INSERT INTO public.teacher_services (teacher_id, service_id, account_id)
+  SELECT t.id, s.id, current_setting('teste.sm')::uuid FROM public.teachers t, public.services s LIMIT 1;
+  IF FOUND THEN RAISE EXCEPTION 'FALHOU: ligou servico de outra empresa'; END IF;
+  RAISE NOTICE '  ok - nao alcanca servico de outra empresa';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao liga servico de outra empresa';
+END $$;
+COMMIT;
+
+-- Preco: o servico tem o valor do atendimento; a aula guarda o da hora.
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, service_id, status)
+SELECT current_setting('teste.sm')::uuid, 'Paciente', 'lia', '2027-05-01 10:00-03', 90, id, 'agendada'
+  FROM public.services WHERE name = 'Clareamento';
+SELECT public.assert((SELECT price FROM public.lessons WHERE student_name = 'Paciente') = 300.00,
+  'servico de R$ 450 em 90 min vira R$ 300/h na aula');
+SELECT public.assert((SELECT price * duration_minutes / 60 FROM public.lessons WHERE student_name = 'Paciente') = 450,
+  'e a cobranca da o preco do servico');
+
+-- Rui so faz Limpeza: pedido de Clareamento com ele e recusado; com a Lia (faz todos), passa.
+DO $$
+BEGIN
+  INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, service_id, status)
+  SELECT current_setting('teste.sm')::uuid, 'Paciente 2', 'rui', '2027-05-02 10:00-03', 90, id, 'solicitada'
+    FROM public.services WHERE name = 'Clareamento';
+  RAISE EXCEPTION 'FALHOU: pedido com quem nao faz o servico';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - pedido so com quem faz o servico';
+END $$;
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, service_id, status)
+SELECT current_setting('teste.sm')::uuid, 'Paciente 3', 'rui', '2027-05-03 10:00-03', 30, id, 'solicitada'
+  FROM public.services WHERE name = 'Limpeza';
+SELECT public.assert((SELECT price FROM public.lessons WHERE student_name = 'Paciente 3') = 180.00, 'Limpeza R$ 90 em 30 min: R$ 180/h');
+SELECT public.assert(public.teacher_does_service('lia', (SELECT id FROM public.services WHERE name = 'Clareamento'), current_setting('teste.sm')::uuid),
+  'quem tem a etiqueta faz todos');
+-- Sem Max, nao existe servico por profissional: todos fazem todos.
+UPDATE public.accounts SET plan = 'pro_solo' WHERE id = current_setting('teste.sm')::uuid;
+SELECT public.assert(public.teacher_does_service('rui', (SELECT id FROM public.services WHERE name = 'Clareamento'), current_setting('teste.sm')::uuid),
+  'no Pro, todo profissional faz todos os servicos');
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.sm')::uuid;
+-- Servico de outra empresa nao entra na aula.
+DO $$
+BEGIN
+  INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, service_id, status)
+  SELECT current_setting('teste.se')::uuid, 'X', 'lia', '2027-05-04 10:00-03', 30, id, 'agendada'
+    FROM public.services WHERE name = 'Limpeza';
+  RAISE EXCEPTION 'FALHOU: servico de outra empresa na aula';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - servico so da propria empresa';
+END $$;
+-- Sem servico, continua o preco padrao.
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.sm')::uuid, 'Paciente 4', 'lia', '2027-05-05 10:00-03', 60, 'agendada');
+SELECT public.assert((SELECT price FROM public.lessons WHERE student_name = 'Paciente 4') = 100.00, 'sem servico, o preco padrao');
+
+-- Essencial: um servico ativo.
+INSERT INTO public.services (account_id, name) VALUES (current_setting('teste.se')::uuid, 'Consulta');
+DO $$
+BEGIN
+  INSERT INTO public.services (account_id, name) VALUES (current_setting('teste.se')::uuid, 'Retorno');
+  RAISE EXCEPTION 'FALHOU: segundo servico no Essencial';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - Essencial fica com um servico';
+END $$;
+INSERT INTO public.services (account_id, name, active) VALUES (current_setting('teste.se')::uuid, 'Retorno', false);
+SELECT public.assert((SELECT count(*) FROM public.services WHERE account_id = current_setting('teste.se')::uuid) = 2,
+  'desligado pode ficar guardado');
+
 \echo '=== FIM ==='

@@ -25,6 +25,7 @@ import { LessonWhatsApp } from "@/components/LessonWhatsApp";
 import { usePlan } from "@/hooks/usePlan";
 import { confirmMessage, whatsAppLink } from "@/lib/whatsapp";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
+import { useServices, teacherDoes, hourlyPrice } from "@/hooks/useServices";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -33,6 +34,8 @@ type Lesson = {
   status?: string; class_summary?: string | null;
   /** Falta cobrada (migration 20260925040000). */
   absence_charged?: boolean;
+  /** O serviço escolhido (migration 20260925110000). */
+  service_id?: string | null;
 };
 
 type AbsencePolicy = { on: boolean; hours: number; percent: number };
@@ -65,7 +68,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const { isTeacher } = useAuth();
   const { plan } = usePlan();
   const { templates } = useMessageTemplates();
-  const teachers = isTeacher && defaultTeacher
+  const { services, links } = useServices(true);
+  const perTeacher = !!plan.teacher_services;
+  const teachersAll = isTeacher && defaultTeacher
     ? allTeachers.filter(t => teacherSlug(t.name) === defaultTeacher)
     : allTeachers;
   // O valor da hora sai das Configurações da empresa, não do código.
@@ -73,14 +78,17 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   // A matéria que já vem preenchida sai do cadastro do professor, não de uma
   // lista de nomes escrita no código.
   const subjectOf = (slug: string) =>
-    teachers.find(t => teacherSlug(t.name) === slug)?.subject ?? "";
-  const knownSubjects = teachers.map(t => t.subject).filter(Boolean) as string[];
+    teachersAll.find(t => teacherSlug(t.name) === slug)?.subject ?? "";
+  const knownSubjects = teachersAll.map(t => t.subject).filter(Boolean) as string[];
   const baseTeacher = defaultTeacher || "";
   const [form, setForm] = useState<Lesson>({
     student_name: "", guardian_name: "", subject: "",
     start_at: "", duration_minutes: 60, price: listPrice, package_type: "single", payment_status: "pendente", notes: "",
     teacher: baseTeacher, address: "", is_online: false, status: "agendada", class_summary: "",
   });
+  // Com serviço escolhido, a lista mostra só quem faz (e sempre quem já está).
+  const teachers = teachersAll.filter(t =>
+    teacherSlug(t.name) === form.teacher || teacherDoes(t, form.service_id, links, perTeacher));
   const [busy, setBusy] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
@@ -180,6 +188,21 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       ? (subjectOf(t) || f.subject)
       : f.subject,
   }));
+
+  // O serviço preenche o assunto, a duração, o preço e se é on-line.
+  const setService = (id: string) => {
+    if (id === "none") { setForm(f => ({ ...f, service_id: null })); return; }
+    const sv = services?.find(x => x.id === id);
+    if (!sv) return;
+    setForm(f => ({
+      ...f,
+      service_id: sv.id,
+      subject: sv.name,
+      duration_minutes: sv.duration_minutes,
+      price: hourlyPrice(sv) ?? listPrice,
+      is_online: sv.mode === "online" ? true : sv.mode === "presencial" ? false : f.is_online,
+    }));
+  };
 
   const setPackage = (pkg: string) => {
     setForm(f => ({ ...f, package_type: pkg }));
@@ -391,6 +414,22 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           {lesson?.id && <LessonWhatsApp lesson={lesson} phone={phoneOf(lesson)} />}
           {/* Login de professor: só consulta (migration 20260925100000). */}
           <fieldset disabled={isTeacher} className="contents">
+          {services && services.length > 0 && (
+            <div>
+              <Label>{v.topic.s}</Label>
+              <Select value={form.service_id ?? "none"} onValueChange={setService}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sem {v.topic.l} da lista</SelectItem>
+                  {services.map(sv => (
+                    <SelectItem key={sv.id} value={sv.id}>
+                      {sv.name} · {sv.duration_minutes} min{sv.price != null && !isTeacher ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.staff.s}</Label>
               {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara
@@ -419,7 +458,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.guardian.s}</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
-            <div><Label>{v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
+            <div><Label>{services?.length ? "Descrição" : v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
           </div>
           <div>
             <Label>Dia e horário</Label>

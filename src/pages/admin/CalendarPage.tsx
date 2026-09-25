@@ -7,7 +7,8 @@ import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "luc
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
-import { teacherColor } from "@/lib/teacherColors";
+import { teacherColor, colorOf } from "@/lib/teacherColors";
+import { useServices } from "@/hooks/useServices";
 import { isDiscarded, isRequest } from "@/lib/lessonStatus";
 import { capitalize } from "@/lib/balance";
 import { phoneFinder, syncUpcomingLessonsWidget } from "@/lib/widgetSync";
@@ -97,6 +98,10 @@ export default function CalendarPage() {
 
   // A posição nesta lista é o que define a cor de cada professor na agenda.
   const teacherSlugs = useMemo(() => teachers.map(t => teacherSlug(t.name)), [teachers]);
+  // A cor que o admin escolheu para cada um (em Profissionais) vale mais.
+  const { services } = useServices(false);
+  const serviceColor = (l: object) => colorOf(services?.find(s => s.id === (l as { service_id?: string | null }).service_id)?.color);
+  const chosenColors = useMemo(() => Object.fromEntries(teachers.map(t => [teacherSlug(t.name), t.color])), [teachers]);
 
   const chooseDayCount = (count: DayCount) => {
     setDayCount(count);
@@ -296,7 +301,7 @@ export default function CalendarPage() {
     if (minutesFromTop < 0) return null;
     const top = (minutesFromTop * CELL_H) / 60;
     const height = (lesson.duration_minutes * CELL_H) / 60 - 2;
-    const color = teacherColor(lesson.teacher, teacherSlugs);
+    const color = teacherColor(lesson.teacher, teacherSlugs, chosenColors);
     // Cancelada/recusada saem riscadas em vermelho; pedido sem resposta fica com
     // borda tracejada, porque não é aula até o professor aprovar.
     const isCancelled = isDiscarded(lesson.status);
@@ -521,7 +526,7 @@ export default function CalendarPage() {
                             onPointerLeave={cancelPressTimer}
                             onPointerCancel={cancelPressTimer}
                             onContextMenu={(e) => e.preventDefault()}
-                            className="w-full border-l-2 border-l-primary py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent select-none"
+                            className={`w-full border-l-2 ${teacherColor(l.teacher, teacherSlugs, chosenColors).border} py-3 pl-3 pr-2 text-left transition-colors hover:bg-accent select-none`}
                           >
                             <div className="flex items-start gap-3">
                               <div className="shrink-0 w-20">
@@ -531,7 +536,8 @@ export default function CalendarPage() {
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">{l.student_name}</div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  {serviceColor(l) && <span className={`h-2 w-2 shrink-0 rounded-full ${serviceColor(l)!.dot}`} />}
                                   {l.subject ?? "—"} · {l.duration_minutes}min{l.is_online ? " · on-line" : ""}
                                 </div>
                                 {!l.is_online && l.address && (
@@ -572,7 +578,7 @@ export default function CalendarPage() {
 
       <div className="flex gap-4 mt-4 text-xs text-muted-foreground flex-wrap">
         {teachers.map(t => {
-          const color = teacherColor(teacherSlug(t.name), teacherSlugs);
+          const color = teacherColor(teacherSlug(t.name), teacherSlugs, chosenColors);
           return (
             <span key={t.id} className="flex items-center gap-2">
               <span className={`w-3 h-3 rounded border-l-2 ${color.bg} ${color.border}`}></span>

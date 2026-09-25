@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type Teacher = { id: string; name: string; active: boolean; sort_order?: number; subject?: string | null; whatsapp?: string | null; whatsapp_enabled?: boolean; plan_locked?: boolean; user_id?: string | null; scarcity?: Record<string, { min: number; max: number }> | null };
+export type Teacher = { id: string; name: string; active: boolean; sort_order?: number; subject?: string | null; whatsapp?: string | null; whatsapp_enabled?: boolean; plan_locked?: boolean; user_id?: string | null; scarcity?: Record<string, { min: number; max: number }> | null;
+  /** Cor na agenda escolhida pelo admin (src/lib/teacherColors.ts); nula = pela posição. */
+  color?: string | null;
+  /** Etiqueta "faz todos os serviços" (migration 20260925110000). */
+  all_services?: boolean };
 
 export function useTeachers(onlyActive = true) {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
