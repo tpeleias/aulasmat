@@ -8,6 +8,12 @@ on:
         description: 'Nome da versão mostrado na Play (ex: 1.0.0)'
         required: true
         default: '1.0.0'
+      track:
+        description: 'Para onde enviar na Play (none = só gera o aab, sem enviar)'
+        required: true
+        default: production
+        type: choice
+        options: [production, beta, alpha, internal, none]
 
 jobs:
   bundle:
@@ -85,3 +91,35 @@ jobs:
           name: aulas-play-${{ inputs.version_name }}-${{ github.run_number }}
           path: android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
+
+      # Envio direto para a Play (docs/publicar-na-play.md, "Envio automático").
+      # Sem o segredo PLAY_SERVICE_ACCOUNT_JSON, ou com track = none, o aab fica
+      # só como artefato acima, como antes.
+      - name: Check Play upload credentials
+        id: play
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ "${{ inputs.track }}" = "none" ]; then
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$PLAY_JSON" ]; then
+            echo "::warning::Sem o segredo PLAY_SERVICE_ACCOUNT_JSON: o aab não foi enviado para a Play. Baixe o artefato ou configure o envio automático (docs/publicar-na-play.md)."
+            echo "upload=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "upload=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # As notas da versão ("O que há de novo") saem de android/whatsnew/whatsnew-pt-BR,
+      # que é atualizado junto com cada versão.
+      - name: Upload to Google Play
+        if: steps.play.outputs.upload == 'true'
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.aulasmat.app
+          releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
+          releaseName: ${{ inputs.version_name }}
+          track: ${{ inputs.track }}
+          # completed = vai para a revisão da Google e, aprovado, publica sozinho.
+          status: completed
+          whatsNewDirectory: android/whatsnew
