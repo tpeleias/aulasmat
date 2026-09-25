@@ -64,6 +64,18 @@ export function setLocale(locale: Locale, currency: Currency): boolean {
   return changed;
 }
 
+/**
+ * O botão de língua do site e da tela de entrada (sem login). A moeda
+ * acompanha só no par óbvio - real vira dólar no inglês, dólar vira real no
+ * português; euro e libra ficam (Portugal fala português e paga em euro).
+ */
+export function toggleLanguage() {
+  const toEn = current.locale !== "en";
+  const cur = toEn && current.currency === "BRL" ? "USD" : !toEn && current.currency === "USD" ? "BRL" : current.currency;
+  setLocale(toEn ? "en" : "pt-BR", cur);
+  window.location.reload();
+}
+
 /** O texto na língua da empresa: `L("Salvar", "Save")`. */
 export function L<T>(pt: T, en: T): T { return current.locale === "en" ? en : pt; }
 

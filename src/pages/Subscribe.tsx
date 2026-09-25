@@ -13,6 +13,7 @@ import { forgetPlan, type Plan } from "@/hooks/usePlan";
 import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, COUPONS_AVAILABLE, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
 
 import { L } from "@/lib/i18n";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 /**
  * Assinar o Cronys - só no SITE. O pagamento é no Checkout do Stripe; quem
  * muda o plano no banco é o webhook, quando o Stripe confirma (por isso a
@@ -123,6 +124,8 @@ export default function Subscribe() {
           </Card>
         )}
 
+        {/* Sem login dá para ver em outra moeda; com login vale a da empresa. */}
+        {!session && <div className="mt-6"><CurrencyPicker /></div>}
         <div className="mt-8 inline-flex rounded-xl border border-border p-1 text-sm">
           {(["month", "year"] as Interval[]).map(i => (
             <button key={i} onClick={() => setInterval_(i)}
