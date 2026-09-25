@@ -46,6 +46,8 @@ type Settings = {
   charge_absence?: boolean;
   absence_notice_hours?: number;
   absence_charge_percent?: number;
+  /** Intervalo entre atendimentos, em minutos (migration 20260925150000). */
+  buffer_minutes?: number;
 };
 
 export default function SettingsPage() {
@@ -107,6 +109,9 @@ export default function SettingsPage() {
       ...("min_request_notice_hours" in s
         ? { min_request_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.min_request_notice_hours) || 0))) }
         : {}),
+      ...("buffer_minutes" in s
+        ? { buffer_minutes: Math.max(0, Math.min(240, Math.round(Number(s.buffer_minutes) || 0))) }
+        : {}),
       ...("charge_absence" in s ? {
         charge_absence: !!s.charge_absence,
         absence_notice_hours: Math.max(0, Math.min(168, Math.round(Number(s.absence_notice_hours) || 0))),
@@ -145,6 +150,17 @@ export default function SettingsPage() {
           <div><Label>Fim do dia</Label><Input type="time" value={s.work_end.slice(0,5)} onChange={e => setS({ ...s, work_end: e.target.value })} /></div>
         </div>
         <div><Label>Duração do slot (min)</Label><Input type="number" value={s.slot_minutes} onChange={e => setS({ ...s, slot_minutes: Number(e.target.value) })} /></div>
+        {"buffer_minutes" in s && (
+          <div>
+            <Label>Intervalo entre {v.appointment.lp} (min)</Label>
+            <Input type="number" min={0} max={240} step={5} value={s.buffer_minutes ?? 0}
+              onChange={e => setS({ ...s, buffer_minutes: Number(e.target.value) })} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Tempo livre antes e depois de cada {v.appointment.l} (deslocamento, limpeza da sala). Os horários oferecidos
+              no portal e na página pública respeitam esse intervalo. 0 = sem intervalo.
+            </p>
+          </div>
+        )}
       </Card>
 
       {!planLoading && (

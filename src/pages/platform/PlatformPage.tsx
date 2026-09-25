@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -47,6 +47,9 @@ type Row = {
   assistant_cost_usd?: number;
   assistant_monthly_messages?: number;
   assistant_monthly_cost_usd?: number;
+  // Ausentes antes da migration 20260925150000.
+  tester_until?: string | null;
+  tester_assistant?: boolean;
 };
 
 const PLANOS = [
@@ -184,6 +187,23 @@ export default function PlatformPage() {
   };
 
   // Limite do assistente: mensagens (o que o cliente vê) e teto em dólar.
+  // Testador: Max de cortesia por N dias, com ou sem assistente. No fim a
+  // empresa volta sozinha ao Essencial (expire_testers), se não assinou.
+  const definirTestador = async (r: Row) => {
+    const atual = r.tester_until ? ` (hoje vai até ${new Date(r.tester_until).toLocaleDateString("pt-BR")})` : "";
+    const dias = prompt(`Max de cortesia para "${r.name}" por quantos dias?${atual}\n\n0 tira a cortesia agora.`, r.tester_until ? "0" : "30");
+    if (dias === null) return;
+    const n = Math.round(Number(dias));
+    if (!(n >= 0)) { toast.error("Número de dias inválido"); return; }
+    const comAssistente = n > 0 && confirm(`Incluir o assistente na cortesia de "${r.name}"?\n\nOK = com assistente (custa API) · Cancelar = sem.`);
+    setBusy(true);
+    const { error } = await supabase.rpc("platform_set_tester" as never, { _account: r.id, _days: n, _assistant: comAssistente } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(n > 0 ? `"${r.name}" é testador por ${n} dias${comAssistente ? ", com assistente" : ""}` : `Cortesia de "${r.name}" encerrada`);
+    load();
+  };
+
   const mudarLimiteAssistente = async (r: Row) => {
     const msgs = prompt(`Mensagens do assistente por mês para "${r.name}":`, String(r.assistant_monthly_messages ?? 150));
     if (msgs === null) return;
@@ -310,6 +330,7 @@ export default function PlatformPage() {
                         </button>
                         {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
                         {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
+                        {r.tester_until && <Badge variant="secondary" className="text-[10px]">Testador até {new Date(r.tester_until).toLocaleDateString("pt-BR")}{r.tester_assistant ? " · com assistente" : ""}</Badge>}
                         {r.trial_ends_at && r.plan === "pro" && <Badge variant="outline" className="text-[10px]">Teste até {new Date(r.trial_ends_at).toLocaleDateString("pt-BR")}</Badge>}
                         {r.billing_status === "active" && <Badge className="text-[10px]">Assinante{r.paid_until ? ` até ${new Date(r.paid_until).toLocaleDateString("pt-BR")}` : ""}</Badge>}
                         {r.billing_status === "past_due" && <Badge variant="destructive" className="text-[10px]">Em atraso desde {r.past_due_since ? new Date(r.past_due_since).toLocaleDateString("pt-BR") : "?"}</Badge>}
@@ -364,6 +385,13 @@ export default function PlatformPage() {
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex justify-end gap-1">
+                        <Button
+                          size="icon" variant="ghost" className="h-8 w-8" disabled={busy}
+                          title={r.tester_until ? "Testador: mudar ou encerrar a cortesia" : "Tornar testador (Max de cortesia por um período)"}
+                          onClick={() => definirTestador(r)}
+                        >
+                          <Gift className={`h-3.5 w-3.5 ${r.tester_until ? "text-primary" : ""}`} />
+                        </Button>
                         <Button
                           size="icon" variant="ghost" className="h-8 w-8" disabled={busy || r.is_public_default}
                           title={r.is_public_default ? "A empresa do endereço público não pode ser desativada" : (r.active ? "Desativar" : "Reativar")}

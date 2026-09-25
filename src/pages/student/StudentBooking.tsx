@@ -4,7 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
-import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
+import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -123,7 +123,7 @@ export default function StudentBooking() {
     // Candidate pool ignores lessons so the scarcity "shop window" stays fixed
     const blocksOnly = busyRanges.filter(b => !lessonRanges.some(l => l.start.getTime() === b.start.getTime() && l.end.getTime() === b.end.getTime()));
     const rec = (recR.data ?? []) as any[];
-    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, slotMinutes, busyRanges, rec);
+    const free = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, slotMinutes, padRanges(busyRanges, ((settings as any)?.buffer_minutes) ?? 0), rec);
     const candidatesPool = computeFreeSlots(from, DAYS_AHEAD, settings.work_start, settings.work_end, slotMinutes, blocksOnly, rec);
     const s: any = settings;
     const now = new Date();

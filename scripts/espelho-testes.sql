@@ -2205,4 +2205,83 @@ SELECT public.assert((public.register_payment('Cliente O', NULL, 100, 'adjustmen
 COMMIT;
 SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE description = 'golpe') = 0, 'nada entrou na outra empresa');
 
+
+\echo ''
+\echo '--- 39. Testador, resumo pelo professor, intervalo, pacote por servico ---'
+
+-- Testador: so o gestor liga; no fim volta ao Essencial.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_set_tester(current_setting('teste.se')::uuid, 30, true);
+  RAISE EXCEPTION 'FALHOU: admin comum virou testador';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so o gestor da cortesia';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
+SELECT public.platform_set_tester(current_setting('teste.se')::uuid, 30, true);
+COMMIT;
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.se')::uuid) = 'pro'
+                     AND public.account_can('assistant', current_setting('teste.se')::uuid)
+                     AND (SELECT tester_until FROM public.accounts WHERE id = current_setting('teste.se')::uuid) > now() + interval '29 days',
+  'testador: Max com assistente por 30 dias');
+UPDATE public.accounts SET tester_until = now() - interval '1 minute' WHERE id = current_setting('teste.se')::uuid;
+SELECT public.assert(public.expire_testers() >= 1, 'a rotina acha a cortesia vencida');
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.se')::uuid) = 'essencial'
+                     AND NOT public.account_can('assistant', current_setting('teste.se')::uuid)
+                     AND (SELECT tester_until FROM public.accounts WHERE id = current_setting('teste.se')::uuid) IS NULL,
+  'vencida: volta ao Essencial, sem assistente');
+
+-- Resumo pelo professor.
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status) VALUES
+  (current_setting('teste.t')::uuid, 'Caio', 'Dora', 'ana-julia', now() - interval '20 minutes', 60, 'agendada'),
+  (current_setting('teste.t')::uuid, 'Eva', 'Gil', 'beto', now() - interval '3 hours', 60, 'realizada');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+SELECT public.assert((public.teacher_save_lesson_summary(
+  (SELECT id FROM public.lessons WHERE teacher = 'ana-julia' AND start_at > now() - interval '1 hour' AND start_at <= now()),
+  'Revisamos fracoes') ->> 'status') = 'realizada',
+  'professor escreve o resumo e a aula que ja comecou vira realizada');
+DO $$
+BEGIN
+  PERFORM public.teacher_save_lesson_summary(
+    (SELECT id FROM public.lessons WHERE teacher = 'ana-julia' AND start_at > now() + interval '1 day' ORDER BY start_at LIMIT 1), 'adiantado');
+  RAISE EXCEPTION 'FALHOU: resumo de aula futura';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - aula que nao comecou nao recebe resumo';
+END $$;
+COMMIT;
+DO $$
+BEGIN
+  PERFORM set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+  PERFORM public.teacher_save_lesson_summary(
+    (SELECT id FROM public.lessons WHERE teacher = 'beto' AND status = 'realizada' AND account_id = current_setting('teste.t')::uuid LIMIT 1), 'intruso');
+  RAISE EXCEPTION 'FALHOU: professor escreveu resumo da aula do Beto';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - nao escreve resumo da aula de outro professor';
+END $$;
+SELECT set_config('request.jwt.claim.sub', '', false);
+
+-- Intervalo: a pagina publica le.
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert((SELECT buffer_minutes FROM public.settings LIMIT 1) = 0, 'visitante le o intervalo (padrao 0)');
+COMMIT;
+
+-- Pacote so com servico da propria empresa.
+DO $$
+BEGIN
+  INSERT INTO public.lesson_packages (account_id, name, lessons, price, service_id)
+  SELECT current_setting('teste.sm')::uuid, 'Pacote torto', 5, 100, id FROM public.services WHERE name = 'Consulta';
+  RAISE EXCEPTION 'FALHOU: pacote com servico de outra empresa';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - pacote so com servico da propria empresa';
+END $$;
+INSERT INTO public.lesson_packages (account_id, name, lessons, price, service_id)
+SELECT current_setting('teste.sm')::uuid, '10 clareamentos', 10, 4000, id FROM public.services WHERE name = 'Clareamento';
+SELECT public.assert((SELECT service_id FROM public.lesson_packages WHERE name = '10 clareamentos') IS NOT NULL, 'pacote de um servico');
+
 \echo '=== FIM ==='

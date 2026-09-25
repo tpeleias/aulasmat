@@ -31,7 +31,8 @@ import PeriodSummary from "@/components/PeriodSummary";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap, type Vocabulary } from "@/lib/vocabulary";
-import { packageVoucher, type LessonPackage } from "@/lib/packages";
+import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
+import { useServices, type Service } from "@/hooks/useServices";
 
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
@@ -54,10 +55,10 @@ type QuickOption = {
 // Os pacotes são os que a empresa cadastrou em Configurações → Pacotes
 // (tabela lesson_packages). O voucher é a diferença para o valor cheio,
 // calculada com o valor da hora de agora.
-const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[]): QuickOption[] => [
+const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[], services: Service[]): QuickOption[] => [
   { key: "all", label: "Quitar tudo", kind: "adjustment" },
   ...packages.filter(p => p.active).map((p): QuickOption => {
-    const voucher = packageVoucher(p.lessons, Number(p.price), listPrice);
+    const voucher = packageVoucher(p.lessons, Number(p.price), packageUnitPrice(p, services, listPrice));
     return {
       key: `pkg:${p.id}`, label: p.name, amount: Number(p.price), voucher, kind: "package",
       hint: `${fmtMoney(Number(p.price))}${voucher > 0 ? ` + voucher ${fmtMoney(voucher)}` : ""}`,
@@ -95,7 +96,8 @@ export default function BillingPage() {
     supabase.from("lesson_packages" as never).select("*").order("sort_order").order("created_at")
       .then(({ data, error }) => { if (!error) setPackages((data ?? []) as unknown as LessonPackage[]); });
   }, []);
-  const QUICK = useMemo(() => quickOptions(listPrice, v, packages), [listPrice, v, packages]);
+  const { services } = useServices(false);
+  const QUICK = useMemo(() => quickOptions(listPrice, v, packages, services ?? []), [listPrice, v, packages, services]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);

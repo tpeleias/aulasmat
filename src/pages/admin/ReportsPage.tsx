@@ -9,7 +9,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { accountKey, accountLabel, fmtMoney } from "@/lib/balance";
 import type { LedgerTx } from "@/lib/billing";
-import { summarizeIncome, toCsv, MESES, yearsWithData } from "@/lib/reports";
+import { summarizeIncome, summarizeByService, toCsv, MESES, yearsWithData, type ServiceLesson } from "@/lib/reports";
+import { colorOf } from "@/lib/teacherColors";
 import { valorPorExtenso } from "@/lib/extenso";
 import { saveOrShareFile, canOnlyShare } from "@/lib/saveFile";
 import { buildReceiptPdf } from "@/lib/receiptPdf";
@@ -29,6 +30,8 @@ export default function ReportsPage() {
   const [accountName, setAccountName] = useState("");
   const [settings, setSettings] = useState<SettingsRow>({ contact_email: null, issuer_document: null });
   const [loading, setLoading] = useState(true);
+  const [lessons, setLessons] = useState<ServiceLesson[]>([]);
+  const [services, setServices] = useState<{ id: string; name: string; color: string | null }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -41,6 +44,14 @@ export default function ReportsPage() {
         (supabase.from("accounts" as any).select("name").maybeSingle()) as any,
         supabase.from("settings").select("*").maybeSingle(),
       ]);
+      // Por serviço: as realizadas e a lista de serviços (a tabela pode não
+      // existir num app publicado antes da migration 20260925110000).
+      const [ls, sv] = await Promise.all([
+        supabase.from("lessons").select("*").eq("status", "realizada"),
+        supabase.from("services" as never).select("id, name, color"),
+      ]);
+      setLessons((ls.data ?? []) as unknown as ServiceLesson[]);
+      if (!sv.error) setServices((sv.data ?? []) as unknown as { id: string; name: string; color: string | null }[]);
       setTxs((tx.data ?? []) as LedgerTx[]);
       setStudents((st.data ?? []) as StudentRow[]);
       if (acc.data?.name) setAccountName(acc.data.name);
@@ -56,6 +67,11 @@ export default function ReportsPage() {
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState<number | null>(null);
   const summary = useMemo(() => summarizeIncome(txs, year, month), [txs, year, month]);
+
+  const byService = useMemo(
+    () => summarizeByService(lessons, services, year, month, `Sem ${w.topic.l}`),
+    [lessons, services, year, month, w],
+  );
 
   const [busy, setBusy] = useState(false);
   const shareOnly = canOnlyShare();
@@ -167,6 +183,43 @@ export default function ReportsPage() {
             <div className="flex items-center justify-between px-1 text-sm font-semibold">
               <span>Total</span>
               <span className="tabular-nums">{fmtMoney(summary.total)}</span>
+            </div>
+          </>
+        )}
+      </Card>
+
+      <Card className="rounded-2xl p-4 md:p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold">Por {w.topic.l}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {w.appointment.pick("Realizados", "Realizadas")} em {month === null ? year : `${MESES[month].toLowerCase()} de ${year}`} (o mesmo período acima),
+            pelo preço cheio - sem os descontos por família.
+          </p>
+        </div>
+        {byService.rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{w.appointment.nenhum} {w.appointment.l} {w.appointment.pick("realizado", "realizada")} no período.</p>
+        ) : (
+          <>
+            <ul className="divide-y divide-border rounded-xl border border-border">
+              {byService.rows.map(r => {
+                const c = colorOf(r.color);
+                return (
+                  <li key={r.key} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c ? c.dot : "border border-border"}`} />
+                      <span className="truncate">{r.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        {r.count}× · {r.minutes % 60 === 0 ? `${r.minutes / 60}h` : `${Math.floor(r.minutes / 60)}h${String(r.minutes % 60).padStart(2, "0")}`}
+                      </span>
+                    </span>
+                    <span className="shrink-0 font-medium tabular-nums">{fmtMoney(r.total)}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex items-center justify-between px-1 text-sm font-semibold">
+              <span>Total ({byService.count})</span>
+              <span className="tabular-nums">{fmtMoney(byService.total)}</span>
             </div>
           </>
         )}

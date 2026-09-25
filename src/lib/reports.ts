@@ -78,3 +78,44 @@ export function yearsWithData(txs: LedgerTx[]): number[] {
   years.add(new Date().getFullYear());
   return [...years].sort((a, b) => b - a);
 }
+
+export type ServiceLesson = {
+  start_at: string; status: string; price: number | string; duration_minutes: number;
+  service_id?: string | null; subject?: string | null;
+};
+export type ServiceRow = { key: string; name: string; color: string | null; count: number; minutes: number; total: number };
+
+/**
+ * Atendimentos realizados no período, por serviço: quantos, quantas horas e
+ * quanto valeram pelo preço cheio (price é o valor da hora). Sem serviço
+ * cadastrado, agrupa pelo assunto digitado. Desconto por família não entra -
+ * isto mede o que cada serviço rende, não o que entrou no caixa.
+ */
+export function summarizeByService(
+  lessons: ServiceLesson[],
+  services: { id: string; name: string; color?: string | null }[],
+  year: number,
+  month: number | null,
+  noServiceLabel = "Sem serviço",
+): { rows: ServiceRow[]; count: number; total: number } {
+  const map = new Map<string, ServiceRow>();
+  for (const l of lessons) {
+    if (l.status !== "realizada" || !inPeriod(l.start_at, year, month)) continue;
+    const svc = l.service_id ? services.find(s => s.id === l.service_id) : undefined;
+    const subject = (l.subject ?? "").trim();
+    const key = svc ? `s:${svc.id}` : `t:${subject.toLowerCase()}`;
+    const row = map.get(key) ?? {
+      key, name: svc?.name ?? (subject || noServiceLabel), color: svc?.color ?? null, count: 0, minutes: 0, total: 0,
+    };
+    row.count += 1;
+    row.minutes += Number(l.duration_minutes) || 0;
+    row.total = Math.round((row.total + Number(l.price) * (Number(l.duration_minutes) || 0) / 60) * 100) / 100;
+    map.set(key, row);
+  }
+  const rows = [...map.values()].sort((a, b) => b.total - a.total || b.count - a.count || a.name.localeCompare(b.name, "pt-BR"));
+  return {
+    rows,
+    count: rows.reduce((s, r) => s + r.count, 0),
+    total: Math.round(rows.reduce((s, r) => s + r.total, 0) * 100) / 100,
+  };
+}

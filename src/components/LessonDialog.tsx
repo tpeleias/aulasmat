@@ -208,6 +208,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     setForm(f => ({ ...f, package_type: pkg }));
     if (!lesson?.id) {
       const p = packages.find(x => x.name === pkg);
+      // Pacote de um serviço: {a.o} {a.l} já vem com o serviço dele.
+      if (p?.service_id && services?.some(s => s.id === p.service_id)) setService(p.service_id);
       const n = p ? p.lessons : pkg === "pack5" ? 5 : pkg === "pack10" ? 10 : 1;
       if (n > 1) { setRecurring(true); setRepeatCount(Math.min(52, n)); }
       else { setRecurring(false); setRepeatCount(1); }
@@ -378,6 +380,23 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
 
   // Falta cobrada: a aula vira realizada, marcada como falta, ao percentual da
   // política. Quem decide é o banco (charge_lesson_absence); aqui é o pedido.
+  // Resumo pelo professor (rpc teacher_save_lesson_summary): só da aula dele
+  // que já começou, marcada ou realizada.
+  const teacherCanSummarize = !!lesson?.id && isTeacher
+    && (lesson.status === "realizada" || (lesson.status === "agendada" && new Date(lesson.start_at) <= new Date()));
+  const [teacherSummary, setTeacherSummary] = useState("");
+  useEffect(() => { setTeacherSummary(lesson?.class_summary ?? ""); }, [lesson?.id, lesson?.class_summary, open]);
+  const saveTeacherSummary = async () => {
+    if (!lesson?.id) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("teacher_save_lesson_summary" as never, { _lesson: lesson.id, _summary: teacherSummary } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Resumo salvo");
+    onOpenChange(false);
+    onSaved();
+  };
+
   const canChargeAbsence = !!lesson?.id && !isTeacher && absence.on && !lesson.absence_charged
     && ["agendada", "cancelada"].includes(lesson.status ?? "agendada");
   const hoursBefore = lesson?.start_at ? (new Date(lesson.start_at).getTime() - Date.now()) / 3_600_000 : Infinity;
@@ -603,6 +622,22 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           )}
           </fieldset>
+          {/* Professor: escreve o resumo da própria aula que já começou (e ela
+              vira realizada). Resto do diálogo continua só leitura. */}
+          {isTeacher && lesson?.id && teacherCanSummarize && (
+            <div className="space-y-2 rounded-md border border-primary/40 p-3">
+              <Label>Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
+              <Textarea
+                value={teacherSummary}
+                onChange={e => setTeacherSummary(e.target.value)}
+                placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
+                rows={3}
+              />
+              {lesson.status === "agendada" && (
+                <p className="text-xs text-muted-foreground">Ao salvar, {a.o} {a.l} fica {a.pick("marcado", "marcada")} como {a.pick("realizado", "realizada")}.</p>
+              )}
+            </div>
+          )}
         </div>
         <DialogFooter className="gap-2">
           {lesson?.id && !isTeacher && <Button variant="destructive" onClick={remove}>Excluir</Button>}
@@ -613,6 +648,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           )}
           <Button variant="outline" onClick={() => onOpenChange(false)}>{isTeacher ? "Fechar" : "Cancelar"}</Button>
           {!isTeacher && <Button onClick={save} disabled={busy}>Salvar</Button>}
+          {isTeacher && lesson?.id && teacherCanSummarize && (
+            <Button onClick={saveTeacherSummary} disabled={busy}>
+              {lesson.status === "agendada" ? `Salvar e marcar como ${a.pick("realizado", "realizada")}` : "Salvar resumo"}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
