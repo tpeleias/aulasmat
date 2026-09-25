@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useWords } from "@/hooks/useVocabulary";
 import { usePlan } from "@/hooks/usePlan";
+import { useAuth } from "@/hooks/useAuth";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -73,6 +74,8 @@ export default function CalendarPage() {
   // WhatsApp de cada cliente, para o atalho de lembrete no widget.
   const [phones, setPhones] = useState<{ student_name: string; guardian_name: string | null; whatsapp: string | null }[]>([]);
   const { plan } = usePlan();
+  // Professor só vê a agenda: não marca aula num horário vazio.
+  const { isTeacher } = useAuth();
   const { templates } = useMessageTemplates();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [upcoming, setUpcoming] = useState<Lesson[]>([]);
@@ -380,7 +383,7 @@ export default function CalendarPage() {
               <button
                 key={h}
                 style={{ height: CELL_H }}
-                {...tapGuard(() => { haptics.tap(); setEditing(null); setSlotStart(cellStart); setDlgOpen(true); })}
+                {...tapGuard(() => { if (isTeacher) return; haptics.tap(); setEditing(null); setSlotStart(cellStart); setDlgOpen(true); })}
                 className="w-full border-b border-l border-border p-1.5 text-xs hover:bg-accent group"
               >
                 <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />

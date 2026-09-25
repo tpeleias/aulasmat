@@ -21,16 +21,17 @@ function openWaze(address: string) {
   window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
 }
 
-export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
+export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, manageLabel = "Gerenciar", onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
   student: SheetStudent | null;
   lessons: SheetLesson[];
   statement?: AccountStatement;
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onSchedule: () => void;
+  onSchedule?: () => void;
   // Os opcionais somem para o login de professor, que não administra o
   // cadastro nem vê o financeiro.
   onManage?: () => void;
+  manageLabel?: string;
   onEdit?: () => void;
   onDelete?: () => void;
   onBilling?: () => void;
@@ -84,9 +85,9 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> Agendar</Button>
+          {onSchedule && <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> Agendar</Button>}
           {onBilling && <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Financeiro</Button>}
-          {onManage && <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> Gerenciar</Button>}
+          {onManage && <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> {manageLabel}</Button>}
           {onEdit && <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>}
           <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> Evolução</Button>
           {onPause && <Button onClick={onPause} variant="secondary" className="h-11 gap-2 rounded-xl"><PauseCircle className="h-4 w-4" /> Pausar</Button>}

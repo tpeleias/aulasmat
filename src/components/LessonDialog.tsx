@@ -386,9 +386,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{lesson?.id ? `Editar ${a.l}` : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{isTeacher ? cap(a.s) : lesson?.id ? `Editar ${a.l}` : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           {lesson?.id && <LessonWhatsApp lesson={lesson} phone={phoneOf(lesson)} />}
+          {/* Login de professor: só consulta (migration 20260925100000). */}
+          <fieldset disabled={isTeacher} className="contents">
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.staff.s}</Label>
               {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara
@@ -490,7 +492,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             como <strong className="text-foreground">voucher</strong> no Financeiro ao registrar o pagamento.
           </div>
           </>}
-          <Collapsible className="rounded-md border border-border bg-muted/30">
+          <Collapsible key={isTeacher ? "prof" : "admin"} defaultOpen={isTeacher} className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
                 <span>{isTeacher ? "Detalhes adicionais (status e observações)" : "Detalhes adicionais (valor, status e observações)"}</span>
@@ -561,6 +563,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {conflictMsg && <div className="text-xs text-destructive">{conflictMsg}</div>}
             </div>
           )}
+          </fieldset>
         </div>
         <DialogFooter className="gap-2">
           {lesson?.id && !isTeacher && <Button variant="destructive" onClick={remove}>Excluir</Button>}
@@ -569,8 +572,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               Cobrar como falta
             </Button>
           )}
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={save} disabled={busy}>Salvar</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{isTeacher ? "Fechar" : "Cancelar"}</Button>
+          {!isTeacher && <Button onClick={save} disabled={busy}>Salvar</Button>}
         </DialogFooter>
       </DialogContent>
     </Dialog>

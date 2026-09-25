@@ -1179,7 +1179,7 @@ SELECT public.assert((SELECT trial_ends_at IS NULL FROM public.accounts WHERE id
   'plano definido pelo gestor encerra o teste');
 
 \echo ''
-\echo '--- 25. Papel professor: so as proprias aulas, nada de financeiro ---'
+\echo '--- 25. Papel professor: so ve as proprias aulas e os proprios alunos ---'
 
 DO $$
 DECLARE
@@ -1193,13 +1193,27 @@ BEGIN
   DELETE FROM public.user_roles WHERE user_id IN (_adm, _prof);
   INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_adm, 'admin', _t), (_prof, 'teacher', _t);
   INSERT INTO public.teachers (account_id, name, active, user_id) VALUES (_t, 'Ana Júlia', true, _prof), (_t, 'Beto', true, NULL);
-  INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (_t, 'Caio', 'Dora');
+  -- Caio: a Ana ja deu aula e vai dar outra. Fabio: a Ana so vai dar.
+  -- Eva: so tem aula com o Beto.
+  INSERT INTO public.students (id, account_id, student_name, guardian_name) VALUES
+    ('25000000-0000-0000-0000-00000000000c', _t, 'Caio', 'Dora'),
+    ('25000000-0000-0000-0000-00000000000f', _t, 'Fabio', NULL),
+    ('25000000-0000-0000-0000-00000000000e', _t, 'Eva', 'Gil');
   INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status) VALUES
+    (_t, 'Caio', 'Dora', 'ana-julia', '2026-03-01 10:00-03', 60, 'realizada'),
     (_t, 'Caio', 'Dora', 'ana-julia', '2027-03-01 10:00-03', 60, 'agendada'),
-    (_t, 'Caio', 'Dora', 'beto',      '2027-03-02 10:00-03', 60, 'agendada');
+    (_t, 'Fabio', NULL, 'ana-julia', '2027-03-02 11:00-03', 60, 'agendada'),
+    (_t, 'Eva', 'Gil', 'beto', '2027-03-02 10:00-03', 60, 'agendada');
   INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
   VALUES (_t, 'Caio', 'Dora', 500, 'adjustment', 'Pix');
   INSERT INTO public.account_discounts (account_id, student_name, guardian_name, kind, value) VALUES (_t, 'Caio', 'Dora', 'percent', 10);
+  INSERT INTO public.homework (account_id, student_id, title, deadline) VALUES
+    (_t, '25000000-0000-0000-0000-00000000000e', 'Tarefa da Eva', now() + interval '3 days');
+  INSERT INTO storage.buckets (id, name) VALUES ('student-materials', 'student-materials'), ('homework-submissions', 'homework-submissions')
+    ON CONFLICT (id) DO NOTHING;
+  INSERT INTO storage.objects (bucket_id, name) VALUES
+    ('student-materials', '25000000-0000-0000-0000-00000000000e/eva.pdf'),
+    ('student-materials', '25000000-0000-0000-0000-00000000000c/caio.pdf');
   PERFORM set_config('teste.t', _t::text, false);
   PERFORM set_config('teste.prof', _prof::text, false);
 END $$;
@@ -1209,40 +1223,61 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
 SELECT public.assert(public.current_teacher_slug() = 'ana-julia', 'o login sabe qual professor e');
-SELECT public.assert((SELECT count(*) FROM public.lessons) = 1 AND (SELECT teacher FROM public.lessons) = 'ana-julia',
+SELECT public.assert((SELECT count(*) FROM public.lessons) = 3 AND (SELECT count(DISTINCT teacher) FROM public.lessons) = 1,
   've so as proprias aulas');
 SELECT public.assert((SELECT count(*) FROM public.wallet_transactions) = 0, 'nao ve pagamentos');
 SELECT public.assert((SELECT count(*) FROM public.account_discounts) = 0, 'nao ve descontos');
 SELECT public.assert((SELECT count(*) FROM public.audit_log) = 0, 'nao ve o historico');
-SELECT public.assert((SELECT count(*) FROM public.students) = 1, 've os alunos da escola');
+SELECT public.assert((SELECT string_agg(student_name, ',' ORDER BY student_name) FROM public.students) = 'Caio,Fabio',
+  've so os alunos com quem tem aula (nao ve a Eva, do Beto)');
+SELECT public.assert((SELECT count(*) FROM public.homework) = 0, 'nao ve tarefa de aluno que nao e dele');
+SELECT public.assert((SELECT count(*) FROM storage.objects WHERE bucket_id = 'student-materials') = 1,
+  'arquivos: so os dos proprios alunos');
 SELECT public.assert((SELECT count(*) FROM public.teachers) = 2, 've os professores da escola');
 
-INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, price)
-VALUES ('Caio', 'Dora', 'ana-julia', '2027-03-03 10:00-03', 60, 999);
-SELECT public.assert((SELECT price FROM public.lessons WHERE start_at = '2027-03-03 10:00-03') = 200.00,
-  'marca aula propria, mas o preco e o da escola (mandou 999)');
 DO $$
 BEGIN
   INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
-  VALUES ('Caio', 'Dora', 'beto', '2027-03-04 10:00-03', 60);
-  RAISE EXCEPTION 'FALHOU: marcou aula para outro professor';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao marca aula para outro professor';
+  VALUES ('Caio', 'Dora', 'ana-julia', '2027-03-03 10:00-03', 60);
+  RAISE EXCEPTION 'FALHOU: professor marcou aula';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - professor nao marca aula (nem a propria)';
 END $$;
-UPDATE public.lessons SET price = 1, notes = 'x' WHERE start_at = '2027-03-01 10:00-03';
-SELECT public.assert((SELECT price FROM public.lessons WHERE start_at = '2027-03-01 10:00-03') = 200.00,
-  'editar a aula nao muda o preco');
+UPDATE public.lessons SET status = 'realizada', notes = 'x' WHERE start_at = '2027-03-01 10:00-03';
+DELETE FROM public.lessons WHERE start_at = '2027-03-01 10:00-03';
 DO $$
 BEGIN
-  UPDATE public.lessons SET teacher = 'beto' WHERE start_at = '2027-03-01 10:00-03';
-  RAISE EXCEPTION 'FALHOU: passou a aula para outro professor';
-EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao passa a aula para outro professor';
+  INSERT INTO public.students (student_name) VALUES ('Novo aluno');
+  RAISE EXCEPTION 'FALHOU: professor cadastrou aluno';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - professor nao cadastra aluno';
 END $$;
-DELETE FROM public.lessons WHERE start_at = '2027-03-01 10:00-03';
-SELECT public.assert((SELECT count(*) FROM public.lessons WHERE start_at = '2027-03-01 10:00-03') = 1, 'nao apaga aula (desmarca)');
-UPDATE public.lessons SET status = 'realizada' WHERE start_at = '2027-03-01 10:00-03';
+
+-- Material e tarefa: so para quem ja teve aula com ele.
+INSERT INTO public.homework (student_id, title, deadline) VALUES ('25000000-0000-0000-0000-00000000000c', 'Lista 1', now() + interval '7 days');
+INSERT INTO public.student_materials (student_id, title, file_path) VALUES ('25000000-0000-0000-0000-00000000000c', 'Apostila', '25000000-0000-0000-0000-00000000000c/apostila.pdf');
+INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('student-materials', '25000000-0000-0000-0000-00000000000c/apostila.pdf', auth.uid());
+SELECT public.assert((SELECT created_by FROM public.homework WHERE title = 'Lista 1') = auth.uid(),
+  'o banco anota quem criou a tarefa');
+DO $$
+BEGIN
+  INSERT INTO public.homework (student_id, title, deadline) VALUES ('25000000-0000-0000-0000-00000000000f', 'X', now());
+  RAISE EXCEPTION 'FALHOU: tarefa para aluno que ainda nao teve aula';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao da tarefa para quem ainda nao teve aula com ele';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.student_materials (student_id, title, file_path) VALUES ('25000000-0000-0000-0000-00000000000e', 'X', 'x');
+  RAISE EXCEPTION 'FALHOU: material para aluno de outro professor';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao poe material para aluno de outro professor';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('student-materials', '25000000-0000-0000-0000-00000000000e/x.pdf', auth.uid());
+  RAISE EXCEPTION 'FALHOU: arquivo na pasta de aluno de outro professor';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao sobe arquivo na pasta de aluno de outro professor';
+END $$;
+
 UPDATE public.settings SET default_lesson_price = 1;
 UPDATE public.teachers SET name = 'invasor';
-INSERT INTO public.students (student_name) VALUES ('Novo aluno');
 INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at) VALUES ('Folga', 'ana-julia', 'one_off', '2027-03-05 10:00-03', '2027-03-05 12:00-03');
 DO $$
 BEGIN
@@ -1260,14 +1295,26 @@ EXCEPTION WHEN sqlstate 'P0001' THEN
 END $$;
 COMMIT;
 
-SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE account_id = current_setting('teste.t')::uuid AND kind = 'lesson') = 1,
-  'dar a aula como realizada gera a cobranca normalmente');
+SELECT public.assert((SELECT status FROM public.lessons WHERE account_id = current_setting('teste.t')::uuid AND start_at = '2027-03-01 10:00-03') = 'agendada',
+  'professor nao muda a aula (nem marca como realizada) nem apaga');
+SELECT public.assert((SELECT count(*) FROM public.blocks WHERE account_id = current_setting('teste.t')::uuid AND title = 'Folga') = 1,
+  'mas bloqueia a propria agenda');
 SELECT public.assert((SELECT default_lesson_price FROM public.settings WHERE account_id = current_setting('teste.t')::uuid) = 200.00,
   'nao mexe nas configuracoes');
 SELECT public.assert((SELECT count(*) FROM public.teachers WHERE account_id = current_setting('teste.t')::uuid AND name = 'invasor') = 0,
   'nao mexe nos professores');
-SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.t')::uuid) = 2,
-  'mas cadastra aluno novo');
+SELECT public.assert((SELECT count(*) FROM public.homework WHERE account_id = current_setting('teste.t')::uuid AND title = 'Lista 1') = 1
+                     AND (SELECT count(*) FROM public.student_materials WHERE account_id = current_setting('teste.t')::uuid) = 1,
+  'poe tarefa e material para aluno que ja teve aula com ele');
+
+-- Arquivos: o admin de OUTRA empresa nao ve os da Escola T.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((SELECT count(*) FROM storage.objects WHERE name LIKE '25000000-%') = 0,
+  'admin de outra empresa nao ve os arquivos desta');
+COMMIT;
 
 \echo ''
 \echo '--- 26. Tipo de negocio e vocabulario por empresa ---'

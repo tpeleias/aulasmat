@@ -149,7 +149,7 @@ export default function HomePage() {
 
         {!isTeacher && <FirstSteps refreshKey={reloads} />}
 
-        <LessonRequests onChanged={load} />
+        {!isTeacher && <LessonRequests onChanged={load} />}
 
         <section>
           <SectionTitle icon={CalendarDays} title="Hoje" action={<Link to="/admin/agenda" className="text-sm text-primary">Agenda</Link>} />
@@ -162,7 +162,7 @@ export default function HomePage() {
               description={next
                 ? `Próxima: ${format(new Date(next.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} · ${next.student_name}`
                 : "Nada agendado nos próximos dias."}
-              action={<Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> {ap.novo} {ap.l}</Button>}
+              action={isTeacher ? undefined : <Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> {ap.novo} {ap.l}</Button>}
             />
           ) : (
             <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
@@ -220,7 +220,7 @@ export default function HomePage() {
         </section>}
 
         <section className="grid grid-cols-2 gap-3">
-          <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> {ap.novo} {ap.l}</Button>
+          {!isTeacher && <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> {ap.novo} {ap.l}</Button>}
           <Button asChild variant="secondary" className="h-12 justify-start gap-2 rounded-2xl"><Link to="/admin/bloqueios"><Ban className="h-4 w-4" /> Bloquear horário</Link></Button>
         </section>
 

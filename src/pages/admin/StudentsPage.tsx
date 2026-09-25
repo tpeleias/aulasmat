@@ -208,12 +208,12 @@ export default function StudentsPage() {
                 <FileUp className="w-4 h-4" /> Importar
               </Button>
             )}
-            <Button
+            {!isTeacher && <Button
               className="rounded-xl gap-1.5"
               disabled={atLimit}
               onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
               <Plus className="w-4 h-4" /> Novo
-            </Button>
+            </Button>}
           </div>
         </div>
 
@@ -262,8 +262,9 @@ export default function StudentsPage() {
         {loading ? (
           <ListSkeleton rows={5} />
         ) : students.length === 0 ? (
-          <EmptyState icon={Users} title={`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`} description={`Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`}
-            action={<div className="flex flex-wrap justify-center gap-2">
+          <EmptyState icon={Users} title={`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`}
+            description={isTeacher ? `Aqui aparecem ${c.os} ${c.lp} que têm ${w.appointment.l} com você.` : `Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`}
+            action={isTeacher ? undefined : <div className="flex flex-wrap justify-center gap-2">
               <Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> {c.novo} {c.l}</Button>
               {!isTeacher && <Button variant="outline" className="rounded-xl" onClick={() => setImportOpen(true)}><FileUp className="mr-1.5 h-4 w-4" /> Importar de planilha</Button>}
             </div>} />
@@ -319,9 +320,10 @@ export default function StudentsPage() {
         statement={selectedStatement}
         open={!!selected}
         onOpenChange={v => !v && setSelected(null)}
-        onSchedule={() => { const s = selected!; setSelected(null); setScheduleFor(s); }}
+        onSchedule={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setScheduleFor(s); }}
         showMoney={!isTeacher}
-        onManage={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setManageFor(s); }}
+        onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
+        manageLabel={isTeacher ? "Materiais e tarefas" : undefined}
         onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
         onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}
@@ -376,6 +378,7 @@ export default function StudentsPage() {
       />
 
       <StudentManageDialog
+        teacherMode={isTeacher}
         student={manageFor}
         open={!!manageFor}
         onOpenChange={v => !v && setManageFor(null)}
