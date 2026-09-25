@@ -2342,4 +2342,31 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
 SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Studio NY') = 'en/USD', 'cadastro em ingles: en/USD');
 SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Estudio BR') = 'pt-BR/BRL', 'lingua invalida vira portugues/real');
 
+\echo ''
+\echo '--- 43. Moeda travada enquanto ha assinatura ---'
+
+UPDATE public.accounts SET stripe_subscription_id = 'sub_teste', billing_status = 'active' WHERE id = current_setting('teste.sm')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
+DO $$
+BEGIN
+  PERFORM public.set_account_locale(NULL, 'EUR');
+  RAISE EXCEPTION 'FALHOU: trocou a moeda com assinatura ativa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - moeda travada com assinatura ativa';
+END $$;
+SELECT public.assert((public.set_account_locale('pt-BR', NULL) ->> 'locale') = 'pt-BR', 'a lingua continua livre');
+SELECT public.assert((public.set_account_locale(NULL, 'USD') ->> 'currency') = 'USD', 'repetir a mesma moeda nao e troca');
+COMMIT;
+UPDATE public.accounts SET stripe_subscription_id = NULL, billing_status = 'canceled' WHERE id = current_setting('teste.sm')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
+SELECT public.assert((public.set_account_locale(NULL, 'GBP') ->> 'currency') = 'GBP', 'sem assinatura a moeda muda');
+COMMIT;
+
 \echo '=== FIM ==='

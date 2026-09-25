@@ -6,6 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useVocabulary } from "@/hooks/useVocabulary";
+import { usePlan } from "@/hooks/usePlan";
+import { dbErrorMessage } from "@/lib/dbErrors";
 import { CURRENCIES, LOCALES, L, getCurrency, getLocale, type Currency, type Locale } from "@/lib/i18n";
 
 /**
@@ -14,6 +16,9 @@ import { CURRENCIES, LOCALES, L, getCurrency, getLocale, type Currency, type Loc
  */
 export default function LanguageSettings() {
   const { apply } = useVocabulary();
+  const { plan } = usePlan();
+  // Assinatura ativa: a moeda fica travada (migration 20260925190000).
+  const locked = plan.billing_status === "active" || plan.billing_status === "past_due";
   const [busy, setBusy] = useState(false);
   const locale = getLocale();
   const currency = getCurrency();
@@ -24,7 +29,7 @@ export default function LanguageSettings() {
       _locale: next.locale ?? null, _currency: next.currency ?? null,
     } as never);
     setBusy(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     // A resposta traz a língua nova; o provedor aplica e recarrega a tela.
     apply(data);
   };
@@ -44,19 +49,26 @@ export default function LanguageSettings() {
         <div>
           <Label>{L("Língua", "Language")}</Label>
           <Select value={locale} disabled={busy}
-            onValueChange={v => save({ locale: v as Locale, currency: v === "en" && currency === "BRL" ? "USD" : undefined })}>
+            onValueChange={v => save({ locale: v as Locale, currency: v === "en" && currency === "BRL" && !locked ? "USD" : undefined })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{LOCALES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
         <div>
           <Label>{L("Moeda", "Currency")}</Label>
-          <Select value={currency} disabled={busy} onValueChange={v => save({ currency: v as Currency })}>
+          <Select value={currency} disabled={busy || locked} onValueChange={v => save({ currency: v as Currency })}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>{CURRENCIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
           </Select>
         </div>
       </div>
+      <p className="text-xs text-muted-foreground">
+        {locked
+          ? L("A moeda fica travada enquanto a assinatura do Cronys estiver ativa, porque ela é cobrada nessa moeda.",
+              "The currency is locked while your Cronys subscription is active, since it's billed in that currency.")
+          : L("A assinatura do Cronys é cobrada nesta moeda. Em dólar, euro ou libra os planos são mensais.",
+              "Your Cronys subscription is billed in this currency. In USD, EUR or GBP plans are monthly.")}
+      </p>
     </Card>
   );
 }

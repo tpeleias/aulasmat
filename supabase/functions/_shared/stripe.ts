@@ -27,6 +27,42 @@ export const ASSISTANT_LOOKUP: Record<Interval, string> = {
   month: "cronys_assistente_mensal", year: "cronys_assistente_anual",
 };
 
+// Fora do real, só o mensal - sem o anual com desconto e sem cupom. Os valores
+// ficam como currency_options nos mesmos preços (mesmo lookup_key), em
+// centavos. Não são conversão do real: são preço de mercado de cada moeda.
+export type Currency = "brl" | "usd" | "eur" | "gbp";
+export const FOREIGN_PRICES: Record<Exclude<Currency, "brl">, Record<string, number>> = {
+  usd: { cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900 },
+  eur: { cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900 },
+  gbp: { cronys_pro_solo_mensal: 1300, cronys_pro_equipe_mensal: 3300, cronys_extra_mensal: 600, cronys_assistente_mensal: 800 },
+};
+
+export function toCurrency(raw: unknown): Currency {
+  const c = String(raw ?? "").toLowerCase();
+  return c === "usd" || c === "eur" || c === "gbp" ? c : "brl";
+}
+
+/**
+ * Garante que os preços têm a moeda estrangeira (currency_options). Assim o
+ * modo real do Stripe se acerta sozinho na primeira venda, sem configurar
+ * nada à mão lá - o valor que vale é o de FOREIGN_PRICES.
+ */
+export async function ensureCurrency(keys: string[], currency: Currency) {
+  if (currency === "brl") return;
+  const table = FOREIGN_PRICES[currency];
+  const list = await stripe<{ data: { id: string; lookup_key: string; currency_options?: Record<string, { unit_amount: number }> }[] }>(
+    "GET", "/prices", { lookup_keys: keys, active: true, limit: 20, expand: ["data.currency_options"] });
+  for (const p of list.data) {
+    const want = table[p.lookup_key];
+    if (want == null) throw new Error(`Sem preço em ${currency.toUpperCase()} para ${p.lookup_key}.`);
+    if (p.currency_options?.[currency]?.unit_amount === want) continue;
+    // Manda as três moedas juntas: a atualização pode trocar a lista inteira.
+    const all: Record<string, { unit_amount: number }> = {};
+    for (const [c, t] of Object.entries(FOREIGN_PRICES)) if (t[p.lookup_key] != null) all[c] = { unit_amount: t[p.lookup_key] };
+    await stripe("POST", `/prices/${p.id}`, { currency_options: all });
+  }
+}
+
 export function isAssistantLookup(key: string | null | undefined) {
   return !!key && key.startsWith("cronys_assistente_");
 }
@@ -115,6 +151,7 @@ export async function syncExtraSeats(admin: SupabaseClient, accountId: string) {
   } else if (wanted > 0 && extraItem && extraItem.quantity !== wanted) {
     await stripe("POST", `/subscription_items/${extraItem.id}`, { quantity: wanted, proration_behavior: "create_prorations" });
   } else if (wanted > 0 && !extraItem) {
+    await ensureCurrency([LOOKUP.extra[interval]], toCurrency(sub.currency));
     const ids = await priceIds([LOOKUP.extra[interval]]);
     await stripe("POST", "/subscription_items", {
       subscription: acc.stripe_subscription_id, price: ids[LOOKUP.extra[interval]], quantity: wanted,
