@@ -10,6 +10,7 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 import { haptics } from "@/lib/haptics";
 import { parseStudents } from "@/lib/studentImport";
 
+import { L } from "@/lib/i18n";
 type Existing = { student_name: string; guardian_name: string | null };
 
 /**
@@ -43,7 +44,7 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
   const readFile = async (f: File | undefined) => {
     if (!f) return;
     if (/\.(xlsx?|ods|numbers)$/i.test(f.name)) {
-      toast.error("Esse arquivo é de planilha. Salve como CSV, ou selecione as colunas na planilha, copie e cole aqui.");
+      toast.error(L("Esse arquivo é de planilha. Salve como CSV, ou selecione as colunas na planilha, copie e cole aqui.", "That's a spreadsheet file. Save it as CSV, or select the columns in the spreadsheet, copy and paste here."));
       return;
     }
     // O Excel em português salva CSV em Windows-1252; se o UTF-8 der
@@ -64,7 +65,7 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
       if (error) {
         setBusy(false);
         haptics.warning();
-        toast.error(`${done} ${c.pick("cadastrado", "cadastrada")}${done === 1 ? "" : "s"}; o resto parou: ${dbErrorMessage(error, w)}`);
+        toast.error(L(`${done} ${c.pick("cadastrado", "cadastrada")}${done === 1 ? "" : "s"}; o resto parou: ${dbErrorMessage(error, w)}`, `${done} added; the rest stopped: ${dbErrorMessage(error, w)}`));
         if (done > 0) onImported();
         return;
       }
@@ -72,22 +73,23 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
     }
     setBusy(false);
     haptics.success();
-    toast.success(`${done} ${done === 1 ? c.l : c.lp} ${c.pick("cadastrado", "cadastrada")}${done === 1 ? "" : "s"}`);
+    toast.success(L(`${done} ${done === 1 ? c.l : c.lp} ${c.pick("cadastrado", "cadastrada")}${done === 1 ? "" : "s"}`, `${done} ${done === 1 ? c.l : c.lp} added`));
     setText("");
     onOpenChange(false);
     onImported();
   };
 
-  const statusLabel = { novo: "", repetido_no_cadastro: "já cadastrado", repetido_na_planilha: "repetido" } as const;
+  const statusLabel = { novo: "", repetido_no_cadastro: L("já cadastrado", "already added"), repetido_na_planilha: L("repetido", "duplicate") } as const;
 
   return (
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-2xl">
         <DialogHeader>
-          <DialogTitle>Importar {c.lp}</DialogTitle>
+          <DialogTitle>{L(`Importar ${c.lp}`, `Import ${c.lp}`)}</DialogTitle>
           <DialogDescription>
-            Na planilha, selecione as colunas <b>nome</b>, <b>{w.guardian.l}</b> e <b>endereço</b> (nessa ordem, ou com
-            cabeçalho), copie e cole abaixo. Também dá para abrir um arquivo CSV.
+            {L(<>Na planilha, selecione as colunas <b>nome</b>, <b>{w.guardian.l}</b> e <b>endereço</b> (nessa ordem, ou com
+            cabeçalho), copie e cole abaixo. Também dá para abrir um arquivo CSV.</>,
+            <>In your spreadsheet, select the <b>name</b>, <b>{w.guardian.l}</b> and <b>address</b> columns (in that order, or with a header), copy and paste below. You can also open a CSV file.</>)}
           </DialogDescription>
         </DialogHeader>
 
@@ -96,26 +98,26 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
           onChange={e => setText(e.target.value)}
           rows={6}
           className="rounded-xl font-mono text-xs"
-          placeholder={"Nome\tResponsável\tEndereço\nAna Souza\tMaria Souza\tRua A, 10\nBruno Lima\tCarlos Lima\t"}
+          placeholder={L("Nome\tResponsável\tEndereço\nAna Souza\tMaria Souza\tRua A, 10\nBruno Lima\tCarlos Lima\t", "Name\tParent\tAddress\nAnna Smith\tMary Smith\t10 A Street\nBen Lee\tCarl Lee\t")}
         />
         <div>
           <input ref={fileRef} type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
             onChange={e => { readFile(e.target.files?.[0]); e.target.value = ""; }} />
           <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => fileRef.current?.click()}>
-            <FileUp className="mr-1.5 h-4 w-4" /> Abrir arquivo CSV
+            <FileUp className="mr-1.5 h-4 w-4" /> {L("Abrir arquivo CSV", "Open CSV file")}
           </Button>
         </div>
 
         {lines.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm">
-              <b>{toImport.length}</b> para cadastrar
-              {lines.length - fresh.length > 0 && ` · ${lines.length - fresh.length} repetido${lines.length - fresh.length === 1 ? "" : "s"} (fica${lines.length - fresh.length === 1 ? "" : "m"} de fora)`}
+              <b>{toImport.length}</b> {L("para cadastrar", "to add")}
+              {lines.length - fresh.length > 0 && L(` · ${lines.length - fresh.length} repetido${lines.length - fresh.length === 1 ? "" : "s"} (fica${lines.length - fresh.length === 1 ? "" : "m"} de fora)`, ` · ${lines.length - fresh.length} duplicate${lines.length - fresh.length === 1 ? "" : "s"} (left out)`)}
             </p>
             {overLimit > 0 && (
               <p className="rounded-xl border border-warning/40 bg-warning/10 px-3 py-2 text-xs">
-                O plano atual comporta mais {room} {room === 1 ? c.l : c.lp}. {overLimit} {overLimit === 1 ? "fica" : "ficam"} de fora -
-                {" "}os primeiros da lista entram.
+                {L(`O plano atual comporta mais ${room} ${room === 1 ? c.l : c.lp}. ${overLimit} ${overLimit === 1 ? "fica" : "ficam"} de fora - os primeiros da lista entram.`,
+                   `Your current plan fits ${room} more ${room === 1 ? c.l : c.lp}. ${overLimit} will be left out - the first ones in the list go in.`)}
               </p>
             )}
             <ul className="max-h-56 divide-y divide-border overflow-y-auto rounded-xl border border-border text-sm">
@@ -133,9 +135,9 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
         )}
 
         <DialogFooter>
-          <Button variant="outline" className="rounded-xl" onClick={() => close(false)} disabled={busy}>Cancelar</Button>
+          <Button variant="outline" className="rounded-xl" onClick={() => close(false)} disabled={busy}>{L("Cancelar", "Cancel")}</Button>
           <Button className="rounded-xl" onClick={save} disabled={busy || toImport.length === 0}>
-            {busy ? "Cadastrando…" : `Cadastrar ${toImport.length}`}
+            {busy ? L("Cadastrando…", "Adding…") : L(`Cadastrar ${toImport.length}`, `Add ${toImport.length}`)}
           </Button>
         </DialogFooter>
       </DialogContent>

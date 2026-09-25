@@ -64,8 +64,8 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-muted-foreground/30 md:hidden" />
         <SheetTitle className="text-xl">{student.student_name}</SheetTitle>
         <SheetDescription className="flex flex-wrap items-center gap-x-2">
-          <span>{student.guardian_name ? `Resp.: ${student.guardian_name}` : "Sem responsável"}</span>
-          {student.user_id && <Badge variant="outline" className="gap-1 text-[10px]"><Link2 className="h-3 w-3" /> conta</Badge>}
+          <span>{student.guardian_name ? `${L("Resp.", w.guardian.s)}: ${student.guardian_name}` : L("Sem responsável", `No ${w.guardian.l}`)}</span>
+          {student.user_id && <Badge variant="outline" className="gap-1 text-[10px]"><Link2 className="h-3 w-3" /> {L("conta", "account")}</Badge>}
         </SheetDescription>
         {student.address && (
           <button onClick={() => openWaze(student.address!)} className="mt-1 flex items-center gap-1.5 text-left text-sm text-primary">
@@ -74,29 +74,29 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         )}
 
         <div className={`mt-4 grid gap-2 ${showMoney ? "grid-cols-3" : "grid-cols-2"}`}>
-          <Stat label="Realizadas" value={String(done.length)} />
+          <Stat label={L("Realizadas", "Done")} value={String(done.length)} />
           {showMoney && <Stat
-            label={credit > 0 ? "Crédito" : owed > 0 ? "A receber" : "Financeiro"}
-            value={credit > 0 ? fmtMoney(credit) : owed > 0 ? fmtMoney(owed) : "Em dia"}
+            label={credit > 0 ? L("Crédito", "Credit") : owed > 0 ? L("A receber", "Due") : L("Financeiro", "Billing")}
+            value={credit > 0 ? fmtMoney(credit) : owed > 0 ? fmtMoney(owed) : L("Em dia", "Up to date")}
             tone={overdue ? "destructive" : credit > 0 ? "success" : "default"}
-            hint={overdue ? `${daysOpen(statement!.oldestOpenDate)} dias` : undefined}
+            hint={overdue ? L(`${daysOpen(statement!.oldestOpenDate)} dias`, `${daysOpen(statement!.oldestOpenDate)} days`) : undefined}
           />}
-          <Stat label="Próxima" value={next ? format(new Date(next.start_at), L("EEE dd/MM", "EEE, MMM d"), { locale: dateLocale() }) : "—"} hint={next ? format(new Date(next.start_at), "HH:mm") : undefined} />
+          <Stat label={L("Próxima", "Next")} value={next ? format(new Date(next.start_at), L("EEE dd/MM", "EEE, MMM d"), { locale: dateLocale() }) : "—"} hint={next ? format(new Date(next.start_at), "HH:mm") : undefined} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
-          {onSchedule && <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> Agendar</Button>}
-          {onBilling && <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> Financeiro</Button>}
+          {onSchedule && <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> {L("Agendar", "Book")}</Button>}
+          {onBilling && <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> {L("Financeiro", "Billing")}</Button>}
           {onManage && <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> {manageLabel}</Button>}
-          {onEdit && <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> Editar</Button>}
-          <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> Evolução</Button>
-          {onPause && <Button onClick={onPause} variant="secondary" className="h-11 gap-2 rounded-xl"><PauseCircle className="h-4 w-4" /> Pausar</Button>}
+          {onEdit && <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> {L("Editar", "Edit")}</Button>}
+          <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> {L("Evolução", "Progress")}</Button>
+          {onPause && <Button onClick={onPause} variant="secondary" className="h-11 gap-2 rounded-xl"><PauseCircle className="h-4 w-4" /> {L("Pausar", "Pause")}</Button>}
         </div>
 
         <div className="mt-5">
-          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{w.appointment.pick("Últimos", "Últimas")} {w.appointment.lp}</div>
+          <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L(`${w.appointment.pick("Últimos", "Últimas")} ${w.appointment.lp}`, `Recent ${w.appointment.lp}`)}</div>
           {recent.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{w.appointment.nenhum} {w.appointment.l} {w.appointment.pick("registrado", "registrada")} ainda.</p>
+            <p className="text-sm text-muted-foreground">{L(`${w.appointment.nenhum} ${w.appointment.l} ${w.appointment.pick("registrado", "registrada")} ainda.`, `No ${w.appointment.lp} yet.`)}</p>
           ) : (
             <ul className="divide-y divide-border rounded-2xl border border-border">
               {recent.map(l => (
@@ -113,7 +113,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         </div>
 
         {onDelete && <button onClick={onDelete} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm text-destructive hover:bg-destructive/10">
-          <Trash2 className="h-4 w-4" /> Excluir cadastro
+          <Trash2 className="h-4 w-4" /> {L("Excluir cadastro", "Delete profile")}
         </button>}
       </SheetContent>
     </Sheet>

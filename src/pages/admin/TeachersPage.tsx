@@ -24,7 +24,8 @@ import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 
-const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+import { L } from "@/lib/i18n";
+const DIAS = L(["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
 
 export default function TeachersPage() {
   const { plan } = usePlan();
@@ -48,7 +49,7 @@ export default function TeachersPage() {
   const perTeacher = !!plan.teacher_services && (services?.length ?? 0) > 0;
   const slugs = teachers.map(t => teacherSlug(t.name));
   // A etiqueta "faz todos os serviços", no vocabulário da empresa.
-  const todos = `Faz ${w.topic.pick("todos", "todas")} ${w.topic.os} ${w.topic.lp}`;
+  const todos = L(`Faz ${w.topic.pick("todos", "todas")} ${w.topic.os} ${w.topic.lp}`, `Offers all ${w.topic.lp}`);
 
   // Max com assinatura: cada profissional ativo acima dos incluídos é
   // cobrado. Depois de mudar quem está ativo, acerta a assinatura no Stripe
@@ -63,11 +64,11 @@ export default function TeachersPage() {
 
   const add = async () => {
     const v = name.trim().toLowerCase();
-    if (!v) { toast.error(`Informe o nome ${st.do} ${st.l}`); return; }
+    if (!v) { toast.error(L(`Informe o nome ${st.do} ${st.l}`, `Enter the ${st.l}'s name`)); return; }
     setBusy(true);
     const { error } = await supabase.from("teachers" as any).insert({ name: v });
     setBusy(false);
-    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(`${st.s} ${st.pick("cadastrado", "cadastrada")}`); setName(""); reload(); syncSeats(); }
+    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(L(`${st.s} ${st.pick("cadastrado", "cadastrada")}`, `${st.s} added`)); setName(""); reload(); syncSeats(); }
   };
 
   // Renomear passa pelo banco (rename_teacher) porque aulas e bloqueios
@@ -97,20 +98,21 @@ export default function TeachersPage() {
 
   const callAccess = async (action: "create" | "reset" | "remove") => {
     if (!accessFor) return;
-    if (action === "remove" && !confirm(`Remover o acesso de ${capitalize(accessFor.name)}? ${cap(w.appointment.os)} ${w.appointment.lp} continuam.`)) return;
+    if (action === "remove" && !confirm(L(`Remover o acesso de ${capitalize(accessFor.name)}? ${cap(w.appointment.os)} ${w.appointment.lp} continuam.`, `Remove ${capitalize(accessFor.name)}'s login? The ${w.appointment.lp} stay.`))) return;
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("create-teacher-login", {
       body: { teacher_id: accessFor.id, action, username: accessUser.trim().toLowerCase(), password: accessPw },
     });
     setBusy(false);
     const msg = (data as { error?: string } | null)?.error;
-    if (error || msg) { toast.error(msg || "Não foi possível concluir. Tente de novo."); return; }
+    if (error || msg) { toast.error(msg || L("Não foi possível concluir. Tente de novo.", "Couldn't finish. Please try again.")); return; }
     if (action === "create") {
-      const text = `Seu acesso ao Cronys: usuário ${accessUser.trim().toLowerCase()}, senha ${accessPw}. Entre em ${publicSiteUrl()}/ ou pelo app.`;
-      try { await navigator.clipboard.writeText(text); toast.success("Acesso criado - usuário e senha copiados para enviar"); }
-      catch { toast.success("Acesso criado"); }
+      const text = L(`Seu acesso ao Cronys: usuário ${accessUser.trim().toLowerCase()}, senha ${accessPw}. Entre em ${publicSiteUrl()}/ ou pelo app.`,
+        `Your Cronys login: username ${accessUser.trim().toLowerCase()}, password ${accessPw}. Sign in at ${publicSiteUrl()}/ or in the app.`);
+      try { await navigator.clipboard.writeText(text); toast.success(L("Acesso criado - usuário e senha copiados para enviar", "Login created - username and password copied to send")); }
+      catch { toast.success(L("Acesso criado", "Login created")); }
     } else {
-      toast.success(action === "reset" ? "Senha trocada" : "Acesso removido");
+      toast.success(action === "reset" ? L("Senha trocada", "Password changed") : L("Acesso removido", "Login removed"));
     }
     setAccessFor(null);
     reload();
@@ -119,8 +121,8 @@ export default function TeachersPage() {
   const rename = async () => {
     if (!renaming) return;
     const v = newName.trim().toLowerCase();
-    if (!v || !newSlug) { toast.error(`Informe o nome ${st.do} ${st.l}`); return; }
-    if (slugTaken) { toast.error(`Já existe ${st.um} ${st.l} com esse nome`); return; }
+    if (!v || !newSlug) { toast.error(L(`Informe o nome ${st.do} ${st.l}`, `Enter the ${st.l}'s name`)); return; }
+    if (slugTaken) { toast.error(L(`Já existe ${st.um} ${st.l} com esse nome`, `There is already a ${st.l} with that name`)); return; }
     setBusy(true);
     const { data, error } = await supabase.rpc("rename_teacher" as never, {
       _teacher: renaming.id, _new_name: v, _old_slug: oldSlug, _new_slug: newSlug,
@@ -129,7 +131,8 @@ export default function TeachersPage() {
     if (error) { toast.error(error.message); return; }
     const n = (data as { aulas?: number } | null)?.aulas ?? 0;
     const ap = w.appointment;
-    toast.success(`${st.s} ${st.pick("renomeado", "renomeada")}${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} ${ap.pick("atualizado", "atualizada")}${n === 1 ? "" : "s"}` : ""}`);
+    toast.success(L(`${st.s} ${st.pick("renomeado", "renomeada")}${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} ${ap.pick("atualizado", "atualizada")}${n === 1 ? "" : "s"}` : ""}`,
+      `${st.s} renamed${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} updated` : ""}`));
     setRenaming(null);
     reload();
   };
@@ -144,7 +147,7 @@ export default function TeachersPage() {
   const saveWhatsApp = async (id: string, whatsapp: string) => {
     const { error } = await supabase.from("teachers" as any)
       .update({ whatsapp: whatsapp.trim() || null }).eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("WhatsApp salvo"); reload(); }
+    if (error) toast.error(error.message); else { toast.success(L("WhatsApp salvo", "WhatsApp saved")); reload(); }
   };
 
   const toggleWhatsApp = async (id: string, enabled: boolean) => {
@@ -193,48 +196,50 @@ export default function TeachersPage() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm(`Excluir ${st.este} ${st.l}? (${cap(w.appointment.os)} ${w.appointment.lp} e bloqueios já criados continuam intactos)`)) return;
+    if (!confirm(L(`Excluir ${st.este} ${st.l}? (${cap(w.appointment.os)} ${w.appointment.lp} e bloqueios já criados continuam intactos)`, `Delete this ${st.l}? (Existing ${w.appointment.lp} and time off stay untouched)`))) return;
     const { error } = await supabase.from("teachers" as any).delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("Removido"); reload(); syncSeats(); }
+    if (error) toast.error(error.message); else { toast.success(L("Removido", "Removed")); reload(); syncSeats(); }
   };
 
   return (
     <div className="space-y-6 max-w-2xl">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2"><GraduationCap className="w-6 h-6" /> {st.p}</h1>
-        <p className="text-sm text-muted-foreground">Cadastre {st.os} {st.lp} que aparecem na agenda e o WhatsApp de cada um. O acesso próprio de cada um é opcional, pelo ícone da chave.</p>
+        <p className="text-sm text-muted-foreground">{L(`Cadastre ${st.os} ${st.lp} que aparecem na agenda e o WhatsApp de cada um. O acesso próprio de cada um é opcional, pelo ícone da chave.`, `Add the ${st.lp} who appear on the calendar and each one's WhatsApp. Their own login is optional, through the key icon.`)}</p>
       </div>
 
       <Card className="p-4">
         <div className="flex gap-2 items-end">
           <div className="flex-1">
-            <label className="text-xs text-muted-foreground">Nome {st.do} {st.l}</label>
-            <Input value={name} onChange={e => setName(e.target.value)} placeholder="Ex: João" onKeyDown={e => e.key === "Enter" && add()} />
+            <label className="text-xs text-muted-foreground">{L(`Nome ${st.do} ${st.l}`, `${st.s} name`)}</label>
+            <Input value={name} onChange={e => setName(e.target.value)} placeholder={L("Ex: João", "E.g. John")} onKeyDown={e => e.key === "Enter" && add()} />
           </div>
-          <Button onClick={add} disabled={busy || semVaga} className="gap-1"><Plus className="w-4 h-4" /> Adicionar</Button>
+          <Button onClick={add} disabled={busy || semVaga} className="gap-1"><Plus className="w-4 h-4" /> {L("Adicionar", "Add")}</Button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
+        <p className="text-xs text-muted-foreground mt-2">{L("O nome é guardado em minúsculas e usado como identificador interno.", "The name is saved in lowercase and used as an internal identifier.")}</p>
         {cobraExtra && (
           <p className="text-xs text-muted-foreground mt-1">
-            O Max inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")}, contando você se você atende ({ativos} agora). Se você só administra, desative o seu nome aqui e ele não conta.
-            {ativos > incluidos! ? ` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.` : " A partir do próximo, cada um entra na assinatura."}
+            {L(`O Max inclui ${incluidos} ${st.lp} ${st.pick("ativos", "ativas")}, contando você se você atende (${ativos} agora). Se você só administra, desative o seu nome aqui e ele não conta.`,
+               `Max includes ${incluidos} active ${st.lp}, counting you if you also serve clients (${ativos} now). If you only manage, deactivate your name here and it won't count.`)}
+            {ativos > incluidos! ? L(` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.`, ` ${ativos - incluidos!} extra ${ativos - incluidos! === 1 ? "is" : "are"} added to the subscription.`) : L(" A partir do próximo, cada um entra na assinatura.", " From the next one on, each is added to the subscription.")}
           </p>
         )}
         {semVaga && (
           <div className="mt-3">
-            <ProUpsell titulo={`O ${plan.nome} vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`} icon={GraduationCap} compacto>
-              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Max cada um tem acesso
-              próprio — é o plano de quem tem equipe.
+            <ProUpsell titulo={L(`O ${plan.nome} vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`, `${plan.nome} allows up to ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`)} icon={GraduationCap} compacto>
+              {L(`você já tem ${ativos} ativo${ativos === 1 ? "" : "s"}. No Cronys Max cada um tem acesso próprio — é o plano de quem tem equipe.`,
+                 `you already have ${ativos} active. On Cronys Max each one has their own login — it's the plan for teams.`)}
             </ProUpsell>
           </div>
         )}
       </Card>
 
       <div className="space-y-2">
-        {teachers.length === 0 && <Card className="p-6 text-center text-sm text-muted-foreground">{st.nenhum} {st.l} {st.pick("cadastrado", "cadastrada")}.</Card>}
+        {teachers.length === 0 && <Card className="p-6 text-center text-sm text-muted-foreground">{L(`${st.nenhum} ${st.l} ${st.pick("cadastrado", "cadastrada")}.`, `No ${st.lp} yet.`)}</Card>}
         {plan.any_teacher && teachers.length > 1 && (
           <p className="text-xs text-muted-foreground">
-            A ordem desta lista é a prioridade quando {w.client.o} {w.client.l} pede &quot;qualquer {st.l}&quot;: fica com {st.o} primeir{st.pick("o", "a")} que estiver livre no horário. Use as setas para mudar.
+            {L(`A ordem desta lista é a prioridade quando ${w.client.o} ${w.client.l} pede "qualquer ${st.l}": fica com ${st.o} primeir${st.pick("o", "a")} que estiver livre no horário. Use as setas para mudar.`,
+               `This order is the priority when a ${w.client.l} asks for "any ${st.l}": the first one free at that time gets it. Use the arrows to change it.`)}
           </p>
         )}
         {teachers.map((t, i) => (
@@ -243,8 +248,8 @@ export default function TeachersPage() {
               <div className="flex items-center gap-1">
                 {plan.any_teacher && teachers.length > 1 && (
                   <div className="flex flex-col">
-                    <Button size="icon" variant="ghost" className="h-6 w-6" title="Subir na prioridade" disabled={busy || i === 0} onClick={() => move(i, -1)}><ChevronUp className="h-4 w-4" /></Button>
-                    <Button size="icon" variant="ghost" className="h-6 w-6" title="Descer na prioridade" disabled={busy || i === teachers.length - 1} onClick={() => move(i, 1)}><ChevronDown className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" title={L("Subir na prioridade", "Move up in priority")} disabled={busy || i === 0} onClick={() => move(i, -1)}><ChevronUp className="h-4 w-4" /></Button>
+                    <Button size="icon" variant="ghost" className="h-6 w-6" title={L("Descer na prioridade", "Move down in priority")} disabled={busy || i === teachers.length - 1} onClick={() => move(i, 1)}><ChevronDown className="h-4 w-4" /></Button>
                   </div>
                 )}
               <div>
@@ -253,8 +258,8 @@ export default function TeachersPage() {
                   {capitalize(t.name)}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  {t.active ? "Ativo" : t.plan_locked ? "Pausado pela mudança de plano - ative para liberar" : "Inativo"}
-                  {t.user_id ? " · tem acesso próprio" : ""}
+                  {t.active ? L("Ativo", "Active") : t.plan_locked ? L("Pausado pela mudança de plano - ative para liberar", "Paused by the plan change - activate to release") : L("Inativo", "Inactive")}
+                  {t.user_id ? L(" · tem acesso próprio", " · has own login") : ""}
                 </div>
                 {perTeacher && t.all_services !== false && (
                   <Badge variant="secondary" className="mt-1 text-[10px] font-normal">{todos}</Badge>
@@ -264,18 +269,18 @@ export default function TeachersPage() {
               <div className="flex items-center gap-3">
                 <Switch checked={t.active} onCheckedChange={v => toggleActive(t.id, v)} />
                 {hasAccessColumn && (
-                  <Button size="icon" variant="ghost" title={t.user_id ? `Acesso ${st.do} ${st.l}` : `Criar acesso para ${st.o} ${st.l}`} onClick={() => openAccess(t)}>
+                  <Button size="icon" variant="ghost" title={t.user_id ? L(`Acesso ${st.do} ${st.l}`, `${st.s} login`) : L(`Criar acesso para ${st.o} ${st.l}`, `Create a login for the ${st.l}`)} onClick={() => openAccess(t)}>
                     <KeyRound className={`w-4 h-4 ${t.user_id ? "text-primary" : ""}`} />
                   </Button>
                 )}
-                <Button size="icon" variant="ghost" title="Editar nome" onClick={() => { setRenaming(t); setNewName(capitalize(t.name)); }}><Pencil className="w-4 h-4" /></Button>
+                <Button size="icon" variant="ghost" title={L("Editar nome", "Edit name")} onClick={() => { setRenaming(t); setNewName(capitalize(t.name)); }}><Pencil className="w-4 h-4" /></Button>
                 <Button size="icon" variant="ghost" onClick={() => remove(t.id)}><Trash2 className="w-4 h-4" /></Button>
               </div>
             </div>
 
             <div className="border-t border-border pt-3">
-              <label className="text-xs text-muted-foreground">Cor na agenda</label>
-              <ColorPicker value={t.color} onChange={c => setColor(t.id, c)} allowNone noneLabel="Automática (pela posição)" />
+              <label className="text-xs text-muted-foreground">{L("Cor na agenda", "Calendar color")}</label>
+              <ColorPicker value={t.color} onChange={c => setColor(t.id, c)} allowNone noneLabel={L("Automática (pela posição)", "Automatic (by position)")} />
             </div>
 
             {perTeacher && services && (
@@ -283,7 +288,7 @@ export default function TeachersPage() {
                 <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
                   <Switch checked={t.all_services !== false} onCheckedChange={v => setAllServices(t.id, v)} />
                   <span className="text-muted-foreground">
-                    {t.all_services !== false ? todos : `Faz só ${w.topic.os} ${w.topic.lp} marcad${w.topic.pick("o", "a")}s`}
+                    {t.all_services !== false ? todos : L(`Faz só ${w.topic.os} ${w.topic.lp} marcad${w.topic.pick("o", "a")}s`, `Offers only the checked ${w.topic.lp}`)}
                   </span>
                 </label>
                 {t.all_services === false && (
@@ -305,10 +310,10 @@ export default function TeachersPage() {
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex items-end gap-2">
                 <div className="flex-1">
-                  <label className="text-xs text-muted-foreground">WhatsApp de {capitalize(t.name)}</label>
+                  <label className="text-xs text-muted-foreground">{L(`WhatsApp de ${capitalize(t.name)}`, `${capitalize(t.name)}'s WhatsApp`)}</label>
                   <Input
                     defaultValue={t.whatsapp ?? ""}
-                    placeholder="5511999999999"
+                    placeholder={L("5511999999999", "15551234567")}
                     onBlur={e => { if ((e.target.value.trim() || null) !== (t.whatsapp ?? null)) saveWhatsApp(t.id, e.target.value); }}
                   />
                 </div>
@@ -317,8 +322,8 @@ export default function TeachersPage() {
                 <Switch checked={t.whatsapp_enabled !== false} onCheckedChange={v => toggleWhatsApp(t.id, v)} />
                 <span className="text-muted-foreground">
                   {t.whatsapp_enabled !== false
-                    ? "Botão de WhatsApp aparece no app"
-                    : "Número guardado, mas o botão não aparece"}
+                    ? L("Botão de WhatsApp aparece no app", "WhatsApp button shows in the app")
+                    : L("Número guardado, mas o botão não aparece", "Number saved, but the button is hidden")}
                 </span>
               </label>
             </div>
@@ -327,9 +332,9 @@ export default function TeachersPage() {
               <CollapsibleTrigger asChild>
                 <button className="group flex w-full items-center justify-between p-3 text-left text-sm">
                   <span>
-                    Escassez na página pública
+                    {L("Escassez na página pública", "Scarcity on the public page")}
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {t.scarcity ? "personalizada" : "igual à da empresa"}
+                      {t.scarcity ? L("personalizada", "custom") : L("igual à da empresa", "same as the business")}
                     </span>
                   </span>
                   <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
@@ -343,8 +348,8 @@ export default function TeachersPage() {
                   />
                   <span className="text-muted-foreground">
                     {t.scarcity
-                      ? `Números próprios de ${capitalize(t.name)}`
-                      : "Seguindo a configuração da empresa"}
+                      ? L(`Números próprios de ${capitalize(t.name)}`, `${capitalize(t.name)}'s own numbers`)
+                      : L("Seguindo a configuração da empresa", "Following the business setting")}
                   </span>
                 </label>
 
@@ -352,8 +357,8 @@ export default function TeachersPage() {
                   <>
                     <div className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-2 items-center">
                       <span />
-                      <span className="text-[11px] text-muted-foreground text-center">Mínimo</span>
-                      <span className="text-[11px] text-muted-foreground text-center">Máximo</span>
+                      <span className="text-[11px] text-muted-foreground text-center">{L("Mínimo", "Min")}</span>
+                      <span className="text-[11px] text-muted-foreground text-center">{L("Máximo", "Max")}</span>
                     </div>
                     {DIAS.map((nome, i) => {
                       const d = t.scarcity?.[String(i)] ?? SCARCITY_DEFAULT[String(i)];
@@ -381,23 +386,23 @@ export default function TeachersPage() {
       <Dialog open={!!renaming} onOpenChange={v => !v && setRenaming(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Editar nome {st.do} {st.l}</DialogTitle>
-            <DialogDescription>{cap(w.appointment.os)} {w.appointment.lp} e os bloqueios acompanham o nome novo.</DialogDescription>
+            <DialogTitle>{L(`Editar nome ${st.do} ${st.l}`, `Edit ${st.l} name`)}</DialogTitle>
+            <DialogDescription>{L(`${cap(w.appointment.os)} ${w.appointment.lp} e os bloqueios acompanham o nome novo.`, `${w.appointment.p} and time off follow the new name.`)}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Nome</Label>
+            <Label>{L("Nome", "Name")}</Label>
             <Input value={newName} onChange={e => setNewName(e.target.value)} autoFocus />
-            {slugTaken && <p className="text-xs text-destructive">Já existe {st.um} {st.l} com esse nome.</p>}
+            {slugTaken && <p className="text-xs text-destructive">{L(`Já existe ${st.um} ${st.l} com esse nome.`, `There is already a ${st.l} with that name.`)}</p>}
             {renaming && newSlug && newSlug !== oldSlug && (
               <p className="text-xs text-muted-foreground">
-                O link público de horários muda de <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{oldSlug}</span> para{" "}
-                <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{newSlug}</span>. Quem tiver o link antigo vai precisar do novo.
+                {L("O link público de horários muda de", "The public schedule link changes from")} <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{oldSlug}</span> {L("para", "to")}{" "}
+                <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{newSlug}</span>. {L("Quem tiver o link antigo vai precisar do novo.", "Anyone with the old link will need the new one.")}
               </p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRenaming(null)}>Cancelar</Button>
-            <Button onClick={rename} disabled={busy || !newSlug || slugTaken}>Salvar</Button>
+            <Button variant="outline" onClick={() => setRenaming(null)}>{L("Cancelar", "Cancel")}</Button>
+            <Button onClick={rename} disabled={busy || !newSlug || slugTaken}>{L("Salvar", "Save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -405,36 +410,36 @@ export default function TeachersPage() {
       <Dialog open={!!accessFor} onOpenChange={v => !v && setAccessFor(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Acesso de {accessFor ? capitalize(accessFor.name) : ""}</DialogTitle>
+            <DialogTitle>{L(`Acesso de ${accessFor ? capitalize(accessFor.name) : ""}`, `${accessFor ? capitalize(accessFor.name) : ""}'s login`)}</DialogTitle>
             <DialogDescription>
-              Com o acesso próprio, {st.o} {st.l} consulta {w.appointment.os} {w.appointment.lp} {st.pick("dele", "dela")} e {w.client.os} {w.client.lp} com quem já atende,
-              põe material e tarefa e mexe nos próprios bloqueios. Quem marca e desmarca é você. Não vê o financeiro, os valores nem as configurações.
+              {L(`Com o acesso próprio, ${st.o} ${st.l} consulta ${w.appointment.os} ${w.appointment.lp} ${st.pick("dele", "dela")} e ${w.client.os} ${w.client.lp} com quem já atende, põe material e tarefa e mexe nos próprios bloqueios. Quem marca e desmarca é você. Não vê o financeiro, os valores nem as configurações.`,
+                 `With their own login, the ${st.l} sees their ${w.appointment.lp} and the ${w.client.lp} they already serve, adds materials and homework, and manages their own time off. You book and cancel. They don't see billing, prices or settings.`)}
             </DialogDescription>
           </DialogHeader>
           {accessFor?.user_id ? (
             <div className="space-y-2">
-              <Label>Nova senha</Label>
-              <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder="Mínimo 6 caracteres" />
+              <Label>{L("Nova senha", "New password")}</Label>
+              <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder={L("Mínimo 6 caracteres", "At least 6 characters")} />
             </div>
           ) : (
             <div className="space-y-3">
               <div className="space-y-1">
-                <Label>Usuário</Label>
-                <Input value={accessUser} onChange={e => setAccessUser(e.target.value.toLowerCase())} placeholder="ex.: mayara" />
-                <p className="text-[11px] text-muted-foreground">Letras minúsculas, números, ponto, traço ou underline. É o que ele digita para entrar.</p>
+                <Label>{L("Usuário", "Username")}</Label>
+                <Input value={accessUser} onChange={e => setAccessUser(e.target.value.toLowerCase())} placeholder={L("ex.: mayara", "e.g. mary")} />
+                <p className="text-[11px] text-muted-foreground">{L("Letras minúsculas, números, ponto, traço ou underline. É o que ele digita para entrar.", "Lowercase letters, numbers, dot, dash or underscore. It's what they type to sign in.")}</p>
               </div>
               <div className="space-y-1">
-                <Label>Senha</Label>
-                <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder="Mínimo 6 caracteres" />
+                <Label>{L("Senha", "Password")}</Label>
+                <Input type="text" value={accessPw} onChange={e => setAccessPw(e.target.value)} placeholder={L("Mínimo 6 caracteres", "At least 6 characters")} />
               </div>
             </div>
           )}
           <DialogFooter className="gap-2">
-            {accessFor?.user_id && <Button variant="destructive" onClick={() => callAccess("remove")} disabled={busy}>Remover acesso</Button>}
-            <Button variant="outline" onClick={() => setAccessFor(null)}>Cancelar</Button>
+            {accessFor?.user_id && <Button variant="destructive" onClick={() => callAccess("remove")} disabled={busy}>{L("Remover acesso", "Remove login")}</Button>}
+            <Button variant="outline" onClick={() => setAccessFor(null)}>{L("Cancelar", "Cancel")}</Button>
             {accessFor?.user_id
-              ? <Button onClick={() => callAccess("reset")} disabled={busy || accessPw.length < 6}>Trocar senha</Button>
-              : <Button onClick={() => callAccess("create")} disabled={busy || accessPw.length < 6 || accessUser.trim().length < 3}>Criar acesso</Button>}
+              ? <Button onClick={() => callAccess("reset")} disabled={busy || accessPw.length < 6}>{L("Trocar senha", "Change password")}</Button>
+              : <Button onClick={() => callAccess("create")} disabled={busy || accessPw.length < 6 || accessUser.trim().length < 3}>{L("Criar acesso", "Create login")}</Button>}
           </DialogFooter>
         </DialogContent>
       </Dialog>
