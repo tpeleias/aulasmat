@@ -27,14 +27,24 @@ export const ASSISTANT_LOOKUP: Record<Interval, string> = {
   month: "cronys_assistente_mensal", year: "cronys_assistente_anual",
 };
 
-// Fora do real, só o mensal - sem o anual com desconto e sem cupom. Os valores
-// ficam como currency_options nos mesmos preços (mesmo lookup_key), em
-// centavos. Não são conversão do real: são preço de mercado de cada moeda.
+// Fora do real: mensal e anual (10% de desconto, arredondado para inteiro),
+// sem cupom. Os valores ficam como currency_options nos mesmos preços (mesmo
+// lookup_key), em centavos. Não são conversão do real: são preço de mercado
+// de cada moeda. Têm de bater com src/lib/subscription.ts.
 export type Currency = "brl" | "usd" | "eur" | "gbp";
 export const FOREIGN_PRICES: Record<Exclude<Currency, "brl">, Record<string, number>> = {
-  usd: { cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900 },
-  eur: { cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900 },
-  gbp: { cronys_pro_solo_mensal: 1300, cronys_pro_equipe_mensal: 3300, cronys_extra_mensal: 600, cronys_assistente_mensal: 800 },
+  usd: {
+    cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900,
+    cronys_pro_solo_anual: 16200, cronys_pro_equipe_anual: 42100, cronys_extra_anual: 7600, cronys_assistente_anual: 9700,
+  },
+  eur: {
+    cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900,
+    cronys_pro_solo_anual: 16200, cronys_pro_equipe_anual: 42100, cronys_extra_anual: 7600, cronys_assistente_anual: 9700,
+  },
+  gbp: {
+    cronys_pro_solo_mensal: 1300, cronys_pro_equipe_mensal: 3300, cronys_extra_mensal: 600, cronys_assistente_mensal: 800,
+    cronys_pro_solo_anual: 14000, cronys_pro_equipe_anual: 35600, cronys_extra_anual: 6500, cronys_assistente_anual: 8600,
+  },
 };
 
 export function toCurrency(raw: unknown): Currency {

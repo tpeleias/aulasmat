@@ -4,6 +4,47 @@ Notas de planejamento entre Thiago e o Claude. Não é documentação do produto
 é um bloco de notas para retomar trabalho entre conversas sem precisar reler
 um chat inteiro. Atualize/apague itens conforme forem resolvidos.
 
+## LEMBRAR O THIAGO no fim de cada rodada (anotado em 25/09)
+
+O Thiago pediu para ser lembrado destes itens até decidir/fazer:
+
+1. **Proteção contra senhas vazadas** (Supabase → Authentication → "Leaked
+   password protection"). Um clique, é ele quem faz.
+2. **WhatsApp automático por empresa** - decidir entre API oficial da Meta
+   (paga por mensagem, número verificado por empresa) e provedor
+   intermediário. Ver a seção "WhatsApp automático (Max)" mais abaixo.
+3. **12 testadores** para a faixa fechada da Play (ele vai buscar conhecidos;
+   é uma das últimas coisas).
+4. **Ideias para trazer clientes** (fazer depois, na ordem que ele escolher):
+   - Programa de indicação - ver "Indicação" abaixo (guardado, não começar).
+   - Link de agendamento público para Instagram/WhatsApp, com "feito com Cronys".
+   - Páginas por ramo (psicólogos, personal, salões...), em pt e en, para o Google.
+   - Exportar para o Google Agenda (ICS).
+   - Depoimentos na página inicial (dos primeiros testadores).
+   - Parcerias com associações e cursos de formação, com cupom.
+   - Lembrete automático por WhatsApp (é o item 2).
+5. **Vender lá fora - o que falta**: ficha da loja Play em inglês (en-US) e
+   e-mails de login (Supabase Auth) em inglês.
+
+### Indicação - GUARDADO, pensar depois (25/09)
+
+"Trouxe 1, ganha 1 mês" não serve: se o indicado assinar só um mês, a Cronys
+não ganha nada. A ideia do Thiago: um **desconto adicional** para quem indica
+(algo como **15%**) enquanto o indicado continuar pagando. Ainda não decidido:
+quanto, por quanto tempo, se acumula com várias indicações, e como gerenciar
+(cupom no Stripe por empresa + contagem de indicados ativos pelo webhook).
+Não começar sem ele decidir.
+
+### Preço fora do Brasil - FEITO em 25/09
+
+Mensal e anual (10% off, arredondado) em USD/EUR/GBP, **sem cupom** fora do
+real. Valores em `supabase/functions/_shared/stripe.ts` (FOREIGN_PRICES) e
+`src/lib/subscription.ts` - têm de bater. Pro $15/$162, Max $39/$421, extra
+$7/$76, assistente $9/$97; euro igual ao dólar; libra £13/£140, £33/£356,
+£6/£65, £8/£86. No Stripe real, os preços em moeda estrangeira se criam
+sozinhos na primeira venda (ensureCurrency). Moeda travada com assinatura
+ativa (migration 20260925190000).
+
 ## Fila de itens pequenos (prontos para implementar)
 
 Os 3 itens abaixo foram implementados (typecheck, lint no nível já existente
