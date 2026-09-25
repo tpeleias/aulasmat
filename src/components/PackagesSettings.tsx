@@ -15,6 +15,7 @@ import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/pack
 import { useServices } from "@/hooks/useServices";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { L, currencySymbol } from "@/lib/i18n";
 type Draft = { id?: string; name: string; lessons: string; price: string; service_id: string | null };
 
 const EMPTY: Draft = { name: "", lessons: "", price: "", service_id: null };
@@ -51,7 +52,7 @@ export default function PackagesSettings() {
     const lessons = Math.round(Number(draft.lessons));
     const price = Number(String(draft.price).replace(",", "."));
     if (!draft.name.trim() || !(lessons >= 1) || !(price > 0)) {
-      toast.error(`Informe o nome, quantas ${ap.lp} e o preço do pacote`);
+      toast.error(L(`Informe o nome, quantas ${ap.lp} e o preço do pacote`, `Enter the name, how many ${ap.lp} and the package price`));
       return;
     }
     setBusy(true);
@@ -61,7 +62,7 @@ export default function PackagesSettings() {
       : await supabase.from("lesson_packages" as never).insert({ ...row, sort_order: items.length + 1 } as never);
     setBusy(false);
     if (error) { toast.error(dbErrorMessage(error, w)); return; }
-    toast.success(draft.id ? "Pacote atualizado" : "Pacote criado");
+    toast.success(draft.id ? L("Pacote atualizado", "Package updated") : L("Pacote criado", "Package created"));
     setDraft(null);
     load();
   };
@@ -72,9 +73,9 @@ export default function PackagesSettings() {
   };
 
   const remove = async (p: LessonPackage) => {
-    if (!confirm(`Excluir o pacote "${p.name}"? Os pagamentos já registrados com ele continuam no Financeiro.`)) return;
+    if (!confirm(L(`Excluir o pacote "${p.name}"? Os pagamentos já registrados com ele continuam no Financeiro.`, `Delete the package "${p.name}"? Payments already recorded with it stay in Billing.`))) return;
     const { error } = await supabase.from("lesson_packages" as never).delete().eq("id", p.id);
-    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success("Pacote excluído"); load(); }
+    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(L("Pacote excluído", "Package deleted")); load(); }
   };
 
   const preview = draft ? packageVoucher(Math.round(Number(draft.lessons)) || 0, Number(String(draft.price).replace(",", ".")) || 0, unit(draft)) : 0;
@@ -83,22 +84,22 @@ export default function PackagesSettings() {
     <Card className="p-5 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Pacotes</h2>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Pacotes", "Packages")}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Aparecem como botões ao registrar pagamento no Financeiro. {cap1(ap.os)} {ap.lp} continuam a {fmtMoney(listPrice)}/h;
-            a diferença entra como voucher.
+            {L(`Aparecem como botões ao registrar pagamento no Financeiro. ${cap1(ap.os)} ${ap.lp} continuam a ${fmtMoney(listPrice)}/h; a diferença entra como voucher.`,
+               `They show up as buttons when recording a payment in Billing. ${ap.p} stay at ${fmtMoney(listPrice)}/h; the difference goes in as a voucher.`)}
           </p>
         </div>
         {!draft && (
           <Button size="sm" variant="outline" className="shrink-0" onClick={() => setDraft(EMPTY)}>
-            <Plus className="mr-1 h-4 w-4" /> Novo
+            <Plus className="mr-1 h-4 w-4" /> {L("Novo", "New")}
           </Button>
         )}
       </div>
 
       {items.length === 0 && !draft && (
         <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
-          Nenhum pacote ainda. Ex.: 10 {ap.lp} por {fmtMoney(listPrice * 10 * 0.9)}.
+          {L(`Nenhum pacote ainda. Ex.: 10 ${ap.lp} por ${fmtMoney(listPrice * 10 * 0.9)}.`, `No packages yet. E.g. 10 ${ap.lp} for ${fmtMoney(listPrice * 10 * 0.9)}.`)}
         </p>
       )}
 
@@ -108,17 +109,17 @@ export default function PackagesSettings() {
             <div className="min-w-0">
               <div className={`truncate text-sm font-medium ${p.active ? "" : "text-muted-foreground line-through"}`}>{p.name}</div>
               <div className="text-xs text-muted-foreground">
-                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp}{serviceName(p.service_id) ? ` de ${serviceName(p.service_id)}` : ""} por {fmtMoney(Number(p.price))}
-                {packageVoucher(p.lessons, Number(p.price), unit(p)) > 0 && ` · voucher de ${fmtMoney(packageVoucher(p.lessons, Number(p.price), unit(p)))}`}
+                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp}{serviceName(p.service_id) ? L(` de ${serviceName(p.service_id)}`, ` of ${serviceName(p.service_id)}`) : ""} {L("por", "for")} {fmtMoney(Number(p.price))}
+                {packageVoucher(p.lessons, Number(p.price), unit(p)) > 0 && ` · ${L("voucher de", "voucher of")} ${fmtMoney(packageVoucher(p.lessons, Number(p.price), unit(p)))}`}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              <Switch checked={p.active} onCheckedChange={v => toggle(p, v)} title={p.active ? "Desligar" : "Ligar"} />
-              <Button size="icon" variant="ghost" className="h-8 w-8" title="Editar"
+              <Switch checked={p.active} onCheckedChange={v => toggle(p, v)} title={p.active ? L("Desligar", "Turn off") : L("Ligar", "Turn on")} />
+              <Button size="icon" variant="ghost" className="h-8 w-8" title={L("Editar", "Edit")}
                 onClick={() => setDraft({ id: p.id, name: p.name, lessons: String(p.lessons), price: String(p.price), service_id: p.service_id ?? null })}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir" onClick={() => remove(p)}>
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" title={L("Excluir", "Delete")} onClick={() => remove(p)}>
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             </div>
@@ -129,8 +130,8 @@ export default function PackagesSettings() {
       {draft && (
         <div className="space-y-3 rounded-md border border-primary/40 p-3">
           <div>
-            <Label>Nome</Label>
-            <Input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder={`Pacote 10 ${ap.lp}`} />
+            <Label>{L("Nome", "Name")}</Label>
+            <Input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder={L(`Pacote 10 ${ap.lp}`, `10-${ap.l} package`)} />
           </div>
           {services.length > 0 && (
             <div>
@@ -138,7 +139,7 @@ export default function PackagesSettings() {
               <Select value={draft.service_id ?? "none"} onValueChange={v => setDraft({ ...draft, service_id: v === "none" ? null : v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Qualquer {w.topic.l} (pacote geral)</SelectItem>
+                  <SelectItem value="none">{L(`Qualquer ${w.topic.l} (pacote geral)`, `Any ${w.topic.l} (general package)`)}</SelectItem>
                   {services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -146,20 +147,20 @@ export default function PackagesSettings() {
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Quantas {ap.lp}</Label>
+              <Label>{L(`Quantas ${ap.lp}`, `How many ${ap.lp}`)}</Label>
               <Input type="number" min={1} value={draft.lessons} onChange={e => setDraft({ ...draft, lessons: e.target.value })} />
             </div>
             <div>
-              <Label>Preço do pacote (R$)</Label>
+              <Label>{L("Preço do pacote", "Package price")} ({currencySymbol()})</Label>
               <Input type="number" step="0.01" inputMode="decimal" value={draft.price} onChange={e => setDraft({ ...draft, price: e.target.value })} />
             </div>
           </div>
           {preview > 0 && (
-            <p className="text-xs text-muted-foreground">Voucher lançado junto: {fmtMoney(preview)} (a diferença para o valor cheio).</p>
+            <p className="text-xs text-muted-foreground">{L(`Voucher lançado junto: ${fmtMoney(preview)} (a diferença para o valor cheio).`, `Voucher added with it: ${fmtMoney(preview)} (the difference from full price).`)}</p>
           )}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setDraft(null)} disabled={busy}>Cancelar</Button>
-            <Button size="sm" onClick={save} disabled={busy}>Salvar</Button>
+            <Button variant="outline" size="sm" onClick={() => setDraft(null)} disabled={busy}>{L("Cancelar", "Cancel")}</Button>
+            <Button size="sm" onClick={save} disabled={busy}>{L("Salvar", "Save")}</Button>
           </div>
         </div>
       )}

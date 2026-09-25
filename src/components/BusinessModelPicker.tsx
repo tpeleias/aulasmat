@@ -1,6 +1,7 @@
 import { Briefcase, Brain, Dumbbell, GraduationCap, PawPrint, Scissors, Stethoscope, Wrench, Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { BUSINESS_MODELS, PRESETS, buildVocabulary, vocabularySummary, type BusinessModel } from "@/lib/vocabulary";
+import { BUSINESS_MODELS, presetFor, buildVocabulary, vocabularySummary, type BusinessModel } from "@/lib/vocabulary";
+import { L } from "@/lib/i18n";
 import { haptics } from "@/lib/haptics";
 
 const BUSINESS_ICONS: Record<BusinessModel, LucideIcon> = {
@@ -28,7 +29,7 @@ export function BusinessModelPicker({
   disabled?: boolean;
 }) {
   return (
-    <div role="radiogroup" aria-label="Tipo de negócio" className="grid gap-2 sm:grid-cols-2">
+    <div role="radiogroup" aria-label={L("Tipo de negócio", "Business type")} className="grid gap-2 sm:grid-cols-2">
       {BUSINESS_MODELS.map(m => {
         const Icon = BUSINESS_ICONS[m];
         const selected = value === m;
@@ -49,10 +50,10 @@ export function BusinessModelPicker({
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-sm font-semibold">
-                {PRESETS[m].nome}
+                {presetFor(m).nome}
                 {selected && <Check className="h-4 w-4 text-primary" />}
               </div>
-              <div className="text-xs text-muted-foreground">{PRESETS[m].exemplo}</div>
+              <div className="text-xs text-muted-foreground">{presetFor(m).exemplo}</div>
               <div className="mt-1 text-xs font-medium text-foreground/80">{vocabularySummary(buildVocabulary(m))}</div>
             </div>
           </button>

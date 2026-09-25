@@ -10,6 +10,7 @@ import { BusinessModelPicker } from "@/components/BusinessModelPicker";
 import { haptics } from "@/lib/haptics";
 import type { BusinessModel } from "@/lib/vocabulary";
 
+import { L } from "@/lib/i18n";
 /**
  * Primeiro acesso do dono de uma empresa nova: escolher o ramo.
  *
@@ -39,15 +40,15 @@ export default function BusinessOnboarding() {
       <div className="w-full max-w-2xl space-y-6">
         <div className="space-y-2">
           <CronysWordmark tamanho="1.5rem" />
-          <h1 className="text-2xl font-semibold">Que tipo de negócio é o seu?</h1>
+          <h1 className="text-2xl font-semibold">{L("Que tipo de negócio é o seu?", "What kind of business do you run?")}</h1>
           <p className="text-sm text-muted-foreground">
-            O app usa as palavras do seu ramo em todas as telas - para você, para a sua equipe e para os seus clientes.
-            Dá para trocar depois em Configurações.
+            {L("O app usa as palavras do seu ramo em todas as telas - para você, para a sua equipe e para os seus clientes. Dá para trocar depois em Configurações.",
+               "The app uses the words of your field on every screen - for you, your team and your clients. You can change it later in Settings.")}
           </p>
           {!active && (
             <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-              Sua conta está no Cronys Essencial, que usa nomes genéricos (Profissional, Atendimento, Cliente).
-              O tipo escolhido fica guardado e passa a valer no Cronys Pro.
+              {L("Sua conta está no Cronys Essencial, que usa nomes genéricos (Profissional, Atendimento, Cliente). O tipo escolhido fica guardado e passa a valer no Cronys Pro.",
+                 "Your account is on Cronys Essential, which uses generic words (Professional, Appointment, Client). The type you choose is saved and applies on Cronys Pro.")}
             </p>
           )}
         </div>
@@ -55,10 +56,10 @@ export default function BusinessOnboarding() {
         <BusinessModelPicker value={choice} onChange={setChoice} disabled={busy} />
 
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <Button variant="ghost" className="rounded-xl" onClick={signOut}>Sair</Button>
+          <Button variant="ghost" className="rounded-xl" onClick={signOut}>{L("Sair", "Sign out")}</Button>
           <Button className="h-12 gap-2 rounded-xl px-6 text-base" disabled={!choice || busy} onClick={confirm}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-            Continuar
+            {L("Continuar", "Continue")}
           </Button>
         </div>
       </div>

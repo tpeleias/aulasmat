@@ -1,4 +1,4 @@
-import { getLocale, type Locale } from "@/lib/i18n";
+import { getLocale, L, type Locale } from "@/lib/i18n";
 // As palavras da tela, por ramo de negócio.
 //
 // O app faz a mesma coisa para uma escola, uma clínica ou uma oficina: agenda,
@@ -26,12 +26,12 @@ export type BusinessModel = (typeof BUSINESS_MODELS)[number];
 
 /** Para que serve cada termo - é o que a tela de configurações mostra. */
 export const TERM_LABELS: Record<TermKey, string> = {
-  business: "O seu negócio",
-  staff: "Quem atende",
-  appointment: "O horário marcado",
-  client: "Quem é atendido",
-  guardian: "Quem responde e paga",
-  topic: "O assunto do atendimento",
+  business: L("O seu negócio", "Your business"),
+  staff: L("Quem atende", "Who provides the service"),
+  appointment: L("O horário marcado", "The booked time"),
+  client: L("Quem é atendido", "Who is served"),
+  guardian: L("Quem responde e paga", "Who is responsible and pays"),
+  topic: L("O assunto do atendimento", "What the appointment is about"),
 };
 
 const t = (s: string, p: string, g: Gender): TermSpec => ({ s, p, g });
