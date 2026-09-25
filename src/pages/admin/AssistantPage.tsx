@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useLocation, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { haptics } from "@/lib/haptics";
 import { FunctionsHttpError } from "@supabase/supabase-js";
@@ -11,6 +11,8 @@ import { Card } from "@/components/ui/card";
 import ChatMarkdown from "@/components/ChatMarkdown";
 import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
+import { useAuth } from "@/hooks/useAuth";
+import { canSellHere } from "@/lib/subscription";
 
 type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
@@ -47,6 +49,7 @@ async function extractErrorMessage(e: any): Promise<string> {
 
 export default function AssistantPage() {
   const { plan, loading: planLoading } = usePlan();
+  const { isAdmin } = useAuth();
   const w = useWords();
   const [messages, setMessages] = useState<ChatMessage[]>(loadStoredMessages);
   const [input, setInput] = useState("");
@@ -150,22 +153,29 @@ export default function AssistantPage() {
             Marcar {w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.
           </p>
         </div>
-        {/* O assistente não vem com plano nenhum: cada conversa custa dinheiro,
-            e só funciona para a empresa que a Cronys liberar (migration
-            20260924070000). Vender o Pro aqui seria mentira. */}
+        {/* Cada conversa custa dinheiro: o assistente vem no Max pago, é
+            adicional no Pro, ou liberado pela Cronys (migration 20260925070000).
+            No app Android, só informa - sem preço nem link de compra. */}
         <Card className="mx-auto max-w-md rounded-2xl border-dashed p-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
             <Bot className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold">O Assistente é liberado sob pedido</h2>
+          <h2 className="text-lg font-semibold">O Assistente vem no Cronys Max</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             Em vez de abrir a agenda e preencher formulário, você escreve
             &ldquo;marca com o Miguel quinta às 15h&rdquo; e ele marca. Também
             registra pagamento, responde quanto {w.guardian.um} {w.guardian.l} deve e remarca {w.appointment.l}.
           </p>
           <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-            Ele ainda não está liberado para a sua conta. Para usar, fale com quem cuida da sua conta.
+            {plan.tier === "pro"
+              ? "Ele vem incluso no Max com a assinatura ativa."
+              : plan.tier === "pro_solo"
+                ? "Ele vem incluso no Cronys Max. No Pro, dá para adicionar à assinatura."
+                : "Ele vem incluso no Cronys Max, e no Pro pode ser adicionado."}
           </p>
+          {canSellHere() && isAdmin && (
+            <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">Ver planos</Link></Button>
+          )}
         </Card>
       </div>
     );

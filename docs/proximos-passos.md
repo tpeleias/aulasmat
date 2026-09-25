@@ -78,7 +78,7 @@ Essencial continua grátis, anual 10% off, cupons mais leves e só no mensal.
 | **Pro** (`pro_solo`, ex-Pro Solo) | **R$ 79,90** | R$ 862,90 | 1 profissional, tudo liberado |
 | **Max** (`pro`, ex-Pro Equipe) | **R$ 159,90** | R$ 1.726,90 | 5 profissionais incluídos |
 | Profissional extra (Max) | R$ 29,90 | R$ 322,90 | a partir do sexto |
-| Assistente (adicional, fora de venda) | R$ 39 | R$ 390 | **em aberto** - ver abaixo |
+| Assistente (adicional só do Pro; incluso no Max pago) | R$ 39 | R$ 421,20 | à venda desde 25/09 |
 
 - Os slugs e os lookup_keys do Stripe **não mudaram** (`cronys_pro_solo_*`,
   `cronys_pro_equipe_*`): só os nomes que aparecem e os preços. Os preços
@@ -90,20 +90,52 @@ Essencial continua grátis, anual 10% off, cupons mais leves e só no mensal.
 - Demonstração: assistente desligado (o robô da Play clica em tudo e gastaria
   API). Portal de Aulas continua com assistente (`lifetime_assistant`).
 
-### Assistente: R$ 39 sozinho está caro - proposta (a decidir)
+### O que cada plano tem (decidido em 25/09, noite) - FEITO
 
-Ideia: em vez de vender só o chat, o adicional vira um pacote "inteligente"
-com o que o Cronys tem de diferente, ou entra direto no Max:
-1. **Max inclui o assistente** (com o limite de 150 msg/mês) e o Pro compra
-   como adicional mais barato (ex.: R$ 19,90). O Max fica com cara de "plano
-   completo" e justifica os R$ 159,90.
-2. **Pacote "Cronys+" (R$ 29,90)**: assistente + lembretes automáticos por
-   WhatsApp + "Estou a caminho" com localização + relatório mensal por
-   e-mail para o dono. Vende o conjunto, não o chat.
-3. Manter R$ 39, mas com teste de 7 dias do assistente para quem já assina.
-Recomendação: a 1 (simples de explicar e dá motivo para subir de plano).
+| | Essencial | Pro | Max |
+|---|---|---|---|
+| Assistente | - | adicional R$ 39/mês (R$ 421,20/ano) | **incluso** (só com assinatura paga) |
+| WhatsApp | - | **um toque** (o app monta a mensagem) | um toque + **automático** (em construção) |
+| "Estou a caminho" com localização | - | - | ✓ |
+| Teste grátis | - | **14 dias** (desde 25/09 o teste é do Pro, não do Max) | assina direto |
 
-### Localização "estou chegando" (ideia registrada, não feita)
+- Banco (migration 20260925070000): `plan_features` ganhou `assistant_included`,
+  `whatsapp_link`, `whatsapp_auto`, `arrival_location`. `account_can('assistant')`
+  = liberado à mão (cortesia/adicional) **ou** Max com assinatura ativa/em
+  atraso. Max sem assinatura (Demonstração, testes antigos) fica sem assistente.
+- `assistant_on_sale()` agora é **true** (o adicional do Pro está à venda).
+  Para tirar de venda: voltar para `SELECT false`.
+- Cobrança: o adicional só entra em assinatura do Pro. Quem tinha o adicional e
+  sobe para o Max pelo portal perde o item (o webhook tira, com crédito
+  proporcional), porque no Max ele vem incluso.
+- Cadastro do cliente ganhou **WhatsApp** (`students.whatsapp`, só dígitos com 55).
+- Na aula marcada: **"Lembrar no WhatsApp"** (Pro e Max) e **"Estou a caminho"**
+  (Max; perto da hora e só presencial). Ao marcar uma aula nova, o aviso de
+  "marcada" traz o botão **"Avisar no WhatsApp"**.
+- "Estou a caminho" pega a posição uma vez, com o app aberto (permissão
+  ACCESS_FINE/COARSE_LOCATION no Android, sem segundo plano), e só coloca o
+  link do mapa na mensagem. Nada é gravado no servidor.
+
+### WhatsApp automático (Max) - o que falta do Thiago
+
+Para o Cronys mandar sozinho (confirmação ao marcar, lembrete na véspera) é
+preciso a API oficial do WhatsApp (Meta Cloud API):
+1. business.facebook.com → criar o **Meta Business** da Cronys (CNPJ ajuda na
+   verificação).
+2. developers.facebook.com → **Criar app** → tipo "Empresa" → adicionar o
+   produto **WhatsApp**.
+3. Cadastrar um **número de telefone exclusivo** para o Cronys (não pode estar
+   em uso no WhatsApp comum; um chip novo ou fixo serve).
+4. Criar os **modelos de mensagem** (categoria "Utilidade"): confirmação e
+   lembrete. Eu escrevo os textos.
+5. Gerar um **token permanente** (usuário do sistema) e me passar, junto com o
+   ID do número - vão para as secrets das funções no Supabase.
+6. Adicionar um cartão na conta da Meta: cobra por mensagem de utilidade
+   (centavos por mensagem no Brasil - conferir a tabela atual da Meta).
+Com isso eu faço a rotina que manda os lembretes e a tela para cada empresa
+ligar/desligar e escolher o horário.
+
+### Localização "estou chegando" - Modelo 1 FEITO em 25/09 (o 2 não)
 
 Pedido: o profissional manda a localização ao cliente avisando que está a
 caminho. Dois modelos avaliados:
@@ -321,7 +353,11 @@ produção em 24/09: `admin-create-user` e a tabela de backup ainda existem; o
 código FUNDADOR ainda está ativo.
 
 **Novo em 25/09**
-- Decidir o assistente (proposta em "Assistente: R$ 39 sozinho está caro").
+- WhatsApp automático: criar a conta da API da Meta (passo a passo em
+  "WhatsApp automático (Max) - o que falta do Thiago").
+- Play Console → Segurança dos dados: declarar **Localização aproximada e
+  precisa** (uso: funcionalidade do app; não é enviada ao servidor, é
+  compartilhada pelo próprio usuário no WhatsApp; opcional).
 - Checagens: ficam para depois (Thiago, 25/09).
 - Play Console: se a descrição da loja citar preço ou "Pro Solo/Pro Equipe",
   trocar para Pro / Max.

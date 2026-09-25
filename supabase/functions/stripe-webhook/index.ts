@@ -71,9 +71,20 @@ Deno.serve(async (req) => {
     }
     if (!accountId) return json({ ignored: "assinatura sem empresa" });
 
-    const items: any[] = sub.items?.data ?? [];
+    let items: any[] = sub.items?.data ?? [];
     const base = items.find((i) => tierOfLookup(i.price?.lookup_key));
     const tier = tierOfLookup(base?.price?.lookup_key);
+
+    // Quem tinha o adicional no Pro e passou para o Max pelo portal: no Max o
+    // assistente vem incluso, então o adicional sai da assinatura (com crédito
+    // proporcional). Falhar aqui não pode impedir o plano de ser aplicado.
+    const addon = items.find((i) => isAssistantLookup(i.price?.lookup_key));
+    if (!deleted && tier === "pro" && addon) {
+      try {
+        await stripe("DELETE", `/subscription_items/${addon.id}`, { proration_behavior: "create_prorations" });
+        items = items.filter((i) => i.id !== addon.id);
+      } catch (e) { console.error("tirar adicional no Max", e); }
+    }
     const interval = base?.price?.recurring?.interval ?? null;
     // Na API nova o fim do período mora no item; na antiga, na assinatura.
     const periodEnd = base?.current_period_end ?? sub.current_period_end ?? null;

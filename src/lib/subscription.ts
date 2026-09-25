@@ -20,8 +20,12 @@ export type PlanCard = {
 };
 
 export const EXTRA_TEACHER = { mensal: 29.9, anual: 322.9 };
-/** Adicional do assistente (lookup_key cronys_assistente_*). Só é oferecido quando o banco diz que está à venda. */
-export const ASSISTANT_ADDON = { mensal: 39, anual: 390 };
+/**
+ * Adicional do assistente (lookup_key cronys_assistente_*), só para o Pro: no
+ * Max pago ele vem incluso. Preço único. Só é oferecido quando o banco diz
+ * que está à venda (assistant_on_sale).
+ */
+export const ASSISTANT_ADDON = { mensal: 39, anual: 421.2 };
 export const EQUIPE_INCLUDED = 5;
 
 export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -41,7 +45,7 @@ export const PLANS: PlanCard[] = [
     resumo: "Para quem atende sozinho",
     mensal: 79.9,
     anual: 862.9,
-    itens: ["1 profissional", "Clientes sem limite", "Palavras do seu ramo", "Pacotes, vouchers e desconto por família", "Bloqueio que se repete toda semana"],
+    itens: ["1 profissional", "Clientes sem limite", "Lembrete e confirmação pelo WhatsApp com um toque", "Pacotes, vouchers e desconto por família", "Palavras do seu ramo", "Bloqueio que se repete toda semana", `Assistente como adicional (${brl(ASSISTANT_ADDON.mensal)}/mês)`],
   },
   {
     tier: "pro",
@@ -49,7 +53,7 @@ export const PLANS: PlanCard[] = [
     resumo: "Para escola, clínica ou estúdio",
     mensal: 159.9,
     anual: 1726.9,
-    itens: [`Até ${EQUIPE_INCLUDED} profissionais, cada um com acesso próprio`, `${brl(EXTRA_TEACHER.mensal)}/mês por profissional a mais`, "Tudo do Pro"],
+    itens: [`Até ${EQUIPE_INCLUDED} profissionais, cada um com acesso próprio`, `${brl(EXTRA_TEACHER.mensal)}/mês por profissional a mais`, "Assistente com inteligência artificial incluso", "\"Estou a caminho\" com a localização, pelo WhatsApp", "Lembretes automáticos pelo WhatsApp (em breve)", "Tudo do Pro"],
   },
 ];
 

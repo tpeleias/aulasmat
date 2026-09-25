@@ -21,6 +21,9 @@ import { useWords } from "@/hooks/useVocabulary";
 import { statusLabel } from "@/lib/lessonStatus";
 import { cap } from "@/lib/vocabulary";
 import type { LessonPackage } from "@/lib/packages";
+import { LessonWhatsApp } from "@/components/LessonWhatsApp";
+import { usePlan } from "@/hooks/usePlan";
+import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -59,6 +62,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   // Login de professor marca só as próprias aulas e não mexe em valor nem
   // apaga (o banco também não deixa - migration 20260924040000).
   const { isTeacher } = useAuth();
+  const { plan } = usePlan();
   const teachers = isTeacher && defaultTeacher
     ? allTeachers.filter(t => teacherSlug(t.name) === defaultTeacher)
     : allTeachers;
@@ -79,7 +83,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
-  const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null }>>([]);
+  const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null; whatsapp?: string | null }>>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -155,6 +159,14 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       address: match ? (match.address ?? "") : f.address,
       is_online: match?.address ? false : f.is_online,
     }));
+  };
+
+  // O WhatsApp do cadastro: pelo nome e, havendo homônimos, pelo responsável.
+  const phoneOf = (l: { student_name: string; guardian_name?: string | null }) => {
+    const same = students.filter(s => s.student_name.toLowerCase() === l.student_name.trim().toLowerCase());
+    const hit = same.length === 1 ? same[0]
+      : same.find(s => (s.guardian_name ?? "").toLowerCase() === (l.guardian_name ?? "").trim().toLowerCase());
+    return hit?.whatsapp ?? null;
   };
 
   const setTeacher = (t: string) => setForm(f => ({
@@ -319,10 +331,21 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       return;
     }
 
+    // Pro e Max: avisar a família pelo WhatsApp com um toque, já com dia e hora.
+    const first = toInsert[0];
+    const notify = plan.whatsapp_link ? {
+      action: {
+        label: "Avisar no WhatsApp",
+        onClick: () => { window.open(whatsAppLink(phoneOf(first), reminderMessage(first, v)), "_blank", "noopener"); },
+      },
+      duration: 10000,
+    } : undefined;
     if (conflicts.length > 0) {
-      toast.success(`${toInsert.length} ${a.lp} ${a.pick("criados", "criadas")}. ${conflicts.length} ${a.pick("ignorados", "ignoradas")} por conflito: ${conflicts.join(", ")}`);
+      toast.success(`${toInsert.length} ${a.lp} ${a.pick("criados", "criadas")}. ${conflicts.length} ${a.pick("ignorados", "ignoradas")} por conflito: ${conflicts.join(", ")}`, notify);
+    } else if (toInsert.length === 1) {
+      toast.success(`${a.s} ${a.pick("marcado", "marcada")}`, notify);
     } else {
-      toast.success(`${toInsert.length} ${a.lp} recorrentes ${a.pick("criados", "criadas")}`);
+      toast.success(`${toInsert.length} ${a.lp} recorrentes ${a.pick("criados", "criadas")}`, notify);
     }
     onOpenChange(false);
     onSaved();
@@ -363,6 +386,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{lesson?.id ? `Editar ${a.l}` : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
+          {lesson?.id && <LessonWhatsApp lesson={lesson} phone={phoneOf(lesson)} />}
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.staff.s}</Label>
               {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara

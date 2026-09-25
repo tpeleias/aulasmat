@@ -71,4 +71,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- "Estou a caminho" (Cronys Max): a posição é lida uma vez, com o app
+         aberto, e vai só na mensagem de WhatsApp que a pessoa envia. Nada de
+         localização em segundo plano. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 </manifest>

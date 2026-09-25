@@ -64,7 +64,7 @@ export default function Subscribe() {
   const go = async (action: "checkout" | "portal", tier?: Tier) => {
     setBusy(tier ?? action);
     const { data, error } = await supabase.functions.invoke("billing", {
-      body: { action, tier, interval, assistant: onSale && withAssistant },
+      body: { action, tier, interval, assistant: onSale && withAssistant && tier === "pro_solo" },
     });
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
@@ -110,7 +110,7 @@ export default function Subscribe() {
                   </p>
                 : plan.paid_until && <p className="text-muted-foreground">Renova em {format(new Date(plan.paid_until), "dd/MM/yyyy")}.</p>}
             </div>
-            {onSale && isAdmin && plan.billing_status === "active" && (
+            {onSale && isAdmin && plan.billing_status === "active" && plan.tier === "pro_solo" && (
               <Button variant="outline" disabled={!!busy} onClick={() => toggleAssistant(!plan.assistant_billed)}>
                 {plan.assistant_billed ? "Tirar o Assistente" : `Adicionar o Assistente (+${brl(ASSISTANT_ADDON.mensal)}/mês)`}
               </Button>
@@ -135,8 +135,8 @@ export default function Subscribe() {
           <label className="mt-4 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={withAssistant} onChange={e => setWithAssistant(e.target.checked)} />
             <span>
-              Incluir o <b>Assistente</b> (+{brl(interval === "month" ? ASSISTANT_ADDON.mensal : ASSISTANT_ADDON.anual)}/{interval === "month" ? "mês" : "ano"}):
-              marque, remarque e consulte o financeiro conversando, com limite mensal de uso.
+              No <b>Pro</b>, incluir o <b>Assistente</b> (+{brl(interval === "month" ? ASSISTANT_ADDON.mensal : ASSISTANT_ADDON.anual)}/{interval === "month" ? "mês" : "ano"}):
+              marque, remarque e consulte o financeiro conversando, com limite mensal de uso. No Max ele já vem incluso.
             </span>
           </label>
         )}

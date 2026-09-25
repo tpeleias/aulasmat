@@ -10,8 +10,9 @@
 //                cancelar
 //   sync_seats - acerta a cobrança de profissional extra (a tela chama depois
 //                de ativar/desativar alguém na Equipe)
-//   assistant  - põe ou tira o adicional do assistente de quem já assina
-//                (pôr só quando assistant_on_sale() no banco for verdadeiro)
+//   assistant  - põe ou tira o adicional do assistente de quem já assina o
+//                Pro (pôr só quando assistant_on_sale() for verdadeiro; no Max
+//                ele vem incluso)
 //
 // Quem muda o plano no banco nunca é esta função: é o webhook, quando o Stripe
 // confirma o pagamento. Aqui só se abre a porta.
@@ -77,6 +78,10 @@ Deno.serve(async (req) => {
       const current = items.find((i) => isAssistantLookup(i.price?.lookup_key));
       const base = items.find((i) => tierOfLookup(i.price?.lookup_key));
       const interval: Interval = base?.price?.recurring?.interval === "year" ? "year" : "month";
+      // No Max o assistente já vem incluso: o adicional é só do Pro.
+      if (wantsAssistant && tierOfLookup(base?.price?.lookup_key) === "pro") {
+        return json({ error: "No Max o Assistente já vem incluso." }, 400);
+      }
       if (wantsAssistant && !current) {
         const ids = await priceIds([ASSISTANT_LOOKUP[interval]]);
         await stripe("POST", "/subscription_items", {
@@ -115,10 +120,12 @@ Deno.serve(async (req) => {
 
     const tier: Tier = body?.tier === "pro_solo" ? "pro_solo" : "pro";
     const interval: Interval = body?.interval === "year" ? "year" : "month";
+    // O adicional do assistente é só do Pro; no Max ele vem incluso.
+    const withAssistant = wantsAssistant && tier === "pro_solo";
     const baseKey = LOOKUP[tier][interval];
     const extraKey = LOOKUP.extra[interval];
     const assistantKey = ASSISTANT_LOOKUP[interval];
-    const ids = await priceIds([baseKey, ...(tier === "pro" ? [extraKey] : []), ...(wantsAssistant ? [assistantKey] : [])]);
+    const ids = await priceIds([baseKey, ...(tier === "pro" ? [extraKey] : []), ...(withAssistant ? [assistantKey] : [])]);
 
     // Quem assina a Equipe já com mais de 5 profissionais ativos paga os extras
     // desde o começo. Conta como se já estivesse na Equipe.
@@ -128,7 +135,7 @@ Deno.serve(async (req) => {
 
     const lineItems: Record<string, unknown>[] = [{ price: ids[baseKey], quantity: 1 }];
     if (extra > 0) lineItems.push({ price: ids[extraKey], quantity: extra });
-    if (wantsAssistant) lineItems.push({ price: ids[assistantKey], quantity: 1 });
+    if (withAssistant) lineItems.push({ price: ids[assistantKey], quantity: 1 });
 
     const session = await stripe("POST", "/checkout/sessions", {
       mode: "subscription",
