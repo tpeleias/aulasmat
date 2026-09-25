@@ -10,7 +10,7 @@ import { accountKey, accountLabel, fmtMoney } from "@/lib/balance";
 import type { LedgerTx } from "@/lib/billing";
 import { summarizeIncome, summarizeByService, toCsv, MESES, yearsWithData, type ServiceLesson } from "@/lib/reports";
 import { colorOf } from "@/lib/teacherColors";
-import { valorPorExtenso } from "@/lib/extenso";
+import { amountInWords } from "@/lib/extenso";
 import { saveOrShareFile, canOnlyShare } from "@/lib/saveFile";
 import { buildReceiptPdf } from "@/lib/receiptPdf";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -78,12 +78,12 @@ export default function ReportsPage() {
 
   const exportCsv = () => {
     const csv = toCsv(
-      ["Data", "Família", "Descrição", "Valor"],
+      L(["Data", "Família", "Descrição", "Valor"], ["Date", "Client", "Description", "Amount"]),
       summary.rows.map(r => [format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy")), r.accountLabel, r.description, r.amount.toFixed(2).replace(".", ",")]),
     );
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
-    const name = `recebido-${year}${month !== null ? `-${String(month + 1).padStart(2, "0")}` : ""}.csv`;
-    saveOrShareFile(name, blob, "Recebido no período").catch(e => toast.error(`Não foi possível exportar: ${e?.message ?? e}`));
+    const name = `${L("recebido", "received")}-${year}${month !== null ? `-${String(month + 1).padStart(2, "0")}` : ""}.csv`;
+    saveOrShareFile(name, blob, L("Recebido no período", "Received in the period")).catch(e => toast.error(L(`Não foi possível exportar: ${e?.message ?? e}`, `Couldn't export: ${e?.message ?? e}`)));
   };
 
   // ---- Recibo ----
@@ -119,16 +119,16 @@ export default function ReportsPage() {
         issuerDocument: settings.issuer_document?.trim() || null,
         issuerEmail: settings.contact_email?.trim() || null,
         payer: receiptAcc.payer,
-        period: `${MESES[receiptMonth].toLowerCase()} de ${receiptYear}`,
+        period: L(`${MESES[receiptMonth].toLowerCase()} de ${receiptYear}`, `${MESES[receiptMonth]} ${receiptYear}`),
         servicePlural: w.appointment.lp,
         rows: receiptRows.map(r => ({ date: format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy")), description: r.description, amount: r.amount })),
         total: receiptTotal,
         issuedAt: format(new Date(), L("dd/MM/yyyy", "MMM d, yyyy")),
       });
       const slug = receiptAcc.payer.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase();
-      await saveOrShareFile(`recibo-${slug}-${receiptYear}-${String(receiptMonth + 1).padStart(2, "0")}.pdf`, pdf, `Recibo - ${receiptAcc.payer}`);
+      await saveOrShareFile(`${L("recibo", "receipt")}-${slug}-${receiptYear}-${String(receiptMonth + 1).padStart(2, "0")}.pdf`, pdf, `${L("Recibo", "Receipt")} - ${receiptAcc.payer}`);
     } catch (e) {
-      toast.error(`Não foi possível gerar o recibo: ${(e as Error)?.message ?? e}`);
+      toast.error(L(`Não foi possível gerar o recibo: ${(e as Error)?.message ?? e}`, `Couldn't create the receipt: ${(e as Error)?.message ?? e}`));
     } finally {
       setBusy(false);
     }
@@ -139,15 +139,15 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Relatórios</h1>
-        <p className="text-sm text-muted-foreground">Resumo do que entrou, pra imposto de renda, e recibo pra família.</p>
+        <h1 className="text-2xl font-bold">{L("Relatórios", "Reports")}</h1>
+        <p className="text-sm text-muted-foreground">{L("Resumo do que entrou, pra imposto de renda, e recibo pra família.", "Summary of income for taxes, and receipts for clients.")}</p>
       </div>
 
       <Card className="rounded-2xl p-4 md:p-5 space-y-4">
         <div>
-          <h2 className="font-semibold">Resumo do período</h2>
+          <h2 className="font-semibold">{L("Resumo do período", "Period summary")}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Só o que é dinheiro de verdade (pacote e pagamento) - {w.appointment.l} em aberto e desconto não entram aqui.
+            {L(`Só o que é dinheiro de verdade (pacote e pagamento) - ${w.appointment.l} em aberto e desconto não entram aqui.`, `Only real money (packages and payments) - outstanding ${w.appointment.lp} and discounts don't count here.`)}
           </p>
         </div>
 
@@ -159,17 +159,17 @@ export default function ReportsPage() {
           <Select value={month === null ? TODO_ANO : String(month)} onValueChange={v => setMonth(v === TODO_ANO ? null : Number(v))}>
             <SelectTrigger className="w-40 h-9 rounded-xl"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value={TODO_ANO}>Ano inteiro</SelectItem>
+              <SelectItem value={TODO_ANO}>{L("Ano inteiro", "Whole year")}</SelectItem>
               {MESES.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl ml-auto" onClick={exportCsv} disabled={summary.rows.length === 0}>
-            <Download className="w-3.5 h-3.5" /> Exportar CSV
+            <Download className="w-3.5 h-3.5" /> {L("Exportar CSV", "Export CSV")}
           </Button>
         </div>
 
         {summary.byAccount.length === 0 ? (
-          <EmptyState icon={FileText} title="Nada recebido no período" description="Mude o ano ou o mês para ver outro período." />
+          <EmptyState icon={FileText} title={L("Nada recebido no período", "Nothing received in this period")} description={L("Mude o ano ou o mês para ver outro período.", "Change the year or month to see another period.")} />
         ) : (
           <>
             <ul className="divide-y divide-border rounded-xl border border-border">
@@ -190,14 +190,14 @@ export default function ReportsPage() {
 
       <Card className="rounded-2xl p-4 md:p-5 space-y-4">
         <div>
-          <h2 className="font-semibold">Por {w.topic.l}</h2>
+          <h2 className="font-semibold">{L(`Por ${w.topic.l}`, `By ${w.topic.l}`)}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {w.appointment.pick("Realizados", "Realizadas")} em {month === null ? year : `${MESES[month].toLowerCase()} de ${year}`} (o mesmo período acima),
-            pelo preço cheio - sem os descontos por família.
+            {L(`${w.appointment.pick("Realizados", "Realizadas")} em ${month === null ? year : `${MESES[month].toLowerCase()} de ${year}`} (o mesmo período acima), pelo preço cheio - sem os descontos por família.`,
+               `Completed in ${month === null ? year : `${MESES[month]} ${year}`} (the same period as above), at full price - before client discounts.`)}
           </p>
         </div>
         {byService.rows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{w.appointment.nenhum} {w.appointment.l} {w.appointment.pick("realizado", "realizada")} no período.</p>
+          <p className="text-sm text-muted-foreground">{L(`${w.appointment.nenhum} ${w.appointment.l} ${w.appointment.pick("realizado", "realizada")} no período.`, `No completed ${w.appointment.lp} in this period.`)}</p>
         ) : (
           <>
             <ul className="divide-y divide-border rounded-xl border border-border">
@@ -227,13 +227,13 @@ export default function ReportsPage() {
 
       <Card className="rounded-2xl p-4 md:p-5 space-y-4">
         <div>
-          <h2 className="font-semibold">Recibo</h2>
-          <p className="text-xs text-muted-foreground mt-1">Escolha a família e o período; o recibo soma o que ela pagou nele.</p>
+          <h2 className="font-semibold">{L("Recibo", "Receipt")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{L("Escolha a família e o período; o recibo soma o que ela pagou nele.", "Choose the client and the period; the receipt adds up what they paid in it.")}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Select value={receiptAccount} onValueChange={setReceiptAccount}>
-            <SelectTrigger className="w-56 h-9 rounded-xl"><SelectValue placeholder="Escolha a família" /></SelectTrigger>
+            <SelectTrigger className="w-56 h-9 rounded-xl"><SelectValue placeholder={L("Escolha a família", "Choose the client")} /></SelectTrigger>
             <SelectContent>{accounts.map(a => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={String(receiptYear)} onValueChange={v => setReceiptYear(Number(v))}>
@@ -247,21 +247,21 @@ export default function ReportsPage() {
         </div>
 
         {!receiptAccount ? (
-          <p className="text-sm text-muted-foreground">Escolha uma família para montar o recibo.</p>
+          <p className="text-sm text-muted-foreground">{L("Escolha uma família para montar o recibo.", "Choose a client to build the receipt.")}</p>
         ) : receiptRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{receiptLabel} não pagou nada em {MESES[receiptMonth]} de {receiptYear}.</p>
+          <p className="text-sm text-muted-foreground">{L(`${receiptLabel} não pagou nada em ${MESES[receiptMonth]} de ${receiptYear}.`, `${receiptLabel} paid nothing in ${MESES[receiptMonth]} ${receiptYear}.`)}</p>
         ) : (
           <>
             <div className="rounded-xl border border-border p-5 space-y-4 bg-card text-sm">
               <div className="text-center space-y-0.5">
-                <div className="font-bold text-base">{accountName || "Recibo"}</div>
+                <div className="font-bold text-base">{accountName || L("Recibo", "Receipt")}</div>
                 {settings.issuer_document && <div className="text-xs text-muted-foreground">{settings.issuer_document}</div>}
                 {settings.contact_email && <div className="text-xs text-muted-foreground">{settings.contact_email}</div>}
               </div>
-              <div className="text-center font-semibold uppercase tracking-wide text-xs text-muted-foreground">Recibo de pagamento</div>
+              <div className="text-center font-semibold uppercase tracking-wide text-xs text-muted-foreground">{L("Recibo de pagamento", "Payment receipt")}</div>
               <p>
-                Recebi de <strong>{receiptAcc?.payer}</strong> a quantia de <strong>{fmtMoney(receiptTotal)}</strong>
-                {" "}({valorPorExtenso(receiptTotal)}), referente a:
+                {L("Recebi de", "Received from")} <strong>{receiptAcc?.payer}</strong> {L("a quantia de", "the amount of")} <strong>{fmtMoney(receiptTotal)}</strong>
+                {" "}({amountInWords(receiptTotal)}), {L("referente a:", "for:")}
               </p>
               <ul className="list-disc pl-5 space-y-0.5">
                 {receiptRows.map((r, i) => (
@@ -271,16 +271,16 @@ export default function ReportsPage() {
                 ))}
               </ul>
               <p className="text-right text-xs text-muted-foreground pt-2">
-                Emitido em {format(new Date(), L("dd/MM/yyyy", "MMM d, yyyy"), { locale: dateLocale() })}
+                {L("Emitido em", "Issued on")} {format(new Date(), L("dd/MM/yyyy", "MMM d, yyyy"), { locale: dateLocale() })}
               </p>
               <div className="pt-6 text-center">
                 <div className="mx-auto w-56 border-t border-foreground/40" />
-                <div className="mt-1 text-xs">{accountName || "Assinatura"}</div>
+                <div className="mt-1 text-xs">{accountName || L("Assinatura", "Signature")}</div>
               </div>
             </div>
             <Button size="sm" className="h-9 gap-1.5 rounded-xl" onClick={downloadReceipt} disabled={busy}>
               {shareOnly ? <Share2 className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
-              {shareOnly ? "Compartilhar recibo (PDF)" : "Baixar recibo (PDF)"}
+              {shareOnly ? L("Compartilhar recibo (PDF)", "Share receipt (PDF)") : L("Baixar recibo (PDF)", "Download receipt (PDF)")}
             </Button>
           </>
         )}

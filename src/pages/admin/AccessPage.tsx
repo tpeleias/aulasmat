@@ -20,6 +20,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap, type Vocabulary } from "@/lib/vocabulary";
 
+import { L } from "@/lib/i18n";
 type Student = {
   id: string; student_name: string; guardian_name: string | null;
   user_id: string | null; guardian_username: string | null;
@@ -33,17 +34,17 @@ type Visibility = {
 };
 
 const FILTERS = [
-  { key: "all", label: "Todos" },
-  { key: "with", label: "Com acesso" },
-  { key: "without", label: "Sem acesso" },
+  { key: "all", label: L("Todos", "All") },
+  { key: "with", label: L("Com acesso", "With access") },
+  { key: "without", label: L("Sem acesso", "Without access") },
 ] as const;
 
 type Filter = typeof FILTERS[number]["key"];
 
 const toggles = (w: Vocabulary): { key: keyof Visibility; label: string; hint: string }[] => [
-  { key: "allow_student_booking", label: `Deixar marcar ${w.appointment.l}`, hint: `${cap(w.guardian.o)} ${w.guardian.l} escolhe um horário livre e agenda sozinho.` },
-  { key: "show_availability_to_students", label: "Mostrar disponibilidade", hint: `Link com os horários livres de cada ${w.staff.l}.` },
-  { key: "show_payment_info_to_students", label: "Mostrar como pagar", hint: "Chave Pix e link de pagamento no portal." },
+  { key: "allow_student_booking", label: L(`Deixar marcar ${w.appointment.l}`, `Allow booking ${w.appointment.lp}`), hint: L(`${cap(w.guardian.o)} ${w.guardian.l} escolhe um horário livre e agenda sozinho.`, `The ${w.guardian.l} picks a free time and books on their own.`) },
+  { key: "show_availability_to_students", label: L("Mostrar disponibilidade", "Show availability"), hint: L(`Link com os horários livres de cada ${w.staff.l}.`, `Link with each ${w.staff.l}'s free times.`) },
+  { key: "show_payment_info_to_students", label: L("Mostrar como pagar", "Show how to pay"), hint: L("Chave Pix e link de pagamento no portal.", "Payment link in the portal.") },
 ];
 
 export default function AccessPage() {
@@ -93,7 +94,7 @@ export default function AccessPage() {
     const patch: Partial<Visibility> = { [key]: value };
     const { error } = await supabase.from("settings").update(patch).eq("id", settingsRowId);
     if (error) { setVisibility(previous); toast.error(error.message); }
-    else { haptics.success(); toast.success("Preferência salva"); }
+    else { haptics.success(); toast.success(L("Preferência salva", "Preference saved")); }
   };
 
   // The password is never readable after it is set, so it is typed in here only when the
@@ -101,16 +102,16 @@ export default function AccessPage() {
   const inviteText = (s: Student, password: string) => {
     const who = (s.guardian_name?.trim() || s.student_name).split(" ")[0];
     const lines = [
-      `Oi, ${who}! Criei um acesso no app ${w.business.do} ${w.business.l} para você acompanhar ${s.student_name}.`,
+      L(`Oi, ${who}! Criei um acesso no app ${w.business.do} ${w.business.l} para você acompanhar ${s.student_name}.`, `Hi ${who}! I created a login for you in our app so you can follow ${s.student_name}.`),
       "",
       `Link: ${publicSiteUrl()}/`,
     ];
-    if (s.guardian_username) lines.push(`Seu acesso: usuário ${s.guardian_username}.`);
-    else if (s.user_id) lines.push("Entre com o seu e-mail.");
-    else if (plan.school_code) lines.push(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`);
-    if (s.child_username) lines.push(`Acesso ${w.client.do} ${w.client.l}: usuário ${s.child_username} (entra na mesma tela, com a senha dele).`);
-    if (password.trim()) lines.push(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`);
-    lines.push("", `Por lá você vê ${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}, o que está em aberto, os materiais e as tarefas.`);
+    if (s.guardian_username) lines.push(L(`Seu acesso: usuário ${s.guardian_username}.`, `Your login: username ${s.guardian_username}.`));
+    else if (s.user_id) lines.push(L("Entre com o seu e-mail.", "Sign in with your email."));
+    else if (plan.school_code) lines.push(L(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`, `To create your account in the app, use our code: ${plan.school_code}`));
+    if (s.child_username) lines.push(L(`Acesso ${w.client.do} ${w.client.l}: usuário ${s.child_username} (entra na mesma tela, com a senha dele).`, `The ${w.client.l}'s login: username ${s.child_username} (same sign-in screen, with their own password).`));
+    if (password.trim()) lines.push(L(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`, `Temporary password: ${password.trim()} (the app asks you to change it on first sign-in).`));
+    lines.push("", L(`Por lá você vê ${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}, o que está em aberto, os materiais e as tarefas.`, `There you'll see upcoming ${w.appointment.lp}, what's outstanding, materials and homework.`));
     return lines.join("\n");
   };
 
@@ -119,11 +120,11 @@ export default function AccessPage() {
     const text = inviteText(inviteFor, invitePassword);
     try {
       if (navigator.share) await navigator.share({ text });
-      else { await navigator.clipboard.writeText(text); toast.success("Convite copiado"); }
+      else { await navigator.clipboard.writeText(text); toast.success(L("Convite copiado", "Invite copied")); }
       haptics.success();
     } catch {
       // The share sheet was dismissed, or sharing is unavailable: fall back to the clipboard.
-      try { await navigator.clipboard.writeText(text); toast.success("Convite copiado"); } catch { toast.error("Não foi possível copiar"); }
+      try { await navigator.clipboard.writeText(text); toast.success(L("Convite copiado", "Invite copied")); } catch { toast.error(L("Não foi possível copiar", "Couldn't copy")); }
     }
   };
 
@@ -131,19 +132,19 @@ export default function AccessPage() {
     <PullToRefresh onRefresh={load}>
       <div className="space-y-5">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="h-6 w-6" /> Acessos</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck className="h-6 w-6" /> {L("Acessos", "Access")}</h1>
           <p className="text-sm text-muted-foreground">
-            Quem entra no portal e o que enxerga por lá.
+            {L("Quem entra no portal e o que enxerga por lá.", "Who signs in to the portal and what they see there.")}
           </p>
         </div>
 
         <Card className="rounded-2xl p-4 md:p-5">
-          <div className="text-xs uppercase text-muted-foreground">{w.guardian.p} com acesso</div>
-          <div className="mt-1 text-3xl font-bold tabular-nums">{withAccess}<span className="text-base font-normal text-muted-foreground"> de {students.length}</span></div>
+          <div className="text-xs uppercase text-muted-foreground">{L(`${w.guardian.p} com acesso`, `${w.guardian.p} with access`)}</div>
+          <div className="mt-1 text-3xl font-bold tabular-nums">{withAccess}<span className="text-base font-normal text-muted-foreground"> {L("de", "of")} {students.length}</span></div>
         </Card>
 
         <Card className="rounded-2xl p-4 md:p-5 space-y-4">
-          <div className="text-sm font-semibold">O que {w.guardian.o} {w.guardian.l} pode fazer</div>
+          <div className="text-sm font-semibold">{L(`O que ${w.guardian.o} ${w.guardian.l} pode fazer`, `What the ${w.guardian.l} can do`)}</div>
           {TOGGLES.map(t => (
             <div key={t.key} className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -174,7 +175,7 @@ export default function AccessPage() {
         {loading ? (
           <ListSkeleton rows={5} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={Users} title={`${w.client.nenhum} ${w.client.l} aqui`} description="Troque o filtro para ver os outros cadastros." />
+          <EmptyState icon={Users} title={L(`${w.client.nenhum} ${w.client.l} aqui`, `No ${w.client.lp} here`)} description={L("Troque o filtro para ver os outros cadastros.", "Change the filter to see the others.")} />
         ) : (
           <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
             {visible.map(s => (
@@ -182,7 +183,7 @@ export default function AccessPage() {
                 <div>
                   <div className="font-medium">{s.student_name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {s.guardian_name ? `${w.guardian.s}: ${s.guardian_name}` : `Sem ${w.guardian.l} ${w.guardian.pick("cadastrado", "cadastrada")}`}
+                    {s.guardian_name ? `${w.guardian.s}: ${s.guardian_name}` : L(`Sem ${w.guardian.l} ${w.guardian.pick("cadastrado", "cadastrada")}`, `No ${w.guardian.l} on file`)}
                   </div>
                 </div>
 
@@ -190,20 +191,20 @@ export default function AccessPage() {
                   <Badge variant={s.user_id ? "default" : "outline"} className="rounded-full text-[10px]">
                     {s.guardian_username
                       ? `${w.guardian.s}: ${s.guardian_username}`
-                      : s.user_id ? `${w.guardian.s} por e-mail` : `${w.guardian.s} sem acesso`}
+                      : s.user_id ? L(`${w.guardian.s} por e-mail`, `${w.guardian.s} by email`) : L(`${w.guardian.s} sem acesso`, `${w.guardian.s} without access`)}
                   </Badge>
                   <Badge variant={s.child_user_id ? "default" : "outline"} className="rounded-full text-[10px]">
-                    {s.child_username ? `${w.client.s}: ${s.child_username}` : `${w.client.s} sem acesso`}
+                    {s.child_username ? `${w.client.s}: ${s.child_username}` : L(`${w.client.s} sem acesso`, `${w.client.s} without access`)}
                   </Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => { haptics.tap(); setManageFor(s); }}>
-                    <KeyRound className="h-3.5 w-3.5" /> Gerenciar acesso
+                    <KeyRound className="h-3.5 w-3.5" /> {L("Gerenciar acesso", "Manage access")}
                   </Button>
                   {(s.user_id || s.child_user_id) && (
                     <Button variant="outline" size="sm" className="rounded-xl gap-1.5" onClick={() => { haptics.tap(); setInvitePassword(""); setInviteFor(s); }}>
-                      <Send className="h-3.5 w-3.5" /> Enviar convite
+                      <Send className="h-3.5 w-3.5" /> {L("Enviar convite", "Send invite")}
                     </Button>
                   )}
                 </div>
@@ -223,33 +224,33 @@ export default function AccessPage() {
       <Dialog open={!!inviteFor} onOpenChange={v => !v && setInviteFor(null)}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Enviar convite</DialogTitle>
+            <DialogTitle>{L("Enviar convite", "Send invite")}</DialogTitle>
             <DialogDescription>{inviteFor?.student_name}</DialogDescription>
           </DialogHeader>
           {inviteFor && (
             <div className="space-y-3">
               <div>
-                <Label>Senha provisória (opcional)</Label>
+                <Label>{L("Senha provisória (opcional)", "Temporary password (optional)")}</Label>
                 <Input
                   className="h-11 rounded-xl"
                   value={invitePassword}
                   onChange={e => setInvitePassword(e.target.value)}
-                  placeholder="cole aqui se acabou de gerar"
+                  placeholder={L("cole aqui se acabou de gerar", "paste here if you just generated one")}
                 />
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Senhas ficam guardadas com hash e não podem ser lidas depois. Gere uma nova em “Gerenciar acesso” e cole aqui.
+                  {L("Senhas ficam guardadas com hash e não podem ser lidas depois. Gere uma nova em “Gerenciar acesso” e cole aqui.", "Passwords are hashed and can't be read later. Generate a new one in “Manage access” and paste it here.")}
                 </p>
               </div>
               <div>
-                <Label>Mensagem</Label>
+                <Label>{L("Mensagem", "Message")}</Label>
                 <Textarea readOnly value={inviteText(inviteFor, invitePassword)} className="min-h-[170px] rounded-xl text-xs" />
               </div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => setInviteFor(null)}>Fechar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setInviteFor(null)}>{L("Fechar", "Close")}</Button>
             <Button className="rounded-xl gap-1.5" onClick={sendInvite}>
-              <Copy className="h-4 w-4" /> Copiar ou compartilhar
+              <Copy className="h-4 w-4" /> {L("Copiar ou compartilhar", "Copy or share")}
             </Button>
           </DialogFooter>
         </DialogContent>
