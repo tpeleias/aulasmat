@@ -15,6 +15,7 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
 import PackagesSettings from "@/components/PackagesSettings";
+import ServicesSettings from "@/components/ServicesSettings";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
 
@@ -401,6 +402,8 @@ export default function SettingsPage() {
         </div>
         <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">Configurar mensagens</Link></Button>
       </Card>
+
+      <ServicesSettings />
 
       {plan.packages && <PackagesSettings />}
 

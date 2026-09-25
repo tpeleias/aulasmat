@@ -49,6 +49,12 @@ export type Plan = {
   whatsapp_auto?: boolean;
   /** Max: "Estou a caminho" com a localização. */
   arrival_location?: boolean;
+  /** Pro e Max: vários serviços (no Essencial, um). */
+  services_multi?: boolean;
+  /** Max: cada profissional com os próprios serviços. */
+  teacher_services?: boolean;
+  /** Max: a família pede "qualquer profissional", pela prioridade do admin. */
+  any_teacher?: boolean;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a
