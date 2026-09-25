@@ -2176,4 +2176,33 @@ SELECT public.assert((SELECT string_agg(title, ',' ORDER BY title) FROM public.b
 SELECT public.assert((SELECT count(*) FROM public.block_exceptions) = 0, 'nem as excecoes dos bloqueios do Beto');
 COMMIT;
 
+
+\echo ''
+\echo '--- 38. Pagamento e desconto: admin so mexe na propria empresa ---'
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_o'), true);
+DO $$
+BEGIN
+  PERFORM public.register_payment('Paciente', NULL, -500, 'adjustment', 'golpe', 0, NULL, current_setting('teste.sm')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin lancou pagamento em outra empresa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - admin nao lanca pagamento em outra empresa';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_account_discount('Paciente', NULL, 'percent', 100, 'golpe', current_setting('teste.sm')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin deu desconto em outra empresa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - admin nao mexe no desconto de outra empresa';
+END $$;
+SELECT public.assert((public.register_payment('Cliente O', NULL, 100, 'adjustment', 'Pix') ->> 'payment_id') IS NOT NULL,
+  'na propria empresa (sem passar a empresa) continua funcionando');
+COMMIT;
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE description = 'golpe') = 0, 'nada entrou na outra empresa');
+
 \echo '=== FIM ==='
