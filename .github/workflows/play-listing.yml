@@ -1,0 +1,95 @@
+name: Update Google Play listing images
+
+# Sobe as imagens da ficha da loja que estão em store/<idioma>/:
+#   phoneScreenshots/*.png  (em ordem de nome)  e  featureGraphic.png
+# Com apply = false só mostra o que está na loja hoje (nada muda).
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'Enviar as imagens (false = só listar o que está lá)'
+        required: true
+        default: false
+        type: boolean
+      language:
+        description: 'Idioma da ficha'
+        required: true
+        default: pt-BR
+
+jobs:
+  listing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet google-auth requests
+      - name: Update listing
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          APPLY: ${{ inputs.apply }}
+          LANG_CODE: ${{ inputs.language }}
+        run: |
+          python - <<'PY'
+          import glob, json, os, sys
+          import requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          info = json.loads(os.environ["PLAY_JSON"])
+          creds = service_account.Credentials.from_service_account_info(
+              info, scopes=["https://www.googleapis.com/auth/androidpublisher"])
+          creds.refresh(Request())
+          h = {"Authorization": f"Bearer {creds.token}"}
+          pkg = "com.aulasmat.app"
+          lang = os.environ["LANG_CODE"]
+          apply = os.environ["APPLY"] == "true"
+          base = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg}"
+          up = f"https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{pkg}"
+
+          def ok(r, what):
+              if r.status_code >= 300:
+                  sys.exit(f"ERRO em {what} ({r.status_code}): {r.text}")
+              return r.json() if r.text else {}
+
+          edit = ok(requests.post(f"{base}/edits", headers=h), "abrir edição")["id"]
+          committed = False
+          try:
+              listing = requests.get(f"{base}/edits/{edit}/listings/{lang}", headers=h)
+              if listing.status_code == 200:
+                  l = listing.json()
+                  print("Título:", l.get("title"))
+                  print("Descrição curta:", l.get("shortDescription"))
+                  print("Descrição completa:\n" + (l.get("fullDescription") or ""))
+              for kind in ["phoneScreenshots", "featureGraphic", "icon"]:
+                  imgs = ok(requests.get(f"{base}/edits/{edit}/listings/{lang}/{kind}", headers=h), f"listar {kind}").get("images", [])
+                  print(f"{kind} hoje: {len(imgs)}")
+                  for i in imgs:
+                      print("   ", i.get("url"))
+              if not apply:
+                  print("Só listagem (apply = false). Nada foi mudado.")
+                  sys.exit(0)
+
+              shots = sorted(glob.glob(f"store/{lang}/phoneScreenshots/*.png"))
+              if shots:
+                  ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/phoneScreenshots", headers=h), "apagar capturas")
+                  for f in shots:
+                      with open(f, "rb") as fh:
+                          ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/phoneScreenshots?uploadType=media",
+                                           headers={**h, "Content-Type": "image/png"}, data=fh.read()), f"enviar {f}")
+                      print("enviada:", f)
+              fg = f"store/{lang}/featureGraphic.png"
+              if os.path.exists(fg):
+                  ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/featureGraphic", headers=h), "apagar destaque")
+                  with open(fg, "rb") as fh:
+                      ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/featureGraphic?uploadType=media",
+                                       headers={**h, "Content-Type": "image/png"}, data=fh.read()), "enviar destaque")
+                  print("enviada:", fg)
+              ok(requests.post(f"{base}/edits/{edit}:commit", headers=h), "salvar na loja")
+              committed = True
+              print("OK: imagens publicadas na ficha da loja.")
+          finally:
+              if not committed:
+                  requests.delete(f"{base}/edits/{edit}", headers=h)
+          PY
