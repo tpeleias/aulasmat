@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isIncome, inPeriod, summarizeIncome, toCsv, yearsWithData } from "@/lib/reports";
+import { isIncome, inPeriod, summarizeIncome, summarizeByService, toCsv, yearsWithData } from "@/lib/reports";
 import type { LedgerTx } from "@/lib/billing";
 
 const tx = (over: Partial<LedgerTx> & { id: string; amount: number; kind: string }): LedgerTx => ({
@@ -88,5 +88,27 @@ describe("yearsWithData", () => {
     expect(years).toContain(2024);
     expect(years).toContain(new Date().getFullYear());
     expect(years).toEqual([...years].sort((a, b) => b - a));
+  });
+});
+
+describe("summarizeByService", () => {
+  const services = [{ id: "a", name: "Limpeza", color: "verde" }, { id: "b", name: "Clareamento" }];
+  const l = (start_at: string, service_id: string | null, price: number, duration_minutes: number, status = "realizada", subject: string | null = null) =>
+    ({ start_at, service_id, price, duration_minutes, status, subject });
+
+  it("agrupa por serviço, só realizadas no período, pelo preço cheio", () => {
+    const r = summarizeByService([
+      l("2026-09-02T13:00:00Z", "a", 180, 30),
+      l("2026-09-03T13:00:00Z", "a", 180, 30),
+      l("2026-09-04T13:00:00Z", "b", 300, 90),
+      l("2026-09-05T13:00:00Z", "b", 300, 90, "cancelada"),
+      l("2026-08-30T13:00:00Z", "a", 180, 30),
+      l("2026-09-06T13:00:00Z", null, 150, 60, "realizada", "Matemática"),
+    ], services, 2026, 8);
+    expect(r.rows.map(x => [x.name, x.count, x.total])).toEqual([
+      ["Clareamento", 1, 450], ["Limpeza", 2, 180], ["Matemática", 1, 150],
+    ]);
+    expect(r.count).toBe(4);
+    expect(r.total).toBe(780);
   });
 });

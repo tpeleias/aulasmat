@@ -19,6 +19,8 @@ export type Plan = {
   recurring_blocks: boolean;
   /** As palavras do ramo e as editadas. Sem isto, a tela fala genérico. */
   vocabulary?: boolean;
+  /** Max de cortesia (testador) até esta data; nulo quando não é testador. */
+  tester_until?: string | null;
   /** Fim do teste grátis do Pro; nulo quando não está em teste. */
   trial_ends_at?: string | null;
   /** Código que o cliente digita no cadastro pelo app (o apelido da empresa). */

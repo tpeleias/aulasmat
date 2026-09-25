@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
+import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Flame } from "lucide-react";
@@ -32,7 +32,7 @@ export function AvailabilityBoard({ teacher }: Props) {
         : supabase.from("lessons").select("start_at, duration_minutes")
       ).gte("start_at", from.toISOString()).lt("start_at", to.toISOString());
       const [settingsR, busyR, recR, lessonsR] = await Promise.all([
-        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity").maybeSingle(),
+        supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity, buffer_minutes").maybeSingle(),
         busyCall,
         recCall,
         lessonsCall,
@@ -46,7 +46,7 @@ export function AvailabilityBoard({ teacher }: Props) {
       }));
       const blocksOnly = busy.filter(b => !lessonRanges.some(l => l.start.getTime() === b.start.getTime() && l.end.getTime() === b.end.getTime()));
       const rec = (recR.data ?? []) as any[];
-      const free = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, busy, rec);
+      const free = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, padRanges(busy, ((s as any)?.buffer_minutes) ?? 0), rec);
       const candidatesPool = computeFreeSlots(from, 5, s.work_start, s.work_end, s.slot_minutes, blocksOnly, rec);
       const now = new Date();
       const grouped: { day: Date; slots: { start: Date; end: Date }[] }[] = [];

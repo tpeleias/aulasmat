@@ -11,12 +11,12 @@ on:
       track:
         description: 'Para onde enviar na Play (none = só gera o aab, sem enviar)'
         required: true
-        # internal+alpha: o teste interno (o Thiago vê na hora, sem revisão) e o
-        # teste fechado (os testadores; conta para liberar a produção). Produção
-        # só quando o Thiago decidir abrir para o público.
-        default: internal+alpha
+        # internal: só o teste interno (o Thiago vê na hora, sem revisão). O
+        # teste fechado (alpha) recebe versão só quando o Thiago pedir, com
+        # internal+alpha ou alpha. Produção só quando ele abrir para o público.
+        default: internal
         type: choice
-        options: [internal+alpha, internal, alpha, beta, production, none]
+        options: [internal, internal+alpha, alpha, beta, production, none]
 
 jobs:
   bundle:

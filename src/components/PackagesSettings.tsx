@@ -11,11 +11,13 @@ import { fmtMoney } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { dbErrorMessage } from "@/lib/dbErrors";
-import { packageVoucher, type LessonPackage } from "@/lib/packages";
+import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
+import { useServices } from "@/hooks/useServices";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-type Draft = { id?: string; name: string; lessons: string; price: string };
+type Draft = { id?: string; name: string; lessons: string; price: string; service_id: string | null };
 
-const EMPTY: Draft = { name: "", lessons: "", price: "" };
+const EMPTY: Draft = { name: "", lessons: "", price: "", service_id: null };
 
 /**
  * Os pacotes da empresa (tabela lesson_packages, migration 20260925040000):
@@ -29,6 +31,10 @@ export default function PackagesSettings() {
   const [items, setItems] = useState<LessonPackage[] | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
+  const { services: allServices } = useServices(false);
+  const services = allServices ?? [];
+  const unit = (p: { service_id?: string | null }) => packageUnitPrice(p, services, listPrice);
+  const serviceName = (id?: string | null) => services.find(s => s.id === id)?.name;
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.from("lesson_packages" as never).select("*").order("sort_order").order("created_at");
@@ -49,7 +55,7 @@ export default function PackagesSettings() {
       return;
     }
     setBusy(true);
-    const row = { name: draft.name.trim(), lessons, price };
+    const row = { name: draft.name.trim(), lessons, price, ...(services.length ? { service_id: draft.service_id } : {}) };
     const { error } = draft.id
       ? await supabase.from("lesson_packages" as never).update(row as never).eq("id", draft.id)
       : await supabase.from("lesson_packages" as never).insert({ ...row, sort_order: items.length + 1 } as never);
@@ -71,7 +77,7 @@ export default function PackagesSettings() {
     if (error) toast.error(dbErrorMessage(error, w)); else { toast.success("Pacote excluído"); load(); }
   };
 
-  const preview = draft ? packageVoucher(Math.round(Number(draft.lessons)) || 0, Number(String(draft.price).replace(",", ".")) || 0, listPrice) : 0;
+  const preview = draft ? packageVoucher(Math.round(Number(draft.lessons)) || 0, Number(String(draft.price).replace(",", ".")) || 0, unit(draft)) : 0;
 
   return (
     <Card className="p-5 space-y-4">
@@ -102,14 +108,14 @@ export default function PackagesSettings() {
             <div className="min-w-0">
               <div className={`truncate text-sm font-medium ${p.active ? "" : "text-muted-foreground line-through"}`}>{p.name}</div>
               <div className="text-xs text-muted-foreground">
-                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp} por {fmtMoney(Number(p.price))}
-                {packageVoucher(p.lessons, Number(p.price), listPrice) > 0 && ` · voucher de ${fmtMoney(packageVoucher(p.lessons, Number(p.price), listPrice))}`}
+                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp}{serviceName(p.service_id) ? ` de ${serviceName(p.service_id)}` : ""} por {fmtMoney(Number(p.price))}
+                {packageVoucher(p.lessons, Number(p.price), unit(p)) > 0 && ` · voucher de ${fmtMoney(packageVoucher(p.lessons, Number(p.price), unit(p)))}`}
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Switch checked={p.active} onCheckedChange={v => toggle(p, v)} title={p.active ? "Desligar" : "Ligar"} />
               <Button size="icon" variant="ghost" className="h-8 w-8" title="Editar"
-                onClick={() => setDraft({ id: p.id, name: p.name, lessons: String(p.lessons), price: String(p.price) })}>
+                onClick={() => setDraft({ id: p.id, name: p.name, lessons: String(p.lessons), price: String(p.price), service_id: p.service_id ?? null })}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" title="Excluir" onClick={() => remove(p)}>
@@ -126,6 +132,18 @@ export default function PackagesSettings() {
             <Label>Nome</Label>
             <Input value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder={`Pacote 10 ${ap.lp}`} />
           </div>
+          {services.length > 0 && (
+            <div>
+              <Label>{w.topic.s}</Label>
+              <Select value={draft.service_id ?? "none"} onValueChange={v => setDraft({ ...draft, service_id: v === "none" ? null : v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Qualquer {w.topic.l} (pacote geral)</SelectItem>
+                  {services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Quantas {ap.lp}</Label>

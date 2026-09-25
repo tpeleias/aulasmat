@@ -102,3 +102,13 @@ export function scarcityFor(day: Date, accountScarcity: unknown, teacherScarcity
   const daEmpresa = (accountScarcity ?? {}) as Record<string, ScarcityDay | undefined>;
   return doProfessor[chave] ?? daEmpresa[chave] ?? SCARCITY_DEFAULT[chave];
 }
+
+/**
+ * Intervalo entre atendimentos (settings.buffer_minutes): cada período ocupado
+ * cresce `minutes` para os dois lados, e o horário oferecido não encosta nele.
+ */
+export function padRanges(ranges: Range[], minutes: number): Range[] {
+  const m = Math.max(0, Math.round(Number(minutes) || 0));
+  if (!m) return ranges;
+  return ranges.map(r => ({ start: addMinutes(r.start, -m), end: addMinutes(r.end, m) }));
+}

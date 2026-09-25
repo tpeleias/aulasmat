@@ -13,6 +13,7 @@ import { canSellHere } from "@/lib/subscription";
  */
 export default function TrialBanner() {
   const { plan, loading } = usePlan();
+  if (!loading && plan.tester_until && plan.billing_status !== "active") return <TesterBanner until={plan.tester_until} />;
   if (loading || !plan.trial_ends_at || plan.plano !== "pro") return null;
   const end = new Date(plan.trial_ends_at);
   const days = differenceInCalendarDays(end, new Date());
@@ -30,6 +31,29 @@ export default function TrialBanner() {
           Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do limite fica
           pausado até você escolher o que liberar.
           {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Assinar agora</Link></>}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/** Max de cortesia dado pelo gestor (testador): até quando vai. */
+function TesterBanner({ until }: { until: string }) {
+  const end = new Date(until);
+  const days = differenceInCalendarDays(end, new Date());
+  if (Number.isNaN(days) || days < 0) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-2xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+      <div>
+        <div className="font-medium">
+          Cronys Max de cortesia até {format(end, "dd/MM")}
+          {days === 0 ? " (termina hoje)" : ` (${days} dia${days === 1 ? "" : "s"})`}
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          Obrigado por testar! Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do
+          limite fica pausado até você escolher o que liberar.
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Assinar</Link></>}
         </p>
       </div>
     </div>

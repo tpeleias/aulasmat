@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, startOfDay, format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { computeFreeSlots, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
+import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
@@ -70,7 +70,7 @@ export default function PublicAvailability() {
     (async () => {
       const from = startOfDay(new Date());
       const to = addDays(from, DAYS);
-      const settingsR = await supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity").maybeSingle();
+      const settingsR = await supabase.from("settings").select("work_start, work_end, slot_minutes, scarcity, buffer_minutes").maybeSingle();
       const s: any = settingsR.data ?? { work_start: "08:00", work_end: "22:00", slot_minutes: 60, scarcity: SCARCITY_DEFAULT };
       // A duração do horário é a do serviço escolhido.
       const minutes = service?.duration_minutes ?? s.slot_minutes;
@@ -96,7 +96,7 @@ export default function PublicAvailability() {
         // Candidate pool ignores lessons so the random "shop window" is fixed regardless of bookings
         const blocksOnly = busy.filter(b => !lessonRanges.some(l => l.start.getTime() === b.start.getTime() && l.end.getTime() === b.end.getTime()));
         const rec = (recR.data ?? []) as any[];
-        const free = computeFreeSlots(from, DAYS, s.work_start, s.work_end, minutes, busy, rec);
+        const free = computeFreeSlots(from, DAYS, s.work_start, s.work_end, minutes, padRanges(busy, ((s as any)?.buffer_minutes) ?? 0), rec);
         const candidatesPool = computeFreeSlots(from, DAYS, s.work_start, s.work_end, minutes, blocksOnly, rec);
         const now = new Date();
         const grouped: DaySlots[] = [];
