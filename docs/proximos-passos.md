@@ -116,24 +116,39 @@ Essencial continua grátis, anual 10% off, cupons mais leves e só no mensal.
   ACCESS_FINE/COARSE_LOCATION no Android, sem segundo plano), e só coloca o
   link do mapa na mensagem. Nada é gravado no servidor.
 
-### WhatsApp automático (Max) - o que falta do Thiago
+### WhatsApp automático (Max) - pelo número DE CADA EMPRESA (decidido 25/09)
 
-Para o Cronys mandar sozinho (confirmação ao marcar, lembrete na véspera) é
-preciso a API oficial do WhatsApp (Meta Cloud API):
-1. business.facebook.com → criar o **Meta Business** da Cronys (CNPJ ajuda na
-   verificação).
-2. developers.facebook.com → **Criar app** → tipo "Empresa" → adicionar o
-   produto **WhatsApp**.
-3. Cadastrar um **número de telefone exclusivo** para o Cronys (não pode estar
-   em uso no WhatsApp comum; um chip novo ou fixo serve).
-4. Criar os **modelos de mensagem** (categoria "Utilidade"): confirmação e
-   lembrete. Eu escrevo os textos.
-5. Gerar um **token permanente** (usuário do sistema) e me passar, junto com o
-   ID do número - vão para as secrets das funções no Supabase.
-6. Adicionar um cartão na conta da Meta: cobra por mensagem de utilidade
-   (centavos por mensagem no Brasil - conferir a tabela atual da Meta).
-Com isso eu faço a rotina que manda os lembretes e a tela para cada empresa
-ligar/desligar e escolher o horário.
+Thiago: sair do número da Cronys não faz sentido (a empresa não vê o que foi
+enviado e a resposta do cliente cai na Cronys). Então cada empresa conecta o
+**próprio WhatsApp Business** ao Cronys.
+
+Como funciona (API oficial da Meta):
+- A Cronys vira **Provedor de Tecnologia** (Tech Provider) na Meta. Na tela de
+  configurações do Cronys aparece "Conectar meu WhatsApp", que abre o
+  cadastro da Meta (Embedded Signup): a empresa entra com o Facebook dela,
+  escolhe o número e autoriza. O Cronys recebe a permissão de enviar por ele.
+- **Coexistência**: o número continua funcionando no app WhatsApp Business do
+  celular da empresa; o que o Cronys manda aparece na conversa, e a resposta
+  do cliente chega no celular dela. (Conferir na hora de implementar se a
+  coexistência já vale para todos os números no Brasil.)
+- Só serve **WhatsApp Business** (o app verde comum não conecta). A empresa sem
+  Business continua com o de um toque.
+- Custo por mensagem da Meta: ou a Cronys paga e embute no Max, ou a empresa
+  põe o cartão dela na conta da Meta. Recomendação: a Cronys paga, com um teto
+  mensal por empresa (como o do assistente).
+
+O que falta do Thiago (uma vez só, para a Cronys):
+1. business.facebook.com → criar o **Meta Business** da Cronys e fazer a
+   **verificação da empresa** (CNPJ, comprovante).
+2. developers.facebook.com → **Criar app** (tipo Empresa) → produto
+   **WhatsApp** → pedir para ser **Tech Provider**.
+3. Passar pela **análise do app** da Meta (vídeo mostrando o fluxo; eu preparo
+   o roteiro quando a tela estiver pronta).
+4. Me passar o **App ID**, o **App Secret** e o **Configuration ID** do
+   Embedded Signup - vão para as secrets das funções.
+Com isso eu faço: botão "Conectar meu WhatsApp", modelos de mensagem
+(confirmação e lembrete), a rotina que manda na véspera e a tela de ligar /
+desligar e escolher o horário.
 
 ### Localização "estou chegando" - Modelo 1 FEITO em 25/09 (o 2 não)
 
@@ -353,8 +368,9 @@ produção em 24/09: `admin-create-user` e a tabela de backup ainda existem; o
 código FUNDADOR ainda está ativo.
 
 **Novo em 25/09**
-- WhatsApp automático: criar a conta da API da Meta (passo a passo em
-  "WhatsApp automático (Max) - o que falta do Thiago").
+- WhatsApp automático pelo número de cada empresa: Cronys como Tech Provider
+  na Meta (passo a passo em "WhatsApp automático (Max) - pelo número DE CADA
+  EMPRESA").
 - Play Console → Segurança dos dados: declarar **Localização aproximada e
   precisa** (uso: funcionalidade do app; não é enviada ao servidor, é
   compartilhada pelo próprio usuário no WhatsApp; opcional).
