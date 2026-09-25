@@ -47,11 +47,11 @@ export default function StudentLessons() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{ap.pick("Meus", "Minhas")} {ap.lp}</h1>
+      <h1 className="text-2xl font-bold">{L(`${ap.pick("Meus", "Minhas")} ${ap.lp}`, `My ${ap.lp}`)}</h1>
       <Tabs defaultValue="upcoming">
         <TabsList>
-          <TabsTrigger value="upcoming">{ap.pick("Próximos", "Próximas")} e pedidos ({upcoming.length})</TabsTrigger>
-          <TabsTrigger value="past">{ap.p} {ap.pick("realizados", "realizadas")} ({past.length})</TabsTrigger>
+          <TabsTrigger value="upcoming">{L(`${ap.pick("Próximos", "Próximas")} e pedidos`, "Upcoming and requests")} ({upcoming.length})</TabsTrigger>
+          <TabsTrigger value="past">{L(`${ap.p} ${ap.pick("realizados", "realizadas")}`, `Past ${ap.lp}`)} ({past.length})</TabsTrigger>
         </TabsList>
         <TabsContent value="upcoming"><LessonList lessons={upcoming} all={lessons} settings={settings} hideFinancial={hideFinancial} onChanged={load} /></TabsContent>
         <TabsContent value="past"><LessonList lessons={past} settings={settings} showSummary hideFinancial={hideFinancial} /></TabsContent>
@@ -71,7 +71,7 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
   const canSwap = (l: any) =>
     !hideFinancial && onChanged && settings?.allow_student_booking && l.status === "agendada"
     && new Date(l.start_at).getTime() >= Date.now() + noticeMs && !openSwapFor.has(l.id);
-  if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">Nada por aqui.</Card>;
+  if (lessons.length === 0) return <Card className="p-6 text-center text-muted-foreground text-sm">{L("Nada por aqui.", "Nothing here.")}</Card>;
   return (
     <div className="space-y-2">
       {lessons.map((l: any) => (
@@ -79,15 +79,15 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{l.teacher}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{l.teacher}</div>
               {l.reschedule_of && isRequest(l.status) && byId.get(l.reschedule_of) && (
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
-                  <Repeat className="h-3 w-3" /> Troca {ap.do} {ap.l} de {format(new Date(byId.get(l.reschedule_of).start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))}
+                  <Repeat className="h-3 w-3" /> {L(`Troca ${ap.do} ${ap.l} de`, `Moving the ${ap.l} from`)} {format(new Date(byId.get(l.reschedule_of).start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))}
                 </div>
               )}
               {openSwapFor.has(l.id) && l.status === "agendada" && (
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Repeat className="h-3 w-3" /> Troca pedida - continua {ap.pick("marcado", "marcada")} até a resposta
+                  <Repeat className="h-3 w-3" /> {L(`Troca pedida - continua ${ap.pick("marcado", "marcada")} até a resposta`, "Change requested - stays booked until the reply")}
                 </div>
               )}
             </div>
@@ -96,12 +96,12 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
                   mostrar - exibir valor ali fazia parecer que a família devia
                   por uma aula que ninguém confirmou. */}
               {!hideFinancial && !isRequest(l.status) && !isDiscarded(l.status) && (
-                <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {l.payment_status}</Badge>
+                <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {L(l.payment_status, l.payment_status === "pago" ? "paid" : "pending")}</Badge>
               )}
               {/* Falta cobrada: a aula não aconteceu, mas entrou na cobrança pela
                   política da empresa - dizer isso evita a família achar que é erro. */}
               <Badge variant={l.absence_charged ? "destructive" : statusBadgeVariant(l.status)}>
-                {l.absence_charged ? "falta cobrada" : statusLabel(l.status, w)}
+                {l.absence_charged ? L("falta cobrada", "no-show charged") : statusLabel(l.status, w)}
               </Badge>
               {/* Quem pede é o responsável, então quem retira é ele. O filho abre
                   esta mesma tela pelo /meu-painel e não deve ver o botão. */}
@@ -110,11 +110,11 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
               )}
               {canSwap(l) && (
                 <Button asChild size="sm" variant="outline" className="h-8 rounded-xl">
-                  <Link to={`/aluno/agendar?troca=${l.id}`}><Repeat className="mr-1 h-3.5 w-3.5" /> Trocar</Link>
+                  <Link to={`/aluno/agendar?troca=${l.id}`}><Repeat className="mr-1 h-3.5 w-3.5" /> {L("Trocar", "Reschedule")}</Link>
                 </Button>
               )}
               {!hideFinancial && (
-                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}`} />
+                <WhatsAppButton teacher={l.teacher} message={L(`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`, `Hi! About the ${w.appointment.l} on ${format(new Date(l.start_at), "MMM d, HH:mm")}`)} />
               )}
             </div>
           </div>

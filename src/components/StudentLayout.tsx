@@ -12,6 +12,7 @@ import { UserRound, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListC
 import { CronysWordmark } from "@/components/brand";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { L } from "@/lib/i18n";
 export default function StudentLayout() {
   const { session, role, loading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
@@ -28,12 +29,12 @@ export default function StudentLayout() {
   if (student?.must_change_password) return <Navigate to="/trocar-senha" replace />;
 
   const items: NavItem[] = [
-    { to: "/aluno", label: "Início", icon: LayoutDashboard, end: true },
+    { to: "/aluno", label: L("Início", "Home"), icon: LayoutDashboard, end: true },
     { to: "/aluno/aulas", label: w.appointment.p, icon: Calendar },
-    ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: "Agendar", icon: CalendarPlus }] : []),
-    { to: "/aluno/financeiro", label: "Financeiro", icon: Wallet },
-    { to: "/aluno/materiais", label: "Materiais", icon: FolderOpen },
-    { to: "/aluno/tarefas", label: "Tarefas", icon: ListChecks },
+    ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: L("Agendar", "Book"), icon: CalendarPlus }] : []),
+    { to: "/aluno/financeiro", label: L("Financeiro", "Billing"), icon: Wallet },
+    { to: "/aluno/materiais", label: L("Materiais", "Materials"), icon: FolderOpen },
+    { to: "/aluno/tarefas", label: L("Tarefas", "Tasks"), icon: ListChecks },
   ];
   const tabs = items.slice(0, 4);
   const overflow = items.slice(4);
@@ -58,16 +59,16 @@ export default function StudentLayout() {
         <div className="p-3 border-t border-sidebar-border space-y-2">
           {settings?.show_availability_to_students && (
             <>
-              <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Disponibilidade</div>
+              <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">{L("Disponibilidade", "Availability")}</div>
               {teachers.map(t => (
                 <Button key={t.id} asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-                  <Link to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank"><CalendarSearch className="w-4 h-4" />Agenda - {capitalize(t.name)}</Link>
+                  <Link to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank"><CalendarSearch className="w-4 h-4" />{L("Agenda", "Schedule")} - {capitalize(t.name)}</Link>
                 </Button>
               ))}
             </>
           )}
           <ThemeToggle />
-          <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />Minha conta</NavLink></Button>
+          <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />{L("Minha conta", "My account")}</NavLink></Button>
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
             <LogOut className="w-4 h-4" />Sair
           </Button>
@@ -92,7 +93,7 @@ export default function StudentLayout() {
               {settings?.show_availability_to_students && (
                 <>
                   {teachers.map(t => (
-                    <Link key={t.id} to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />Agenda {capitalize(t.name)}</Link>
+                    <Link key={t.id} to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />{L("Agenda", "Schedule")} {capitalize(t.name)}</Link>
                   ))}
                 </>
               )}
@@ -100,10 +101,10 @@ export default function StudentLayout() {
             <div className="flex items-center justify-between border-t border-border pt-3">
               <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {theme === "dark" ? "Modo claro" : "Modo escuro"}
+                {theme === "dark" ? L("Modo claro", "Light mode") : L("Modo escuro", "Dark mode")}
               </Button>
-              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> Minha conta</NavLink></Button>
-              <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
+              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> {L("Minha conta", "My account")}</NavLink></Button>
+              <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> {L("Sair", "Sign out")}</Button>
             </div>
           </div>
         )}

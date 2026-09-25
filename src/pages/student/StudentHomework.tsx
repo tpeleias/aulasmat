@@ -30,8 +30,8 @@ export default function StudentHomework() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Tarefas</h1>
-      {homeworks.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">Nenhuma tarefa atribuída.</Card>}
+      <h1 className="text-2xl font-bold">{L("Tarefas", "Tasks")}</h1>
+      {homeworks.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">{L("Nenhuma tarefa atribuída.", "No tasks assigned.")}</Card>}
       {homeworks.map(h => (
         <HomeworkCard key={h.id} hw={h} subs={submissions[h.id] ?? []} student={student!} onChange={load} />
       ))}
@@ -60,7 +60,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
     });
     if (!error) await supabase.from("homework").update({ status: "entregue" }).eq("id", hw.id);
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success("Tarefa enviada!"); onChange(); }
+    if (error) toast.error(error.message); else { toast.success(L("Tarefa enviada!", "Task submitted!")); onChange(); }
   };
 
   const download = async (path: string) => {
@@ -76,25 +76,25 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           {hw.description && <div className="text-sm text-muted-foreground mt-1">{hw.description}</div>}
         </div>
         {overdue ? (
-          <Badge variant="destructive" className="gap-1"><AlertCircle className="w-3 h-3" /> Atrasado</Badge>
+          <Badge variant="destructive" className="gap-1"><AlertCircle className="w-3 h-3" /> {L("Atrasado", "Late")}</Badge>
         ) : hw.status === "entregue" ? (
-          <Badge>Entregue</Badge>
+          <Badge>{L("Entregue", "Submitted")}</Badge>
         ) : days === 0 ? (
-          <Badge variant="destructive" className="gap-1"><Clock className="w-3 h-3" /> Entrega hoje</Badge>
+          <Badge variant="destructive" className="gap-1"><Clock className="w-3 h-3" /> {L("Entrega hoje", "Due today")}</Badge>
         ) : (
-          <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" /> Faltam {days} {days === 1 ? "dia" : "dias"}</Badge>
+          <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" /> {L(`Faltam ${days} ${days === 1 ? "dia" : "dias"}`, `${days} ${days === 1 ? "day" : "days"} left`)}</Badge>
         )}
       </div>
-      <div className="text-xs text-muted-foreground">Prazo: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
+      <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
 
       {subs.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase text-muted-foreground">Suas entregas</div>
+          <div className="text-xs font-medium uppercase text-muted-foreground">{L("Suas entregas", "Your submissions")}</div>
           {subs.map((s: any) => (
             <div key={s.id} className="flex items-center justify-between border border-border rounded p-2">
               <div className="text-sm">
-                <div>Enviado em {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
-                {s.teacher_feedback && <div className="text-xs text-primary mt-1">Feedback: {s.teacher_feedback}</div>}
+                <div>{L("Enviado em", "Sent on")} {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
+                {s.teacher_feedback && <div className="text-xs text-primary mt-1">{L("Retorno", "Feedback")}: {s.teacher_feedback}</div>}
               </div>
               <Button size="sm" variant="outline" onClick={() => download(s.file_path)}><Download className="w-4 h-4" /></Button>
             </div>
@@ -105,7 +105,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
       <div>
         <input ref={fileRef} type="file" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
         <Button onClick={() => fileRef.current?.click()} disabled={busy} variant={hw.status === "entregue" ? "outline" : "default"}>
-          <Upload className="w-4 h-4 mr-1" /> {hw.status === "entregue" ? "Enviar nova versão" : "Enviar tarefa"}
+          <Upload className="w-4 h-4 mr-1" /> {hw.status === "entregue" ? L("Enviar nova versão", "Upload new version") : L("Enviar tarefa", "Submit task")}
         </Button>
       </div>
     </Card>

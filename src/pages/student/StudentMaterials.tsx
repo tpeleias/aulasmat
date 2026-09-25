@@ -26,9 +26,9 @@ export default function StudentMaterials() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Materiais</h1>
-      <p className="text-sm text-muted-foreground">Arquivos compartilhados com você.</p>
-      {materials.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">Nenhum material disponível.</Card>}
+      <h1 className="text-2xl font-bold">{L("Materiais", "Materials")}</h1>
+      <p className="text-sm text-muted-foreground">{L("Arquivos compartilhados com você.", "Files shared with you.")}</p>
+      {materials.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">{L("Nenhum material disponível.", "No materials available.")}</Card>}
       {materials.map(m => (
         <Card key={m.id} className="p-4 flex items-center gap-3">
           <FileText className="w-6 h-6 text-primary" />
@@ -37,7 +37,7 @@ export default function StudentMaterials() {
             <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy", "MMM d, yyyy"))}</div>
           </div>
           <Button size="sm" variant="outline" onClick={() => download(m.file_path, m.title)}>
-            <Download className="w-4 h-4 mr-1" /> Baixar
+            <Download className="w-4 h-4 mr-1" /> {L("Baixar", "Download")}
           </Button>
         </Card>
       ))}

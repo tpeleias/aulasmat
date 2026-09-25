@@ -40,32 +40,32 @@ export default function StudentBilling() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Financeiro</h1>
+      <h1 className="text-2xl font-bold">{L("Financeiro", "Billing")}</h1>
 
       <div className="grid gap-3 md:grid-cols-3">
         <Card className="p-5">
-          <div className="text-xs text-muted-foreground">Em aberto</div>
+          <div className="text-xs text-muted-foreground">{L("Em aberto", "Outstanding")}</div>
           <div className={`text-2xl font-bold tabular-nums ${owed > 0 ? "text-destructive" : ""}`}>{fmt(owed)}</div>
         </Card>
         <Card className="p-5">
-          <div className="text-xs text-muted-foreground">Crédito</div>
+          <div className="text-xs text-muted-foreground">{L("Crédito", "Credit")}</div>
           <div className="text-2xl font-bold tabular-nums">{fmt(credit)}</div>
         </Card>
         <Card className="p-5">
-          <div className="text-xs text-muted-foreground">{ap.p} {ap.pick("realizados", "realizadas")}</div>
+          <div className="text-xs text-muted-foreground">{L(`${ap.p} ${ap.pick("realizados", "realizadas")}`, `${ap.p} done`)}</div>
           <div className="text-2xl font-bold tabular-nums">{lessons.length}</div>
         </Card>
       </div>
 
       {openItems.length > 0 && (
         <Card className="p-5">
-          <h2 className="mb-3 font-semibold">{ap.p} em aberto</h2>
+          <h2 className="mb-3 font-semibold">{L(`${ap.p} em aberto`, `Outstanding ${ap.lp}`)}</h2>
           <div className="space-y-2">
             {openItems.map(i => (
               <div key={i.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-0 first:pt-0">
                 <div>
                   <div>{format(new Date(i.date), L("dd/MM/yyyy 'às' HH:mm", "MMM d, yyyy 'at' HH:mm"))}</div>
-                  <div className="text-xs text-muted-foreground">{i.detail}{i.partial ? " · saldo restante" : ""}</div>
+                  <div className="text-xs text-muted-foreground">{i.detail}{i.partial ? L(" · saldo restante", " · remaining balance") : ""}</div>
                 </div>
                 <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
               </div>
@@ -76,19 +76,19 @@ export default function StudentBilling() {
 
       {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
         <Card className="p-5 space-y-3 border-primary/40">
-          <h2 className="font-semibold">Como pagar</h2>
+          <h2 className="font-semibold">{L("Como pagar", "How to pay")}</h2>
           <PaymentMethods settings={settings} amount={owed} />
         </Card>
       )}
 
       <Card className="p-5">
-        <h2 className="font-semibold mb-3">Extrato</h2>
-        {txs.length === 0 && <p className="text-sm text-muted-foreground">Nenhum lançamento.</p>}
+        <h2 className="font-semibold mb-3">{L("Extrato", "Statement")}</h2>
+        {txs.length === 0 && <p className="text-sm text-muted-foreground">{L("Nenhum lançamento.", "No entries.")}</p>}
         <div className="space-y-2">
           {txs.map(t => (
             <div key={t.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0 text-sm">
               <div>
-                <div>{t.description ?? (t.kind === "lesson" ? ap.s : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? "Pacote" : "Lançamento")}</div>
+                <div>{t.description ?? (t.kind === "lesson" ? ap.s : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? L("Pacote", "Package") : L("Lançamento", "Entry"))}</div>
                 <div className="text-xs text-muted-foreground">{format(new Date(t.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
               </div>
               <Badge variant={Number(t.amount) >= 0 ? "default" : "destructive"}>{fmt(Number(t.amount))}</Badge>

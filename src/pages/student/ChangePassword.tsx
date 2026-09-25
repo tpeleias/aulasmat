@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Lock } from "lucide-react";
 import { CronysBadge } from "@/components/brand";
 
+import { L } from "@/lib/i18n";
 export default function ChangePassword() {
   const { session, loading: authLoading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
@@ -20,11 +21,11 @@ export default function ChangePassword() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    document.title = "Alterar senha";
+    document.title = L("Alterar senha", "Change password");
   }, []);
 
   const { role } = useAuth();
-  if (authLoading || stLoading) return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Carregando…</div>;
+  if (authLoading || stLoading) return <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{L("Carregando…", "Loading…")}</div>;
   if (!session) return <Navigate to="/entrar" replace />;
   const isChild = role === "child";
   const destination = isChild ? "/meu-painel" : "/aluno";
@@ -35,13 +36,13 @@ export default function ChangePassword() {
   const releaseAccess = async () => {
     const { error: fnErr } = await supabase.functions.invoke("clear-must-change-password");
     if (fnErr) throw fnErr;
-    toast.success("Senha definida!");
+    toast.success(L("Senha definida!", "Password set!"));
     window.location.replace(destination);
   };
 
   const submit = async () => {
-    if (pw.length < 6) { toast.error("Use pelo menos 6 caracteres"); return; }
-    if (pw !== confirm) { toast.error("As senhas não coincidem"); return; }
+    if (pw.length < 6) { toast.error(L("Use pelo menos 6 caracteres", "Use at least 6 characters")); return; }
+    if (pw !== confirm) { toast.error(L("As senhas não coincidem", "Passwords don't match")); return; }
     setBusy(true);
     const { error } = await supabase.auth.updateUser({ password: pw });
     if (error) {
@@ -49,7 +50,7 @@ export default function ChangePassword() {
         try {
           await releaseAccess();
         } catch {
-          toast.error("Não foi possível liberar o acesso. Tente novamente.");
+          toast.error(L("Não foi possível liberar o acesso. Tente novamente.", "Could not unlock access. Please try again."));
         } finally {
           setBusy(false);
         }
@@ -63,7 +64,7 @@ export default function ChangePassword() {
       await releaseAccess();
     } catch {
       setBusy(false);
-      toast.error("Senha alterada, mas houve um erro ao liberar o acesso. Tente novamente.");
+      toast.error(L("Senha alterada, mas houve um erro ao liberar o acesso. Tente novamente.", "Password changed, but there was an error unlocking access. Please try again."));
     }
   };
 
@@ -73,17 +74,17 @@ export default function ChangePassword() {
         <div className="flex items-center gap-2">
           <CronysBadge className="h-10 w-10 rounded-xl" />
           <div>
-            <h1 className="font-semibold flex items-center gap-2"><Lock className="w-4 h-4" /> Definir nova senha</h1>
-            <p className="text-xs text-muted-foreground">Para sua segurança, escolha uma senha pessoal antes de continuar.</p>
+            <h1 className="font-semibold flex items-center gap-2"><Lock className="w-4 h-4" /> {L("Definir nova senha", "Set a new password")}</h1>
+            <p className="text-xs text-muted-foreground">{L("Para sua segurança, escolha uma senha pessoal antes de continuar.", "For your security, choose a personal password before continuing.")}</p>
           </div>
         </div>
         <div className="space-y-3">
-          <div><Label>Nova senha</Label><Input type="password" value={pw} onChange={e => setPw(e.target.value)} minLength={6} autoFocus /></div>
-          <div><Label>Confirme a senha</Label><Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} minLength={6} /></div>
+          <div><Label>{L("Nova senha", "New password")}</Label><Input type="password" value={pw} onChange={e => setPw(e.target.value)} minLength={6} autoFocus /></div>
+          <div><Label>{L("Confirme a senha", "Confirm password")}</Label><Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} minLength={6} /></div>
         </div>
         <div className="flex gap-2">
-          <Button onClick={submit} disabled={busy} className="flex-1">Salvar</Button>
-          <Button variant="ghost" onClick={signOut}>Sair</Button>
+          <Button onClick={submit} disabled={busy} className="flex-1">{L("Salvar", "Save")}</Button>
+          <Button variant="ghost" onClick={signOut}>{L("Sair", "Sign out")}</Button>
         </div>
       </Card>
     </div>
