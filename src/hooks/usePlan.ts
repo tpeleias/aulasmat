@@ -41,6 +41,14 @@ export type Plan = {
   assistant_on_sale?: boolean;
   /** O assistente desta empresa veio do adicional comprado, e não de cortesia. */
   assistant_billed?: boolean;
+  /** Max: o assistente vem incluso quando a assinatura está paga (migration 20260925070000). */
+  assistant_included?: boolean;
+  /** Pro e Max: lembrete e confirmação pelo WhatsApp de um toque. */
+  whatsapp_link?: boolean;
+  /** Max: o Cronys manda sozinho (em construção). */
+  whatsapp_auto?: boolean;
+  /** Max: "Estou a caminho" com a localização. */
+  arrival_location?: boolean;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a

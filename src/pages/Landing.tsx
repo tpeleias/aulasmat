@@ -103,14 +103,14 @@ export default function Landing() {
                   {p.itens.map(i => <li key={i} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {i}</li>)}
                 </ul>
                 <Button asChild className="mt-6" variant={p.tier === "pro" ? "default" : "outline"}>
-                  <Link to="/entrar?criar=empresa">{p.mensal === 0 ? "Criar conta grátis" : "Testar 14 dias grátis"}</Link>
+                  <Link to="/entrar?criar=empresa">{p.mensal === 0 ? "Criar conta grátis" : p.tier === "pro_solo" ? "Testar 14 dias grátis" : "Começar pelo teste do Pro"}</Link>
                 </Button>
               </Card>
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
             Max: 5 profissionais incluídos; a partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
-            Em breve: assistente com inteligência artificial, como adicional.
+            O teste grátis de 14 dias é do Pro; o Max você assina quando precisar da equipe.
             Assinatura cobrada por cartão, pelo Stripe; na fatura aparece CRONYS.
           </p>
         </section>

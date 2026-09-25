@@ -25,9 +25,12 @@ import { ProUpsell } from "@/components/ProUpsell";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
+import { normalizeWhatsApp } from "@/lib/whatsapp";
 
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
+  /** Migration 20260925070000; ausente antes dela. */
+  whatsapp?: string | null;
   // Ausente enquanto a migration 20260923020000 não estiver aplicada - e aí
   // ninguém está travado, que é exatamente o comportamento de antes.
   plan_locked?: boolean;
@@ -141,12 +144,16 @@ export default function StudentsPage() {
 
   const save = async () => {
     if (!editing?.student_name?.trim()) { toast.error(`Nome ${c.do} ${c.l} obrigatório`); return; }
+    const zap = normalizeWhatsApp(editing.whatsapp);
+    if (zap === "invalido") { toast.error("WhatsApp com DDD, ex.: (11) 98765-4321"); return; }
     setBusy(true);
     const payload = {
       student_name: editing.student_name.trim(),
       guardian_name: editing.guardian_name?.trim() || null,
       address: editing.address?.trim() || null,
-    };
+      // Só manda a coluna quando há o que gravar: antes da migration ela não existe.
+      ...(zap || editing.whatsapp !== undefined ? { whatsapp: zap } : {}),
+    } as never;
     const { error } = editing.id
       ? await supabase.from("students").update(payload).eq("id", editing.id)
       : await supabase.from("students").insert(payload);
@@ -334,6 +341,11 @@ export default function StudentsPage() {
             </div>
             <div><Label>Endereço</Label>
               <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder="Rua, número, bairro, cidade" />
+            </div>
+            <div><Label>WhatsApp {editing?.guardian_name?.trim() ? `${w.guardian.do} ${w.guardian.l}` : `${c.do} ${c.l}`}</Label>
+              <Input className="h-11 rounded-xl" type="tel" inputMode="tel" value={editing?.whatsapp ?? ""}
+                onChange={e => setEditing(p => ({ ...p!, whatsapp: e.target.value }))} placeholder="(11) 98765-4321" />
+              <p className="mt-1 text-xs text-muted-foreground">Opcional. Usado para mandar lembrete e aviso pelo WhatsApp.</p>
             </div>
           </div>
           <DialogFooter>

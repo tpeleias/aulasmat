@@ -1105,9 +1105,9 @@ SELECT public.assert((SELECT role::text FROM public.user_roles WHERE user_id = c
   'quem cria a escola vira admin dela');
 SELECT public.assert((SELECT slug FROM public.accounts WHERE id = current_setting('teste.a24')::uuid) = 'escola-avila',
   'o codigo da escola sai do nome, sem acento');
-SELECT public.assert((SELECT plan = 'pro' AND trial_ends_at > now() + interval '13 days' AND trial_ends_at < now() + interval '15 days'
+SELECT public.assert((SELECT plan = 'pro_solo' AND trial_ends_at > now() + interval '13 days' AND trial_ends_at < now() + interval '15 days'
                         FROM public.accounts WHERE id = current_setting('teste.a24')::uuid),
-  'nasce no Pro com 14 dias de teste');
+  'nasce no Pro (pro_solo, nao no Max) com 14 dias de teste');
 SELECT public.assert((SELECT count(*) FROM public.settings WHERE account_id = current_setting('teste.a24')::uuid) = 1
                      AND (SELECT name FROM public.teachers WHERE account_id = current_setting('teste.a24')::uuid) = 'ana paula',
   'ja nasce com configuracoes e com o professor');
@@ -1403,7 +1403,7 @@ BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '27000000-0000-0000-0000-000000000001', true);
-SELECT public.assert(public.account_plan() = 'pro' AND public.account_can('assistant') = false,
+SELECT public.assert(public.account_plan() IN ('pro', 'pro_solo') AND public.account_can('assistant') = false,
   'empresa nova, no teste do Pro, nasce sem assistente');
 SELECT public.assert((public.my_plan() ->> 'assistant') = 'false' AND (public.my_plan() ->> 'assistant_override') = 'false',
   'e a tela recebe "nao liberado" (e nao a venda do Pro)');
@@ -1553,6 +1553,10 @@ END $$;
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('29000000-0000-0000-0000-000000000001', 'solo@x', '{"signup_kind":"school","school_name":"Estudio Solo","teacher_name":"Rita"}');
 SELECT set_config('teste.a29', (SELECT account_id::text FROM public.user_roles WHERE user_id = '29000000-0000-0000-0000-000000000001'), false);
+SELECT public.assert((SELECT plan = 'pro_solo' AND trial_ends_at IS NOT NULL FROM public.accounts WHERE id = current_setting('teste.a29')::uuid),
+  'o teste gratis e do Pro');
+-- O resto do bloco testa o Max: poe a conta no Max em teste, como as antigas.
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.a29')::uuid;
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
@@ -1560,7 +1564,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
 SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() ->> 'tier' = 'pro'
                      AND public.my_plan() ->> 'nome' = 'Cronys Max',
-  'o teste gratis e do Max, e o app antigo continua vendo "pro"');
+  'o Max se apresenta como Cronys Max, e o app antigo continua vendo "pro"');
 -- Equipe: sem teto, 5 incluidos; o sexto e o setimo viram extra, nao erro.
 INSERT INTO public.teachers (name, active) VALUES ('p2', true), ('p3', true), ('p4', true), ('p5', true), ('p6', true), ('p7', true);
 SELECT public.assert((public.my_plan() ->> 'extra_teachers')::int = 2,
@@ -1700,7 +1704,7 @@ COMMIT;
 \echo '--- 30. Tolerancia de 2 dias; assistente como adicional, fora de venda ---'
 
 SELECT public.assert(public.billing_grace_days() = 2, 'tolerancia de atraso: 2 dias');
-SELECT public.assert(NOT public.assistant_on_sale(), 'o assistente esta fora de venda');
+SELECT public.assert(public.assistant_on_sale(), 'o adicional do assistente esta a venda (desde 25/09)');
 
 INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('30000000-0000-0000-0000-000000000001', 'addon@x', '{"signup_kind":"school","school_name":"Clinica Addon","teacher_name":"Lia"}');
@@ -1735,7 +1739,7 @@ BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '30000000-0000-0000-0000-000000000001', true);
-SELECT public.assert((public.my_plan() ->> 'assistant_on_sale')::boolean = false, 'a tela sabe que o adicional esta fora de venda');
+SELECT public.assert((public.my_plan() ->> 'assistant_on_sale')::boolean, 'a tela sabe que o adicional esta a venda');
 COMMIT;
 
 
@@ -1870,5 +1874,61 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 DELETE FROM public.lesson_packages WHERE name = 'Pacote 8';
 SELECT public.assert((SELECT count(*) FROM public.lesson_packages WHERE name = 'Pacote 8') = 0, 'o admin apaga o proprio pacote');
 COMMIT;
+
+
+
+\echo ''
+\echo '--- 33. Max pago traz o assistente; teste no Pro; WhatsApp do cliente ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('33000000-0000-0000-0000-000000000001', 'max@x', '{"signup_kind":"school","school_name":"Escola Max","teacher_name":"Lia"}');
+SELECT set_config('teste.a33', (SELECT account_id::text FROM public.user_roles WHERE user_id = '33000000-0000-0000-0000-000000000001'), false);
+
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'no teste gratis (Pro) nao tem assistente');
+SELECT public.assert(NOT public.account_can('arrival_location', current_setting('teste.a33')::uuid)
+                     AND public.account_can('whatsapp_link', current_setting('teste.a33')::uuid),
+  'Pro: WhatsApp de um toque sim, localizacao nao');
+
+-- Max de cortesia (sem assinatura): sem assistente.
+UPDATE public.accounts SET plan = 'pro', trial_ends_at = NULL WHERE id = current_setting('teste.a33')::uuid;
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid)
+                     AND public.account_can('arrival_location', current_setting('teste.a33')::uuid)
+                     AND public.account_can('whatsapp_auto', current_setting('teste.a33')::uuid),
+  'Max sem assinatura: localizacao e WhatsApp automatico, mas sem assistente');
+
+-- Max pago: assistente incluso.
+SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro', 'month', now() + interval '1 month');
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid)
+                     AND NOT coalesce((SELECT assistant_override FROM public.accounts WHERE id = current_setting('teste.a33')::uuid), false),
+  'Max pago: assistente incluso, sem precisar de liberacao a mao');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '33000000-0000-0000-0000-000000000001', true);
+SELECT public.assert((public.my_plan() ->> 'assistant')::boolean AND (public.my_plan() ->> 'assistant_included')::boolean,
+  'my_plan() mostra o assistente incluso no Max');
+INSERT INTO public.students (student_name, whatsapp) VALUES ('Cliente Zap', '11987654321');
+DO $$
+BEGIN
+  INSERT INTO public.students (student_name, whatsapp) VALUES ('Zap torto', '(11) 9876');
+  RAISE EXCEPTION 'FALHOU: aceitou WhatsApp com mascara';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - WhatsApp do cliente so com digitos';
+END $$;
+COMMIT;
+
+-- Voltou para o Pro pelo portal: o assistente incluso vai embora.
+SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month');
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'no Pro sem o adicional, sem assistente');
+-- Pro com o adicional comprado: tem.
+SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month', true);
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'Pro com o adicional: tem assistente');
+-- Cancelou: nada.
+SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'canceled', NULL, NULL, NULL, false);
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'cancelou: sem assistente');
 
 \echo '=== FIM ==='
