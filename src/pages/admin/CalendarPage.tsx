@@ -54,7 +54,13 @@ export default function CalendarPage() {
   const defaultTeacher = useDefaultTeacher();
   const w = useWords();
   const ap = w.appointment;
-  const { teachers } = useTeachers(true);
+  const { teachers: allTeachers } = useTeachers(true);
+  // Professor só vê a agenda dele: nem abas, nem legenda, nem bloqueio dos outros.
+  const { isTeacher } = useAuth();
+  const teachers = useMemo(
+    () => isTeacher ? allTeachers.filter(t => teacherSlug(t.name) === defaultTeacher) : allTeachers,
+    [allTeachers, isTeacher, defaultTeacher],
+  );
   const [dayCount, setDayCount] = useState<DayCount>(() => {
     try {
       const saved = Number(localStorage.getItem("agenda_dias"));
@@ -75,8 +81,10 @@ export default function CalendarPage() {
   // WhatsApp de cada cliente, para o atalho de lembrete no widget.
   const [phones, setPhones] = useState<{ student_name: string; guardian_name: string | null; whatsapp: string | null }[]>([]);
   const { plan } = usePlan();
-  // Professor só vê a agenda: não marca aula num horário vazio.
-  const { isTeacher } = useAuth();
+  // Professor abre direto na agenda dele (o resumo "Todos" é da empresa).
+  useEffect(() => {
+    if (isTeacher && defaultTeacher) setTeacherFilter(defaultTeacher);
+  }, [isTeacher, defaultTeacher]);
   const { templates } = useMessageTemplates();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [upcoming, setUpcoming] = useState<Lesson[]>([]);
@@ -389,9 +397,9 @@ export default function CalendarPage() {
                 key={h}
                 style={{ height: CELL_H }}
                 {...tapGuard(() => { if (isTeacher) return; haptics.tap(); setEditing(null); setSlotStart(cellStart); setDlgOpen(true); })}
-                className="w-full border-b border-l border-border p-1.5 text-xs hover:bg-accent group"
+                className={`w-full border-b border-l border-border p-1.5 text-xs group ${isTeacher ? "cursor-default" : "hover:bg-accent"}`}
               >
-                <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />
+                {!isTeacher && <Plus className="w-3 h-3 text-muted-foreground/40 group-hover:text-primary" />}
               </button>
             );
           })}
@@ -439,7 +447,7 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
+          {!isTeacher && <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
             <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Todos</button>
             {teachers.map(t => {
               const slug = teacherSlug(t.name);
@@ -448,7 +456,7 @@ export default function CalendarPage() {
                 <button key={t.id} onClick={() => setTeacherFilter(slug)} className={`px-3 py-1 text-xs rounded capitalize ${active ? "bg-background shadow-sm font-medium text-primary" : "text-muted-foreground"}`}>{t.name}</button>
               );
             })}
-          </div>
+          </div>}
           {teacherFilter !== "all" && (
             <>
               <div className="inline-flex rounded-md border border-border p-0.5 bg-muted">

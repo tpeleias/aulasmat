@@ -2156,4 +2156,24 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a tabela continu
 END $$;
 COMMIT;
 
+
+\echo ''
+\echo '--- 37. Professor ve so os proprios bloqueios ---'
+
+INSERT INTO public.blocks (account_id, title, teacher, block_type, start_at, end_at) VALUES
+  (current_setting('teste.t')::uuid, 'Da Ana', 'ana-julia', 'one_off', '2027-04-01 10:00-03', '2027-04-01 11:00-03'),
+  (current_setting('teste.t')::uuid, 'Do Beto', 'beto', 'one_off', '2027-04-01 10:00-03', '2027-04-01 11:00-03'),
+  (current_setting('teste.t')::uuid, 'Feriado', 'both', 'one_off', '2027-04-02 00:00-03', '2027-04-02 23:00-03');
+INSERT INTO public.block_exceptions (account_id, block_id, exception_date)
+SELECT account_id, id, '2027-04-01' FROM public.blocks WHERE title = 'Do Beto';
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+SELECT public.assert((SELECT string_agg(title, ',' ORDER BY title) FROM public.blocks) = 'Da Ana,Feriado,Folga',
+  'professor ve os proprios bloqueios e os da empresa toda, nao os do Beto');
+SELECT public.assert((SELECT count(*) FROM public.block_exceptions) = 0, 'nem as excecoes dos bloqueios do Beto');
+COMMIT;
+
 \echo '=== FIM ==='
