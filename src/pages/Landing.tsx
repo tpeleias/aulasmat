@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { presetFor, BUSINESS_MODELS } from "@/lib/vocabulary";
 import { PLANS, EXTRA_TEACHER, COUPONS_AVAILABLE, brl } from "@/lib/subscription";
-import { isEnglish, setLocale, L } from "@/lib/i18n";
+import { isEnglish, toggleLanguage, L } from "@/lib/i18n";
+import { CurrencyPicker } from "@/components/CurrencyPicker";
 
 const RECURSOS_EN = [
   { icon: CalendarDays, titulo: "A calendar that prevents double-booking", texto: "Taken times are refused instantly, even when two requests arrive together. One-off and weekly blocks." },
@@ -48,7 +49,7 @@ export default function Landing() {
           <CronysWordmark tamanho="1.5rem" className="text-brand-ink" />
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="gap-1 text-sidebar-foreground/80 hover:bg-white/10 hover:text-sidebar-foreground"
-              onClick={() => { setLocale(isEnglish() ? "pt-BR" : "en", isEnglish() ? "BRL" : "USD"); window.location.reload(); }}>
+              onClick={() => { toggleLanguage(); }}>
               <Globe className="h-4 w-4" /> {isEnglish() ? "Português" : "English"}
             </Button>
             <Button asChild variant="ghost" className="text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground">
@@ -102,7 +103,10 @@ export default function Landing() {
         </section>
 
         <section id="planos" className="scroll-mt-6 pb-14">
-          <h2 className="text-2xl font-bold">{L("Planos", "Plans")}</h2>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-2xl font-bold">{L("Planos", "Plans")}</h2>
+            <CurrencyPicker />
+          </div>
           <p className="mt-1 text-sm text-muted-foreground">{COUPONS_AVAILABLE
             ? L("Preços em reais. No anual, 10% de desconto. Sem fidelidade.", "Prices in Brazilian reais (BRL). 10% off yearly. No commitment.")
             : L("No anual, 10% de desconto. Sem fidelidade.", "10% off yearly. No commitment, cancel anytime.")}</p>

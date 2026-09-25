@@ -54,7 +54,7 @@ export const PLANS: PlanCard[] = [
     resumo: L("Para começar", "To get started"),
     mensal: 0,
     anual: 0,
-    itens: L(["1 profissional (você)", "Até 5 clientes", "Agenda, cobrança e portal da família", "Pix copia e cola com o valor"],
+    itens: L(["1 profissional (você)", "Até 5 clientes", "Agenda, cobrança e portal da família", foreign ? "Link de pagamento com o valor" : "Pix copia e cola com o valor"],
       ["1 professional (you)", "Up to 5 clients", "Schedule, billing and client portal", "Payment link with the amount due"]),
   },
   {

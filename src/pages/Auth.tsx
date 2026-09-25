@@ -14,7 +14,7 @@ import { publicSiteUrl } from "@/lib/publicUrl";
 import { Capacitor } from "@capacitor/core";
 
 
-import { L, getLocale, getCurrency, setLocale, isEnglish } from "@/lib/i18n";
+import { L, getLocale, getCurrency, isEnglish, toggleLanguage } from "@/lib/i18n";
 export default function Auth() {
   const { session, role, isPlatformAdmin, loading } = useAuth();
   const [signup, setSignup] = useState(false);
@@ -120,7 +120,7 @@ export default function Auth() {
             </div>
           </div>
           {/* Quem ainda não tem conta escolhe a língua aqui; depois vale a da empresa. */}
-          <button type="button" onClick={() => { setLocale(isEnglish() ? "pt-BR" : "en", isEnglish() ? "BRL" : "USD"); window.location.reload(); }}
+          <button type="button" onClick={() => { toggleLanguage(); }}
             className="absolute right-4 top-4 flex items-center gap-1 rounded-full border border-sidebar-foreground/20 px-2.5 py-1 text-xs text-sidebar-foreground/80 hover:bg-sidebar-foreground/10">
             <Globe className="h-3.5 w-3.5" /> {isEnglish() ? "Português" : "English"}
           </button>
