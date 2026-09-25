@@ -8,6 +8,7 @@ import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
 import { WhatsAppGlyph, sendOnMyWay } from "@/components/LessonQuickActions";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 
+import { L } from "@/lib/i18n";
 type LessonLike = {
   id?: string;
   student_name: string;
@@ -34,7 +35,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
   if (!plan.whatsapp_link) {
     return (
       <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-        Lembrete e aviso pelo WhatsApp com um toque: no Cronys Pro e no Max.
+        {L("Lembrete e aviso pelo WhatsApp com um toque: no Cronys Pro e no Max.", "One-tap WhatsApp reminders and notices: in Cronys Pro and Max.")}
       </p>
     );
   }
@@ -47,7 +48,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
 
   const locate = async () => {
     if (!plan.arrival_location) {
-      toast.info("\"Estou a caminho\" com a localização é do Cronys Max.");
+      toast.info(L("\"Estou a caminho\" com a localização é do Cronys Max.", "\"On my way\" with location is part of Cronys Max."));
       return;
     }
     setLocating(true);
@@ -59,19 +60,19 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline" className="gap-1.5">
           <a href={whatsAppLink(phone, reminderMessage(lesson, w, templates))} target="_blank" rel="noopener noreferrer">
-            <WhatsAppGlyph /> Lembrar no WhatsApp
+            <WhatsAppGlyph /> {L("Lembrar no WhatsApp", "Remind on WhatsApp")}
           </a>
         </Button>
         {showOnMyWay && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={locate} disabled={locating}>
             {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-            Estou a caminho{!plan.arrival_location && " (Max)"}
+            {L("Estou a caminho", "On my way")}{!plan.arrival_location && " (Max)"}
           </Button>
         )}
       </div>
       {!phone && (
         <p className="text-xs text-muted-foreground">
-          Sem WhatsApp no cadastro {w.client.do} {w.client.l}: o WhatsApp abre para você escolher o contato.
+          {L(`Sem WhatsApp no cadastro ${w.client.do} ${w.client.l}: o WhatsApp abre para você escolher o contato.`, `No WhatsApp number on the ${w.client.l}'s profile: WhatsApp opens so you can pick the contact.`)}
         </p>
       )}
     </div>

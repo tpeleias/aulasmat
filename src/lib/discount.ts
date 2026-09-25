@@ -1,3 +1,4 @@
+import { isEnglish } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/balance";
 
 export type DiscountKind = "percent" | "amount";
@@ -32,7 +33,7 @@ export function isValidDiscount(kind: DiscountKind, value: number): boolean {
 export function describeDiscount(d: Discount): string {
   if (d.kind === "amount") return fmtMoney(d.value);
   const n = round2(d.value);
-  return `${Number.isInteger(n) ? n : n.toString().replace(".", ",")}%`;
+  return `${Number.isInteger(n) ? n : isEnglish() ? n.toString() : n.toString().replace(".", ",")}%`;
 }
 
 export function parseDiscountValue(raw: string): number {

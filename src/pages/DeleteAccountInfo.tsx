@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
+import { isEnglish } from "@/lib/i18n";
+import { DeleteAccountEn } from "@/pages/LegalEn";
 
 // Página pública que a Google Play pede ("link da web para solicitar a
 // exclusão da conta"). Cadastrar https://<site>/excluir-conta no Play Console,
@@ -12,7 +14,8 @@ export default function DeleteAccountInfo() {
     supabase.from("settings").select("contact_email").maybeSingle()
       .then(({ data }) => setContact(((data as { contact_email?: string } | null)?.contact_email ?? "").trim() || null));
   }, []);
-  useEffect(() => { document.title = "Excluir conta — Cronys"; }, []);
+  useEffect(() => { document.title = isEnglish() ? "Delete account — Cronys" : "Excluir conta — Cronys"; }, []);
+  if (isEnglish()) return <DeleteAccountEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">

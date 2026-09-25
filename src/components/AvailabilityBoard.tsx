@@ -72,7 +72,7 @@ export function AvailabilityBoard({ teacher }: Props) {
     // página /disponibilidade/<profissional>.
   }, [teacher, teachers]);
 
-  if (loading) return <p className="text-center text-muted-foreground py-12">Carregando…</p>;
+  if (loading) return <p className="text-center text-muted-foreground py-12">{L("Carregando…", "Loading…")}</p>;
 
   return (
     <div className="space-y-6">
@@ -84,19 +84,19 @@ export function AvailabilityBoard({ teacher }: Props) {
             </h3>
             {slots.length > 0 && slots.length <= 2 && (
               <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
-                <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                <Flame className="w-3 h-3" /> {slots.length === 1 ? L("Último horário!", "Last slot!") : L("Restam poucos horários!", "Only a few slots left!")}
               </Badge>
             )}
           </div>
           {slots.length === 0 ? (
-            <Card className="p-4 text-sm text-muted-foreground text-center">Sem horários livres neste dia.</Card>
+            <Card className="p-4 text-sm text-muted-foreground text-center">{L("Sem horários livres neste dia.", "No free times on this day.")}</Card>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {slots.map(s => (
                 <div key={s.start.toISOString()} className="bg-card border border-border rounded-lg p-3 text-center shadow-[var(--shadow-card)]">
                   <Clock className="w-3 h-3 inline mr-1 text-primary" />
                   <span className="font-semibold">{fmtTime(s.start)}</span>
-                  <div className="text-[10px] text-muted-foreground">até {fmtTime(s.end)}</div>
+                  <div className="text-[10px] text-muted-foreground">{L("até", "to")} {fmtTime(s.end)}</div>
                 </div>
               ))}
             </div>

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { MessageTemplates } from "@/lib/messageTemplates";
 
+import { L } from "@/lib/i18n";
 // Os modelos de mensagem da empresa (settings.message_templates). Um só pedido
 // ao banco para o app inteiro; quem salva avisa as outras telas.
 let cached: MessageTemplates | null = null;
@@ -48,7 +49,7 @@ export function useMessageTemplates() {
     // Só guarda o que difere do padrão: campo vazio volta a seguir o app.
     const clean = Object.fromEntries(Object.entries(next).filter(([, v]) => typeof v === "string" && v.trim())) as MessageTemplates;
     if (settingsId === null) await fetchTemplates();
-    if (settingsId === null) return { message: "Configurações da empresa não encontradas." };
+    if (settingsId === null) return { message: L("Configurações da empresa não encontradas.", "Company settings not found.") };
     const { error } = await supabase.from("settings").update({ message_templates: clean } as never).eq("id", settingsId);
     if (!error) {
       cached = clean;

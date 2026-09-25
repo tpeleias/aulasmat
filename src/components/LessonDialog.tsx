@@ -511,7 +511,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 </Button>
               ))}
               <Input type="number" inputMode="numeric" className="h-8 w-20" value={form.duration_minutes}
-                onChange={e => setForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} aria-label="Duração em minutos" />
+                onChange={e => setForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} aria-label={L("Duração em minutos", "Duration in minutes")} />
               <span className="text-xs text-muted-foreground">min</span>
             </div>
           </div>

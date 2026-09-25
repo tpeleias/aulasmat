@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
+import { isEnglish } from "@/lib/i18n";
+import { TermsEn } from "@/pages/LegalEn";
 
 // Rascunho escrito a partir do que o app faz de verdade - NÃO é texto revisado
 // por advogado. Antes de vender assinatura, alguém da área jurídica precisa
@@ -17,7 +19,8 @@ export default function TermsOfUse() {
       .then(({ data }) => setContact(((data as { contact_email?: string } | null)?.contact_email ?? "").trim() || null));
   }, []);
 
-  useEffect(() => { document.title = "Termos de uso — Cronys"; }, []);
+  useEffect(() => { document.title = isEnglish() ? "Terms of use — Cronys" : "Termos de uso — Cronys"; }, []);
+  if (isEnglish()) return <TermsEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">

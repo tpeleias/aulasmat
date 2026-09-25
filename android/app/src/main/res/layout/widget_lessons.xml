@@ -17,7 +17,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Próximas aulas"
+            android:text="@string/w_upcoming"
             android:textColor="#ECE7DB"
             android:textStyle="bold"
             android:textSize="15sp" />
@@ -33,7 +33,7 @@
         android:id="@+id/widget_empty"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Nenhuma aula nos próximos dias"
+        android:text="@string/w_no_upcoming"
         android:textColor="#A9A79C"
         android:textSize="12sp"
         android:paddingTop="6dp"
@@ -187,7 +187,7 @@
             android:gravity="center"
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
-            android:text="✦  Assistente"
+            android:text="@string/w_assistant_btn"
             android:textColor="#13141B"
             android:textStyle="bold"
             android:textSize="12sp" />
@@ -200,7 +200,7 @@
             android:gravity="center"
             android:paddingTop="9dp"
             android:paddingBottom="9dp"
-            android:text="＋  Nova aula"
+            android:text="@string/w_new_btn"
             android:textColor="#ECE7DB"
             android:textSize="12sp" />
     </LinearLayout>

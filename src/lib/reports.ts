@@ -41,7 +41,7 @@ export function summarizeIncome(txs: LedgerTx[], year: number, month: number | n
     const amount = Number(t.amount);
     const label = accountLabel(t);
     const k = accountKey(t);
-    rows.push({ date: t.created_at, accountKey: k, accountLabel: label, description: t.description ?? "Pagamento", amount });
+    rows.push({ date: t.created_at, accountKey: k, accountLabel: label, description: t.description ?? L("Pagamento", "Payment"), amount });
     const cur = totals.get(k) ?? { label, total: 0 };
     cur.total = Math.round((cur.total + amount) * 100) / 100;
     totals.set(k, cur);
