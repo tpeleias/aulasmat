@@ -67,3 +67,47 @@ sobe sozinho e a loja nunca recusa por versão repetida.
 A build da loja não mostra o aviso de atualização do app: quem instala pela Play
 recebe a nova versão pela própria loja. O APK direto, que continua sendo gerado a
 cada push, segue com o aviso normalmente.
+
+## Envio automático (desde 25/09)
+
+O workflow **Build Android release (Play)** agora gera o aab **e envia direto
+para a Play**, com as notas de `android/whatsnew/whatsnew-pt-BR`, e manda para
+a revisão da Google (status `completed`). Nada de baixar e subir à mão.
+
+- Rodar: GitHub → Actions → Build Android release (Play) → Run workflow →
+  versão (ex.: 1.16.0) e trilha (`production` por padrão; `internal` para
+  teste interno; `none` só gera o aab).
+- Sem o segredo `PLAY_SERVICE_ACCOUNT_JSON`, o envio é pulado e o aab fica como
+  artefato, como antes.
+
+### Criar a chave (uma vez só)
+
+1. **Google Cloud** (console.cloud.google.com), com a mesma conta Google do
+   Play Console:
+   1. No topo, escolha ou crie um projeto (ex.: "Cronys Play").
+   2. Menu → **APIs e serviços → Biblioteca** → procure **Google Play Android
+      Developer API** → **Ativar**.
+   3. Menu → **IAM e administrador → Contas de serviço → Criar conta de
+      serviço**. Nome: `github-play`. Pode pular as etapas de papel/acesso →
+      **Concluir**.
+   4. Clique na conta criada → aba **Chaves → Adicionar chave → Criar nova
+      chave → JSON → Criar**. Baixa um arquivo `.json` (guarde, é a chave).
+   5. Copie o e-mail da conta de serviço (termina em
+      `@...iam.gserviceaccount.com`).
+2. **Play Console** (play.google.com/console):
+   1. Menu lateral da **conta** (fora do app) → **Usuários e permissões →
+      Convidar novos usuários**.
+   2. E-mail: o da conta de serviço.
+   3. Aba **Permissões do app → Adicionar app → Cronys** → marque:
+      **Liberar para produção, excluir dispositivos e usar a assinatura de
+      apps do Google Play**, **Liberar apps para faixas de teste** e
+      **Gerenciar faixas de teste e editar listas de testadores**.
+   4. **Convidar usuário** → confirmar.
+3. **GitHub** (github.com/tpeleias/aulasmat):
+   1. **Settings → Secrets and variables → Actions → New repository secret**.
+   2. Nome: `PLAY_SERVICE_ACCOUNT_JSON`. Valor: abra o `.json` baixado no Bloco
+      de Notas, copie **tudo** e cole.
+   3. **Add secret**. Depois pode apagar o `.json` do computador.
+
+A permissão nova pode levar algumas horas para valer na Google. Se o primeiro
+envio falhar com "The caller does not have permission", espere e rode de novo.
