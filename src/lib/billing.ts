@@ -1,6 +1,7 @@
 import { accountKey, accountLabel } from "@/lib/balance";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 
+import { L } from "@/lib/i18n";
 export type LedgerTx = {
   id: string;
   guardian_name: string | null;
@@ -92,7 +93,7 @@ export function computeStatements(txs: LedgerTx[], lessons: LedgerLesson[], v: V
         lessonId: t.lesson_id,
         date: lesson?.start_at ?? t.created_at,
         student: lesson?.student_name ?? t.student_name,
-        detail: lesson ? `${lesson.subject ?? v.appointment.s} (${lesson.duration_minutes} min)` : (t.description ?? "Lançamento"),
+        detail: lesson ? `${lesson.subject ?? v.appointment.s} (${lesson.duration_minutes} min)` : (t.description ?? L("Lançamento", "Entry")),
         amount: -amount,
         partial: false,
       });
@@ -160,10 +161,10 @@ export const isOverdue = (s: AccountStatement) => s.owed > 0 && daysOpen(s.oldes
 export type AccountSort = "owed" | "overdue" | "name" | "credit";
 
 export const ACCOUNT_SORTS: { key: AccountSort; label: string }[] = [
-  { key: "owed", label: "Maior dívida" },
-  { key: "overdue", label: "Atraso mais antigo" },
-  { key: "name", label: "Nome (A–Z)" },
-  { key: "credit", label: "Maior crédito" },
+  { key: "owed", label: L("Maior dívida", "Largest balance due") },
+  { key: "overdue", label: L("Atraso mais antigo", "Longest overdue") },
+  { key: "name", label: L("Nome (A–Z)", "Name (A–Z)") },
+  { key: "credit", label: L("Maior crédito", "Largest credit") },
 ];
 
 const byName = (a: AccountStatement, b: AccountStatement) => a.label.localeCompare(b.label, "pt-BR");

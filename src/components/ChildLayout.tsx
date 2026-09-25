@@ -10,6 +10,7 @@ import { UserRound, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks, M
 import { CronysMark } from "@/components/brand";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { L } from "@/lib/i18n";
 export default function ChildLayout() {
   const { session, role, loading, signOut } = useAuth();
   const { student, loading: stLoading } = useStudent();
@@ -24,10 +25,10 @@ export default function ChildLayout() {
   if (student?.child_must_change_password) return <Navigate to="/trocar-senha" replace />;
 
   const items: NavItem[] = [
-    { to: "/meu-painel", label: "Início", icon: LayoutDashboard, end: true },
+    { to: "/meu-painel", label: L("Início", "Home"), icon: LayoutDashboard, end: true },
     { to: "/meu-painel/aulas", label: w.appointment.p, icon: Calendar },
-    { to: "/meu-painel/materiais", label: "Materiais", icon: FolderOpen },
-    { to: "/meu-painel/tarefas", label: "Tarefas", icon: ListChecks },
+    { to: "/meu-painel/materiais", label: L("Materiais", "Materials"), icon: FolderOpen },
+    { to: "/meu-painel/tarefas", label: L("Tarefas", "Tasks"), icon: ListChecks },
   ];
 
   return (
@@ -36,7 +37,7 @@ export default function ChildLayout() {
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
           <CronysMark className="w-8 h-8 shrink-0" />
           <div>
-            <div className="font-semibold text-sm">Meu painel</div>
+            <div className="font-semibold text-sm">{L("Meu painel", "My dashboard")}</div>
             <div className="text-xs text-sidebar-foreground/60">{student?.student_name?.split(" ")[0] ?? w.client.s}</div>
           </div>
         </div>
@@ -53,7 +54,7 @@ export default function ChildLayout() {
         </nav>
         <div className="p-3 border-t border-sidebar-border">
           <ThemeToggle />
-          <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />Minha conta</NavLink></Button>
+          <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />{L("Minha conta", "My account")}</NavLink></Button>
           <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent">
             <LogOut className="w-4 h-4" />Sair
           </Button>
@@ -67,10 +68,10 @@ export default function ChildLayout() {
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
               {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              {theme === "dark" ? "Modo claro" : "Modo escuro"}
+              {theme === "dark" ? L("Modo claro", "Light mode") : L("Modo escuro", "Dark mode")}
             </Button>
-            <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> Minha conta</NavLink></Button>
-            <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
+            <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> {L("Minha conta", "My account")}</NavLink></Button>
+            <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> {L("Sair", "Sign out")}</Button>
           </div>
         )}
       />

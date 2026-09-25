@@ -6,6 +6,7 @@ import infinitepayLogo from "@/assets/infinitepay-logo.png";
 import { buildPixPayload } from "@/lib/pix";
 import { fmtMoney } from "@/lib/balance";
 
+import { L, getCurrency } from "@/lib/i18n";
 // O que vem de settings. Cada empresa diz o nome do próprio link de
 // pagamento - antes era "InfinitePay" cravado para todas.
 export type PaymentSettings = {
@@ -25,11 +26,12 @@ type Props = {
 };
 
 export function PaymentMethods({ settings, amount, compact }: Props) {
-  const pixKey = settings.pix_key?.trim() || null;
+  // Pix só existe no Brasil: fora do real, a empresa cobra pelo link.
+  const pixKey = getCurrency() === "BRL" ? settings.pix_key?.trim() || null : null;
   const paymentLink = settings.payment_link?.trim() || null;
   if (!pixKey && !paymentLink) return null;
 
-  const label = settings.payment_link_label?.trim() || "Link de pagamento";
+  const label = settings.payment_link_label?.trim() || L("Link de pagamento", "Payment link");
   const isInfinitePay = /infinitepay/i.test(label) || /infinitepay/i.test(paymentLink ?? "");
   const pixCode = pixKey && amount && amount > 0
     ? buildPixPayload({ key: pixKey, name: settings.pix_receiver_name ?? "", city: settings.pix_city ?? "", amount })
@@ -52,7 +54,7 @@ export function PaymentMethods({ settings, amount, compact }: Props) {
           </div>
           {pixCode && (
             <Button className="w-full gap-2" onClick={() => copy(pixCode, "Código Pix copiado - cole no app do seu banco")}>
-              <Copy className="w-4 h-4" /> Copiar Pix de {fmtMoney(amount!)}
+              <Copy className="w-4 h-4" /> {L("Copiar Pix de", "Copy Pix for")} {fmtMoney(amount!)}
             </Button>
           )}
           <div className="rounded-md bg-muted p-2 flex items-center justify-between gap-2">
@@ -84,7 +86,7 @@ export function PaymentMethods({ settings, amount, compact }: Props) {
           <Button asChild className="w-full gap-2">
             <a href={paymentLink} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="w-4 h-4" />
-              Abrir {label}
+              {L("Abrir", "Open")} {label}
             </a>
           </Button>
         </Card>

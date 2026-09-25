@@ -8,18 +8,18 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, BookOpen, GraduationCap, MessageSquarePlus, Pencil } from "lucide-react";
 import { format, isPast } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { capitalize } from "@/lib/balance";
 import { buildTimeline, computeAttendance, type EvolutionLesson, type EvolutionHomework } from "@/lib/evolution";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SubmissionRow = { homework_id: string; teacher_feedback: string | null; submitted_at: string };
 
 const homeworkLabel = (h: { status: string; deadline: string }) =>
-  h.status === "entregue" ? "Entregue" : isPast(new Date(h.deadline)) ? "Atrasada" : "Pendente";
+  h.status === "entregue" ? L("Entregue", "Submitted") : isPast(new Date(h.deadline)) ? L("Atrasada", "Late") : L("Pendente", "Pending");
 
 // lessons não tem student_id (é texto, como o resto do app - accountKey em
 // balance.ts é a mesma ideia, mas agrupa por FAMÍLIA; aqui precisa ser por
@@ -93,41 +93,41 @@ export default function EvolutionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Evolução {w.client.do} {w.client.l}</h1>
-        <p className="text-sm text-muted-foreground">Presença, resumo {w.appointment.dos} {w.appointment.lp} e devolutiva das tarefas, numa linha do tempo.</p>
+        <h1 className="text-2xl font-bold">{L(`Evolução ${w.client.do} ${w.client.l}`, `${w.client.s} progress`)}</h1>
+        <p className="text-sm text-muted-foreground">{L(`Presença, resumo ${w.appointment.dos} ${w.appointment.lp} e devolutiva das tarefas, numa linha do tempo.`, `Attendance, ${w.appointment.l} notes and homework feedback, on a timeline.`)}</p>
       </div>
 
       <Select value={studentId} onValueChange={v => setSearchParams({ aluno: v })}>
-        <SelectTrigger className="w-full max-w-sm h-10 rounded-xl"><SelectValue placeholder={`Escolha ${w.client.o} ${w.client.l}`} /></SelectTrigger>
+        <SelectTrigger className="w-full max-w-sm h-10 rounded-xl"><SelectValue placeholder={L(`Escolha ${w.client.o} ${w.client.l}`, `Choose the ${w.client.l}`)} /></SelectTrigger>
         <SelectContent>
           {students.map(s => <SelectItem key={s.id} value={s.id}>{s.student_name}</SelectItem>)}
         </SelectContent>
       </Select>
 
       {!student ? (
-        <EmptyState icon={GraduationCap} title={`Escolha ${w.client.um} ${w.client.l}`} description="A evolução é individual - escolha quem você quer acompanhar." />
+        <EmptyState icon={GraduationCap} title={L(`Escolha ${w.client.um} ${w.client.l}`, `Choose ${w.client.um} ${w.client.l}`)} description={L("A evolução é individual - escolha quem você quer acompanhar.", "Progress is individual - choose who you want to follow.")} />
       ) : (
         <>
           <div className="grid grid-cols-3 gap-3">
             <Card className="rounded-2xl p-4">
-              <div className="text-xs text-muted-foreground uppercase">Presença</div>
+              <div className="text-xs text-muted-foreground uppercase">{L("Presença", "Attendance")}</div>
               <div className="mt-1 text-2xl font-bold tabular-nums">{attendance.total > 0 ? `${attendance.taxa}%` : "—"}</div>
-              <div className="text-xs text-muted-foreground">{attendance.realizadas} de {attendance.total} {attendance.total === 1 ? w.appointment.l : w.appointment.lp}</div>
+              <div className="text-xs text-muted-foreground">{attendance.realizadas} {L("de", "of")} {attendance.total} {attendance.total === 1 ? w.appointment.l : w.appointment.lp}</div>
             </Card>
             <Card className="rounded-2xl p-4">
-              <div className="text-xs text-muted-foreground uppercase">Canceladas</div>
+              <div className="text-xs text-muted-foreground uppercase">{L("Canceladas", "Canceled")}</div>
               <div className="mt-1 text-2xl font-bold tabular-nums">{attendance.canceladas}</div>
             </Card>
             <Card className="rounded-2xl p-4">
-              <div className="text-xs text-muted-foreground uppercase">Recusadas</div>
+              <div className="text-xs text-muted-foreground uppercase">{L("Recusadas", "Declined")}</div>
               <div className="mt-1 text-2xl font-bold tabular-nums">{attendance.recusadas}</div>
             </Card>
           </div>
 
           <div>
-            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">Linha do tempo</div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Linha do tempo", "Timeline")}</div>
             {timeline.length === 0 ? (
-              <EmptyState icon={TrendingUp} title="Nada ainda" description={`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} e tarefas aparecem aqui conforme acontecem.`} />
+              <EmptyState icon={TrendingUp} title={L("Nada ainda", "Nothing yet")} description={L(`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} e tarefas aparecem aqui conforme acontecem.`, `Completed ${w.appointment.lp} and homework show up here as they happen.`)} />
             ) : (
               <ul className="space-y-2">
                 {timeline.map((e, i) => (
@@ -137,13 +137,13 @@ export default function EvolutionPage() {
                         <>
                           <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium capitalize">{format(new Date(e.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
+                            <span className="font-medium capitalize">{format(new Date(e.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
                             <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
                           </div>
                           {e.summary ? (
                             <div className="mt-1.5 flex items-start gap-2">
                               <p className="flex-1 whitespace-pre-wrap text-sm text-muted-foreground">{e.summary}</p>
-                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="Editar resumo"
+                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title={L("Editar resumo", "Edit notes")}
                                 onClick={() => setEditing({ id: e.id, student_name: student.student_name, start_at: e.date, subject: e.subject, class_summary: e.summary })}>
                                 <Pencil className="h-3.5 w-3.5" />
                               </Button>
@@ -151,7 +151,7 @@ export default function EvolutionPage() {
                           ) : (
                             <Button size="sm" variant="outline" className="mt-2 h-8 gap-1.5 rounded-xl text-xs"
                               onClick={() => setEditing({ id: e.id, student_name: student.student_name, start_at: e.date, subject: e.subject, class_summary: null })}>
-                              <MessageSquarePlus className="h-3.5 w-3.5" /> Como foi? Escrever resumo
+                              <MessageSquarePlus className="h-3.5 w-3.5" /> {L("Como foi? Escrever resumo", "How did it go? Write notes")}
                             </Button>
                           )}
                         </>
@@ -161,7 +161,7 @@ export default function EvolutionPage() {
                             <BookOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="font-medium">{e.title}</span>
                             <Badge variant={e.status === "entregue" ? "secondary" : "outline"} className="text-[10px]">{homeworkLabel({ status: e.status, deadline: e.date })}</Badge>
-                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{format(new Date(e.date), "dd/MM", { locale: ptBR })}</span>
+                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{format(new Date(e.date), L("dd/MM", "MMM d"), { locale: dateLocale() })}</span>
                           </div>
                           {e.feedback && <p className="mt-1.5 text-sm text-muted-foreground">{e.feedback}</p>}
                         </>

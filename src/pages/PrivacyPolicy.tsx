@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
+import { isEnglish } from "@/lib/i18n";
+import { PrivacyEn } from "@/pages/LegalEn";
 
 // The Play Console requires a public privacy policy URL, and it has to describe what the
 // app really does. This is a draft written from the app's actual behaviour: read it and
@@ -19,7 +21,8 @@ export default function PrivacyPolicy() {
       .then(({ data }) => setContact(((data as any)?.contact_email ?? "").trim() || null));
   }, []);
 
-  useEffect(() => { document.title = "Privacidade — Cronys"; }, []);
+  useEffect(() => { document.title = isEnglish() ? "Privacy — Cronys" : "Privacidade — Cronys"; }, []);
+  if (isEnglish()) return <PrivacyEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">

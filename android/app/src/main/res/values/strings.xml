@@ -8,4 +8,19 @@
     <string name="widget_description">Próximas aulas, com atalhos para o assistente e para marcar aula</string>
     <string name="widget_billing_description">Quanto há a receber e quem está em aberto</string>
     <string name="widget_assistant_description">Abre o assistente pronto para digitar, com atalhos rápidos</string>
+    <!-- Widgets: em inglês pelo values-en, conforme o idioma do celular. -->
+    <string name="w_assistant_caps">ASSISTENTE</string>
+    <string name="w_assistant_hint">Pergunte ou peça algo…</string>
+    <string name="w_today">Hoje</string>
+    <string name="w_outstanding">Em aberto</string>
+    <string name="w_book">Marcar</string>
+    <string name="w_receivable_caps">A RECEBER</string>
+    <string name="w_upcoming">Próximas aulas</string>
+    <string name="w_no_upcoming">Nenhuma aula nos próximos dias</string>
+    <string name="w_assistant_btn">✦  Assistente</string>
+    <string name="w_new_btn">＋  Nova aula</string>
+    <string name="w_open_to_load">Abra o app para carregar</string>
+    <string name="w_all_clear">Tudo em dia</string>
+    <string name="w_one_open">1 conta em aberto</string>
+    <string name="w_many_open">%d contas em aberto</string>
 </resources>

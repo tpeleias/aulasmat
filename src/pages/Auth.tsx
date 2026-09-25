@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, ArrowRight } from "lucide-react";
+import { Loader2, ArrowRight, Globe } from "lucide-react";
 import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
@@ -14,6 +14,7 @@ import { publicSiteUrl } from "@/lib/publicUrl";
 import { Capacitor } from "@capacitor/core";
 
 
+import { L, getLocale, getCurrency, setLocale, isEnglish } from "@/lib/i18n";
 export default function Auth() {
   const { session, role, isPlatformAdmin, loading } = useAuth();
   const [signup, setSignup] = useState(false);
@@ -37,7 +38,7 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => { document.title = "Acesso — Cronys"; }, []);
+  useEffect(() => { document.title = L("Acesso — Cronys", "Sign in — Cronys"); }, []);
 
   if (loading) return null;
   if (session) {
@@ -58,23 +59,23 @@ export default function Auth() {
     // address on an internal domain. Anything without "@" is treated as a username.
     const isUsername = !typed.includes("@");
     if (isUsername && !isValidUsername(typed)) {
-      toast.error("Informe um e-mail válido ou um nome de usuário (3-30 caracteres).");
+      toast.error(L("Informe um e-mail válido ou um nome de usuário (3-30 caracteres).", "Enter a valid email or a username (3-30 characters)."));
       return;
     }
     if (signup && !acceptTerms) {
-      toast.error("Para criar a conta, aceite os termos de uso e a política de privacidade.");
+      toast.error(L("Para criar a conta, aceite os termos de uso e a política de privacidade.", "To create an account, accept the terms of use and the privacy policy."));
       return;
     }
     if (signup && signupKind === "school" && (!schoolName.trim() || !teacherName.trim())) {
-      toast.error("Informe o nome da empresa e o seu nome.");
+      toast.error(L("Informe o nome da empresa e o seu nome.", "Enter the business name and your name."));
       return;
     }
     if (signup && signupKind === "family" && codeRequired && !schoolCode.trim()) {
-      toast.error("Informe o código da empresa - peça a quem te atende.");
+      toast.error(L("Informe o código da empresa - peça a quem te atende.", "Enter the business code - ask your provider for it."));
       return;
     }
     if (signup && isUsername) {
-      toast.error("Para criar uma conta é preciso um e-mail. Peça a quem te atende um acesso por usuário.");
+      toast.error(L("Para criar uma conta é preciso um e-mail. Peça a quem te atende um acesso por usuário.", "Creating an account requires an email. Ask your provider for a username login."));
       return;
     }
     const loginEmail = isUsername ? usernameToEmail(typed) : typed;
@@ -86,17 +87,18 @@ export default function Auth() {
             emailRedirectTo: publicSiteUrl() + "/",
             // Lido por handle_new_user no banco (migration 20260924020000).
             data: signupKind === "school"
-              ? { signup_kind: "school", school_name: schoolName.trim(), teacher_name: teacherName.trim() }
+              // Língua e moeda do aparelho: a empresa nasce nelas (migration 20260925180000).
+              ? { signup_kind: "school", school_name: schoolName.trim(), teacher_name: teacherName.trim(), locale: getLocale(), currency: getCurrency() }
               : schoolCode.trim() ? { school_code: schoolCode.trim().toLowerCase() } : {},
           },
         })
       : await supabase.auth.signInWithPassword({ email: loginEmail, password });
     setBusy(false);
-    if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? "Usuário ou senha incorretos." : "E-mail ou senha incorretos."); return; }
+    if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? L("Usuário ou senha incorretos.", "Wrong username or password.") : L("E-mail ou senha incorretos.", "Wrong email or password.")); return; }
     haptics.success();
     if (signup) toast.success(signupKind === "school"
-      ? "Empresa criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre."
-      : "Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.");
+      ? L("Empresa criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre.", "Business created! You have 14 days of Cronys Pro to try it. If we ask you to confirm by email, confirm and sign in.")
+      : L("Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.", "Account created! Ask your provider to link your login to your profile."));
   };
 
   return (
@@ -114,9 +116,14 @@ export default function Auth() {
                 a cor da marca, e um quadradinho por cima só somaria borda. */}
             <div>
               <CronysWordmark tamanho="2.25rem" className="text-brand-ink" />
-              <div className="text-sm text-sidebar-foreground/70">Agenda, clientes e cobrança</div>
+              <div className="text-sm text-sidebar-foreground/70">{L("Agenda, clientes e cobrança", "Scheduling, clients and billing")}</div>
             </div>
           </div>
+          {/* Quem ainda não tem conta escolhe a língua aqui; depois vale a da empresa. */}
+          <button type="button" onClick={() => { setLocale(isEnglish() ? "pt-BR" : "en", isEnglish() ? "BRL" : "USD"); window.location.reload(); }}
+            className="absolute right-4 top-4 flex items-center gap-1 rounded-full border border-sidebar-foreground/20 px-2.5 py-1 text-xs text-sidebar-foreground/80 hover:bg-sidebar-foreground/10">
+            <Globe className="h-3.5 w-3.5" /> {isEnglish() ? "Português" : "English"}
+          </button>
         </div>
 
         {/* Form panel overlapping the hero */}
@@ -126,26 +133,26 @@ export default function Auth() {
               é tratado como usuário, e quem decide a tela depois é o papel da
               conta, não a aba. */}
           <h2 className="mb-5 text-lg font-semibold">
-            {signup ? (signupKind === "school" ? "Criar sua empresa" : "Criar conta") : "Entrar"}
+            {signup ? (signupKind === "school" ? L("Criar sua empresa", "Create your business") : L("Criar conta", "Create account")) : L("Entrar", "Sign in")}
           </h2>
 
           <form onSubmit={submitAccount} className="space-y-4">
             {signup && signupKind === "school" && (
               <>
-                <Field label="Nome da empresa (ou o seu, se trabalha sozinho)">
+                <Field label={L("Nome da empresa (ou o seu, se trabalha sozinho)", "Business name (or yours, if you work alone)")}>
                   <Input required value={schoolName} onChange={e => setSchoolName(e.target.value)} className="h-12 rounded-xl" maxLength={120} />
                 </Field>
-                <Field label="Seu nome, como profissional">
+                <Field label={L("Seu nome, como profissional", "Your name, as a professional")}>
                   <Input required value={teacherName} onChange={e => setTeacherName(e.target.value)} className="h-12 rounded-xl" maxLength={60} autoComplete="given-name" />
                 </Field>
               </>
             )}
             {signup && signupKind === "family" && (
-              <Field label={codeRequired ? "Código da empresa" : "Código da empresa (se te passaram)"}>
-                <Input required={codeRequired} value={schoolCode} onChange={e => setSchoolCode(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder="ex.: clinica-avila" className="h-12 rounded-xl" />
+              <Field label={codeRequired ? L("Código da empresa", "Business code") : L("Código da empresa (se te passaram)", "Business code (if you got one)")}>
+                <Input required={codeRequired} value={schoolCode} onChange={e => setSchoolCode(e.target.value)} autoCapitalize="none" autoCorrect="off" placeholder={L("ex.: clinica-avila", "e.g. smith-studio")} className="h-12 rounded-xl" />
               </Field>
             )}
-            <Field label={signup ? "E-mail" : "E-mail ou usuário"}>
+            <Field label={signup ? L("E-mail", "Email") : L("E-mail ou usuário", "Email or username")}>
               <Input
                 type={signup ? "email" : "text"}
                 required
@@ -157,43 +164,43 @@ export default function Auth() {
                 autoCorrect="off"
                 value={email}
                 onChange={e => setEmail(signup ? e.target.value : e.target.value.trimStart())}
-                placeholder={signup ? "seu@email.com" : "seu@email.com ou seu usuário"}
+                placeholder={signup ? L("seu@email.com", "you@email.com") : L("seu@email.com ou seu usuário", "you@email.com or your username")}
                 className="h-12 rounded-xl"
               />
             </Field>
-            <Field label="Senha">
+            <Field label={L("Senha", "Password")}>
               <Input type="password" required name="password" id="login-password" minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />
             </Field>
             {signup && (
               <label className="flex items-start gap-2 text-xs text-muted-foreground">
                 <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
-                <span>Li e aceito os <Link to="/termos" className="text-primary underline">termos de uso</Link> e a <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.</span>
+                <span>{L("Li e aceito os", "I have read and accept the")} <Link to="/termos" className="text-primary underline">{L("termos de uso", "terms of use")}</Link> {L("e a", "and the")} <Link to="/privacidade" className="text-primary underline">{L("política de privacidade", "privacy policy")}</Link>.</span>
               </label>
             )}
             <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-              {signup ? (signupKind === "school" ? "Criar minha empresa" : "Criar conta") : "Entrar"}
+              {signup ? (signupKind === "school" ? L("Criar minha empresa", "Create my business") : L("Criar conta", "Create account")) : L("Entrar", "Sign in")}
             </Button>
             {signup ? (
               <p className="text-center text-xs text-muted-foreground">
-                Já tem conta? <button type="button" className="font-medium text-primary" onClick={() => setSignup(false)}>Entrar</button>
+                {L("Já tem conta?", "Already have an account?")} <button type="button" className="font-medium text-primary" onClick={() => setSignup(false)}>{L("Entrar", "Sign in")}</button>
               </p>
             ) : (
               <div className="space-y-1 text-center text-xs text-muted-foreground">
-                <p>Cliente novo? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>Criar conta</button></p>
-                <p>Tem um negócio? <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>Criar minha empresa - 14 dias de Pro grátis</button></p>
+                <p>{L("Cliente novo?", "New client?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>{L("Criar conta", "Create account")}</button></p>
+                <p>{L("Tem um negócio?", "Have a business?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L("Criar minha empresa - 14 dias de Pro grátis", "Create my business - 14 days of Pro free")}</button></p>
               </div>
             )}
             {signup && signupKind === "family" && (
               <p className="text-center text-xs text-muted-foreground">
-                Depois de criar, quem te atende vincula sua conta ao seu cadastro.
+                {L("Depois de criar, quem te atende vincula sua conta ao seu cadastro.", "After you create it, your provider links your account to your profile.")}
               </p>
             )}
           </form>
 
           <div className="mt-8 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-            Ainda não é cliente?{" "}
-            <Link to="/inicio" className="font-medium text-primary">Veja os horários disponíveis</Link>
+            {L("Ainda não é cliente?", "Not a client yet?")}{" "}
+            <Link to="/inicio" className="font-medium text-primary">{L("Veja os horários disponíveis", "See available times")}</Link>
           </div>
         </div>
       </div>
@@ -216,12 +223,12 @@ function PendingScreen() {
     <div className="flex flex-1 items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
-        <h2 className="text-xl font-semibold">Conta aguardando liberação</h2>
+        <h2 className="text-xl font-semibold">{L("Conta aguardando liberação", "Account waiting for approval")}</h2>
         <p className="text-sm text-muted-foreground">
-          Sua conta ({user?.email}) foi criada, mas quem te atende ainda precisa vincular você ao seu cadastro.
-          Avise com este e-mail para liberar seu acesso.
+          {L(`Sua conta (${user?.email}) foi criada, mas quem te atende ainda precisa vincular você ao seu cadastro. Avise com este e-mail para liberar seu acesso.`,
+             `Your account (${user?.email}) was created, but your provider still needs to link you to your profile. Let them know this email to unlock your access.`)}
         </p>
-        <Button onClick={signOut} variant="outline" className="rounded-xl">Sair</Button>
+        <Button onClick={signOut} variant="outline" className="rounded-xl">{L("Sair", "Sign out")}</Button>
       </div>
     </div>
   );

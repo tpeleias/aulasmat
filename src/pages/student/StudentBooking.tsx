@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
@@ -21,12 +20,13 @@ import { lessonErrorMessage } from "@/lib/lessonErrors";
 import { toast } from "sonner";
 import { Calendar, Clock, AlertCircle, Flame, Repeat } from "lucide-react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { capitalize } from "@/lib/balance";
+import { capitalize, fmtMoney } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { useServices, teacherDoes } from "@/hooks/useServices";
 
+import { dateLocale, L } from "@/lib/i18n";
 // "Qualquer profissional" no seletor (Max): o app escolhe pela prioridade.
 const ANY = "__qualquer__";
 
@@ -213,19 +213,20 @@ export default function StudentBooking() {
       // trocar já não está marcada.
       toast.error(error.code === "42501"
         ? noticeHours > 0
-          ? `Pedidos precisam de pelo menos ${noticeHours}h de antecedência. Para algo mais em cima da hora, fale com ${st.o} ${st.l}.`
-          : `Não foi possível enviar o pedido. Atualize a tela e tente de novo.`
+          ? L(`Pedidos precisam de pelo menos ${noticeHours}h de antecedência. Para algo mais em cima da hora, fale com ${st.o} ${st.l}.`, `Requests need at least ${noticeHours}h notice. For anything sooner, talk to the ${st.l}.`)
+          : L(`Não foi possível enviar o pedido. Atualize a tela e tente de novo.`, `Could not send the request. Refresh the page and try again.`)
         : lessonErrorMessage(error, w));
       load();
       return;
     }
     if (original) {
-      toast.success(`Pedido de troca enviado! ${cap(ap.o)} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} responder.`);
+      toast.success(L(`Pedido de troca enviado! ${cap(ap.o)} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} responder.`,
+        `Reschedule request sent! The ${ap.l} on ${format(new Date(original.start_at), "MMM d 'at' HH:mm")} stays booked until the ${st.l} replies.`));
       setBusy(false);
       navigate("/aluno/aulas");
       return;
     }
-    toast.success(`Pedido enviado! ${cap(st.o)} ${st.l} vai avaliar e você recebe a resposta por aqui.`);
+    toast.success(L(`Pedido enviado! ${cap(st.o)} ${st.l} vai avaliar e você recebe a resposta por aqui.`, `Request sent! The ${st.l} will review it and you'll get the answer here.`));
     // Só libera os botões depois que a lista terminar de recarregar. Antes, o
     // horário recém-pedido continuava na tela por um instante, e um segundo
     // toque nele mandava o mesmo pedido de novo.
@@ -241,29 +242,29 @@ export default function StudentBooking() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          {original ? <><Repeat className="w-6 h-6" /> Trocar horário</> : <><Calendar className="w-6 h-6" /> Solicitar {ap.l}</>}
+          {original ? <><Repeat className="w-6 h-6" /> {L("Trocar horário", "Reschedule")}</> : <><Calendar className="w-6 h-6" /> {L(`Solicitar ${ap.l}`, `Request ${ap.um} ${ap.l}`)}</>}
         </h1>
         <p className="text-sm text-muted-foreground">
-          Escolha {st.o} {st.l} e um horário livre. O pedido vai para {st.o} {st.l} aprovar — {ap.o} {ap.l}
-          só entra na agenda depois disso.
-          {noticeHours > 0 && ` Pedidos com pelo menos ${noticeHours}h de antecedência.`}
+          {L(`Escolha ${st.o} ${st.l} e um horário livre. O pedido vai para ${st.o} ${st.l} aprovar — ${ap.o} ${ap.l} só entra na agenda depois disso.`,
+            `Choose the ${st.l} and a free time. The request goes to the ${st.l} for approval — the ${ap.l} is only booked after that.`)}
+          {noticeHours > 0 && L(` Pedidos com pelo menos ${noticeHours}h de antecedência.`, ` Requests need at least ${noticeHours}h notice.`)}
         </p>
       </div>
 
       {trocaId && original && (
         <Card className="flex flex-wrap items-center justify-between gap-2 border-primary/40 p-4 text-sm">
           <div>
-            Trocando {ap.o} {ap.l} de <b>{format(new Date(original.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</b>.
+            {L(`Trocando ${ap.o} ${ap.l} de `, `Rescheduling the ${ap.l} on `)}<b>{format(new Date(original.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</b>.
             <p className="text-xs text-muted-foreground">
-              Ela continua {ap.pick("marcado", "marcada")} até {st.o} {st.l} aprovar o horário novo; se recusar, nada muda.
+              {L(`Ela continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} aprovar o horário novo; se recusar, nada muda.`, `It stays booked until the ${st.l} approves the new time; if declined, nothing changes.`)}
             </p>
           </div>
-          <Button asChild size="sm" variant="ghost"><Link to="/aluno/agendar">Pedir {ap.l} {ap.pick("novo", "nova")} em vez disso</Link></Button>
+          <Button asChild size="sm" variant="ghost"><Link to="/aluno/agendar">{L(`Pedir ${ap.l} ${ap.pick("novo", "nova")} em vez disso`, `Request a new ${ap.l} instead`)}</Link></Button>
         </Card>
       )}
       {trocaId && !original && (
         <Card className="p-4 text-sm text-muted-foreground">
-          Não encontramos {ap.o} {ap.l} a trocar. <Link to="/aluno/aulas" className="text-primary">Voltar</Link>
+          {L(`Não encontramos ${ap.o} ${ap.l} a trocar.`, `We couldn't find the ${ap.l} to reschedule.`)} <Link to="/aluno/aulas" className="text-primary">{L("Voltar", "Back")}</Link>
         </Card>
       )}
 
@@ -271,12 +272,12 @@ export default function StudentBooking() {
         <div className="max-w-xs">
           <label className="text-xs text-muted-foreground">{w.topic.s}</label>
           <Select value={serviceId} onValueChange={setServiceId}>
-            <SelectTrigger><SelectValue placeholder={`Escolha ${w.topic.o} ${w.topic.l}`} /></SelectTrigger>
+            <SelectTrigger><SelectValue placeholder={L(`Escolha ${w.topic.o} ${w.topic.l}`, `Choose the ${w.topic.l}`)} /></SelectTrigger>
             <SelectContent>
               {offered.map(sv => (
                 <SelectItem key={sv.id} value={sv.id}>
                   {sv.name} · {sv.duration_minutes} min
-                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${fmtMoney(Number(sv.price))}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -285,7 +286,7 @@ export default function StudentBooking() {
       )}
 
       {teachers.length === 0 ? (
-        <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {st.nenhum} {st.l} disponível no momento.</Card>
+        <Card className="p-6 text-sm text-muted-foreground flex items-center gap-2"><AlertCircle className="w-4 h-4" /> {L(`${st.nenhum} ${st.l} disponível no momento.`, `No ${st.l} available right now.`)}</Card>
       ) : (
         <>
           <div className="max-w-xs">
@@ -293,28 +294,28 @@ export default function StudentBooking() {
             <Select value={teacher} onValueChange={setTeacher}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {anyAllowed && <SelectItem value={ANY}>Qualquer {st.l} disponível</SelectItem>}
+                {anyAllowed && <SelectItem value={ANY}>{L(`Qualquer ${st.l} disponível`, `Any available ${st.l}`)}</SelectItem>}
                 {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
 
-          {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+          {loading && <p className="text-sm text-muted-foreground">{L("Carregando…", "Loading…")}</p>}
 
           {!loading && slotsByDay.map(({ day, slots }) => (
             <div key={day.toISOString()}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                  {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
                 </h2>
                 {slots.length > 0 && slots.length <= 2 && (
                   <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
-                    <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                    <Flame className="w-3 h-3" /> {slots.length === 1 ? L("Último horário!", "Last slot!") : L("Restam poucos horários!", "Only a few slots left!")}
                   </Badge>
                 )}
               </div>
               {slots.length === 0 ? (
-                <Card className="p-3 text-xs text-muted-foreground">Sem horários livres.</Card>
+                <Card className="p-3 text-xs text-muted-foreground">{L("Sem horários livres.", "No free slots.")}</Card>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                   {slots.map(s => (
@@ -332,7 +333,7 @@ export default function StudentBooking() {
                       className="flex flex-col h-auto py-2"
                     >
                       <span className="flex items-center gap-1 text-sm font-semibold"><Clock className="w-3 h-3" />{fmtTime(s.start)}</span>
-                      <span className="text-[10px] text-muted-foreground">até {fmtTime(s.end)}</span>
+                      <span className="text-[10px] text-muted-foreground">{L("até", "to")} {fmtTime(s.end)}</span>
                     </Button>
                   ))}
                 </div>
@@ -345,24 +346,24 @@ export default function StudentBooking() {
       <AlertDialog open={!!pending} onOpenChange={open => { if (!open) setPending(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{original ? "Pedir a troca para este horário?" : "Deseja solicitar este horário?"}</AlertDialogTitle>
+            <AlertDialogTitle>{original ? L("Pedir a troca para este horário?", "Request to move to this time?") : L("Deseja solicitar este horário?", "Request this time?")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p>
                   {original
-                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
-                    : <>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>}
+                    ? <>{L(`Você vai pedir para trocar ${ap.o} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com`, `You're asking to move the ${ap.l} on ${format(new Date(original.start_at), "MMM d 'at' HH:mm")} to this time, with`)} <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
+                    : <>{L(`Você vai pedir ${ap.um} ${ap.l} com`, `You're requesting ${ap.um} ${ap.l} with`)} <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>}
                 </p>
                 {pending && (
                   <p className="text-foreground font-medium">
-                    {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                    {format(pending.start, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
                     <br />
-                    das {fmtTime(pending.start)} às {fmtTime(pending.end)}
+                    {L(`das ${fmtTime(pending.start)} às ${fmtTime(pending.end)}`, `from ${fmtTime(pending.start)} to ${fmtTime(pending.end)}`)}
                   </p>
                 )}
                 <p>
-                  O horário fica reservado enquanto {st.o} {st.l} não responde, e {ap.o} {ap.l}
-                  entra na agenda só depois da aprovação.
+                  {L(`O horário fica reservado enquanto ${st.o} ${st.l} não responde, e ${ap.o} ${ap.l} entra na agenda só depois da aprovação.`,
+                    `The time is held while the ${st.l} hasn't replied, and the ${ap.l} is only booked after approval.`)}
                 </p>
               </div>
             </AlertDialogDescription>
@@ -378,23 +379,23 @@ export default function StudentBooking() {
                 id="disciplina"
                 value={subject}
                 onChange={e => setSubject(e.target.value)}
-                placeholder={teacherSubject ? `Ex: ${teacherSubject}` : w.model === "aulas" ? "Ex: Matemática" : ""}
+                placeholder={teacherSubject ? L(`Ex: ${teacherSubject}`, `E.g. ${teacherSubject}`) : w.model === "aulas" ? L("Ex: Matemática", "E.g. Math") : ""}
                 autoComplete="off"
               />
             </div>
             )}
 
             <div>
-              <Label htmlFor="assunto">{w.model === "aulas" ? "O que você quer trabalhar?" : "Quer contar algo antes?"} (opcional)</Label>
+              <Label htmlFor="assunto">{w.model === "aulas" ? L("O que você quer trabalhar?", "What do you want to work on?") : L("Quer contar algo antes?", "Anything to share beforehand?")} {L("(opcional)", "(optional)")}</Label>
               <Textarea
                 id="assunto"
                 value={topic}
                 onChange={e => setTopic(e.target.value)}
-                placeholder={w.model === "aulas" ? "Ex: prova na sexta sobre função quadrática; não entendi limites" : "Ex: o que você precisa, sintomas, o que quer fazer"}
+                placeholder={w.model === "aulas" ? L("Ex: prova na sexta sobre função quadrática; não entendi limites", "E.g. test on Friday about quadratics; I didn't get limits") : L("Ex: o que você precisa, sintomas, o que quer fazer", "E.g. what you need, symptoms, what you'd like to do")}
                 rows={3}
               />
               <p className="mt-1 text-xs text-muted-foreground">
-                Ajuda {st.o} {st.l} a chegar {st.pick("preparado", "preparada")}, em vez de descobrir o assunto na hora.
+                {L(`Ajuda ${st.o} ${st.l} a chegar ${st.pick("preparado", "preparada")}, em vez de descobrir o assunto na hora.`, `Helps the ${st.l} come prepared instead of finding out on the spot.`)}
               </p>
             </div>
 
@@ -403,9 +404,9 @@ export default function StudentBooking() {
             {student?.address && (!service || service.mode === "ambos") && (
               <div className="flex items-center justify-between rounded-md border border-border p-3">
                 <div>
-                  <Label htmlFor="online" className="cursor-pointer">{ap.s} on-line</Label>
+                  <Label htmlFor="online" className="cursor-pointer">{L(`${ap.s} on-line`, `Online ${ap.l}`)}</Label>
                   <p className="text-xs text-muted-foreground">
-                    Desligado, {ap.o} {ap.l} é presencial em {student.address}.
+                    {L(`Desligado, ${ap.o} ${ap.l} é presencial em ${student.address}.`, `When off, the ${ap.l} is in person at ${student.address}.`)}
                   </p>
                 </div>
                 <Switch id="online" checked={online} onCheckedChange={setOnline} />
@@ -414,9 +415,9 @@ export default function StudentBooking() {
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{L("Cancelar", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={request} disabled={!subject.trim()}>
-              {original ? "Pedir troca" : "Solicitar horário"}
+              {original ? L("Pedir troca", "Request change") : L("Solicitar horário", "Request time")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

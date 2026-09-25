@@ -1,8 +1,9 @@
 import { Check } from "lucide-react";
+import { L } from "@/lib/i18n";
 import { COLOR_KEYS, PALETTE, type ColorKey } from "@/lib/teacherColors";
 
 /** Bolinhas da paleta do app. `allowNone`: a primeira opção é "sem cor". */
-export function ColorPicker({ value, onChange, allowNone, noneLabel = "Sem cor" }: {
+export function ColorPicker({ value, onChange, allowNone, noneLabel = L("Sem cor", "No color") }: {
   value: string | null | undefined;
   onChange: (c: ColorKey | null) => void;
   allowNone?: boolean;

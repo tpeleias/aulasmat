@@ -1,6 +1,7 @@
 import { accountKey, accountLabel } from "@/lib/balance";
 import type { LedgerTx } from "@/lib/billing";
 
+import { L } from "@/lib/i18n";
 // Dinheiro que entrou de verdade: pacote e pagamento/ajuste positivo. Aula é
 // sempre cobrança (nunca entrada), e voucher é desconto - crédito sem dinheiro
 // trocando de mão. Nem um nem outro é renda pra declarar nem prova de
@@ -40,7 +41,7 @@ export function summarizeIncome(txs: LedgerTx[], year: number, month: number | n
     const amount = Number(t.amount);
     const label = accountLabel(t);
     const k = accountKey(t);
-    rows.push({ date: t.created_at, accountKey: k, accountLabel: label, description: t.description ?? "Pagamento", amount });
+    rows.push({ date: t.created_at, accountKey: k, accountLabel: label, description: t.description ?? L("Pagamento", "Payment"), amount });
     const cur = totals.get(k) ?? { label, total: 0 };
     cur.total = Math.round((cur.total + amount) * 100) / 100;
     totals.set(k, cur);
@@ -65,10 +66,13 @@ export function toCsv(columns: string[], rows: (string | number)[][], sep = ";")
   return lines.join("\n");
 }
 
-export const MESES = [
+export const MESES = L([
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
+], [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+]);
 
 // Anos com pelo menos um lançamento - é a lista que o seletor oferece, pra não
 // mostrar 10 anos vazios pra escolher.

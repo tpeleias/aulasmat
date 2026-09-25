@@ -27,9 +27,11 @@ const norm = (s: string) =>
 // Palavras de cabeçalho, já sem acento. Os ramos usam nomes diferentes
 // (paciente, cliente, tutor), então a lista cobre todos.
 const HEADER_WORDS: Record<Field, string[]> = {
-  student_name: ["nome", "aluno", "aluna", "paciente", "cliente", "pet", "nome do aluno", "nome do paciente", "nome do cliente"],
-  guardian_name: ["responsavel", "responsaveis", "tutor", "tutora", "mae", "pai", "nome do responsavel", "familia"],
-  address: ["endereco", "rua", "local", "endereco completo"],
+  student_name: ["nome", "aluno", "aluna", "paciente", "cliente", "pet", "nome do aluno", "nome do paciente", "nome do cliente",
+    "name", "student", "patient", "client", "customer", "student name", "full name"],
+  guardian_name: ["responsavel", "responsaveis", "tutor", "tutora", "mae", "pai", "nome do responsavel", "familia",
+    "parent", "guardian", "owner", "mother", "father", "family", "parent name"],
+  address: ["endereco", "rua", "local", "endereco completo", "address", "street", "location"],
 };
 
 function headerField(cell: string): Field | null {

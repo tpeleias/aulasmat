@@ -1,11 +1,11 @@
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { fmtMoney } from "@/lib/balance";
 import type { OpenItem } from "@/lib/billing";
 import { buildPixPayload } from "@/lib/pix";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
+import { dateLocale, L, isEnglish } from "@/lib/i18n";
 // Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
 // saía na cobrança de qualquer escola.
 export type PaymentInfo = {
@@ -32,8 +32,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // monoespaçada), então cada aula vira um bloco curto em vez de uma linha longa.
 function dayLabel(iso: string) {
   const d = new Date(iso);
-  const weekday = format(d, "EEEE", { locale: ptBR }).replace("-feira", "");
-  return `${weekday[0].toUpperCase()}${weekday.slice(1)}, ${format(d, "dd/MM")}`;
+  const weekday = format(d, "EEEE", { locale: dateLocale() }).replace("-feira", "").slice(0, isEnglish() ? 3 : undefined);
+  return `${weekday[0].toUpperCase()}${weekday.slice(1)}, ${format(d, L("dd/MM", "MMM d"))}`;
 }
 
 // billing.ts monta "Matemática (60 min)"; aqui vira "Matemática · 60 min".
@@ -45,7 +45,7 @@ function detailLabel(detail: string) {
 // O rótulo do banco é "Desconto de 10% - Aula em 20/08 15:00 (60 min)"; a
 // data já está no cabeçalho do bloco, então só a regra interessa.
 function discountRule(label: string) {
-  return label.split(";")[0].split(" - ")[0].trim() || "Desconto";
+  return label.split(";")[0].split(" - ")[0].trim() || L("Desconto", "Discount");
 }
 
 function pixLine(key: string) {
@@ -74,18 +74,18 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
     discounts += disc;
     paid += Math.max(alreadyPaid, 0);
 
-    const when = `📅 *${dayLabel(i.date)}* às ${format(new Date(i.date), "HH:mm")}`;
+    const when = `📅 *${dayLabel(i.date)}* ${L("às", "at")} ${format(new Date(i.date), "HH:mm")}`;
     const what = single ? detailLabel(i.detail) : `${detailLabel(i.detail)} · ${i.student}`;
     const lines = [when, what];
 
     if (disc > 0) {
       lines.push(`💰 ~${fmtMoney(full)}~ → *${fmtMoney(round2(full - disc))}*`);
-      lines.push(`🎁 _${discountRule(i.discount!.label)}: você economiza ${fmtMoney(disc)}_`);
+      lines.push(L(`🎁 _${discountRule(i.discount!.label)}: você economiza ${fmtMoney(disc)}_`, `🎁 _${discountRule(i.discount!.label)}: you save ${fmtMoney(disc)}_`));
     } else {
       lines.push(`💰 ${fmtMoney(full)}`);
     }
     if (alreadyPaid > 0) {
-      lines.push(`✅ _Já recebemos ${fmtMoney(alreadyPaid)} d${ap.este} ${ap.l}; falta *${fmtMoney(i.amount)}*_`);
+      lines.push(L(`✅ _Já recebemos ${fmtMoney(alreadyPaid)} d${ap.este} ${ap.l}; falta *${fmtMoney(i.amount)}*_`, `✅ _We already received ${fmtMoney(alreadyPaid)} for this ${ap.l}; *${fmtMoney(i.amount)}* left_`));
     }
     return lines.join("\n");
   });
@@ -96,15 +96,15 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
     ? [
         rule,
         `${ap.p}: ${fmtMoney(round2(gross))}`,
-        discounts > 0 && `🎁 Descontos: − ${fmtMoney(round2(discounts))}`,
-        paid > 0 && `✅ Já pago: − ${fmtMoney(round2(paid))}`,
-        `*Total a pagar: ${fmtMoney(total)}*`,
+        discounts > 0 && `🎁 ${L("Descontos", "Discounts")}: − ${fmtMoney(round2(discounts))}`,
+        paid > 0 && `✅ ${L("Já pago", "Already paid")}: − ${fmtMoney(round2(paid))}`,
+        `*${L("Total a pagar", "Total due")}: ${fmtMoney(total)}*`,
         rule,
       ].filter(Boolean).join("\n")
-    : `${rule}\n*Total a pagar: ${fmtMoney(total)}*\n${rule}`;
+    : `${rule}\n*${L("Total a pagar", "Total due")}: ${fmtMoney(total)}*\n${rule}`;
 
   const savings = discounts > 0
-    ? `\n\n💚 Com o seu desconto, você está economizando *${fmtMoney(round2(discounts))}* n${ap.pick("estes", "estas")} ${ap.lp}.`
+    ? L(`\n\n💚 Com o seu desconto, você está economizando *${fmtMoney(round2(discounts))}* n${ap.pick("estes", "estas")} ${ap.lp}.`, `\n\n💚 With your discount, you're saving *${fmtMoney(round2(discounts))}* on these ${ap.lp}.`)
     : "";
 
   const pix = payment.pixKey?.trim();
@@ -114,7 +114,7 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
   const pixCode = pix && total > 0
     ? buildPixPayload({ key: pix, name: payment.pixName ?? "", city: payment.pixCity ?? "", amount: total })
     : null;
-  const label = payment.linkLabel?.trim() || "Link de pagamento";
+  const label = payment.linkLabel?.trim() || L("Link de pagamento", "Payment link");
   const note = payment.linkNote?.trim();
   const ways = [
     pix && [
@@ -123,12 +123,12 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
     ].filter(Boolean).join("\n\n"),
     link && `🔗 *${label}*\n${link}${note ? `\n${note}` : ""}`,
   ].filter(Boolean) as string[];
-  const howToPay = ways.length ? `\n\n*Como pagar* (do jeito mais fácil pra você):\n\n${ways.join("\n\n")}` : "";
+  const howToPay = ways.length ? L(`\n\n*Como pagar* (do jeito mais fácil pra você):\n\n${ways.join("\n\n")}`, `\n\n*How to pay*:\n\n${ways.join("\n\n")}`) : "";
 
   // O texto em volta é o modelo da empresa (Mensagens); a lista, o resumo e o
   // "como pagar" continuam montados aqui, com as contas certas.
   return fillTemplate(templateFor("cobranca", v, templates), {
-    de_aluno: single ? ` de *${single.trim()}*` : "",
+    de_aluno: single ? L(` de *${single.trim()}*`, ` for *${single.trim()}*`) : "",
     aluno: single?.trim() ?? "",
     lista: blocks.join("\n\n"),
     resumo: `${summary}${savings}`,

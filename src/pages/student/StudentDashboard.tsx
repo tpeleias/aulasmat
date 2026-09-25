@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Calendar, Wallet, FolderOpen, ListChecks, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
@@ -21,7 +20,8 @@ import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { dateLocale, L } from "@/lib/i18n";
+const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentDashboard() {
   const { student, loading } = useStudent();
@@ -80,42 +80,42 @@ export default function StudentDashboard() {
   const credit = statement && statement.balance > 0 ? statement.balance : 0;
   const openItems = statement?.items ?? [];
 
-  if (loading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">{L("Carregando...", "Loading...")}</p>;
   if (!student) return (
     <Card className="p-6">
-      <h2 className="font-semibold mb-2">Conta sem vínculo</h2>
-      <p className="text-sm text-muted-foreground">Avise quem te atende para vincular sua conta ao cadastro.</p>
+      <h2 className="font-semibold mb-2">{L("Conta sem vínculo", "Account not linked")}</h2>
+      <p className="text-sm text-muted-foreground">{L("Avise quem te atende para vincular sua conta ao cadastro.", "Ask your provider to link your account to your profile.")}</p>
     </Card>
   );
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Olá, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
-        <p className="text-sm text-muted-foreground">Aqui está um resumo {ap.pick("dos seus", "das suas")} {ap.lp} e tarefas.</p>
+        <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
+        <p className="text-sm text-muted-foreground">{L(`Aqui está um resumo ${ap.pick("dos seus", "das suas")} ${ap.lp} e tarefas.`, `Here's a summary of your ${ap.lp} and tasks.`)}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Calendar} label={`${ap.proximos} ${ap.lp}`} value={upcoming.length} href="/aluno/aulas" />
         <StatCard
           icon={Wallet}
-          label={owed > 0 ? "Em aberto" : "Crédito"}
+          label={owed > 0 ? L("Em aberto", "Outstanding") : L("Crédito", "Credit")}
           value={fmt(owed > 0 ? owed : credit)}
           href="/aluno/financeiro"
           tone={owed > 0 ? "destructive" : "default"}
         />
-        <StatCard icon={ListChecks} label="Tarefas pendentes" value={dueHomework.length} href="/aluno/tarefas" />
-        <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/aluno/materiais" />
+        <StatCard icon={ListChecks} label={L("Tarefas pendentes", "Pending tasks")} value={dueHomework.length} href="/aluno/tarefas" />
+        <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/aluno/materiais" />
       </div>
 
       {requests.length > 0 && (
         <Card className="p-5 space-y-3">
-          <h2 className="font-semibold">Seus pedidos</h2>
+          <h2 className="font-semibold">{L("Seus pedidos", "Your requests")}</h2>
           {requests.map(l => (
             <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
               <div>
-                <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
-                <div className="text-xs text-muted-foreground">{l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
+                <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+                <div className="text-xs text-muted-foreground">{l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
@@ -135,10 +135,10 @@ export default function StudentDashboard() {
         {upcoming.slice(0, 5).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
             </div>
-            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+            <WhatsAppButton teacher={l.teacher} message={L(`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`, `Hi! About the ${ap.l} on ${format(new Date(l.start_at), "MMM d, HH:mm")}`)} />
           </div>
         ))}
       </Card>
@@ -146,12 +146,12 @@ export default function StudentDashboard() {
       {owed > 0 && (
         <Card className="p-5 space-y-3 border-destructive/40">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold text-destructive">{ap.p} em aberto</h2>
+            <h2 className="font-semibold text-destructive">{L(`${ap.p} em aberto`, `Outstanding ${ap.lp}`)}</h2>
             <span className="text-sm font-bold text-destructive tabular-nums">{fmtMoney(owed)}</span>
           </div>
           {openItems.slice(0, 6).map(i => (
             <div key={i.id} className="flex items-center justify-between gap-2 text-sm border-t border-border pt-2 first:border-0 first:pt-0">
-              <span>{format(new Date(i.date), "dd/MM HH:mm")}<span className="text-muted-foreground"> · {i.detail}</span></span>
+              <span>{format(new Date(i.date), L("dd/MM HH:mm", "MMM d, HH:mm"))}<span className="text-muted-foreground"> · {i.detail}</span></span>
               <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
             </div>
           ))}
@@ -164,19 +164,19 @@ export default function StudentDashboard() {
       {owed === 0 && credit > 0 && (
         <Card className="p-5 border-success/40">
           <div className="flex items-center justify-between gap-2">
-            <h2 className="font-semibold">Crédito disponível</h2>
+            <h2 className="font-semibold">{L("Crédito disponível", "Available credit")}</h2>
             <span className="text-sm font-bold tabular-nums">{fmtMoney(credit)}</span>
           </div>
-          <p className="mt-1 text-xs text-muted-foreground">Vale para {ap.os} {ap.pick("próximos", "próximas")} {ap.lp}. Nada em aberto por aqui.</p>
+          <p className="mt-1 text-xs text-muted-foreground">{L(`Vale para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}. Nada em aberto por aqui.`, `Applies to your next ${ap.lp}. Nothing outstanding.`)}</p>
         </Card>
       )}
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">{ap.pick("Últimos", "Últimas")} {ap.lp} {ap.pick("realizados", "realizadas")}</h2>
+        <h2 className="font-semibold">{L(`${ap.pick("Últimos", "Últimas")} ${ap.lp} ${ap.pick("realizados", "realizadas")}`, `Recent ${ap.lp}`)}</h2>
         {past.slice(0, 5).map(l => (
           <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
               <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
             </div>
             {l.class_summary && (
@@ -202,28 +202,28 @@ function ChildAccessCard({ student }: { student: any }) {
   const [showReset, setShowReset] = useState(false);
 
   const create = async () => {
-    if (!isValidUsername(username)) { toast.error("Username inválido (3-30 caracteres: letras minúsculas, números, ponto, traço, underline)"); return; }
-    if (password.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    if (!isValidUsername(username)) { toast.error(L("Username inválido (3-30 caracteres: letras minúsculas, números, ponto, traço, underline)", "Invalid username (3-30 characters: lowercase letters, numbers, dot, dash, underscore)")); return; }
+    if (password.length < 6) { toast.error(L("Senha deve ter ao menos 6 caracteres", "Password must be at least 6 characters")); return; }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("create-child-account", {
       body: { student_id: student.id, username, password, action: "create" },
     });
     setBusy(false);
     if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
-    toast.success(`Acesso criado para ${(data as any).username}`);
+    toast.success(L(`Acesso criado para ${(data as any).username}`, `Access created for ${(data as any).username}`));
     setCreated((data as any).username);
     setUsername(""); setPassword("");
   };
 
   const reset = async () => {
-    if (resetPw.length < 6) { toast.error("Senha deve ter ao menos 6 caracteres"); return; }
+    if (resetPw.length < 6) { toast.error(L("Senha deve ter ao menos 6 caracteres", "Password must be at least 6 characters")); return; }
     setBusy(true);
     const { data, error } = await supabase.functions.invoke("create-child-account", {
       body: { student_id: student.id, password: resetPw, action: "reset" },
     });
     setBusy(false);
     if (error || (data as any)?.error) { toast.error((data as any)?.error || error?.message || "Erro"); return; }
-    toast.success(`Senha redefinida. ${cap(w.client.o)} ${w.client.l} vai trocá-la no próximo acesso.`);
+    toast.success(L(`Senha redefinida. ${cap(w.client.o)} ${w.client.l} vai trocá-la no próximo acesso.`, `Password reset. The ${w.client.l} will change it at next sign-in.`));
     setResetPw(""); setShowReset(false);
   };
 
@@ -231,28 +231,28 @@ function ChildAccessCard({ student }: { student: any }) {
     <Card className="p-5 space-y-3">
       <div className="flex items-center gap-2">
         <UserPlus className="w-4 h-4 text-primary" />
-        <h2 className="font-semibold">Acesso {w.client.do} {w.client.l}</h2>
+        <h2 className="font-semibold">{L(`Acesso ${w.client.do} ${w.client.l}`, `${w.client.s} access`)}</h2>
       </div>
       <p className="text-xs text-muted-foreground">
-        Crie um login simples para o seu filho(a) acessar somente {w.appointment.os} {w.appointment.lp}, materiais e tarefas (sem dados financeiros).
+        {L(`Crie um login simples para o seu filho(a) acessar somente ${w.appointment.os} ${w.appointment.lp}, materiais e tarefas (sem dados financeiros).`, `Create a simple login so your child can see only the ${w.appointment.lp}, materials and tasks (no financial data).`)}
       </p>
 
       {created ? (
         <div className="space-y-3">
           <div className="rounded-md bg-muted p-3 text-sm">
-            <div className="text-xs text-muted-foreground">Nome de usuário</div>
+            <div className="text-xs text-muted-foreground">{L("Nome de usuário", "Username")}</div>
             <div className="font-mono font-bold">{created}</div>
           </div>
           {!showReset ? (
             <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowReset(true)}>
-              <KeyRound className="w-4 h-4" /> Redefinir senha
+              <KeyRound className="w-4 h-4" /> {L("Redefinir senha", "Reset password")}
             </Button>
           ) : (
             <div className="space-y-2 border-t border-border pt-3">
-              <div><Label>Nova senha</Label><Input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} minLength={6} /></div>
+              <div><Label>{L("Nova senha", "New password")}</Label><Input type="password" value={resetPw} onChange={e => setResetPw(e.target.value)} minLength={6} /></div>
               <div className="flex gap-2">
-                <Button onClick={reset} disabled={busy} size="sm">Salvar nova senha</Button>
-                <Button variant="ghost" size="sm" onClick={() => { setShowReset(false); setResetPw(""); }}>Cancelar</Button>
+                <Button onClick={reset} disabled={busy} size="sm">{L("Salvar nova senha", "Save new password")}</Button>
+                <Button variant="ghost" size="sm" onClick={() => { setShowReset(false); setResetPw(""); }}>{L("Cancelar", "Cancel")}</Button>
               </div>
             </div>
           )}
@@ -260,11 +260,11 @@ function ChildAccessCard({ student }: { student: any }) {
       ) : (
         <div className="space-y-2">
           <div>
-            <Label>Nome de usuário</Label>
-            <Input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder="ex: miguel.silva" autoCapitalize="none" autoCorrect="off" />
+            <Label>{L("Nome de usuário", "Username")}</Label>
+            <Input value={username} onChange={e => setUsername(normalizeUsername(e.target.value))} placeholder={L("ex: miguel.silva", "e.g. mike.smith")} autoCapitalize="none" autoCorrect="off" />
           </div>
-          <div><Label>Senha</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
-          <Button onClick={create} disabled={busy} className="gap-2"><UserPlus className="w-4 h-4" /> Gerar acesso</Button>
+          <div><Label>{L("Senha", "Password")}</Label><Input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={6} /></div>
+          <Button onClick={create} disabled={busy} className="gap-2"><UserPlus className="w-4 h-4" /> {L("Gerar acesso", "Create access")}</Button>
         </div>
       )}
     </Card>

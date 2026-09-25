@@ -1,3 +1,4 @@
+import { L } from "@/lib/i18n";
 // Cores por profissional (e por serviço), usadas na agenda e na legenda.
 //
 // A paleta é uma lista de classes escritas por extenso porque o Tailwind lê o
@@ -10,16 +11,16 @@
 // empresa aparecer pintada como a do Thiago e da Mayara.
 // "azul" é a cor principal do app (o nome ficou da primeira versão do tema).
 export const PALETTE = {
-  azul: { label: "Cor do app", bg: "bg-primary/15", border: "border-l-primary", text: "text-primary", dot: "bg-primary" },
-  rosa: { label: "Rosa", bg: "bg-fuchsia-500/15", border: "border-l-fuchsia-500", text: "text-fuchsia-700 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
-  verde: { label: "Verde", bg: "bg-emerald-500/15", border: "border-l-emerald-500", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
-  ambar: { label: "Âmbar", bg: "bg-amber-500/15", border: "border-l-amber-500", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
-  ceu: { label: "Céu", bg: "bg-sky-500/15", border: "border-l-sky-500", text: "text-sky-700 dark:text-sky-400", dot: "bg-sky-500" },
-  violeta: { label: "Violeta", bg: "bg-violet-500/15", border: "border-l-violet-500", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500" },
-  vermelho: { label: "Vermelho", bg: "bg-rose-500/15", border: "border-l-rose-500", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500" },
-  laranja: { label: "Laranja", bg: "bg-orange-500/15", border: "border-l-orange-500", text: "text-orange-700 dark:text-orange-400", dot: "bg-orange-500" },
-  turquesa: { label: "Turquesa", bg: "bg-teal-500/15", border: "border-l-teal-500", text: "text-teal-700 dark:text-teal-400", dot: "bg-teal-500" },
-  cinza: { label: "Cinza", bg: "bg-slate-500/15", border: "border-l-slate-500", text: "text-slate-700 dark:text-slate-300", dot: "bg-slate-500" },
+  azul: { label: L("Cor do app", "App color"), bg: "bg-primary/15", border: "border-l-primary", text: "text-primary", dot: "bg-primary" },
+  rosa: { label: L("Rosa", "Pink"), bg: "bg-fuchsia-500/15", border: "border-l-fuchsia-500", text: "text-fuchsia-700 dark:text-fuchsia-400", dot: "bg-fuchsia-500" },
+  verde: { label: L("Verde", "Green"), bg: "bg-emerald-500/15", border: "border-l-emerald-500", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500" },
+  ambar: { label: L("Âmbar", "Amber"), bg: "bg-amber-500/15", border: "border-l-amber-500", text: "text-amber-700 dark:text-amber-400", dot: "bg-amber-500" },
+  ceu: { label: L("Céu", "Sky"), bg: "bg-sky-500/15", border: "border-l-sky-500", text: "text-sky-700 dark:text-sky-400", dot: "bg-sky-500" },
+  violeta: { label: L("Violeta", "Violet"), bg: "bg-violet-500/15", border: "border-l-violet-500", text: "text-violet-700 dark:text-violet-400", dot: "bg-violet-500" },
+  vermelho: { label: L("Vermelho", "Red"), bg: "bg-rose-500/15", border: "border-l-rose-500", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500" },
+  laranja: { label: L("Laranja", "Orange"), bg: "bg-orange-500/15", border: "border-l-orange-500", text: "text-orange-700 dark:text-orange-400", dot: "bg-orange-500" },
+  turquesa: { label: L("Turquesa", "Teal"), bg: "bg-teal-500/15", border: "border-l-teal-500", text: "text-teal-700 dark:text-teal-400", dot: "bg-teal-500" },
+  cinza: { label: L("Cinza", "Gray"), bg: "bg-slate-500/15", border: "border-l-slate-500", text: "text-slate-700 dark:text-slate-300", dot: "bg-slate-500" },
 } as const;
 
 export type ColorKey = keyof typeof PALETTE;

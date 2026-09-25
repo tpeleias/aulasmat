@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+import { L } from "@/lib/i18n";
 export type PlanSlug = "essencial" | "pro";
 
 export type Plan = {
@@ -78,6 +79,11 @@ let cached: Plan | null = null;
 
 export function primePlan(p: Plan) { cached = p; }
 
+/** O nome do plano na língua da empresa. */
+export function planName(tier: string): string {
+  return tier === "pro" ? "Cronys Max" : tier === "pro_solo" ? "Cronys Pro" : L("Cronys Essencial", "Cronys Essential");
+}
+
 /** Esquece o plano guardado (depois de assinar, por exemplo) - a próxima tela relê. */
 export function forgetPlan() { cached = null; }
 
@@ -102,6 +108,8 @@ export function usePlan() {
       if (!alive) return;
       if (data && typeof data === "object") {
         const p = { ...PLANO_DESCONHECIDO, ...(data as Partial<Plan>) } as Plan;
+        // O nome vem do banco em português; na língua da empresa, pela faixa.
+        p.nome = planName(p.tier ?? (p.plano === "pro" ? "pro" : "essencial"));
         cached = p;
         setPlan(p);
       }

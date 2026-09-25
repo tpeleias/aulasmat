@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { format, isBefore } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +15,7 @@ import { toast } from "sonner";
 import { Check, X, Clock, MapPin, Wifi, Repeat } from "lucide-react";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Request = {
   id: string; student_name: string; guardian_name: string | null; teacher: string;
   start_at: string; duration_minutes: number; address: string | null; is_online: boolean;
@@ -80,11 +80,13 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
     const orig = req.reschedule_of ? originals.get(req.reschedule_of) : undefined;
     toast.success(status === "agendada"
       ? orig && orig.status === "agendada"
-        ? `Troca feita: ${w.appointment.l} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} e a de ${format(new Date(orig.start_at), "dd/MM HH:mm")} desmarcada.`
-        : `${w.appointment.s} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} na agenda.`
+        ? L(`Troca feita: ${w.appointment.l} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} e a de ${format(new Date(orig.start_at), "dd/MM HH:mm")} desmarcada.`,
+            `Rescheduled: ${req.student_name}'s ${w.appointment.l} confirmed and the one on ${format(new Date(orig.start_at), "MMM d, HH:mm")} canceled.`)
+        : L(`${w.appointment.s} de ${req.student_name} ${w.appointment.pick("confirmado", "confirmada")} na agenda.`, `${req.student_name}'s ${w.appointment.l} confirmed on the calendar.`)
       : orig
-        ? `Troca recusada: ${req.student_name} continua com ${w.appointment.o} ${w.appointment.l} de ${format(new Date(orig.start_at), "dd/MM HH:mm")}.`
-        : `Pedido de ${req.student_name} recusado e o horário liberado.`);
+        ? L(`Troca recusada: ${req.student_name} continua com ${w.appointment.o} ${w.appointment.l} de ${format(new Date(orig.start_at), "dd/MM HH:mm")}.`,
+            `Reschedule declined: ${req.student_name} keeps the ${w.appointment.l} on ${format(new Date(orig.start_at), "MMM d, HH:mm")}.`)
+        : L(`Pedido de ${req.student_name} recusado e o horário liberado.`, `${req.student_name}'s request declined and the time slot freed.`));
     await load();
     onChanged?.();
   };
@@ -96,12 +98,12 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
       <Card className="rounded-2xl border-primary/40 p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="flex items-center gap-2 font-semibold">
-            <Clock className="h-4 w-4 text-primary" /> Solicitações de {w.appointment.l}
+            <Clock className="h-4 w-4 text-primary" /> {L(`Solicitações de ${w.appointment.l}`, `${w.appointment.s} requests`)}
           </h2>
           <Badge variant="outline">{requests.length}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          Pedidos feitos pelas famílias. O horário fica reservado até você responder.
+          {L("Pedidos feitos pelas famílias. O horário fica reservado até você responder.", "Requests from your clients. The time slot stays on hold until you answer.")}
         </p>
 
         <ul className="divide-y divide-border">
@@ -117,7 +119,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                         vira tooltip em navegador nenhum, e o tipo do lucide nem
                         aceita a prop. */}
                     {r.is_online ? (
-                      <span title={`${w.appointment.s} on-line`} className="shrink-0 leading-none">
+                      <span title={L(`${w.appointment.s} on-line`, `Online ${w.appointment.l}`)} className="shrink-0 leading-none">
                         <Wifi className="h-3.5 w-3.5 text-muted-foreground" />
                       </span>
                     ) : r.address ? (
@@ -127,10 +129,10 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     ) : null}
                     {/* O professor pode simplesmente não ter respondido. Dizer isso
                         é melhor que deixar o pedido velho parecendo atual. */}
-                    {past && <Badge variant="destructive" className="h-5 px-2 text-[10px]">horário já passou</Badge>}
+                    {past && <Badge variant="destructive" className="h-5 px-2 text-[10px]">{L("horário já passou", "time has passed")}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {format(start, "EEE, dd/MM 'às' HH:mm", { locale: ptBR })} · {r.duration_minutes} min · {capitalize(r.teacher)}
+                    {format(start, L("EEE, dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })} · {r.duration_minutes} min · {capitalize(r.teacher)}
                     {r.subject ? ` · ${r.subject}` : ""}
                   </div>
                   {r.reschedule_of && (() => {
@@ -139,10 +141,10 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     return (
                       <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
                         <Repeat className="h-3 w-3 shrink-0" />
-                        Troca {w.appointment.do} {w.appointment.l} de {format(new Date(o.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}
+                        {L(`Troca ${w.appointment.do} ${w.appointment.l} de`, `Reschedule of the ${w.appointment.l} on`)} {format(new Date(o.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}
                         {o.status === "agendada"
-                          ? " - aprovar desmarca essa"
-                          : ` (essa já está ${o.status}; aprovar não mexe nela)`}
+                          ? L(" - aprovar desmarca essa", " - approving cancels that one")
+                          : L(` (essa já está ${o.status}; aprovar não mexe nela)`, ` (that one is already ${o.status}; approving won't change it)`)}
                       </div>
                     );
                   })()}
@@ -160,14 +162,14 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     disabled={busyId === r.id}
                     onClick={() => setRefusing(r)}
                   >
-                    <X className="mr-1 h-3.5 w-3.5" /> Recusar
+                    <X className="mr-1 h-3.5 w-3.5" /> {L("Recusar", "Decline")}
                   </Button>
                   <Button
                     size="sm" className="rounded-xl"
                     disabled={busyId === r.id}
                     onClick={() => decide(r, "agendada")}
                   >
-                    <Check className="mr-1 h-3.5 w-3.5" /> Aprovar
+                    <Check className="mr-1 h-3.5 w-3.5" /> {L("Aprovar", "Approve")}
                   </Button>
                 </div>
               </li>
@@ -179,30 +181,30 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
       <AlertDialog open={!!refusing} onOpenChange={open => { if (!open) setRefusing(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Recusar este pedido?</AlertDialogTitle>
+            <AlertDialogTitle>{L("Recusar este pedido?", "Decline this request?")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 {refusing && (
                   <p className="text-foreground font-medium">
                     {refusing.student_name}
                     <br />
-                    {format(new Date(refusing.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                    {format(new Date(refusing.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
                     {refusing.subject ? <><br />{refusing.subject}</> : null}
                   </p>
                 )}
                 {refusing?.notes && (
                   <p className="rounded bg-muted/50 px-2 py-1 text-sm italic">“{refusing.notes}”</p>
                 )}
-                <p>O horário volta a aparecer como livre e a família vê a recusa no portal.</p>
+                <p>{L("O horário volta a aparecer como livre e a família vê a recusa no portal.", "The time slot shows as free again and the client sees the decline in the portal.")}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Voltar</AlertDialogCancel>
+            <AlertDialogCancel>{L("Voltar", "Back")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => { const r = refusing; setRefusing(null); if (r) decide(r, "recusada"); }}
             >
-              Recusar
+              {L("Recusar", "Decline")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

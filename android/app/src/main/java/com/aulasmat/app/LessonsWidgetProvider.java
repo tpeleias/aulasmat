@@ -92,7 +92,7 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
         views.setOnClickPendingIntent(R.id.action_assistant, WidgetIntents.openRoute(context, "/admin/assistente", base + 2));
         views.setOnClickPendingIntent(R.id.action_new_lesson, WidgetIntents.openRoute(context, "/admin?new=1", base + 3));
 
-        String today = new SimpleDateFormat("EEE d MMM", new Locale("pt", "BR")).format(new Date());
+        String today = new SimpleDateFormat("EEE d MMM", Locale.getDefault()).format(new Date());
         views.setTextViewText(R.id.widget_date, today);
 
         SharedPreferences prefs = context.getSharedPreferences(PREFS_GROUP, Context.MODE_PRIVATE);

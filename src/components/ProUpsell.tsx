@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
 
+import { L } from "@/lib/i18n";
 /**
  * O aviso de que algo é do Cronys Pro.
  *
@@ -32,7 +33,7 @@ export function ProUpsell({
         <Icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
         <span>
           <strong className="text-foreground">{titulo}</strong> — {children}
-          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Ver planos</Link></>}
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">{L("Ver planos", "See plans")}</Link></>}
         </span>
       </div>
     );
@@ -47,13 +48,14 @@ export function ProUpsell({
       <p className="mt-2 text-sm text-muted-foreground">{children}</p>
       {canSellHere() ? (
         <Link to="/assinar" className="mt-4 inline-block rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          Ver planos e assinar
+          {L("Ver planos e assinar", "See plans and subscribe")}
         </Link>
       ) : (
         <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-          Sua conta está no <strong className="text-foreground">Cronys Essencial</strong>.
+          {L(<>Sua conta está no <strong className="text-foreground">Cronys Essencial</strong>.
           Para mudar para o <strong className="text-foreground">Cronys Pro</strong>, fale
-          com quem cuida da sua conta.
+          com quem cuida da sua conta.</>, <>Your account is on <strong className="text-foreground">Cronys Essential</strong>.
+          To move to <strong className="text-foreground">Cronys Pro</strong>, talk to whoever manages your account.</>)}
         </p>
       )}
     </Card>

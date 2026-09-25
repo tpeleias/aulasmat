@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { Button } from "@/components/ui/button";
 import { Download, X } from "lucide-react";
 
+import { L } from "@/lib/i18n";
 const RELEASE_API_URL = "https://api.github.com/repos/tpeleias/aulasmat/releases/tags/android-latest";
 const RELEASE_DOWNLOAD_URL = "https://github.com/tpeleias/aulasmat/releases/download/android-latest/app-debug.apk";
 const DISMISSED_KEY = "update_banner_dismissed_sha";
@@ -39,7 +40,7 @@ export default function UpdateBanner() {
 
   return (
     <div className="flex items-center justify-between gap-3 bg-primary text-primary-foreground text-sm px-4 py-2">
-      <span>Uma versão nova do app está disponível.</span>
+      <span>{L("Uma versão nova do app está disponível.", "A new version of the app is available.")}</span>
       <div className="flex items-center gap-2 shrink-0">
         <Button
           size="sm"
@@ -47,9 +48,9 @@ export default function UpdateBanner() {
           className="h-7 gap-1.5"
           onClick={() => window.open(RELEASE_DOWNLOAD_URL, "_blank", "noopener,noreferrer")}
         >
-          <Download className="w-3.5 h-3.5" /> Baixar
+          <Download className="w-3.5 h-3.5" /> {L("Baixar", "Download")}
         </Button>
-        <button onClick={dismiss} className="p-1 hover:opacity-70" title="Dispensar">
+        <button onClick={dismiss} className="p-1 hover:opacity-70" title={L("Dispensar", "Dismiss")}>
           <X className="w-4 h-4" />
         </button>
       </div>

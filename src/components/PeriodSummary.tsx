@@ -8,6 +8,7 @@ import type { AccountStatement, LedgerTx } from "@/lib/billing";
 import { change, periodRange, summarizePeriod, type PeriodKind, type SummaryLesson } from "@/lib/periodSummary";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { intlLocale, L } from "@/lib/i18n";
 type Props = {
   lessons: SummaryLesson[];
   txs: LedgerTx[];
@@ -45,7 +46,7 @@ function Tile({ label, value, hint, className = "", children }: { label: string;
 export default function PeriodSummary({ lessons, txs, statements, compact = false }: Props) {
   const w = useWords();
   const ap = w.appointment;
-  const dadas = `${ap.p} ${ap.pick("realizados", "realizadas")}`;
+  const dadas = L(`${ap.p} ${ap.pick("realizados", "realizadas")}`, `${ap.p} done`);
   const [kind, setKind] = useState<PeriodKind>("month");
   const [offset, setOffset] = useState(0);
   const now = useMemo(() => new Date(), []);
@@ -53,21 +54,21 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
   const prev = periodRange(compact ? "month" : kind, now, (compact ? 0 : offset) - 1);
   const s = useMemo(() => summarizePeriod({ lessons, txs, statements, range, now }), [lessons, txs, statements, range.start.getTime(), now]); // eslint-disable-line react-hooks/exhaustive-deps
   const p = useMemo(() => summarizePeriod({ lessons, txs, statements, range: prev, now }), [lessons, txs, statements, prev.start.getTime(), now]); // eslint-disable-line react-hooks/exhaustive-deps
-  const prevLabel = kind === "week" && !compact ? "semana anterior" : prev.label.split(" ")[0];
+  const prevLabel = kind === "week" && !compact ? L("semana anterior", "last week") : prev.label.split(" ")[0];
 
   if (compact) {
     return (
       <Link to="/admin/financeiro" className="block">
         <Card className="rounded-2xl p-4 transition-colors hover:bg-muted/40">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="uppercase tracking-wide">Resumo de {range.label.split(" ")[0]}</span>
+            <span className="uppercase tracking-wide">{L("Resumo de", "Summary for")} {range.label.split(" ")[0]}</span>
             <ChevronRight className="h-4 w-4" />
           </div>
           <dl className="divide-y divide-border text-sm">
             {[
-              ["Recebido no mês", fmtMoney(s.recebido)],
-              [dadas, `${s.aulasDadas} · ${s.horas.toLocaleString("pt-BR")} h`],
-              ["Em aberto (total)", fmtMoney(s.emAbertoGeral)],
+              [L("Recebido no mês", "Received this month"), fmtMoney(s.recebido)],
+              [dadas, `${s.aulasDadas} · ${s.horas.toLocaleString(intlLocale())} h`],
+              [L("Em aberto (total)", "Outstanding (total)"), fmtMoney(s.emAbertoGeral)],
             ].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between gap-3 py-1.5">
                 <dt className="text-muted-foreground">{k}</dt>
@@ -84,39 +85,39 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
     <Card className="rounded-2xl p-4 md:p-5 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset(o => o - 1)} aria-label="Período anterior"><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset(o => o - 1)} aria-label={L("Período anterior", "Previous period")}><ChevronLeft className="h-4 w-4" /></Button>
           <div className="min-w-[9rem] text-center text-sm font-semibold first-letter:uppercase">{range.label}</div>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset(o => o + 1)} disabled={offset >= 0} aria-label="Próximo período"><ChevronRight className="h-4 w-4" /></Button>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setOffset(o => o + 1)} disabled={offset >= 0} aria-label={L("Próximo período", "Next period")}><ChevronRight className="h-4 w-4" /></Button>
         </div>
         <div className="flex rounded-xl bg-muted p-0.5 text-xs">
           {(["week", "month"] as const).map(k => (
             <button key={k} onClick={() => { setKind(k); setOffset(0); }}
               className={`rounded-lg px-3 py-1 ${kind === k ? "bg-background font-medium shadow-sm" : "text-muted-foreground"}`}>
-              {k === "week" ? "Semana" : "Mês"}
+              {k === "week" ? L("Semana", "Week") : L("Mês", "Month")}
             </button>
           ))}
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
-        <Tile label="Recebido" value={fmtMoney(s.recebido)} hint="dinheiro que entrou">
+        <Tile label={L("Recebido", "Received")} value={fmtMoney(s.recebido)} hint={L("dinheiro que entrou", "money in")}>
           <Delta now={s.recebido} before={p.recebido} label={prevLabel} />
         </Tile>
-        <Tile label={`Valor ${ap.dos} ${ap.lp}`} value={fmtMoney(s.liquido)}
-          hint={s.descontos > 0 ? `${fmtMoney(s.valorCheio)} − ${fmtMoney(s.descontos)} de desconto` : "o que deveria entrar"}>
+        <Tile label={L(`Valor ${ap.dos} ${ap.lp}`, `${ap.p} value`)} value={fmtMoney(s.liquido)}
+          hint={s.descontos > 0 ? `${fmtMoney(s.valorCheio)} − ${fmtMoney(s.descontos)} ${L("de desconto", "discount")}` : L("o que deveria entrar", "what should come in")}>
           <Delta now={s.liquido} before={p.liquido} label={prevLabel} />
         </Tile>
-        <Tile label="Falta receber" value={fmtMoney(s.emAbertoDoPeriodo)} hint={`d${ap.pick("estes", "estas")} ${ap.lp} · ${fmtMoney(s.emAbertoGeral)} no total`} />
-        <Tile label="Previsto" value={fmtMoney(s.previsto)}
-          hint={offset >= 0 ? `${s.aindaMarcadas} ${s.aindaMarcadas === 1 ? ap.l : ap.lp} ainda ${ap.pick("marcado", "marcada")}${s.aindaMarcadas === 1 ? "" : "s"}` : "período encerrado"} />
+        <Tile label={L("Falta receber", "Still to receive")} value={fmtMoney(s.emAbertoDoPeriodo)} hint={L(`d${ap.pick("estes", "estas")} ${ap.lp} · ${fmtMoney(s.emAbertoGeral)} no total`, `from these ${ap.lp} · ${fmtMoney(s.emAbertoGeral)} in total`)} />
+        <Tile label={L("Previsto", "Expected")} value={fmtMoney(s.previsto)}
+          hint={offset >= 0 ? L(`${s.aindaMarcadas} ${s.aindaMarcadas === 1 ? ap.l : ap.lp} ainda ${ap.pick("marcado", "marcada")}${s.aindaMarcadas === 1 ? "" : "s"}`, `${s.aindaMarcadas} ${s.aindaMarcadas === 1 ? ap.l : ap.lp} still booked`) : L("período encerrado", "period closed")} />
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Tile className="flex-1 basis-[7.5rem]" label={dadas} value={String(s.aulasDadas)} hint={`${s.horas.toLocaleString("pt-BR")} h`}>
+        <Tile className="flex-1 basis-[7.5rem]" label={dadas} value={String(s.aulasDadas)} hint={`${s.horas.toLocaleString(intlLocale())} h`}>
           <Delta now={s.aulasDadas} before={p.aulasDadas} label={prevLabel} />
         </Tile>
-        <Tile className="flex-1 basis-[7.5rem]" label={ap.pick("Cancelados", "Canceladas")} value={String(s.canceladas)} />
-        <Tile className="flex-1 basis-[7.5rem]" label={ap.pick("Recusados", "Recusadas")} value={String(s.recusadas)} hint="pedidos" />
+        <Tile className="flex-1 basis-[7.5rem]" label={L(ap.pick("Cancelados", "Canceladas"), "Canceled")} value={String(s.canceladas)} />
+        <Tile className="flex-1 basis-[7.5rem]" label={L(ap.pick("Recusados", "Recusadas"), "Declined")} value={String(s.recusadas)} hint={L("pedidos", "requests")} />
       </div>
 
       {s.porProfessor.length > 1 && (
@@ -132,8 +133,10 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
 
       <p className="flex gap-1.5 text-[11px] leading-snug text-muted-foreground">
         <Info className="mt-0.5 h-3 w-3 shrink-0" />
-        "Recebido" conta pela data do pagamento; "valor {ap.dos} {ap.lp}", pela data {ap.do} {ap.l}. Os dois não precisam bater:
-        um pacote pago no mês anterior cobre {ap.lp} deste. "Previsto" é o valor cheio {ap.dos} {ap.lp} ainda {ap.pick("marcados", "marcadas")}, sem descontos.
+        {L(<>"Recebido" conta pela data do pagamento; "valor {ap.dos} {ap.lp}", pela data {ap.do} {ap.l}. Os dois não precisam bater:
+        um pacote pago no mês anterior cobre {ap.lp} deste. "Previsto" é o valor cheio {ap.dos} {ap.lp} ainda {ap.pick("marcados", "marcadas")}, sem descontos.</>,
+        <>"Received" counts by payment date; "{ap.lp} value", by {ap.l} date. They don't have to match:
+        a package paid last month covers this month's {ap.lp}. "Expected" is the full price of {ap.lp} still booked, before discounts.</>)}
       </p>
     </Card>
   );

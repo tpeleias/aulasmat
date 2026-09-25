@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
-import { capitalize } from "@/lib/balance";
+import { capitalize, fmtMoney } from "@/lib/balance";
 import { colorOf } from "@/lib/teacherColors";
 
+import { dateLocale, L } from "@/lib/i18n";
 type PublicService = { id: string; name: string; duration_minutes: number; price: number | null; mode: "presencial" | "online" | "ambos"; color: string | null };
 type PublicCatalog = {
   services: PublicService[];
@@ -54,8 +54,8 @@ export default function PublicAvailability() {
     ? { name: capitalize(found.name), subject: found.subject ?? null }
     : null;
   const title = meta
-    ? `Horários disponíveis — ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}`
-    : "Horários disponíveis";
+    ? `${L("Horários disponíveis", "Available times")} — ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}`
+    : L("Horários disponíveis", "Available times");
 
   useEffect(() => {
     if (!catalog) return;
@@ -63,7 +63,8 @@ export default function PublicAvailability() {
     const m = document.querySelector('meta[name="description"]') || (() => {
       const el = document.createElement("meta"); el.setAttribute("name", "description"); document.head.appendChild(el); return el;
     })();
-    m.setAttribute("content", `Horários livres ${meta ? `de ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}` : ""} para os próximos 5 dias.`);
+    m.setAttribute("content", L(`Horários livres ${meta ? `de ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}` : ""} para os próximos 5 dias.`,
+      `Free times ${meta ? `for ${meta.name}${meta.subject ? ` (${meta.subject})` : ""}` : ""} for the next 5 days.`));
 
     let alive = true;
     setLoading(true);
@@ -148,9 +149,9 @@ export default function PublicAvailability() {
           </div>
           <div>
             <h1 className="text-xl font-bold">
-              {meta ? `Aulas Particulares${meta.subject ? ` de ${meta.subject}` : ""} — ${meta.name}` : "Aulas Particulares"}
+              {meta ? `${meta.subject ? meta.subject : L("Horários", "Schedule")} — ${meta.name}` : L("Horários disponíveis", "Available times")}
             </h1>
-            <p className="text-xs text-muted-foreground">Horários disponíveis para os próximos 5 dias</p>
+            <p className="text-xs text-muted-foreground">{L("Horários disponíveis para os próximos 5 dias", "Available times for the next 5 days")}</p>
           </div>
         </div>
       </header>
@@ -158,7 +159,7 @@ export default function PublicAvailability() {
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {offered.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{offered.length > 1 ? "Escolha o serviço" : "Serviço"}</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{offered.length > 1 ? L("Escolha o serviço", "Choose a service") : L("Serviço", "Service")}</p>
             <div className="flex flex-wrap gap-2">
               {offered.map(sv => {
                 const c = colorOf(sv.color);
@@ -170,8 +171,8 @@ export default function PublicAvailability() {
                     {sv.name}
                     <span className="text-xs text-muted-foreground">
                       {sv.duration_minutes} min
-                      {sv.price != null ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
-                      {sv.mode === "online" ? " · on-line" : sv.mode === "presencial" ? " · presencial" : ""}
+                      {sv.price != null ? ` · ${fmtMoney(Number(sv.price))}` : ""}
+                      {sv.mode === "online" ? L(" · on-line", " · online") : sv.mode === "presencial" ? L(" · presencial", " · in person") : ""}
                     </span>
                   </button>
                 );
@@ -183,33 +184,33 @@ export default function PublicAvailability() {
         <Card className="p-4 flex gap-3 bg-accent border-accent">
           <Info className="w-5 h-5 text-accent-foreground shrink-0 mt-0.5" />
           <p className="text-sm text-accent-foreground">
-            <strong>Estes são os horários livres para os próximos 5 dias.</strong> Entre em contato diretamente com o professor para reservar.
+            <strong>{L("Estes são os horários livres para os próximos 5 dias.", "These are the free times for the next 5 days.")}</strong> {L("Entre em contato diretamente para reservar.", "Get in touch directly to book.")}
           </p>
         </Card>
 
-        {loading && <p className="text-center text-muted-foreground py-12">Carregando…</p>}
+        {loading && <p className="text-center text-muted-foreground py-12">{L("Carregando…", "Loading…")}</p>}
 
         {!loading && slotsByDay.map(({ day, slots }) => (
           <div key={day.toISOString()}>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
               </h2>
               {slots.length > 0 && slots.length <= 2 && (
                 <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
-                  <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                  <Flame className="w-3 h-3" /> {slots.length === 1 ? L("Último horário!", "Last slot!") : L("Restam poucos horários!", "Only a few slots left!")}
                 </Badge>
               )}
             </div>
             {slots.length === 0 ? (
-              <Card className="p-4 text-sm text-muted-foreground text-center">Sem horários livres neste dia.</Card>
+              <Card className="p-4 text-sm text-muted-foreground text-center">{L("Sem horários livres neste dia.", "No free times on this day.")}</Card>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {slots.map(s => (
                   <div key={s.start.toISOString()} className="bg-card border border-border rounded-lg p-3 text-center shadow-[var(--shadow-card)]">
                     <Clock className="w-3 h-3 inline mr-1 text-primary" />
                     <span className="font-semibold">{fmtTime(s.start)}</span>
-                    <div className="text-[10px] text-muted-foreground">até {fmtTime(s.end)}</div>
+                    <div className="text-[10px] text-muted-foreground">{L("até", "to")} {fmtTime(s.end)}</div>
                   </div>
                 ))}
               </div>
@@ -218,7 +219,7 @@ export default function PublicAvailability() {
         ))}
 
         <footer className="text-center text-xs text-muted-foreground pt-8 pb-4">
-          Esta página é apenas informativa. Não há agendamento online.
+          {L("Esta página é apenas informativa. Não há agendamento online.", "This page is for information only. There's no online booking here.")}
         </footer>
       </main>
     </div>

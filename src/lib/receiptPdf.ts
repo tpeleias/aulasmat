@@ -1,6 +1,7 @@
 import { fmtMoney } from "@/lib/balance";
-import { valorPorExtenso } from "@/lib/extenso";
+import { amountInWords } from "@/lib/extenso";
 
+import { L } from "@/lib/i18n";
 export type ReceiptData = {
   issuer: string;
   issuerDocument: string | null;
@@ -29,7 +30,7 @@ export async function buildReceiptPdf(d: ReceiptData): Promise<Blob> {
   doc.setTextColor(0, 0, 0);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text(d.issuer || "Recibo", W / 2, y, { align: "center" });
+  doc.text(d.issuer || L("Recibo", "Receipt"), W / 2, y, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   for (const line of [d.issuerDocument, d.issuerEmail].filter(Boolean) as string[]) {
@@ -43,14 +44,15 @@ export async function buildReceiptPdf(d: ReceiptData): Promise<Blob> {
   y += 10;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text("RECIBO DE PAGAMENTO", W / 2, y, { align: "center" });
+  doc.text(L("RECIBO DE PAGAMENTO", "PAYMENT RECEIPT"), W / 2, y, { align: "center" });
   doc.setFontSize(12);
   doc.text(money(d.total), W - M, y, { align: "right" });
 
   y += 14;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
-  const body = `Recebi de ${d.payer} a quantia de ${money(d.total)} (${valorPorExtenso(d.total).toLowerCase()}), referente a ${d.servicePlural ?? "aulas"} de ${d.period}, conforme discriminado abaixo:`;
+  const body = L(`Recebi de ${d.payer} a quantia de ${money(d.total)} (${amountInWords(d.total).toLowerCase()}), referente a ${d.servicePlural ?? "aulas"} de ${d.period}, conforme discriminado abaixo:`,
+    `Received from ${d.payer} the amount of ${money(d.total)} (${amountInWords(d.total).toLowerCase()}), for ${d.servicePlural ?? "lessons"} in ${d.period}, as itemized below:`);
   const wrapped = doc.splitTextToSize(body, W - 2 * M);
   doc.text(wrapped, M, y);
   y += wrapped.length * 6 + 6;
@@ -73,10 +75,10 @@ export async function buildReceiptPdf(d: ReceiptData): Promise<Blob> {
   y = Math.max(y + 30, 230);
   if (y > 270) { doc.addPage(); y = 60; }
   doc.setFont("helvetica", "normal");
-  doc.text(`Emitido em ${d.issuedAt}`, W - M, y - 18, { align: "right" });
+  doc.text(`${L("Emitido em", "Issued on")} ${d.issuedAt}`, W - M, y - 18, { align: "right" });
   doc.line(W / 2 - 40, y, W / 2 + 40, y);
-  doc.text(d.issuer || "Assinatura", W / 2, y + 6, { align: "center" });
-  if (!d.issuerDocument) doc.text("CPF/CNPJ: ______________________", W / 2, y + 12, { align: "center" });
+  doc.text(d.issuer || L("Assinatura", "Signature"), W / 2, y + 6, { align: "center" });
+  if (!d.issuerDocument) doc.text(L("CPF/CNPJ: ______________________", "Tax ID: ______________________"), W / 2, y + 12, { align: "center" });
 
   return doc.output("blob");
 }

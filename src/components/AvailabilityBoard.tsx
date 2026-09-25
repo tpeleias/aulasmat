@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Flame } from "lucide-react";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Props = { teacher?: string };
 
 export function AvailabilityBoard({ teacher }: Props) {
@@ -72,7 +72,7 @@ export function AvailabilityBoard({ teacher }: Props) {
     // página /disponibilidade/<profissional>.
   }, [teacher, teachers]);
 
-  if (loading) return <p className="text-center text-muted-foreground py-12">Carregando…</p>;
+  if (loading) return <p className="text-center text-muted-foreground py-12">{L("Carregando…", "Loading…")}</p>;
 
   return (
     <div className="space-y-6">
@@ -80,23 +80,23 @@ export function AvailabilityBoard({ teacher }: Props) {
         <div key={day.toISOString()}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
             </h3>
             {slots.length > 0 && slots.length <= 2 && (
               <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
-                <Flame className="w-3 h-3" /> {slots.length === 1 ? "Último horário!" : "Restam poucos horários!"}
+                <Flame className="w-3 h-3" /> {slots.length === 1 ? L("Último horário!", "Last slot!") : L("Restam poucos horários!", "Only a few slots left!")}
               </Badge>
             )}
           </div>
           {slots.length === 0 ? (
-            <Card className="p-4 text-sm text-muted-foreground text-center">Sem horários livres neste dia.</Card>
+            <Card className="p-4 text-sm text-muted-foreground text-center">{L("Sem horários livres neste dia.", "No free times on this day.")}</Card>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {slots.map(s => (
                 <div key={s.start.toISOString()} className="bg-card border border-border rounded-lg p-3 text-center shadow-[var(--shadow-card)]">
                   <Clock className="w-3 h-3 inline mr-1 text-primary" />
                   <span className="font-semibold">{fmtTime(s.start)}</span>
-                  <div className="text-[10px] text-muted-foreground">até {fmtTime(s.end)}</div>
+                  <div className="text-[10px] text-muted-foreground">{L("até", "to")} {fmtTime(s.end)}</div>
                 </div>
               ))}
             </div>

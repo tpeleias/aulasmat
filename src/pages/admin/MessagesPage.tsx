@@ -9,10 +9,12 @@ import { useWords } from "@/hooks/useVocabulary";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { WhatsAppGlyph } from "@/components/LessonQuickActions";
 import {
-  MESSAGE_TYPES, defaultTemplate, fillTemplate, type MessageKey, type MessageTemplates,
+  MESSAGE_TYPES, defaultTemplate, displayTag, fillTemplate, type MessageKey, type MessageTemplates,
 } from "@/lib/messageTemplates";
 import { lessonVars } from "@/lib/whatsapp";
+import { fmtMoney } from "@/lib/balance";
 
+import { L } from "@/lib/i18n";
 /**
  * Mensagens prontas da empresa: lembrete, confirmação ao marcar, "estou a
  * caminho" e cobrança. Cada uma é um texto livre com campos entre chaves que o
@@ -25,7 +27,7 @@ export default function MessagesPage() {
   const [busy, setBusy] = useState(false);
   const types = useMemo(() => MESSAGE_TYPES(w), [w]);
 
-  useEffect(() => { document.title = "Mensagens — Cronys"; }, []);
+  useEffect(() => { document.title = L("Mensagens — Cronys", "Messages — Cronys"); }, []);
 
   // O rascunho começa com o texto em uso (o da empresa ou o padrão).
   useEffect(() => {
@@ -36,18 +38,18 @@ export default function MessagesPage() {
   // Exemplo para a prévia: uma aula de amanhã às 15h, em casa.
   const sample = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(15, 0, 0, 0);
-    const lesson = { student_name: "Lucas Almeida", guardian_name: "Carla Almeida", start_at: d, address: "Rua das Acácias, 120" };
+    const lesson = { student_name: "Lucas Almeida", guardian_name: "Carla Almeida", start_at: d, address: L("Rua das Acácias, 120", "120 Maple St") };
     const base = lessonVars(lesson, w);
     const map = "https://maps.google.com/?q=-23.56100,-46.65600";
     return {
       ...base,
       mapa: map,
-      localizacao: ` Minha localização agora: ${map}`,
-      lista: `📅 *Segunda, 28/09* às 15:00\n${w.topic.s} · 60 min\n💰 R$ 150,00`,
-      resumo: "━━━━━━━━━━━━━━\n*Total a pagar: R$ 150,00*\n━━━━━━━━━━━━━━",
-      total: "R$ 150,00",
-      como_pagar: "\n\n*Como pagar* (do jeito mais fácil pra você):\n\n💠 *Pix*\nChave: sua-chave-pix",
-      de_aluno: " de Lucas",
+      localizacao: L(` Minha localização agora: ${map}`, ` My location now: ${map}`),
+      lista: L(`📅 *Segunda, 28/09* às 15:00\n${w.topic.s} · 60 min\n💰 ${fmtMoney(150)}`, `📅 *Mon, Sep 28* at 15:00\n${w.topic.s} · 60 min\n💰 ${fmtMoney(150)}`),
+      resumo: `━━━━━━━━━━━━━━\n*${L("Total a pagar", "Total due")}: ${fmtMoney(150)}*\n━━━━━━━━━━━━━━`,
+      total: fmtMoney(150),
+      como_pagar: L("\n\n*Como pagar* (do jeito mais fácil pra você):\n\n💠 *Pix*\nChave: sua-chave-pix", "\n\n*How to pay*:\n\n🔗 *Payment link*\nhttps://pay.example.com/you"),
+      de_aluno: L(" de Lucas", " for Lucas"),
     } as Record<string, string>;
   }, [w]);
 
@@ -60,7 +62,7 @@ export default function MessagesPage() {
     ) as MessageTemplates;
     const error = await save(onlyCustom);
     setBusy(false);
-    if (error) toast.error("Não foi possível salvar as mensagens agora.");
+    if (error) toast.error(L("Não foi possível salvar as mensagens agora.", "Couldn't save the messages right now."));
     else toast.success(ok);
   };
 
@@ -69,10 +71,12 @@ export default function MessagesPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="flex items-center gap-2 text-2xl font-bold"><MessageSquareText className="h-6 w-6 text-primary" /> Mensagens</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-bold"><MessageSquareText className="h-6 w-6 text-primary" /> {L("Mensagens", "Messages")}</h1>
         <p className="text-sm text-muted-foreground">
-          Os textos que o app monta para o WhatsApp. Escreva do seu jeito; os campos entre chaves, como <code>{"{nome}"}</code> e <code>{"{hora}"}</code>,
-          são preenchidos na hora com os dados {w.appointment.do} {w.appointment.l}.
+          {L(<>Os textos que o app monta para o WhatsApp. Escreva do seu jeito; os campos entre chaves, como <code>{"{nome}"}</code> e <code>{"{hora}"}</code>,
+          são preenchidos na hora com os dados {w.appointment.do} {w.appointment.l}.</>,
+          <>The texts the app builds for WhatsApp. Write them your way; fields in braces, like <code>{"{name}"}</code> and <code>{"{time}"}</code>,
+          are filled in with the {w.appointment.l} details.</>)}
         </p>
       </div>
 
@@ -90,13 +94,13 @@ export default function MessagesPage() {
           onReset={() => {
             const next = { ...draft, [t.key]: defaultTemplate(t.key, w) };
             setDraft(next);
-            persist(next, "Mensagem padrão restaurada");
+            persist(next, L("Mensagem padrão restaurada", "Default message restored"));
           }}
         />
       ))}
 
       <div className="sticky bottom-20 z-10 flex justify-end md:bottom-4">
-        <Button className="rounded-xl shadow-lg" disabled={busy} onClick={() => persist(draft, "Mensagens salvas")}>Salvar mensagens</Button>
+        <Button className="rounded-xl shadow-lg" disabled={busy} onClick={() => persist(draft, L("Mensagens salvas", "Messages saved"))}>{L("Salvar mensagens", "Save messages")}</Button>
       </div>
     </div>
   );
@@ -110,7 +114,7 @@ function TemplateCard({ title, when, tags, value, preview, custom, busy, onChang
   // Toca no campo e ele entra onde o cursor está.
   const insert = (tag: string) => {
     const el = ref.current;
-    const text = `{${tag}}`;
+    const text = `{${displayTag(tag)}}`;
     if (!el) { onChange(value + text); return; }
     const start = el.selectionStart ?? value.length;
     const end = el.selectionEnd ?? value.length;
@@ -123,11 +127,11 @@ function TemplateCard({ title, when, tags, value, preview, custom, busy, onChang
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="font-semibold">{title}</h2>
-          <p className="text-xs text-muted-foreground">{when}{custom ? " · personalizada" : " · padrão do app"}</p>
+          <p className="text-xs text-muted-foreground">{when}{custom ? L(" · personalizada", " · customized") : L(" · padrão do app", " · app default")}</p>
         </div>
         {custom && (
           <Button size="sm" variant="ghost" className="shrink-0 gap-1 text-xs" disabled={busy} onClick={onReset}>
-            <RotateCcw className="h-3.5 w-3.5" /> Padrão
+            <RotateCcw className="h-3.5 w-3.5" /> {L("Padrão", "Default")}
           </Button>
         )}
       </div>
@@ -136,18 +140,18 @@ function TemplateCard({ title, when, tags, value, preview, custom, busy, onChang
         {tags.map(t => (
           <button key={t.tag} type="button" title={t.desc} onClick={() => insert(t.tag)}
             className="rounded-full border border-border px-2 py-0.5 font-mono text-[11px] text-muted-foreground hover:bg-muted">
-            {`{${t.tag}}`}
+            {`{${displayTag(t.tag)}}`}
           </button>
         ))}
       </div>
       <details className="text-xs text-muted-foreground">
-        <summary className="cursor-pointer select-none">O que cada campo vira</summary>
+        <summary className="cursor-pointer select-none">{L("O que cada campo vira", "What each field becomes")}</summary>
         <ul className="mt-2 space-y-1">
-          {tags.map(t => <li key={t.tag}><code>{`{${t.tag}}`}</code>: {t.desc}</li>)}
+          {tags.map(t => <li key={t.tag}><code>{`{${displayTag(t.tag)}}`}</code>: {t.desc}</li>)}
         </ul>
       </details>
       <div className="rounded-xl bg-[#e7ffdb] p-3 text-sm text-[#111b21] dark:bg-[#005c4b] dark:text-[#e9edef]">
-        <div className="mb-1 flex items-center gap-1 text-[11px] opacity-70"><WhatsAppGlyph className="h-3 w-3" /> Prévia</div>
+        <div className="mb-1 flex items-center gap-1 text-[11px] opacity-70"><WhatsAppGlyph className="h-3 w-3" /> {L("Prévia", "Preview")}</div>
         <p className="whitespace-pre-wrap break-words">{preview}</p>
       </div>
     </Card>

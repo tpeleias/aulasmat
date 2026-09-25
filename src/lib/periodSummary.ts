@@ -1,8 +1,8 @@
 import { addMonths, addWeeks, endOfMonth, format, startOfMonth, startOfWeek } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import type { AccountStatement, LedgerTx } from "@/lib/billing";
 import { isIncome } from "@/lib/reports";
 
+import { dateLocale, L } from "@/lib/i18n";
 export type PeriodKind = "week" | "month";
 
 export type SummaryLesson = {
@@ -22,11 +22,11 @@ export function periodRange(kind: PeriodKind, anchor: Date, offset = 0): PeriodR
     const start = addWeeks(startOfWeek(anchor, { weekStartsOn: 1 }), offset);
     const end = addWeeks(start, 1);
     const last = new Date(end.getTime() - 1);
-    return { start, end, label: `${format(start, "dd/MM")} a ${format(last, "dd/MM")}` };
+    return { start, end, label: L(`${format(start, L("dd/MM", "MMM d"))} a ${format(last, L("dd/MM", "MMM d"))}`, `${format(start, "MMM d")} - ${format(last, "MMM d")}`) };
   }
   const start = addMonths(startOfMonth(anchor), offset);
   const end = addMonths(start, 1);
-  return { start, end, label: format(start, "MMMM 'de' yyyy", { locale: ptBR }) };
+  return { start, end, label: format(start, L("MMMM 'de' yyyy", "MMMM yyyy"), { locale: dateLocale() }) };
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;

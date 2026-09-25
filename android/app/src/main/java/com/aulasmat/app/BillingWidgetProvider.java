@@ -45,7 +45,7 @@ public class BillingWidgetProvider extends AppWidgetProvider {
 
         if (data == null) {
             views.setTextViewText(R.id.billing_total, "—");
-            views.setTextViewText(R.id.billing_subtitle, "Abra o app para carregar");
+            views.setTextViewText(R.id.billing_subtitle, context.getString(R.string.w_open_to_load));
             for (int id : LINE_IDS) views.setViewVisibility(id, View.GONE);
             appWidgetManager.updateAppWidget(appWidgetId, views);
             return;
@@ -54,8 +54,8 @@ public class BillingWidgetProvider extends AppWidgetProvider {
         int count = data.optInt("count", 0);
         views.setTextViewText(R.id.billing_total, data.optString("total", "—"));
         String subtitle = count == 0
-            ? "Tudo em dia"
-            : count + (count == 1 ? " conta em aberto" : " contas em aberto");
+            ? context.getString(R.string.w_all_clear)
+            : count == 1 ? context.getString(R.string.w_one_open) : context.getString(R.string.w_many_open, count);
         String updatedAt = data.optString("updatedAt", "");
         if (!updatedAt.isEmpty()) subtitle += " · " + updatedAt;
         views.setTextViewText(R.id.billing_subtitle, subtitle);

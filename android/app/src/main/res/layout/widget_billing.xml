@@ -10,7 +10,7 @@
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="A RECEBER"
+        android:text="@string/w_receivable_caps"
         android:textColor="#A9A79C"
         android:textSize="10sp"
         android:letterSpacing="0.08" />

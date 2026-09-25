@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="widget_description">Upcoming appointments, with shortcuts to the assistant and booking</string>
+    <string name="widget_billing_description">How much is due and who owes</string>
+    <string name="widget_assistant_description">Opens the assistant ready to type, with quick shortcuts</string>
+    <string name="w_assistant_caps">ASSISTANT</string>
+    <string name="w_assistant_hint">Ask or request something…</string>
+    <string name="w_today">Today</string>
+    <string name="w_outstanding">Outstanding</string>
+    <string name="w_book">Book</string>
+    <string name="w_receivable_caps">TO RECEIVE</string>
+    <string name="w_upcoming">Upcoming</string>
+    <string name="w_no_upcoming">Nothing booked in the next days</string>
+    <string name="w_assistant_btn">✦  Assistant</string>
+    <string name="w_new_btn">＋  Book</string>
+    <string name="w_open_to_load">Open the app to load</string>
+    <string name="w_all_clear">All settled</string>
+    <string name="w_one_open">1 open account</string>
+    <string name="w_many_open">%d open accounts</string>
+</resources>

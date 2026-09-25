@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import PendingSummaries from "@/components/PendingSummaries";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { addDays, format, startOfDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,22 +27,23 @@ import FirstSteps from "@/components/FirstSteps";
 import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
   start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean;
 };
 
 const suggestions = (w: Vocabulary) => [
-  `Quais ${w.appointment.lp} tenho essa semana?`,
-  "Quem está devendo?",
-  `Marca ${w.appointment.um} ${w.appointment.l} amanhã às 16h`,
+  L(`Quais ${w.appointment.lp} tenho essa semana?`, `What ${w.appointment.lp} do I have this week?`),
+  L("Quem está devendo?", "Who owes me money?"),
+  L(`Marca ${w.appointment.um} ${w.appointment.l} amanhã às 16h`, `Book ${w.appointment.um} ${w.appointment.l} tomorrow at 4pm`),
 ];
 
 function greeting(d: Date) {
   const h = d.getHours();
-  if (h < 12) return "Bom dia";
-  if (h < 18) return "Boa tarde";
-  return "Boa noite";
+  if (h < 12) return L("Bom dia", "Good morning");
+  if (h < 18) return L("Boa tarde", "Good afternoon");
+  return L("Boa noite", "Good evening");
 }
 
 export default function HomePage() {
@@ -142,7 +142,7 @@ export default function HomePage() {
     <PullToRefresh onRefresh={load}>
       <div className="space-y-6">
         <header>
-          <p className="text-sm text-muted-foreground capitalize">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
+          <p className="text-sm text-muted-foreground capitalize">{format(now, L("EEEE, d 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}</p>
           <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {capitalize(teacher)}</h1>
         </header>
 
@@ -153,16 +153,16 @@ export default function HomePage() {
         {!isTeacher && <LessonRequests onChanged={load} />}
 
         <section>
-          <SectionTitle icon={CalendarDays} title="Hoje" action={<Link to="/admin/agenda" className="text-sm text-primary">Agenda</Link>} />
+          <SectionTitle icon={CalendarDays} title={L("Hoje", "Today")} action={<Link to="/admin/agenda" className="text-sm text-primary">{L("Agenda", "Calendar")}</Link>} />
           {loading ? (
             <div className="space-y-2">{[0, 1].map(i => <Skeleton key={i} className="h-16 w-full rounded-2xl" />)}</div>
           ) : today.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title={`${ap.nenhum} ${ap.l} hoje`}
+              title={L(`${ap.nenhum} ${ap.l} hoje`, `${ap.nenhum} ${ap.lp} today`)}
               description={next
-                ? `Próxima: ${format(new Date(next.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })} · ${next.student_name}`
-                : "Nada agendado nos próximos dias."}
+                ? `${L("Próxima", "Next")}: ${format(new Date(next.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })} · ${next.student_name}`
+                : L("Nada agendado nos próximos dias.", "Nothing scheduled for the next few days.")}
               action={isTeacher ? undefined : <Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> {ap.novo} {ap.l}</Button>}
             />
           ) : (
@@ -180,7 +180,7 @@ export default function HomePage() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate font-medium">{l.student_name}</span>
-                        {isNext && <Badge className="h-5 rounded-full px-2 text-[10px]">próxima</Badge>}
+                        {isNext && <Badge className="h-5 rounded-full px-2 text-[10px]">{L("próxima", "next")}</Badge>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
                         {l.subject ?? ap.s} · {capitalize(l.teacher)}{l.is_online ? " · online" : ""}
@@ -198,7 +198,7 @@ export default function HomePage() {
         <PendingSummaries refreshKey={reloads} />
 
         {!isTeacher && <section>
-          <SectionTitle icon={Wallet} title="Financeiro" action={<Link to="/admin/financeiro" className="text-sm text-primary">Abrir</Link>} />
+          <SectionTitle icon={Wallet} title={L("Financeiro", "Billing")} action={<Link to="/admin/financeiro" className="text-sm text-primary">{L("Abrir", "Open")}</Link>} />
           {loading ? (
             <Skeleton className="h-24 w-full rounded-2xl" />
           ) : (
@@ -207,10 +207,10 @@ export default function HomePage() {
         </section>}
 
         {!isTeacher && <section>
-          <SectionTitle icon={Bot} title="Assistente" />
+          <SectionTitle icon={Bot} title={L("Assistente", "Assistant")} />
           <Card className="space-y-3 rounded-2xl p-4">
             <button onClick={() => askAssistant("")} className="flex w-full items-center gap-3 rounded-xl bg-muted/60 px-3 py-2.5 text-left text-sm text-muted-foreground">
-              <Sparkles className="h-4 w-4 text-primary" /> Peça algo: marcar, editar, cobrar…
+              <Sparkles className="h-4 w-4 text-primary" /> {L("Peça algo: marcar, editar, cobrar…", "Ask anything: book, edit, collect…")}
             </button>
             <div className="flex flex-wrap gap-2">
               {suggestions(w).map(s => (
@@ -224,7 +224,7 @@ export default function HomePage() {
 
         <section className="grid grid-cols-2 gap-3">
           {!isTeacher && <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> {ap.novo} {ap.l}</Button>}
-          <Button asChild variant="secondary" className="h-12 justify-start gap-2 rounded-2xl"><Link to="/admin/bloqueios"><Ban className="h-4 w-4" /> Bloquear horário</Link></Button>
+          <Button asChild variant="secondary" className="h-12 justify-start gap-2 rounded-2xl"><Link to="/admin/bloqueios"><Ban className="h-4 w-4" /> {L("Bloquear horário", "Block time")}</Link></Button>
         </section>
 
         <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} defaultTeacher={teacher} onSaved={load} />

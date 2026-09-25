@@ -2295,4 +2295,51 @@ SELECT public.assert((SELECT name FROM public.teachers WHERE account_id = curren
 SELECT public.assert((SELECT sort_order FROM public.teachers WHERE account_id = current_setting('teste.sm')::uuid AND name = 'Aaron') = 6,
   'na posicao seguinte ao ultimo');
 
+
+\echo ''
+\echo '--- 41. Lingua e moeda da empresa ---'
+
+SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE id = current_setting('teste.sm')::uuid) = 'pt-BR/BRL',
+  'empresa nasce em portugues e reais');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
+SELECT public.assert((public.set_account_locale('en', 'USD') ->> 'locale') = 'en', 'admin muda para ingles');
+SELECT public.assert((public.my_vocabulary() ->> 'currency') = 'USD', 'e o app le a moeda');
+DO $$
+BEGIN
+  PERFORM public.set_account_locale('fr', NULL);
+  RAISE EXCEPTION 'FALHOU: lingua invalida';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - so linguas conhecidas';
+END $$;
+COMMIT;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.prof'), true);
+DO $$
+BEGIN
+  PERFORM public.set_account_locale('en', 'USD');
+  RAISE EXCEPTION 'FALHOU: professor mudou a lingua';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - professor nao muda a lingua da empresa';
+END $$;
+COMMIT;
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert((public.my_vocabulary() ->> 'locale') = 'pt-BR', 'pagina publica le a lingua da empresa do endereco');
+COMMIT;
+
+
+\echo ''
+\echo '--- 42. Empresa criada em ingles nasce em ingles ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('42000000-0000-0000-0000-000000000001', 'owner@studio.us', '{"signup_kind":"school","school_name":"Studio NY","teacher_name":"Kate","locale":"en","currency":"USD"}'),
+  ('42000000-0000-0000-0000-000000000002', 'dono@estudio.br', '{"signup_kind":"school","school_name":"Estudio BR","teacher_name":"Rafa","locale":"xx"}');
+SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Studio NY') = 'en/USD', 'cadastro em ingles: en/USD');
+SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Estudio BR') = 'pt-BR/BRL', 'lingua invalida vira portugues/real');
+
 \echo '=== FIM ==='

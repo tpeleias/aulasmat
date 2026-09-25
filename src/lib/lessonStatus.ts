@@ -33,7 +33,17 @@ const LABELS: Record<string, string> = {
   cancelada: "cancelad",
 };
 
+// Em inglês não há concordância: uma palavra por status.
+const LABELS_EN: Record<string, string> = {
+  solicitada: "awaiting approval",
+  agendada: "booked",
+  realizada: "done",
+  recusada: "declined",
+  cancelada: "canceled",
+};
+
 export const statusLabel = (status?: string | null, v: Vocabulary = DEFAULT_VOCABULARY) => {
+  if (v.appointment.en) return LABELS_EN[status ?? "agendada"] ?? status ?? "";
   const base = LABELS[status ?? "agendada"];
   if (!base) return status ?? "";
   return base.endsWith("d") ? base + v.appointment.pick("o", "a") : base;

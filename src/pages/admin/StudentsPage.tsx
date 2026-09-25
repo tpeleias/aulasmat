@@ -27,6 +27,7 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
 
+import { L } from "@/lib/i18n";
 type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
   /** Migration 20260925070000; ausente antes dela. */
@@ -40,10 +41,10 @@ type Lesson = SheetLesson & { student_name: string; guardian_name: string | null
 type StudentSort = "name" | "owed" | "next" | "lessons";
 
 const studentSorts = (w: Vocabulary): { key: StudentSort; label: string }[] => [
-  { key: "name", label: "Nome (A–Z)" },
-  { key: "owed", label: "Maior valor em aberto" },
-  { key: "next", label: `${w.appointment.proximo} ${w.appointment.l}` },
-  { key: "lessons", label: `Mais ${w.appointment.lp}` },
+  { key: "name", label: L("Nome (A–Z)", "Name (A–Z)") },
+  { key: "owed", label: L("Maior valor em aberto", "Largest amount due") },
+  { key: "next", label: L(`${w.appointment.proximo} ${w.appointment.l}`, `Next ${w.appointment.l}`) },
+  { key: "lessons", label: L(`Mais ${w.appointment.lp}`, `Most ${w.appointment.lp}`) },
 ];
 // Só as chaves importam para lembrar a ordem escolhida.
 const STUDENT_SORTS = studentSorts(DEFAULT_VOCABULARY);
@@ -143,9 +144,9 @@ export default function StudentsPage() {
   }, [students, query, sort, statements, lessonsByAccount, nextByAccount]);
 
   const save = async () => {
-    if (!editing?.student_name?.trim()) { toast.error(`Nome ${c.do} ${c.l} obrigatório`); return; }
+    if (!editing?.student_name?.trim()) { toast.error(L(`Nome ${c.do} ${c.l} obrigatório`, `${c.s} name is required`)); return; }
     const zap = normalizeWhatsApp(editing.whatsapp);
-    if (zap === "invalido") { toast.error("WhatsApp com DDD, ex.: (11) 98765-4321"); return; }
+    if (zap === "invalido") { toast.error(L("WhatsApp com DDD, ex.: (11) 98765-4321", "WhatsApp with country code, e.g. +1 555 123 4567")); return; }
     setBusy(true);
     const payload = {
       student_name: editing.student_name.trim(),
@@ -159,13 +160,13 @@ export default function StudentsPage() {
       : await supabase.from("students").insert(payload);
     setBusy(false);
     if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
-    else { haptics.success(); toast.success(`${c.s} ${c.pick("salvo", "salva")}`); setEditing(null); setSelected(null); load(); }
+    else { haptics.success(); toast.success(L(`${c.s} ${c.pick("salvo", "salva")}`, `${c.s} saved`)); setEditing(null); setSelected(null); load(); }
   };
 
   const remove = async (id: string) => {
-    if (!confirm(`Excluir ${c.este} ${c.l} do cadastro? (Não afeta ${w.appointment.lp} existentes)`)) return;
+    if (!confirm(L(`Excluir ${c.este} ${c.l} do cadastro? (Não afeta ${w.appointment.lp} existentes)`, `Delete this ${c.l}? (Existing ${w.appointment.lp} are not affected)`))) return;
     const { error } = await supabase.from("students").delete().eq("id", id);
-    if (error) toast.error(error.message); else { haptics.success(); toast.success(`${c.s} ${c.pick("excluído", "excluída")}`); setSelected(null); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success(L(`${c.s} ${c.pick("excluído", "excluída")}`, `${c.s} deleted`)); setSelected(null); load(); }
   };
 
   const locked = useMemo(() => students.filter(s => s.plan_locked), [students]);
@@ -176,14 +177,14 @@ export default function StudentsPage() {
   const unlock = async (st: Student) => {
     const { error } = await supabase.from("students").update({ plan_locked: false } as never).eq("id", st.id);
     if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
-    else { haptics.success(); toast.success(`${st.student_name} ${c.pick("liberado", "liberada")}`); load(); }
+    else { haptics.success(); toast.success(L(`${st.student_name} ${c.pick("liberado", "liberada")}`, `${st.student_name} released`)); load(); }
   };
 
   const pause = async (st: Student) => {
-    if (!confirm(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")} até liberar de novo.`)) return;
+    if (!confirm(L(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")} até liberar de novo.`, `Pause ${st.student_name}? Nothing is deleted; you just can't book a new ${w.appointment.l} until you release them.`))) return;
     const { error } = await supabase.from("students").update({ plan_locked: true } as never).eq("id", st.id);
     if (error) { haptics.warning(); toast.error(error.message); }
-    else { haptics.success(); toast.success(`${st.student_name} ${c.pick("pausado", "pausada")}`); setSelected(null); load(); }
+    else { haptics.success(); toast.success(L(`${st.student_name} ${c.pick("pausado", "pausada")}`, `${st.student_name} paused`)); setSelected(null); load(); }
   };
 
   const selectedStatement = selected ? statements.get(accountKey(selected)) : undefined;
@@ -197,22 +198,22 @@ export default function StudentsPage() {
             <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> {c.p}</h1>
             <p className="text-sm text-muted-foreground">
               {locked.length > 0
-                ? `${unlockedCount} liberado${unlockedCount === 1 ? "" : "s"} de ${plan.max_students ?? "∞"} · ${locked.length} pausado${locked.length === 1 ? "" : "s"}`
-                : <>{students.length} cadastrado{students.length === 1 ? "" : "s"}{plan.max_students !== null && ` de ${plan.max_students}`}</>}
+                ? L(`${unlockedCount} liberado${unlockedCount === 1 ? "" : "s"} de ${plan.max_students ?? "∞"} · ${locked.length} pausado${locked.length === 1 ? "" : "s"}`, `${unlockedCount} active of ${plan.max_students ?? "∞"} · ${locked.length} paused`)
+                : <>{L(`${students.length} cadastrado${students.length === 1 ? "" : "s"}`, `${students.length} total`)}{plan.max_students !== null && L(` de ${plan.max_students}`, ` of ${plan.max_students}`)}</>}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
             {!isTeacher && (
-              <Button variant="outline" className="rounded-xl gap-1.5" disabled={atLimit} title="Cadastrar vários de uma planilha"
+              <Button variant="outline" className="rounded-xl gap-1.5" disabled={atLimit} title={L("Cadastrar vários de uma planilha", "Add many from a spreadsheet")}
                 onClick={() => { haptics.tap(); setImportOpen(true); }}>
-                <FileUp className="w-4 h-4" /> Importar
+                <FileUp className="w-4 h-4" /> {L("Importar", "Import")}
               </Button>
             )}
             {!isTeacher && <Button
               className="rounded-xl gap-1.5"
               disabled={atLimit}
               onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
-              <Plus className="w-4 h-4" /> Novo
+              <Plus className="w-4 h-4" /> {L("Novo", "New")}
             </Button>}
           </div>
         </div>
@@ -221,11 +222,11 @@ export default function StudentsPage() {
           <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-3">
             <div>
               <div className="font-semibold text-sm">
-                {locked.length} {locked.length === 1 ? c.l : c.lp} {c.pick("pausado", "pausada")}{locked.length === 1 ? "" : "s"} pela mudança de plano
+                {L(`${locked.length} ${locked.length === 1 ? c.l : c.lp} ${c.pick("pausado", "pausada")}${locked.length === 1 ? "" : "s"} pela mudança de plano`, `${locked.length} ${locked.length === 1 ? c.l : c.lp} paused by the plan change`)}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Nada foi apagado - histórico, {w.appointment.lp} e financeiro continuam. Só não dá para marcar {w.appointment.l} {w.appointment.pick("novo", "nova")}.
-                {plan.max_students !== null && ` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já ${c.pick("liberado", "liberada")}${unlockedCount === 1 ? "" : "s"})` : ""}.`}
+                {L(`Nada foi apagado - histórico, ${w.appointment.lp} e financeiro continuam. Só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")}.`, `Nothing was deleted - history, ${w.appointment.lp} and billing stay. You just can't book new ${w.appointment.lp}.`)}
+                {plan.max_students !== null && L(` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já ${c.pick("liberado", "liberada")}${unlockedCount === 1 ? "" : "s"})` : ""}.`, ` Choose up to ${plan.max_students} to keep active${unlockedCount > 0 ? ` (${unlockedCount} already active)` : ""}.`)}
               </p>
             </div>
             <ul className="divide-y divide-border rounded-xl border border-border bg-card">
@@ -236,7 +237,7 @@ export default function StudentsPage() {
                     <span className="text-muted-foreground">{st.guardian_name ? ` · ${st.guardian_name}` : ""}</span>
                   </span>
                   <Button size="sm" variant="outline" className="h-8 shrink-0 rounded-xl" disabled={atLimit} onClick={() => unlock(st)}>
-                    Liberar
+                    {L("Liberar", "Release")}
                   </Button>
                 </li>
               ))}
@@ -245,16 +246,15 @@ export default function StudentsPage() {
         )}
 
         {!isTeacher && atLimit && locked.length === 0 && (
-          <ProUpsell titulo={`O Cronys Essencial vai até ${plan.max_students} ${c.lp}`} icon={Users} compacto>
-            {c.os} {students.length} que você já tem continuam aqui, com tudo.
-            Para cadastrar o próximo, é o Cronys Pro.
+          <ProUpsell titulo={L(`O Cronys Essencial vai até ${plan.max_students} ${c.lp}`, `Cronys Essential allows up to ${plan.max_students} ${c.lp}`)} icon={Users} compacto>
+            {L(`${c.os} ${students.length} que você já tem continuam aqui, com tudo. Para cadastrar o próximo, é o Cronys Pro.`, `the ${students.length} you already have stay here, with everything. To add the next one, you need Cronys Pro.`)}
           </ProUpsell>
         )}
 
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={`Buscar ${c.l} ou ${w.guardian.l}`} className="h-11 rounded-xl pl-9" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={L(`Buscar ${c.l} ou ${w.guardian.l}`, `Search ${c.l} or ${w.guardian.l}`)} className="h-11 rounded-xl pl-9" />
           </div>
           <SortMenu value={sort} options={isTeacher ? SORTS.filter(o => o.key !== "owed") : SORTS} onChange={setSort} className="h-11" />
         </div>
@@ -262,14 +262,14 @@ export default function StudentsPage() {
         {loading ? (
           <ListSkeleton rows={5} />
         ) : students.length === 0 ? (
-          <EmptyState icon={Users} title={`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`}
-            description={isTeacher ? `Aqui aparecem ${c.os} ${c.lp} que têm ${w.appointment.l} com você.` : `Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`}
+          <EmptyState icon={Users} title={L(`${c.nenhum} ${c.l} ${c.pick("cadastrado", "cadastrada")}`, `No ${c.lp} yet`)}
+            description={isTeacher ? L(`Aqui aparecem ${c.os} ${c.lp} que têm ${w.appointment.l} com você.`, `${c.p} who have ${w.appointment.lp} with you show up here.`) : L(`Cadastre ${c.o} ${c.pick("primeiro", "primeira")} ${c.l} para começar a agendar.`, `Add your first ${c.l} to start booking.`)}
             action={isTeacher ? undefined : <div className="flex flex-wrap justify-center gap-2">
               <Button className="rounded-xl" onClick={() => setEditing({ student_name: "", guardian_name: "", address: "" })}><Plus className="mr-1.5 h-4 w-4" /> {c.novo} {c.l}</Button>
-              {!isTeacher && <Button variant="outline" className="rounded-xl" onClick={() => setImportOpen(true)}><FileUp className="mr-1.5 h-4 w-4" /> Importar de planilha</Button>}
+              {!isTeacher && <Button variant="outline" className="rounded-xl" onClick={() => setImportOpen(true)}><FileUp className="mr-1.5 h-4 w-4" /> {L("Importar de planilha", "Import from spreadsheet")}</Button>}
             </div>} />
         ) : visible.length === 0 ? (
-          <EmptyState icon={Search} title="Nada encontrado" description={`${c.nenhum} ${c.l} ou ${w.guardian.l} com "${query}".`} />
+          <EmptyState icon={Search} title={L("Nada encontrado", "Nothing found")} description={L(`${c.nenhum} ${c.l} ou ${w.guardian.l} com "${query}".`, `No ${c.l} or ${w.guardian.l} matching "${query}".`)} />
         ) : (
           <ul className="overflow-hidden rounded-2xl border border-border bg-card divide-y divide-border">
             {visible.map(st => {
@@ -290,19 +290,19 @@ export default function StudentsPage() {
                       <div className="flex items-center gap-1.5">
                         <span className="truncate font-medium">{st.student_name}</span>
                         {st.user_id && <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                        {st.plan_locked && <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">pausado</span>}
+                        {st.plan_locked && <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">{L("pausado", "paused")}</span>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {st.guardian_name ? `Resp.: ${st.guardian_name}` : "Sem responsável"}
+                        {st.guardian_name ? `${L("Resp.", w.guardian.s)}: ${st.guardian_name}` : L("Sem responsável", `No ${w.guardian.l}`)}
                       </div>
                     </div>
                     {!isTeacher && <div className="shrink-0 text-right">
                       {credit > 0 ? (
-                        <><div className="font-semibold tabular-nums text-success">{fmtMoney(credit)}</div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">crédito</div></>
+                        <><div className="font-semibold tabular-nums text-success">{fmtMoney(credit)}</div><div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("crédito", "credit")}</div></>
                       ) : owed > 0 ? (
-                        <><div className={`font-semibold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(owed)}</div><div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>{overdue ? "em atraso" : "a receber"}</div></>
+                        <><div className={`font-semibold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(owed)}</div><div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>{overdue ? L("em atraso", "overdue") : L("a receber", "due")}</div></>
                       ) : (
-                        <div className="text-xs text-muted-foreground">Em dia</div>
+                        <div className="text-xs text-muted-foreground">{L("Em dia", "Up to date")}</div>
                       )}
                     </div>}
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -323,7 +323,7 @@ export default function StudentsPage() {
         onSchedule={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setScheduleFor(s); }}
         showMoney={!isTeacher}
         onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
-        manageLabel={isTeacher ? "Materiais e tarefas" : undefined}
+        manageLabel={isTeacher ? L("Materiais e tarefas", "Materials and homework") : undefined}
         onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
         onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}
@@ -333,26 +333,26 @@ export default function StudentsPage() {
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>{editing?.id ? `Editar ${c.l}` : `${c.novo} ${c.l}`}</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{editing?.id ? L(`Editar ${c.l}`, `Edit ${c.l}`) : `${c.novo} ${c.l}`}</DialogTitle></DialogHeader>
           <div className="grid gap-3">
-            <div><Label>Nome {c.do} {c.l}</Label>
+            <div><Label>{L(`Nome ${c.do} ${c.l}`, `${c.s} name`)}</Label>
               <Input className="h-11 rounded-xl" value={editing?.student_name ?? ""} onChange={e => setEditing(p => ({ ...p!, student_name: e.target.value }))} />
             </div>
             <div><Label>{w.guardian.s}</Label>
               <Input className="h-11 rounded-xl" value={editing?.guardian_name ?? ""} onChange={e => setEditing(p => ({ ...p!, guardian_name: e.target.value }))} />
             </div>
-            <div><Label>Endereço</Label>
-              <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder="Rua, número, bairro, cidade" />
+            <div><Label>{L("Endereço", "Address")}</Label>
+              <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder={L("Rua, número, bairro, cidade", "Street, number, city")} />
             </div>
-            <div><Label>WhatsApp {editing?.guardian_name?.trim() ? `${w.guardian.do} ${w.guardian.l}` : `${c.do} ${c.l}`}</Label>
+            <div><Label>{L(`WhatsApp ${editing?.guardian_name?.trim() ? `${w.guardian.do} ${w.guardian.l}` : `${c.do} ${c.l}`}`, `${editing?.guardian_name?.trim() ? w.guardian.s : c.s} WhatsApp`)}</Label>
               <Input className="h-11 rounded-xl" type="tel" inputMode="tel" value={editing?.whatsapp ?? ""}
-                onChange={e => setEditing(p => ({ ...p!, whatsapp: e.target.value }))} placeholder="(11) 98765-4321" />
-              <p className="mt-1 text-xs text-muted-foreground">Opcional. Usado para mandar lembrete e aviso pelo WhatsApp.</p>
+                onChange={e => setEditing(p => ({ ...p!, whatsapp: e.target.value }))} placeholder={L("(11) 98765-4321", "+1 555 123 4567")} />
+              <p className="mt-1 text-xs text-muted-foreground">{L("Opcional. Usado para mandar lembrete e aviso pelo WhatsApp.", "Optional. Used to send reminders and notices on WhatsApp.")}</p>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => setEditing(null)}>Cancelar</Button>
-            <Button className="rounded-xl" onClick={save} disabled={busy}>Salvar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setEditing(null)}>{L("Cancelar", "Cancel")}</Button>
+            <Button className="rounded-xl" onClick={save} disabled={busy}>{L("Salvar", "Save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

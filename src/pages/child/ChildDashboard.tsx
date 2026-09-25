@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, FolderOpen, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 export default function ChildDashboard() {
   const { student, loading } = useStudent();
   const w = useWords();
@@ -33,11 +33,11 @@ export default function ChildDashboard() {
     return () => { supabase.removeChannel(channel); };
   }, [student]);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Carregando...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground">{L("Carregando...", "Loading...")}</p>;
   if (!student) return (
     <Card className="p-6">
-      <h2 className="font-semibold mb-2">Conta sem vínculo</h2>
-      <p className="text-sm text-muted-foreground">Avise {w.staff.o} {w.staff.l} ou {w.guardian.seu} {w.guardian.l}.</p>
+      <h2 className="font-semibold mb-2">{L("Conta sem vínculo", "Account not linked")}</h2>
+      <p className="text-sm text-muted-foreground">{L(`Avise ${w.staff.o} ${w.staff.l} ou ${w.guardian.seu} ${w.guardian.l}.`, `Let the ${w.staff.l} or your ${w.guardian.l} know.`)}</p>
     </Card>
   );
 
@@ -49,7 +49,7 @@ export default function ChildDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Olá, {student.student_name.split(" ")[0]} 👋</h1>
+        <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {student.student_name.split(" ")[0]} 👋</h1>
       </div>
 
       <Card className="p-6 space-y-4 border-primary/30">
@@ -59,46 +59,46 @@ export default function ChildDashboard() {
         </div>
         {nextLesson ? (
           <div className="space-y-2">
-            <div className="text-2xl font-bold">{format(new Date(nextLesson.start_at), "EEEE, dd 'de' MMMM", { locale: ptBR })}</div>
+            <div className="text-2xl font-bold">{format(new Date(nextLesson.start_at), L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}</div>
             <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
               <Clock className="w-4 h-4" />
-              <span>{format(new Date(nextLesson.start_at), "HH:mm", { locale: ptBR })}</span>
+              <span>{format(new Date(nextLesson.start_at), "HH:mm", { locale: dateLocale() })}</span>
               <span>· {nextLesson.duration_minutes} min</span>
-              <span>· Prof. {capitalize(nextLesson.teacher)}</span>
+              <span>· {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(nextLesson.teacher)}</span>
             </div>
             {nextLesson.subject && <Badge variant="secondary">{nextLesson.subject}</Badge>}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("agendado", "agendada")}.</p>
+          <p className="text-sm text-muted-foreground">{L(`${ap.nenhum} ${ap.l} ${ap.pick("agendado", "agendada")}.`, `No ${ap.l} booked.`)}</p>
         )}
       </Card>
 
       <Card className="p-5 space-y-3">
         <h2 className="font-semibold">{ap.proximos} {ap.lp}</h2>
-        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">{ap.nenhum} {ap.l} {ap.pick("agendado", "agendada")}.</p>}
+        {upcoming.length === 0 && <p className="text-sm text-muted-foreground">{L(`${ap.nenhum} ${ap.l} ${ap.pick("agendado", "agendada")}.`, `No ${ap.l} booked.`)}</p>}
         {upcoming.slice(0, 8).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
             </div>
           </div>
         ))}
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <StatCard icon={FolderOpen} label="Materiais" value="Acessar" href="/meu-painel/materiais" />
-        <StatCard icon={ListChecks} label="Tarefas" value={dueHomework.length} href="/meu-painel/tarefas" />
+        <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/meu-painel/materiais" />
+        <StatCard icon={ListChecks} label={L("Tarefas", "Tasks")} value={dueHomework.length} href="/meu-painel/tarefas" />
       </div>
 
       <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">Tarefas com prazo</h2>
-        {dueHomework.length === 0 && <p className="text-sm text-muted-foreground">Você está em dia!</p>}
+        <h2 className="font-semibold">{L("Tarefas com prazo", "Tasks due")}</h2>
+        {dueHomework.length === 0 && <p className="text-sm text-muted-foreground">{L("Você está em dia!", "You're all caught up!")}</p>}
         {dueHomework.slice(0, 5).map(h => (
           <div key={h.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="text-sm">
               <div className="font-medium">{h.title}</div>
-              <div className="text-xs text-muted-foreground">Prazo: {format(new Date(h.deadline), "dd/MM HH:mm")}</div>
+              <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(new Date(h.deadline), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
             </div>
             <Badge variant="secondary">{h.status}</Badge>
           </div>

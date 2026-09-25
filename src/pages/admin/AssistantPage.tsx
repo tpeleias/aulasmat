@@ -14,6 +14,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { useAuth } from "@/hooks/useAuth";
 import { canSellHere } from "@/lib/subscription";
 
+import { L } from "@/lib/i18n";
 type ChatMessage = { role: "user" | "assistant"; content: any[] };
 
 const STORAGE_KEY = "assistant_chat_messages";
@@ -44,7 +45,7 @@ async function extractErrorMessage(e: any): Promise<string> {
       // context wasn't JSON - fall through to generic message
     }
   }
-  return e?.message ?? "Erro ao falar com o assistente.";
+  return e?.message ?? L("Erro ao falar com o assistente.", "Error talking to the assistant.");
 }
 
 export default function AssistantPage() {
@@ -112,6 +113,8 @@ export default function AssistantPage() {
       const { data, error: fnError } = await supabase.functions.invoke("assistant-chat", {
         body: {
           messages: nextMessages,
+          // Fuso do aparelho: a empresa pode não estar no Brasil.
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           vocabulary: Object.fromEntries((["staff", "appointment", "client", "guardian"] as const)
             .map(k => [k, { s: w[k].s, p: w[k].p }])),
         },
@@ -148,9 +151,9 @@ export default function AssistantPage() {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold">Assistente</h1>
+          <h1 className="text-2xl font-bold">{L("Assistente", "Assistant")}</h1>
           <p className="text-sm text-muted-foreground">
-            Marcar {w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.
+            {L(`Marcar ${w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.`, `Book, reschedule, record payments and check billing — just by chatting.`)}
           </p>
         </div>
         {/* Cada conversa custa dinheiro: o assistente vem no Max pago, é
@@ -160,21 +163,20 @@ export default function AssistantPage() {
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
             <Bot className="h-5 w-5 text-primary" />
           </div>
-          <h2 className="text-lg font-semibold">O Assistente vem no Cronys Max</h2>
+          <h2 className="text-lg font-semibold">{L("O Assistente vem no Cronys Max", "The Assistant comes with Cronys Max")}</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Em vez de abrir a agenda e preencher formulário, você escreve
-            &ldquo;marca com o Miguel quinta às 15h&rdquo; e ele marca. Também
-            registra pagamento, responde quanto {w.guardian.um} {w.guardian.l} deve e remarca {w.appointment.l}.
+            {L(`Em vez de abrir a agenda e preencher formulário, você escreve “marca com o Miguel quinta às 15h” e ele marca. Também registra pagamento, responde quanto ${w.guardian.um} ${w.guardian.l} deve e remarca ${w.appointment.l}.`,
+               `Instead of opening the calendar and filling in a form, you write “book Mike on Thursday at 3pm” and it books. It also records payments, tells you how much a ${w.guardian.l} owes and reschedules ${w.appointment.lp}.`)}
           </p>
           <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
             {plan.tier === "pro"
-              ? "Ele vem incluso no Max com a assinatura ativa."
+              ? L("Ele vem incluso no Max com a assinatura ativa.", "It's included in Max with an active subscription.")
               : plan.tier === "pro_solo"
-                ? "Ele vem incluso no Cronys Max. No Pro, dá para adicionar à assinatura."
-                : "Ele vem incluso no Cronys Max, e no Pro pode ser adicionado."}
+                ? L("Ele vem incluso no Cronys Max. No Pro, dá para adicionar à assinatura.", "It's included in Cronys Max. On Pro, you can add it to your subscription.")
+                : L("Ele vem incluso no Cronys Max, e no Pro pode ser adicionado.", "It's included in Cronys Max, and can be added on Pro.")}
           </p>
           {canSellHere() && isAdmin && (
-            <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">Ver planos</Link></Button>
+            <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">{L("Ver planos", "See plans")}</Link></Button>
           )}
         </Card>
       </div>
@@ -185,19 +187,19 @@ export default function AssistantPage() {
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Assistente</h1>
+          <h1 className="text-2xl font-bold">{L("Assistente", "Assistant")}</h1>
           <p className="text-sm text-muted-foreground">
-            Converse pra marcar {w.appointment.lp}, editar, registrar pagamentos e consultar o financeiro.
+            {L(`Converse pra marcar ${w.appointment.lp}, editar, registrar pagamentos e consultar o financeiro.`, `Chat to book ${w.appointment.lp}, edit them, record payments and check billing.`)}
           </p>
           {shownUsage && (
             <p className={`mt-0.5 text-xs ${shownUsage.used >= shownUsage.limit ? "text-destructive" : "text-muted-foreground"}`}>
-              {shownUsage.used} de {shownUsage.limit} mensagens este mês
+              {L(`${shownUsage.used} de ${shownUsage.limit} mensagens este mês`, `${shownUsage.used} of ${shownUsage.limit} messages this month`)}
             </p>
           )}
         </div>
         {messages.length > 0 && (
           <Button variant="ghost" size="sm" onClick={clearChat} className="shrink-0">
-            Limpar
+            {L("Limpar", "Clear")}
           </Button>
         )}
       </div>
@@ -205,8 +207,8 @@ export default function AssistantPage() {
       <ScrollArea className="flex-1 rounded-xl border border-border bg-card p-4">
         {visibleMessages.length === 0 ? (
           <div className="h-full flex items-center justify-center text-center text-muted-foreground text-sm py-12">
-            Peça algo como <br />
-            <span className="italic">"marca {w.appointment.um} {w.appointment.l} do Miguel quinta às 16h"</span>
+            {L("Peça algo como", "Ask something like")} <br />
+            <span className="italic">{L(`"marca ${w.appointment.um} ${w.appointment.l} do Miguel quinta às 16h"`, `"book ${w.appointment.um} ${w.appointment.l} for Mike on Thursday at 4pm"`)}</span>
           </div>
         ) : (
           <div className="space-y-4">
@@ -233,7 +235,7 @@ export default function AssistantPage() {
             ))}
             {busy && (
               <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                <Loader2 className="w-4 h-4 animate-spin" /> pensando...
+                <Loader2 className="w-4 h-4 animate-spin" /> {L("pensando...", "thinking...")}
               </div>
             )}
           </div>
@@ -249,7 +251,7 @@ export default function AssistantPage() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Escreva sua mensagem..."
+          placeholder={L("Escreva sua mensagem...", "Write your message...")}
           className="min-h-[44px] max-h-32 resize-none rounded-xl"
           disabled={busy}
         />
