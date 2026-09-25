@@ -75,8 +75,10 @@ para a Play**, com as notas de `android/whatsnew/whatsnew-pt-BR`, e manda para
 a revisão da Google (status `completed`). Nada de baixar e subir à mão.
 
 - Rodar: GitHub → Actions → Build Android release (Play) → Run workflow →
-  versão (ex.: 1.16.0) e trilha (`production` por padrão; `internal` para
-  teste interno; `none` só gera o aab).
+  versão (ex.: 1.16.0) e trilha (`internal` por padrão, que é onde o Cronys
+  está hoje; `alpha` = teste fechado; `production` = público; `none` só gera o aab).
+- Conferir a chave sem enviar nada: Actions → Check Google Play access → Run
+  workflow (lista as versões de cada trilha). Conferido em 25/09: OK.
 - Sem o segredo `PLAY_SERVICE_ACCOUNT_JSON`, o envio é pulado e o aab fica como
   artefato, como antes.
 
