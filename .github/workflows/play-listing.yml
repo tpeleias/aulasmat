@@ -12,9 +12,9 @@ on:
         default: false
         type: boolean
       language:
-        description: 'Idioma da ficha'
+        description: 'Idioma da ficha (auto = o idioma padrão do app na Play)'
         required: true
-        default: pt-BR
+        default: auto
 
 jobs:
   listing:
@@ -56,6 +56,13 @@ jobs:
           edit = ok(requests.post(f"{base}/edits", headers=h), "abrir edição")["id"]
           committed = False
           try:
+              details = ok(requests.get(f"{base}/edits/{edit}/details", headers=h), "ler detalhes")
+              langs = [x.get("language") for x in ok(requests.get(f"{base}/edits/{edit}/listings", headers=h), "listar idiomas").get("listings", [])]
+              print("Idioma padrão:", details.get("defaultLanguage"), "| fichas:", langs)
+              if lang == "auto":
+                  lang = details.get("defaultLanguage")
+              # As imagens do repositório estão em store/pt-BR, qualquer que seja o código na Play.
+              src = f"store/{lang}" if os.path.isdir(f"store/{lang}") else "store/pt-BR"
               listing = requests.get(f"{base}/edits/{edit}/listings/{lang}", headers=h)
               if listing.status_code == 200:
                   l = listing.json()
@@ -71,7 +78,7 @@ jobs:
                   print("Só listagem (apply = false). Nada foi mudado.")
                   sys.exit(0)
 
-              shots = sorted(glob.glob(f"store/{lang}/phoneScreenshots/*.png"))
+              shots = sorted(glob.glob(f"{src}/phoneScreenshots/*.png"))
               if shots:
                   ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/phoneScreenshots", headers=h), "apagar capturas")
                   for f in shots:
@@ -79,7 +86,7 @@ jobs:
                           ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/phoneScreenshots?uploadType=media",
                                            headers={**h, "Content-Type": "image/png"}, data=fh.read()), f"enviar {f}")
                       print("enviada:", f)
-              fg = f"store/{lang}/featureGraphic.png"
+              fg = f"{src}/featureGraphic.png"
               if os.path.exists(fg):
                   ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/featureGraphic", headers=h), "apagar destaque")
                   with open(fg, "rb") as fh:
