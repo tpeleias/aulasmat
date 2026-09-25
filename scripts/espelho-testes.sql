@@ -2134,4 +2134,26 @@ INSERT INTO public.services (account_id, name, active) VALUES (current_setting('
 SELECT public.assert((SELECT count(*) FROM public.services WHERE account_id = current_setting('teste.se')::uuid) = 2,
   'desligado pode ficar guardado');
 
+
+\echo ''
+\echo '--- 36. Servicos na pagina publica (sem login) ---'
+
+INSERT INTO public.services (account_id, name, duration_minutes, price)
+SELECT id, 'Reforco publico', 60, 150 FROM public.accounts WHERE slug = 'portaldeaulas';
+INSERT INTO public.services (account_id, name, active)
+SELECT id, 'Desligado publico', false FROM public.accounts WHERE slug = 'portaldeaulas';
+
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert((SELECT string_agg(x ->> 'name', ',') FROM jsonb_array_elements(public.public_services() -> 'services') x) = 'Reforco publico',
+  'visitante ve so os servicos ligados da empresa do endereco (nada da Clinica S)');
+SELECT public.assert(jsonb_array_length(public.public_services() -> 'teachers') >= 1, 'e quem atende');
+DO $$
+BEGIN
+  PERFORM 1 FROM public.services;
+  RAISE EXCEPTION 'FALHOU: visitante leu a tabela de servicos';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a tabela continua fechada para o visitante';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='
