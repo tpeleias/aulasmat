@@ -18,28 +18,47 @@ import { cap } from "@/lib/vocabulary";
 
 type Student = { id: string; student_name: string; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
 
-export function StudentManageDialog({ student, open, onOpenChange, onChanged }: {
-  student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void;
+// teacherMode: o login de professor (funcionário) só vê Materiais e Tarefas, só
+// põe para quem já teve aula com ele e só apaga o que ele mesmo pôs - o banco
+// confere tudo isso (migration 20260925100000); aqui é só para não oferecer.
+export function StudentManageDialog({ student, open, onOpenChange, onChanged, teacherMode = false }: {
+  student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void; teacherMode?: boolean;
 }) {
+  const [canAdd, setCanAdd] = useState(true);
+  const [me, setMe] = useState<string | null>(null);
+  useEffect(() => {
+    if (!teacherMode || !student || !open) { setCanAdd(true); return; }
+    supabase.auth.getUser().then(({ data }) => setMe(data.user?.id ?? null));
+    supabase.rpc("teacher_has_student" as never, { _student: student.id, _only_done: true } as never)
+      .then(({ data }) => setCanAdd(data === true));
+  }, [teacherMode, student, open]);
   if (!student) return null;
+  const perms = teacherMode ? { canAdd, ownerId: me } : { canAdd: true, ownerId: null };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader><DialogTitle>{student.student_name}</DialogTitle></DialogHeader>
-        <Tabs defaultValue="account">
-          <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="account">Conta</TabsTrigger>
+        {teacherMode && !canAdd && (
+          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            Você poderá pôr materiais e tarefas depois da primeira aula dada para {student.student_name}.
+          </p>
+        )}
+        <Tabs defaultValue={teacherMode ? "materials" : "account"}>
+          <TabsList className={`grid ${teacherMode ? "grid-cols-2" : "grid-cols-3"} w-full`}>
+            {!teacherMode && <TabsTrigger value="account">Conta</TabsTrigger>}
             <TabsTrigger value="materials">Materiais</TabsTrigger>
             <TabsTrigger value="homework">Tarefas</TabsTrigger>
           </TabsList>
-          <TabsContent value="account" className="mt-4">
-            <AccountTab student={student} onChanged={onChanged} />
-          </TabsContent>
+          {!teacherMode && (
+            <TabsContent value="account" className="mt-4">
+              <AccountTab student={student} onChanged={onChanged} />
+            </TabsContent>
+          )}
           <TabsContent value="materials" className="mt-4">
-            <MaterialsTab student={student} />
+            <MaterialsTab student={student} perms={perms} />
           </TabsContent>
           <TabsContent value="homework" className="mt-4">
-            <HomeworkTab student={student} />
+            <HomeworkTab student={student} perms={perms} />
           </TabsContent>
         </Tabs>
       </DialogContent>
@@ -235,7 +254,10 @@ function ChildAccessSection({ student, onChanged }: { student: Student; onChange
   );
 }
 
-function MaterialsTab({ student }: { student: Student }) {
+// canAdd: pode pôr coisa nova. ownerId: se definido, só apaga o que tem esse dono.
+type Perms = { canAdd: boolean; ownerId: string | null };
+
+function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
   const [items, setItems] = useState<any[]>([]);
@@ -295,11 +317,11 @@ function MaterialsTab({ student }: { student: Student }) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 space-y-3">
+      {perms.canAdd && <Card className="p-4 space-y-3">
         <div><Label>Título do material (opcional)</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Padrão: nome do arquivo" /></div>
         <input ref={fileRef} type="file" hidden onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
         <Button onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> {busy ? "Enviando..." : "Enviar arquivo"}</Button>
-      </Card>
+      </Card>}
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhum material.</p>}
         {items.map(m => (
@@ -310,7 +332,7 @@ function MaterialsTab({ student }: { student: Student }) {
               <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), "dd/MM/yyyy HH:mm")}</div>
             </div>
             <Button size="icon" variant="ghost" onClick={() => download(m.file_path)}><Download className="w-4 h-4" /></Button>
-            <Button size="icon" variant="ghost" onClick={() => remove(m)}><Trash2 className="w-4 h-4" /></Button>
+            {(!perms.ownerId || m.uploaded_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(m)}><Trash2 className="w-4 h-4" /></Button>}
           </Card>
         ))}
       </div>
@@ -318,7 +340,7 @@ function MaterialsTab({ student }: { student: Student }) {
   );
 }
 
-function HomeworkTab({ student }: { student: Student }) {
+function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
   const w = useWords();
   const [items, setItems] = useState<any[]>([]);
   const [subs, setSubs] = useState<Record<string, any[]>>({});
@@ -369,13 +391,13 @@ function HomeworkTab({ student }: { student: Student }) {
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 space-y-3">
+      {perms.canAdd && <Card className="p-4 space-y-3">
         <div className="text-sm font-medium">Nova tarefa</div>
         <div><Label>Título</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
         <div><Label>Descrição</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} /></div>
         <div><Label>Prazo</Label><Input type="datetime-local" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></div>
         <Button onClick={create} disabled={busy} className="gap-2"><Plus className="w-4 h-4" /> Criar tarefa</Button>
-      </Card>
+      </Card>}
 
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">Nenhuma tarefa.</p>}
@@ -389,7 +411,7 @@ function HomeworkTab({ student }: { student: Student }) {
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant={h.status === "entregue" ? "default" : "secondary"}>{h.status}</Badge>
-                <Button size="icon" variant="ghost" onClick={() => remove(h.id)}><Trash2 className="w-4 h-4" /></Button>
+                {(!perms.ownerId || h.created_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(h.id)}><Trash2 className="w-4 h-4" /></Button>}
               </div>
             </div>
             {(subs[h.id] ?? []).map(s => (
@@ -400,7 +422,7 @@ function HomeworkTab({ student }: { student: Student }) {
                 </div>
                 <div className="flex gap-1">
                   <Button size="sm" variant="outline" onClick={() => download(s.file_path)}><Download className="w-4 h-4" /></Button>
-                  <Button size="sm" variant="outline" onClick={() => giveFeedback(s)}>Feedback</Button>
+                  {perms.canAdd && <Button size="sm" variant="outline" onClick={() => giveFeedback(s)}>Feedback</Button>}
                 </div>
               </div>
             ))}

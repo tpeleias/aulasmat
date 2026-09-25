@@ -65,7 +65,7 @@ export default function AdminLayout() {
   // Widgets deep-link to "/admin?new=1" to jump straight into scheduling.
   useEffect(() => {
     if (searchParams.get("new") === "1") {
-      setQuickOpen(true);
+      if (!isTeacher) setQuickOpen(true);
       searchParams.delete("new");
       setSearchParams(searchParams, { replace: true });
     }
@@ -178,12 +178,15 @@ export default function AdminLayout() {
               <CronysWordmark tamanho="1rem" />
               {!isTeacher && <SeloPlano />}
             </div>
-            <Button
-              className="h-12 w-full justify-start gap-2 rounded-2xl"
-              onClick={() => { haptics.tap(); close(); setQuickOpen(true); }}
-            >
-              <Plus className="h-4 w-4" /> {v.appointment.novo} {v.appointment.l}
-            </Button>
+            {/* Professor não marca aula (migration 20260925100000): só o admin. */}
+            {!isTeacher && (
+              <Button
+                className="h-12 w-full justify-start gap-2 rounded-2xl"
+                onClick={() => { haptics.tap(); close(); setQuickOpen(true); }}
+              >
+                <Plus className="h-4 w-4" /> {v.appointment.novo} {v.appointment.l}
+              </Button>
+            )}
             <div className="grid grid-cols-2 gap-2">
               {secondaryNav.map(it => (
                 <NavLink key={it.to} to={it.to} onClick={() => { haptics.tap(); close(); }}
