@@ -1,0 +1,58 @@
+name: Check Google Play access
+
+# Só confere se a chave PLAY_SERVICE_ACCOUNT_JSON entra na Play: abre uma
+# edição, lista as trilhas e versões, e descarta a edição. Não envia nem muda
+# nada na loja.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install google-auth
+        run: pip install --quiet google-auth requests
+
+      - name: Check access
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          import requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          raw = os.environ.get("PLAY_JSON", "")
+          if not raw.strip():
+              sys.exit("ERRO: segredo PLAY_SERVICE_ACCOUNT_JSON vazio ou inexistente.")
+          try:
+              info = json.loads(raw)
+          except Exception as e:
+              sys.exit(f"ERRO: o segredo não é um JSON válido ({e}). Cole o arquivo .json inteiro.")
+          print("Conta de serviço:", info.get("client_email"))
+          creds = service_account.Credentials.from_service_account_info(
+              info, scopes=["https://www.googleapis.com/auth/androidpublisher"])
+          creds.refresh(Request())
+          h = {"Authorization": f"Bearer {creds.token}"}
+          base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.aulasmat.app"
+          r = requests.post(f"{base}/edits", headers=h)
+          if r.status_code != 200:
+              sys.exit(f"ERRO ao abrir edição ({r.status_code}): {r.text}")
+          edit = r.json()["id"]
+          try:
+              t = requests.get(f"{base}/edits/{edit}/tracks", headers=h)
+              if t.status_code != 200:
+                  sys.exit(f"ERRO ao ler trilhas ({t.status_code}): {t.text}")
+              for tr in t.json().get("tracks", []):
+                  for rel in tr.get("releases", []):
+                      print(f"trilha={tr['track']} versão={rel.get('name')} códigos={rel.get('versionCodes')} status={rel.get('status')}")
+              print("OK: a chave entra na Play e pode enviar versões.")
+          finally:
+              requests.delete(f"{base}/edits/{edit}", headers=h)
+          PY
