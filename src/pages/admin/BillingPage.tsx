@@ -33,7 +33,7 @@ import { cap, type Vocabulary } from "@/lib/vocabulary";
 import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
 import { useServices, type Service } from "@/hooks/useServices";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, currencySymbol } from "@/lib/i18n";
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
@@ -56,7 +56,7 @@ type QuickOption = {
 // (tabela lesson_packages). O voucher é a diferença para o valor cheio,
 // calculada com o valor da hora de agora.
 const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[], services: Service[]): QuickOption[] => [
-  { key: "all", label: "Quitar tudo", kind: "adjustment" },
+  { key: "all", label: L("Quitar tudo", "Pay everything"), kind: "adjustment" },
   ...packages.filter(p => p.active).map((p): QuickOption => {
     const voucher = packageVoucher(p.lessons, Number(p.price), packageUnitPrice(p, services, listPrice));
     return {
@@ -64,9 +64,9 @@ const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[
       hint: `${fmtMoney(Number(p.price))}${voucher > 0 ? ` + voucher ${fmtMoney(voucher)}` : ""}`,
     };
   }),
-  { key: "single", label: `1 ${v.appointment.l} ${v.appointment.pick("avulso", "avulsa")}`, amount: listPrice, kind: "adjustment" },
-  { key: "voucher", label: "Voucher (desconto)", kind: "voucher", hint: "crédito sem dinheiro" },
-  { key: "custom", label: "Outro valor", kind: "adjustment" },
+  { key: "single", label: L(`1 ${v.appointment.l} ${v.appointment.pick("avulso", "avulsa")}`, `1 single ${v.appointment.l}`), amount: listPrice, kind: "adjustment" },
+  { key: "voucher", label: L("Voucher (desconto)", "Voucher (discount)"), kind: "voucher", hint: L("crédito sem dinheiro", "credit, no money") },
+  { key: "custom", label: L("Outro valor", "Other amount"), kind: "adjustment" },
 ];
 
 // Onde o desconto pega. "always" é o desconto fixo da família, que o banco
@@ -76,9 +76,9 @@ type DiscountScope = "lesson" | "open" | "always";
 
 const kindLabel = (t: Tx, v: Vocabulary) =>
   t.kind === "lesson" ? v.appointment.s
-    : t.kind === "package" ? "Pacote"
+    : t.kind === "package" ? L("Pacote", "Package")
       : t.kind === "voucher" ? "Voucher"
-        : Number(t.amount) >= 0 ? "Pagamento" : "Ajuste";
+        : Number(t.amount) >= 0 ? L("Pagamento", "Payment") : L("Ajuste", "Adjustment");
 
 export default function BillingPage() {
   const { price: listPrice } = useLessonPrice();
@@ -212,13 +212,13 @@ export default function BillingPage() {
     if (!code) return;
     navigator.clipboard.writeText(code);
     haptics.success();
-    toast.success(`Pix de ${fmtMoney(a.owed)} copiado`);
+    toast.success(L(`Pix de ${fmtMoney(a.owed)} copiado`, `Pix of ${fmtMoney(a.owed)} copied`));
   };
 
   const copyCollection = (a: Account) => {
     navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v, templates));
     haptics.success();
-    toast.success(`Mensagem de cobrança de ${a.label} copiada`);
+    toast.success(L(`Mensagem de cobrança de ${a.label} copiada`, `Payment request for ${a.label} copied`));
   };
 
   const overdueCount = useMemo(() => accounts.filter(isOverdue).length, [accounts]);
@@ -241,7 +241,7 @@ export default function BillingPage() {
     const q = a.owed > 0 ? QUICK[0] : firstPkg ?? QUICK.find(x => x.key === "custom")!;
     setQuick(q.key);
     setAmount(q.key === "all" ? String(a.owed) : q.amount != null ? String(q.amount) : "");
-    setDesc(q.key === "all" ? "Pagamento" : q.kind === "package" ? q.label : "");
+    setDesc(q.key === "all" ? L("Pagamento", "Payment") : q.kind === "package" ? q.label : "");
     setVoucher(q.voucher ? String(q.voucher) : "");
     setAllowNegative(false);
   };
@@ -262,10 +262,10 @@ export default function BillingPage() {
     const value = payValue;
 
     if (isVoucherOnly) {
-      if (!(voucherValue > 0)) { toast.error("Informe o valor do voucher"); return; }
+      if (!(voucherValue > 0)) { toast.error(L("Informe o valor do voucher", "Enter the voucher amount")); return; }
     } else {
-      if (!Number.isFinite(value) || value === 0 || (value < 0 && !allowNegative)) { toast.error("Informe um valor válido"); return; }
-      if (voucherValue < 0) { toast.error("Voucher inválido"); return; }
+      if (!Number.isFinite(value) || value === 0 || (value < 0 && !allowNegative)) { toast.error(L("Informe um valor válido", "Enter a valid amount")); return; }
+      if (voucherValue < 0) { toast.error(L("Voucher inválido", "Invalid voucher")); return; }
     }
 
     setBusy(true);
@@ -274,14 +274,14 @@ export default function BillingPage() {
       _guardian: payFor.guardian,
       _amount: value,
       _kind: isVoucherOnly ? "voucher" : q.kind,
-      _description: desc.trim() || (value < 0 ? "Ajuste" : "Pagamento"),
+      _description: desc.trim() || (value < 0 ? L("Ajuste", "Adjustment") : L("Pagamento", "Payment")),
       _voucher: voucherValue,
       _voucher_description: isVoucherOnly ? (desc.trim() || "Voucher") : `Voucher ${q.label.toLowerCase()}`,
     });
     setBusy(false);
     if (error) { haptics.warning(); toast.error(error.message); return; }
     haptics.success();
-    toast.success(isVoucherOnly ? "Voucher lançado" : value < 0 ? "Ajuste registrado" : "Pagamento registrado");
+    toast.success(isVoucherOnly ? L("Voucher lançado", "Voucher added") : value < 0 ? L("Ajuste registrado", "Adjustment recorded") : L("Pagamento registrado", "Payment recorded"));
     setPayFor(null);
     load();
   };
@@ -311,11 +311,11 @@ export default function BillingPage() {
   const submitDiscount = async () => {
     if (!discountFor) return;
     if (!dOk) {
-      toast.error(dKind === "percent" ? "Informe uma porcentagem entre 0 e 100" : "Informe um valor em reais");
+      toast.error(dKind === "percent" ? L("Informe uma porcentagem entre 0 e 100", "Enter a percentage between 0 and 100") : L("Informe um valor em reais", "Enter an amount"));
       return;
     }
-    if (dScope === "lesson" && !dItem) { toast.error(`Escolha ${ap.o} ${ap.l}`); return; }
-    if (dScope !== "always" && !(dPreview > 0)) { toast.error("Não há nada em aberto para abater"); return; }
+    if (dScope === "lesson" && !dItem) { toast.error(L(`Escolha ${ap.o} ${ap.l}`, `Choose the ${ap.l}`)); return; }
+    if (dScope !== "always" && !(dPreview > 0)) { toast.error(L("Não há nada em aberto para abater", "Nothing outstanding to discount")); return; }
 
     setBusy(true);
     const rotulo = describeDiscount(dDiscount);
@@ -331,13 +331,13 @@ export default function BillingPage() {
       setBusy(false);
       if (error) { haptics.warning(); toast.error(error.message); return; }
       haptics.success();
-      toast.success(`Desconto de ${rotulo} valendo para ${ap.os} ${ap.lp} de ${discountFor.label}`);
+      toast.success(L(`Desconto de ${rotulo} valendo para ${ap.os} ${ap.lp} de ${discountFor.label}`, `${rotulo} discount now applies to ${discountFor.label}'s ${ap.lp}`));
     } else {
       // Abatimento pontual: entra como voucher solto (sem aula vinculada), e
       // por isso o desconto fixo nunca o recalcula nem o apaga.
       const descricao = dScope === "lesson"
-        ? `Desconto de ${rotulo} - ${dItem!.detail} de ${format(new Date(dItem!.date), L("dd/MM", "MMM d"), { locale: dateLocale() })}`
-        : `Desconto de ${rotulo} em ${discountFor.items.length} cobrança${discountFor.items.length > 1 ? "s" : ""} em aberto`;
+        ? L(`Desconto de ${rotulo} - ${dItem!.detail} de ${format(new Date(dItem!.date), "dd/MM", { locale: dateLocale() })}`, `${rotulo} discount - ${dItem!.detail} on ${format(new Date(dItem!.date), "MMM d", { locale: dateLocale() })}`)
+        : L(`Desconto de ${rotulo} em ${discountFor.items.length} cobrança${discountFor.items.length > 1 ? "s" : ""} em aberto`, `${rotulo} discount on ${discountFor.items.length} outstanding charge${discountFor.items.length > 1 ? "s" : ""}`);
       const { error } = await supabase.rpc("register_payment", {
         _student: discountFor.student,
         _guardian: discountFor.guardian,
@@ -350,7 +350,7 @@ export default function BillingPage() {
       setBusy(false);
       if (error) { haptics.warning(); toast.error(error.message); return; }
       haptics.success();
-      toast.success(`Desconto de ${fmtMoney(dPreview)} lançado`);
+      toast.success(L(`Desconto de ${fmtMoney(dPreview)} lançado`, `${fmtMoney(dPreview)} discount added`));
     }
     setDiscountFor(null);
     load();
@@ -359,7 +359,8 @@ export default function BillingPage() {
   const removeDiscount = async () => {
     if (!discountFor?.discount) return;
     if (!confirm(
-      `Tirar o desconto fixo de ${discountFor.label}?\n\nOs créditos que ele já lançou ${ap.pick("nos", "nas")} ${ap.lp} ${ap.pick("realizados", "realizadas")} também saem, e o que ${g.o} ${g.l} deve volta ao valor cheio. Abatimentos pontuais lançados à mão não são afetados.`
+      L(`Tirar o desconto fixo de ${discountFor.label}?\n\nOs créditos que ele já lançou ${ap.pick("nos", "nas")} ${ap.lp} ${ap.pick("realizados", "realizadas")} também saem, e o que ${g.o} ${g.l} deve volta ao valor cheio. Abatimentos pontuais lançados à mão não são afetados.`,
+        `Remove ${discountFor.label}'s standing discount?\n\nThe credits it already added to past ${ap.lp} are removed too, and what the ${g.l} owes goes back to full price. One-off discounts added by hand are not affected.`)
     )) return;
     setBusy(true);
     const { error } = await supabase.rpc("set_account_discount", {
@@ -371,7 +372,7 @@ export default function BillingPage() {
     setBusy(false);
     if (error) { haptics.warning(); toast.error(error.message); return; }
     haptics.success();
-    toast.success("Desconto fixo removido");
+    toast.success(L("Desconto fixo removido", "Standing discount removed"));
     setDiscountFor(null);
     load();
   };
@@ -381,30 +382,30 @@ export default function BillingPage() {
   const submitEdit = async () => {
     if (!editingTx) return;
     const value = Number(String(editAmount).replace(",", "."));
-    if (!Number.isFinite(value) || value === 0) { toast.error("Valor inválido"); return; }
+    if (!Number.isFinite(value) || value === 0) { toast.error(L("Valor inválido", "Invalid amount")); return; }
     setBusy(true);
     const { error } = await supabase.from("wallet_transactions").update({ amount: value, description: editDesc || editingTx.description }).eq("id", editingTx.id);
     setBusy(false);
     if (error) toast.error(error.message);
-    else { haptics.success(); toast.success("Lançamento atualizado"); setEditingTx(null); load(); }
+    else { haptics.success(); toast.success(L("Lançamento atualizado", "Entry updated")); setEditingTx(null); load(); }
   };
   const removeTx = async (t: Tx) => {
-    if (!confirm(`Remover este lançamento de ${fmtMoney(Number(t.amount))}? Essa ação não pode ser desfeita.`)) return;
+    if (!confirm(L(`Remover este lançamento de ${fmtMoney(Number(t.amount))}? Essa ação não pode ser desfeita.`, `Remove this ${fmtMoney(Number(t.amount))} entry? This can't be undone.`))) return;
     const { error } = await supabase.from("wallet_transactions").delete().eq("id", t.id);
-    if (error) toast.error(error.message); else { haptics.success(); toast.success("Lançamento removido"); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success(L("Lançamento removido", "Entry removed")); load(); }
   };
 
   // ---- Lessons behind a charge ----
   const openLessonEdit = async (lessonId: string) => {
     const { data, error } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
-    if (error || !data) { toast.error(`${ap.s} não ${ap.pick("encontrado", "encontrada")}`); return; }
+    if (error || !data) { toast.error(L(`${ap.s} não ${ap.pick("encontrado", "encontrada")}`, `${ap.s} not found`)); return; }
     setEditingLesson({ ...data, start_at: format(new Date(data.start_at), "yyyy-MM-dd'T'HH:mm") });
     setLessonDlgOpen(true);
   };
   const removeLesson = async (lessonId: string) => {
-    if (!confirm(`Excluir ${ap.este} ${ap.l}? O lançamento na carteira também será removido.`)) return;
+    if (!confirm(L(`Excluir ${ap.este} ${ap.l}? O lançamento na carteira também será removido.`, `Delete this ${ap.l}? Its billing entry is removed too.`))) return;
     const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
-    if (error) toast.error(error.message); else { haptics.success(); toast.success(`${ap.s} ${ap.pick("excluído", "excluída")}`); load(); }
+    if (error) toast.error(error.message); else { haptics.success(); toast.success(L(`${ap.s} ${ap.pick("excluído", "excluída")}`, `${ap.s} deleted`)); load(); }
   };
 
 
@@ -412,21 +413,22 @@ export default function BillingPage() {
     <PullToRefresh onRefresh={load}>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold">Financeiro</h1>
+          <h1 className="text-2xl font-bold">{L("Financeiro", "Billing")}</h1>
           <p className="text-sm text-muted-foreground">
-            Cada {ap.l} {ap.pick("realizado", "realizada")} vira uma cobrança. Registre o que recebeu e {ap.os} {ap.lp} mais {ap.pick("antigos", "antigas")} são {ap.pick("quitados", "quitadas")} {ap.pick("sozinhos", "sozinhas")}.
+            {L(`Cada ${ap.l} ${ap.pick("realizado", "realizada")} vira uma cobrança. Registre o que recebeu e ${ap.os} ${ap.lp} mais ${ap.pick("antigos", "antigas")} são ${ap.pick("quitados", "quitadas")} ${ap.pick("sozinhos", "sozinhas")}.`,
+               `Each completed ${ap.l} becomes a charge. Record what you receive and the oldest ${ap.lp} are paid off automatically.`)}
           </p>
         </div>
 
         {!loading && <PeriodSummary lessons={lessons} txs={txs} statements={accounts} />}
         {overdueCount > 0 && (
-          <div className="text-xs text-destructive">{overdueCount} conta{overdueCount > 1 ? "s" : ""} em atraso (mais de 30 dias)</div>
+          <div className="text-xs text-destructive">{L(`${overdueCount} conta${overdueCount > 1 ? "s" : ""} em atraso (mais de 30 dias)`, `${overdueCount} overdue account${overdueCount > 1 ? "s" : ""} (over 30 days)`)}</div>
         )}
 
         {!loading && accounts.length > 0 && (
           <div className="flex items-center justify-between gap-3">
             <span className="text-xs text-muted-foreground">
-              {accounts.length} conta{accounts.length > 1 ? "s" : ""}
+              {L(`${accounts.length} conta${accounts.length > 1 ? "s" : ""}`, `${accounts.length} account${accounts.length > 1 ? "s" : ""}`)}
             </span>
             <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
           </div>
@@ -435,7 +437,7 @@ export default function BillingPage() {
         {loading ? (
           <ListSkeleton rows={4} />
         ) : accounts.length === 0 ? (
-          <EmptyState icon={Wallet} title="Nenhuma conta ainda" description={`As contas aparecem aqui assim que houver ${v.client.lp} ou ${ap.lp}.`} />
+          <EmptyState icon={Wallet} title={L("Nenhuma conta ainda", "No accounts yet")} description={L(`As contas aparecem aqui assim que houver ${v.client.lp} ou ${ap.lp}.`, `Accounts show up here once you have ${v.client.lp} or ${ap.lp}.`)} />
         ) : (
           <div className="space-y-3">
             {accounts.map(a => {
@@ -451,12 +453,12 @@ export default function BillingPage() {
                         <div className="font-semibold text-lg truncate">{a.label}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {v.client.s}: {a.student}
-                          {a.items.length > 0 ? ` · ${a.items.length} ${a.items.length > 1 ? v.appointment.lp : v.appointment.l} em aberto` : " · em dia"}
+                          {a.items.length > 0 ? ` · ${a.items.length} ${a.items.length > 1 ? v.appointment.lp : v.appointment.l} ${L("em aberto", "outstanding")}` : L(" · em dia", " · up to date")}
                         </div>
                         {a.discount && (
                           <Badge variant="outline" className="mt-1 gap-1 text-[10px] font-normal">
                             <Percent className="h-2.5 w-2.5" />
-                            Desconto fixo de {describeDiscount(a.discount)}
+                            {L("Desconto fixo de", "Standing discount of")} {describeDiscount(a.discount)}
                           </Badge>
                         )}
                       </div>
@@ -465,40 +467,40 @@ export default function BillingPage() {
                       <div className="text-right">
                         {credit > 0 ? (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Crédito</div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Crédito", "Credit")}</div>
                             <div className="text-xl font-bold tabular-nums text-success">{fmtMoney(credit)}</div>
                           </>
                         ) : a.owed > 0 ? (
                           <>
                             <div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
-                              {overdue ? `Em atraso · ${daysOpen(a.oldestOpenDate)} dias` : "A receber"}
+                              {overdue ? L(`Em atraso · ${daysOpen(a.oldestOpenDate)} dias`, `Overdue · ${daysOpen(a.oldestOpenDate)} days`) : L("A receber", "To receive")}
                             </div>
                             <div className={`text-xl font-bold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(a.owed)}</div>
                           </>
                         ) : (
                           <>
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Situação</div>
-                            <div className="text-base font-medium text-muted-foreground">Em dia</div>
+                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Situação", "Status")}</div>
+                            <div className="text-base font-medium text-muted-foreground">{L("Em dia", "Up to date")}</div>
                           </>
                         )}
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
-                          <Plus className="w-4 h-4" /> Pagamento
+                          <Plus className="w-4 h-4" /> {L("Pagamento", "Payment")}
                         </Button>
                         {a.owed > 0 && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyCollection(a)}>
-                            <Copy className="w-3.5 h-3.5" /> Copiar cobrança
+                            <Copy className="w-3.5 h-3.5" /> {L("Copiar cobrança", "Copy request")}
                           </Button>
                         )}
                         {a.owed > 0 && pixFor(a) && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyPix(a)}>
-                            <Copy className="w-3.5 h-3.5" /> Copiar Pix
+                            <Copy className="w-3.5 h-3.5" /> {L("Copiar Pix", "Copy Pix")}
                           </Button>
                         )}
                         {plan.packages && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
-                            <Percent className="w-3.5 h-3.5" /> Desconto
+                            <Percent className="w-3.5 h-3.5" /> {L("Desconto", "Discount")}
                           </Button>
                         )}
                       </div>
@@ -510,15 +512,15 @@ export default function BillingPage() {
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
-                          {v.appointment.proximo} {v.appointment.l}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
+                          {L(`${v.appointment.proximo} ${v.appointment.l}`, `Next ${v.appointment.l}`)}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
                           · {a.nextLesson.subject ?? v.appointment.s} ({capitalize(a.nextLesson.teacher)})
                         </div>
                       )}
 
                       <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Em aberto</div>
+                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Em aberto", "Outstanding")}</div>
                         {a.items.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">{v.appointment.nenhum} {v.appointment.l} em aberto.</p>
+                          <p className="text-sm text-muted-foreground">{L(`${v.appointment.nenhum} ${v.appointment.l} em aberto.`, `No outstanding ${v.appointment.lp}.`)}</p>
                         ) : (
                           <ul className="divide-y divide-border rounded-xl border border-border">
                             {a.items.map(i => (
@@ -537,10 +539,10 @@ export default function BillingPage() {
                                     </span>
                                   )}
                                   <span className="font-medium tabular-nums">
-                                    {fmtMoney(i.amount)}{i.partial && <span className="text-xs font-normal text-muted-foreground"> restante</span>}
+                                    {fmtMoney(i.amount)}{i.partial && <span className="text-xs font-normal text-muted-foreground"> {L("restante", "remaining")}</span>}
                                   </span>
                                   {i.discount && (
-                                    <span className="text-[10px] text-success tabular-nums">−{fmtMoney(i.discount.amount)} desconto</span>
+                                    <span className="text-[10px] text-success tabular-nums">−{fmtMoney(i.discount.amount)} {L("desconto", "discount")}</span>
                                   )}
                                 </span>
                               </li>
@@ -550,9 +552,9 @@ export default function BillingPage() {
                       </div>
 
                       <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">Extrato</div>
+                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Extrato", "Statement")}</div>
                         {a.txs.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">Nenhum lançamento ainda.</p>
+                          <p className="text-sm text-muted-foreground">{L("Nenhum lançamento ainda.", "No entries yet.")}</p>
                         ) : (
                           <ul className="space-y-1">
                             {a.txs.map(t => {
@@ -570,13 +572,13 @@ export default function BillingPage() {
                                     <span className={`font-medium tabular-nums whitespace-nowrap ${val >= 0 ? "text-success" : ""}`}>{val > 0 ? "+" : ""}{fmtMoney(val)}</span>
                                     {manual ? (
                                       <>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title="Editar"><Pencil className="w-3 h-3" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title="Remover"><Trash2 className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title={L("Editar", "Edit")}><Pencil className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title={L("Remover", "Remove")}><Trash2 className="w-3 h-3" /></Button>
                                       </>
                                     ) : t.lesson_id ? (
                                       <>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title={`Editar ${v.appointment.l}`}><Pencil className="w-3 h-3" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title={`Excluir ${v.appointment.l}`}><Trash2 className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title={L(`Editar ${v.appointment.l}`, `Edit ${v.appointment.l}`)}><Pencil className="w-3 h-3" /></Button>
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title={L(`Excluir ${v.appointment.l}`, `Delete ${v.appointment.l}`)}><Trash2 className="w-3 h-3" /></Button>
                                       </>
                                     ) : null}
                                   </div>
@@ -598,15 +600,14 @@ export default function BillingPage() {
       <Dialog open={!!payFor} onOpenChange={v => !v && setPayFor(null)}>
         <DialogContent className="rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Registrar pagamento</DialogTitle>
-            <DialogDescription>{payFor?.label}{payFor && payFor.owed > 0 ? ` · em aberto ${fmtMoney(payFor.owed)}` : " · em dia"}</DialogDescription>
+            <DialogTitle>{L("Registrar pagamento", "Record payment")}</DialogTitle>
+            <DialogDescription>{payFor?.label}{payFor && payFor.owed > 0 ? ` · ${L("em aberto", "outstanding")} ${fmtMoney(payFor.owed)}` : L(" · em dia", " · up to date")}</DialogDescription>
           </DialogHeader>
           {payFor && (
             <div className="space-y-4">
               {!plan.packages && (
-                <ProUpsell titulo="Pacotes e vouchers são do Cronys Pro" compacto>
-                  aqui você registra o que recebeu. Vender pacote com desconto e
-                  dar voucher ficam no Pro.
+                <ProUpsell titulo={L("Pacotes e vouchers são do Cronys Pro", "Packages and vouchers are part of Cronys Pro")} compacto>
+                  {L("aqui você registra o que recebeu. Vender pacote com desconto e dar voucher ficam no Pro.", "here you record what you received. Selling discounted packages and giving vouchers are on Pro.")}
                 </ProUpsell>
               )}
               <div className="grid grid-cols-2 gap-2">
@@ -620,29 +621,28 @@ export default function BillingPage() {
                     <div className="text-xs text-muted-foreground">
                       {q.key === "all" ? fmtMoney(payFor.owed)
                         : q.hint ? q.hint
-                          : q.key === "custom" ? "digite abaixo" : fmtMoney(q.amount!)}
+                          : q.key === "custom" ? L("digite abaixo", "type below") : fmtMoney(q.amount!)}
                     </div>
                   </button>
                 ))}
               </div>
               <div className="grid grid-cols-[1fr_2fr] gap-3">
                 <div>
-                  <Label>{isVoucherOnly ? "Voucher (R$)" : "Valor (R$)"}</Label>
+                  <Label>{isVoucherOnly ? `Voucher (${currencySymbol()})` : `${L("Valor", "Amount")} (${currencySymbol()})`}</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={amount} onChange={e => setAmount(e.target.value)} />
                 </div>
                 <div>
-                  <Label>Descrição</Label>
-                  <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder={isVoucherOnly ? "Ex.: desconto combinado" : "Ex.: Pix de setembro"} />
+                  <Label>{L("Descrição", "Description")}</Label>
+                  <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder={isVoucherOnly ? L("Ex.: desconto combinado", "E.g. agreed discount") : L("Ex.: Pix de setembro", "E.g. September transfer")} />
                 </div>
               </div>
               {!isVoucherOnly && plan.packages && (
                 <div>
-                  <Label>Voucher junto (R$)</Label>
+                  <Label>{L("Voucher junto", "Voucher with it")} ({currencySymbol()})</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Desconto do pacote em crédito, já que {ap.os} {ap.lp} entram a {fmtMoney(listPrice)}/h.
-                    Os botões de pacote calculam esse valor sozinhos; os pacotes se cadastram em
-                    Configurações → Pacotes.
+                    {L(`Desconto do pacote em crédito, já que ${ap.os} ${ap.lp} entram a ${fmtMoney(listPrice)}/h. Os botões de pacote calculam esse valor sozinhos; os pacotes se cadastram em Configurações → Pacotes.`,
+                       `The package discount as credit, since ${ap.lp} are billed at ${fmtMoney(listPrice)}/h. Package buttons calculate it for you; set up packages in Settings → Packages.`)}
                   </p>
                 </div>
               )}
@@ -651,29 +651,29 @@ export default function BillingPage() {
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>
                     {voucherValue > 0 && payValue > 0
-                      ? `${fmtMoney(payValue)} recebidos + ${fmtMoney(voucherValue)} de voucher = ${fmtMoney(creditValue)} de crédito. `
+                      ? L(`${fmtMoney(payValue)} recebidos + ${fmtMoney(voucherValue)} de voucher = ${fmtMoney(creditValue)} de crédito. `, `${fmtMoney(payValue)} received + ${fmtMoney(voucherValue)} voucher = ${fmtMoney(creditValue)} credit. `)
                       : voucherValue > 0
-                        ? `${fmtMoney(voucherValue)} de crédito, sem entrada de dinheiro. `
+                        ? L(`${fmtMoney(voucherValue)} de crédito, sem entrada de dinheiro. `, `${fmtMoney(voucherValue)} credit, with no money in. `)
                         : ""}
                     {payFor.owed <= 0
-                      ? `Fica como crédito para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`
+                      ? L(`Fica como crédito para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`, `It stays as credit for upcoming ${ap.lp}.`)
                       : leftover >= 0
-                        ? `Quita ${ap.pick("todos", "todas")} ${ap.os} ${ap.lp} em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`
-                        : `Quita ${ap.os} ${ap.lp} mais ${ap.pick("antigos", "antigas")}; ficam ${fmtMoney(-leftover)} em aberto.`}
+                        ? L(`Quita ${ap.pick("todos", "todas")} ${ap.os} ${ap.lp} em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`, `Pays off all outstanding ${ap.lp}${leftover > 0 ? ` with ${fmtMoney(leftover)} credit left over` : ""}.`)
+                        : L(`Quita ${ap.os} ${ap.lp} mais ${ap.pick("antigos", "antigas")}; ficam ${fmtMoney(-leftover)} em aberto.`, `Pays off the oldest ${ap.lp}; ${fmtMoney(-leftover)} stays outstanding.`)}
                   </span>
                 </div>
               )}
               {!isVoucherOnly && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Checkbox checked={allowNegative} onCheckedChange={v => setAllowNegative(v === true)} />
-                  Ajuste ou estorno (permitir valor negativo)
+                  {L("Ajuste ou estorno (permitir valor negativo)", "Adjustment or refund (allow negative amount)")}
                 </label>
               )}
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => setPayFor(null)}>Cancelar</Button>
-            <Button className="rounded-xl" onClick={submitPay} disabled={busy}>Registrar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setPayFor(null)}>{L("Cancelar", "Cancel")}</Button>
+            <Button className="rounded-xl" onClick={submitPay} disabled={busy}>{L("Registrar", "Record")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -681,54 +681,54 @@ export default function BillingPage() {
       <Dialog open={!!discountFor} onOpenChange={v => !v && setDiscountFor(null)}>
         <DialogContent className="max-h-[85vh] overflow-y-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Aplicar desconto</DialogTitle>
+            <DialogTitle>{L("Aplicar desconto", "Apply discount")}</DialogTitle>
             <DialogDescription>
               {discountFor?.label}
-              {discountFor?.discount && ` · hoje com desconto fixo de ${describeDiscount(discountFor.discount)}`}
+              {discountFor?.discount && L(` · hoje com desconto fixo de ${describeDiscount(discountFor.discount)}`, ` · currently with a standing discount of ${describeDiscount(discountFor.discount)}`)}
             </DialogDescription>
           </DialogHeader>
           {discountFor && (
             <div className="space-y-4">
               <div className="grid grid-cols-[auto_1fr] gap-3">
                 <div>
-                  <Label>Em</Label>
+                  <Label>{L("Em", "In")}</Label>
                   <div className="mt-1 flex rounded-xl border border-border p-0.5">
                     {(["percent", "amount"] as DiscountKind[]).map(k => (
                       <button key={k} type="button" onClick={() => setDKind(k)}
                         className={`h-10 w-14 rounded-lg text-sm font-medium transition-colors ${dKind === k ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-                        {k === "percent" ? "%" : "R$"}
+                        {k === "percent" ? "%" : currencySymbol()}
                       </button>
                     ))}
                   </div>
                 </div>
                 <div>
-                  <Label>{dKind === "percent" ? "Porcentagem" : `Valor por ${ap.l} (R$)`}</Label>
+                  <Label>{dKind === "percent" ? L("Porcentagem", "Percentage") : L(`Valor por ${ap.l} (${currencySymbol()})`, `Amount per ${ap.l} (${currencySymbol()})`)}</Label>
                   <Input
                     type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl"
                     value={dValue} onChange={e => setDValue(e.target.value)}
-                    placeholder={dKind === "percent" ? "Ex.: 10" : "Ex.: 30"}
+                    placeholder={dKind === "percent" ? L("Ex.: 10", "E.g. 10") : L("Ex.: 30", "E.g. 30")}
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Aplicar em</Label>
+                <Label>{L("Aplicar em", "Apply to")}</Label>
                 {([
                   {
                     key: "always" as const,
-                    title: `${cap(ap.pick("todos", "todas"))} ${ap.os} ${ap.lp} d${g.este} ${g.l}, sempre`,
-                    body: `Vale para ${ap.os} ${ap.lp} que já aconteceram e para ${ap.os} ${ap.pick("próximos", "próximas")}, sozinho. Mudar ou tirar depois recalcula tudo.`,
+                    title: L(`${cap(ap.pick("todos", "todas"))} ${ap.os} ${ap.lp} d${g.este} ${g.l}, sempre`, `All of this ${g.l}'s ${ap.lp}, always`),
+                    body: L(`Vale para ${ap.os} ${ap.lp} que já aconteceram e para ${ap.os} ${ap.pick("próximos", "próximas")}, sozinho. Mudar ou tirar depois recalcula tudo.`, `Applies to past and upcoming ${ap.lp}, automatically. Changing or removing it later recalculates everything.`),
                   },
                   {
                     key: "open" as const,
-                    title: `Só o que está em aberto agora${discountFor.items.length ? ` (${discountFor.items.length})` : ""}`,
-                    body: `Um abatimento de uma vez, sobre cada cobrança em aberto. Não vale para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`,
+                    title: L(`Só o que está em aberto agora${discountFor.items.length ? ` (${discountFor.items.length})` : ""}`, `Only what is outstanding now${discountFor.items.length ? ` (${discountFor.items.length})` : ""}`),
+                    body: L(`Um abatimento de uma vez, sobre cada cobrança em aberto. Não vale para ${ap.os} ${ap.pick("próximos", "próximas")} ${ap.lp}.`, `A one-off discount on each outstanding charge. It doesn't apply to upcoming ${ap.lp}.`),
                     disabled: discountFor.items.length === 0,
                   },
                   {
                     key: "lesson" as const,
-                    title: `Só ${ap.um} ${ap.l}`,
-                    body: `Um abatimento de uma vez, ${ap.no} ${ap.l} ${ap.pick("escolhido", "escolhida")}.`,
+                    title: L(`Só ${ap.um} ${ap.l}`, `Just one ${ap.l}`),
+                    body: L(`Um abatimento de uma vez, ${ap.no} ${ap.l} ${ap.pick("escolhido", "escolhida")}.`, `A one-off discount on the chosen ${ap.l}.`),
                     disabled: discountFor.items.length === 0,
                   },
                 ]).map(o => (
@@ -745,7 +745,7 @@ export default function BillingPage() {
 
               {dScope === "lesson" && (
                 <div>
-                  <Label>Qual {ap.l}</Label>
+                  <Label>{L(`Qual ${ap.l}`, `Which ${ap.l}`)}</Label>
                   <select
                     className="mt-1 h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
                     value={dItemId} onChange={e => setDItemId(e.target.value)}
@@ -764,30 +764,32 @@ export default function BillingPage() {
                 <span>
                   {!dOk ? (
                     dKind === "percent"
-                      ? "Informe uma porcentagem entre 0 e 100."
-                      : `Informe quanto sai de cada ${ap.l}, em reais.`
+                      ? L("Informe uma porcentagem entre 0 e 100.", "Enter a percentage between 0 and 100.")
+                      : L(`Informe quanto sai de cada ${ap.l}, em reais.`, `Enter how much comes off each ${ap.l}.`)
                   ) : dScope === "always" ? (
                     <>
-                      Cada {ap.l} continua valendo o preço cheio e o desconto entra como
-                      crédito na carteira — é isso que mantém o extrato fechando.
+                      {L(`Cada ${ap.l} continua valendo o preço cheio e o desconto entra como crédito na carteira — é isso que mantém o extrato fechando.`,
+                         `Each ${ap.l} keeps its full price and the discount goes in as credit — that keeps the statement balanced.`)}
                       {discountFor.items.length > 0
-                        ? ` Nas ${discountFor.items.length} cobrança(s) em aberto de hoje, isso dá ${fmtMoney(dPreview)}.`
-                        : ` Ainda não há ${ap.lp} em aberto, então o efeito aparece ${ap.no} ${ap.pick("próximo", "próxima")} ${ap.l} ${ap.pick("realizado", "realizada")}.`}
+                        ? L(` Nas ${discountFor.items.length} cobrança(s) em aberto de hoje, isso dá ${fmtMoney(dPreview)}.`, ` On today's ${discountFor.items.length} outstanding charge(s), that's ${fmtMoney(dPreview)}.`)
+                        : L(` Ainda não há ${ap.lp} em aberto, então o efeito aparece ${ap.no} ${ap.pick("próximo", "próxima")} ${ap.l} ${ap.pick("realizado", "realizada")}.`, ` There are no outstanding ${ap.lp} yet, so it shows up on the next completed ${ap.l}.`)}
                     </>
                   ) : dScope === "lesson" ? (
                     dItem
-                      ? `Entra um crédito de ${fmtMoney(dPreview)} na carteira ${g.do} ${g.l}. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`
-                      : `Escolha ${ap.o} ${ap.l}.`
+                      ? L(`Entra um crédito de ${fmtMoney(dPreview)} na carteira ${g.do} ${g.l}. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`, `A ${fmtMoney(dPreview)} credit goes to the ${g.l}'s balance. Upcoming ${ap.lp} stay at full price.`)
+                      : L(`Escolha ${ap.o} ${ap.l}.`, `Choose the ${ap.l}.`)
                   ) : (
-                    `Entra um crédito de ${fmtMoney(dPreview)}, somando o abatimento de cada uma das ${discountFor.items.length} cobrança(s) em aberto. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`
+                    L(`Entra um crédito de ${fmtMoney(dPreview)}, somando o abatimento de cada uma das ${discountFor.items.length} cobrança(s) em aberto. ${cap(ap.os)} ${ap.pick("próximos", "próximas")} ${ap.lp} seguem pelo valor cheio.`,
+                      `A ${fmtMoney(dPreview)} credit goes in, adding up the discount on each of the ${discountFor.items.length} outstanding charge(s). Upcoming ${ap.lp} stay at full price.`)
                   )}
                 </span>
               </div>
 
               {dKind === "amount" && dScope !== "lesson" && (
                 <p className="text-[11px] text-muted-foreground">
-                  Em reais o valor sai de <strong className="text-foreground">cada</strong> {ap.l},
-                  não do total, e nunca passa do que {ap.o} {ap.pick("próprio", "própria")} {ap.l} custa.
+                  {L(<>Em reais o valor sai de <strong className="text-foreground">cada</strong> {ap.l},
+                  não do total, e nunca passa do que {ap.o} {ap.pick("próprio", "própria")} {ap.l} custa.</>,
+                  <>A fixed amount comes off <strong className="text-foreground">each</strong> {ap.l}, not the total, and never exceeds what the {ap.l} itself costs.</>)}
                 </p>
               )}
             </div>
@@ -795,12 +797,12 @@ export default function BillingPage() {
           <DialogFooter className="gap-2 sm:justify-between">
             {discountFor?.discount ? (
               <Button variant="destructive" className="rounded-xl" onClick={removeDiscount} disabled={busy}>
-                Tirar desconto fixo
+                {L("Tirar desconto fixo", "Remove standing discount")}
               </Button>
             ) : <span />}
             <div className="flex gap-2">
-              <Button variant="outline" className="rounded-xl" onClick={() => setDiscountFor(null)}>Cancelar</Button>
-              <Button className="rounded-xl" onClick={submitDiscount} disabled={busy}>Aplicar</Button>
+              <Button variant="outline" className="rounded-xl" onClick={() => setDiscountFor(null)}>{L("Cancelar", "Cancel")}</Button>
+              <Button className="rounded-xl" onClick={submitDiscount} disabled={busy}>{L("Aplicar", "Apply")}</Button>
             </div>
           </DialogFooter>
         </DialogContent>
@@ -808,17 +810,17 @@ export default function BillingPage() {
 
       <Dialog open={!!editingTx} onOpenChange={v => !v && setEditingTx(null)}>
         <DialogContent className="rounded-2xl">
-          <DialogHeader><DialogTitle>Editar lançamento</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{L("Editar lançamento", "Edit entry")}</DialogTitle></DialogHeader>
           {editingTx && (
             <div className="space-y-3">
-              <div className="text-sm text-muted-foreground">Conta: <strong className="text-foreground">{accountLabel(editingTx, v)}</strong></div>
-              <div><Label>Valor (R$) — negativo para estorno</Label><Input type="number" step="0.01" className="h-11 rounded-xl" value={editAmount} onChange={e => setEditAmount(e.target.value)} /></div>
-              <div><Label>Descrição</Label><Input className="h-11 rounded-xl" value={editDesc} onChange={e => setEditDesc(e.target.value)} /></div>
+              <div className="text-sm text-muted-foreground">{L("Conta", "Account")}: <strong className="text-foreground">{accountLabel(editingTx, v)}</strong></div>
+              <div><Label>{L(`Valor (${currencySymbol()}) — negativo para estorno`, `Amount (${currencySymbol()}) — negative for a refund`)}</Label><Input type="number" step="0.01" className="h-11 rounded-xl" value={editAmount} onChange={e => setEditAmount(e.target.value)} /></div>
+              <div><Label>{L("Descrição", "Description")}</Label><Input className="h-11 rounded-xl" value={editDesc} onChange={e => setEditDesc(e.target.value)} /></div>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" className="rounded-xl" onClick={() => setEditingTx(null)}>Cancelar</Button>
-            <Button className="rounded-xl" onClick={submitEdit} disabled={busy}>Salvar</Button>
+            <Button variant="outline" className="rounded-xl" onClick={() => setEditingTx(null)}>{L("Cancelar", "Cancel")}</Button>
+            <Button className="rounded-xl" onClick={submitEdit} disabled={busy}>{L("Salvar", "Save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

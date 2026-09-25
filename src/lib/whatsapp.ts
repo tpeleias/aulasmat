@@ -8,7 +8,7 @@ import type { Vocabulary } from "@/lib/vocabulary";
 import { cap } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, getCurrency, L } from "@/lib/i18n";
 /**
  * Número como o banco guarda (students.whatsapp): só dígitos, com o 55.
  * Aceita o que a pessoa digita - "(11) 98765-4321", "+55 11 98765 4321".
@@ -17,7 +17,9 @@ import { dateLocale, L } from "@/lib/i18n";
 export function normalizeWhatsApp(input: string | null | undefined): string | null | "invalido" {
   const d = String(input ?? "").replace(/\D/g, "").replace(/^0+/, "");
   if (!d) return null;
-  // DDD + número (10 ou 11 dígitos): é do Brasil, falta o 55.
+  // DDD + número (10 ou 11 dígitos): é do Brasil, falta o 55. Empresa de fora
+  // (moeda que não é real) digita o número com o código do país.
+  if (getCurrency() !== "BRL") return d.length >= 8 && d.length <= 15 ? d : "invalido";
   const full = d.length === 10 || d.length === 11 ? `55${d}` : d;
   return full.length >= 12 && full.length <= 15 ? full : "invalido";
 }
@@ -46,15 +48,15 @@ export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string>
   const toGuardian = !!l.guardian_name?.trim() && l.guardian_name.trim().toLowerCase() !== l.student_name.trim().toLowerCase();
   const address = l.address?.trim() ?? "";
   return {
-    saudacao: who ? `Olá, ${who}!` : "Olá!",
+    saudacao: who ? L(`Olá, ${who}!`, `Hi ${who}!`) : L("Olá!", "Hi!"),
     nome: who,
     aluno,
-    de_aluno: toGuardian ? ` de ${aluno}` : "",
+    de_aluno: toGuardian ? L(` de ${aluno}`, ` for ${aluno}`) : "",
     responsavel: cap(firstName(l.guardian_name)),
     dia: format(d, L("EEEE, dd/MM", "EEEE, MMM d"), { locale: dateLocale() }),
     hora: format(d, "HH:mm"),
-    endereco: l.is_online ? "on-line" : address,
-    local: l.is_online ? ` (${w.appointment.s.toLowerCase()} on-line)` : address ? ` em ${address}` : "",
+    endereco: l.is_online ? L("on-line", "online") : address,
+    local: l.is_online ? L(` (${w.appointment.s.toLowerCase()} on-line)`, ` (online ${w.appointment.l})`) : address ? L(` em ${address}`, ` at ${address}`) : "",
   };
 }
 
@@ -74,7 +76,7 @@ export function onMyWayMessage(l: LessonInfo, w: Vocabulary, pos: { lat: number;
   return fillTemplate(templateFor("a_caminho", w, t), {
     ...lessonVars(l, w),
     mapa: map,
-    localizacao: map ? ` Minha localização agora: ${map}` : "",
+    localizacao: map ? L(` Minha localização agora: ${map}`, ` My location now: ${map}`) : "",
   });
 }
 
@@ -82,14 +84,14 @@ export function onMyWayMessage(l: LessonInfo, w: Vocabulary, pos: { lat: number;
 export function currentPosition(timeoutMs = 15000): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      reject(new Error("Este aparelho não informa a localização."));
+      reject(new Error(L("Este aparelho não informa a localização.", "This device doesn't provide location.")));
       return;
     }
     navigator.geolocation.getCurrentPosition(
       p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
       e => reject(new Error(e.code === 1
-        ? "Sem permissão de localização. Libere nas configurações do celular para o Cronys."
-        : "Não foi possível pegar a localização agora.")),
+        ? L("Sem permissão de localização. Libere nas configurações do celular para o Cronys.", "No location permission. Allow it for Cronys in your phone settings.")
+        : L("Não foi possível pegar a localização agora.", "Couldn't get the location right now."))),
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 },
     );
   });
