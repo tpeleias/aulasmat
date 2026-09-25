@@ -20,6 +20,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
 import { haptics } from "@/lib/haptics";
 import { buildCollectionMessage, paymentInfoFromSettings, type PaymentInfo } from "@/lib/collectionMessage";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { buildPixPayload } from "@/lib/pix";
 import { syncBillingWidget } from "@/lib/widgetSync";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -80,6 +81,7 @@ const kindLabel = (t: Tx, v: Vocabulary) =>
 
 export default function BillingPage() {
   const { price: listPrice } = useLessonPrice();
+  const { templates } = useMessageTemplates();
   // Pacote, voucher e desconto sao a mesma familia - abatimento combinado
   // com a familia - e ficam juntos no Pro. Registrar o dinheiro que entrou
   // continua no Essencial: cobrar e o minimo que o app precisa fazer.
@@ -212,7 +214,7 @@ export default function BillingPage() {
   };
 
   const copyCollection = (a: Account) => {
-    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v));
+    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v, templates));
     haptics.success();
     toast.success(`Mensagem de cobrança de ${a.label} copiada`);
   };

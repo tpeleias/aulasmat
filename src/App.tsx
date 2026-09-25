@@ -30,6 +30,7 @@ const BillingPage = lazy(() => import("./pages/admin/BillingPage"));
 const ReportsPage = lazy(() => import("./pages/admin/ReportsPage"));
 const EvolutionPage = lazy(() => import("./pages/admin/EvolutionPage"));
 const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const MessagesPage = lazy(() => import("./pages/admin/MessagesPage"));
 const StudentsPage = lazy(() => import("./pages/admin/StudentsPage"));
 const TeachersPage = lazy(() => import("./pages/admin/TeachersPage"));
 const AssistantPage = lazy(() => import("./pages/admin/AssistantPage"));
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="relatorios" element={<ReportsPage />} />
               <Route path="evolucao" element={<EvolutionPage />} />
               <Route path="configuracoes" element={<SettingsPage />} />
+              <Route path="mensagens" element={<MessagesPage />} />
               <Route path="acessos" element={<AccessPage />} />
             </Route>
             <Route path="/aluno" element={<StudentLayout />}>

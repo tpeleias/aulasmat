@@ -7,6 +7,7 @@ import { Capacitor } from "@capacitor/core";
 import { ptBR } from "date-fns/locale";
 import type { Vocabulary } from "@/lib/vocabulary";
 import { cap } from "@/lib/vocabulary";
+import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
 /**
  * Número como o banco guarda (students.whatsapp): só dígitos, com o 55.
@@ -37,30 +38,44 @@ type LessonInfo = {
 
 const firstName = (s: string | null | undefined) => String(s ?? "").trim().split(/\s+/)[0] ?? "";
 
-const greeting = (l: LessonInfo) => {
-  const who = firstName(l.guardian_name) || firstName(l.student_name);
-  return who ? `Olá, ${cap(who)}!` : "Olá!";
-};
-
-/** "de Bia" quando quem recebe é o responsável; nada quando é a própria pessoa. */
-const ofStudent = (l: LessonInfo) =>
-  l.guardian_name && l.guardian_name.trim() && l.guardian_name.trim().toLowerCase() !== l.student_name.trim().toLowerCase()
-    ? ` de ${cap(firstName(l.student_name))}`
-    : "";
-
-/** Lembrete / confirmação do atendimento. */
-export function reminderMessage(l: LessonInfo, w: Vocabulary): string {
+/** Os campos que os modelos de mensagem usam ({nome}, {dia}...). */
+export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string> {
   const d = new Date(l.start_at);
-  const when = `${format(d, "EEEE, dd/MM", { locale: ptBR })} às ${format(d, "HH:mm")}`;
-  const where = l.is_online ? ` (${w.appointment.s.toLowerCase()} on-line)` : l.address?.trim() ? ` em ${l.address.trim()}` : "";
-  return `${greeting(l)} Passando para lembrar ${w.appointment.o} ${w.appointment.l}${ofStudent(l)}: ${when}${where}. ` +
-    `Pode confirmar, por favor?`;
+  const who = cap(firstName(l.guardian_name) || firstName(l.student_name));
+  const aluno = cap(firstName(l.student_name));
+  const toGuardian = !!l.guardian_name?.trim() && l.guardian_name.trim().toLowerCase() !== l.student_name.trim().toLowerCase();
+  const address = l.address?.trim() ?? "";
+  return {
+    saudacao: who ? `Olá, ${who}!` : "Olá!",
+    nome: who,
+    aluno,
+    de_aluno: toGuardian ? ` de ${aluno}` : "",
+    responsavel: cap(firstName(l.guardian_name)),
+    dia: format(d, "EEEE, dd/MM", { locale: ptBR }),
+    hora: format(d, "HH:mm"),
+    endereco: l.is_online ? "on-line" : address,
+    local: l.is_online ? ` (${w.appointment.s.toLowerCase()} on-line)` : address ? ` em ${address}` : "",
+  };
+}
+
+/** Lembrete do atendimento. */
+export function reminderMessage(l: LessonInfo, w: Vocabulary, t?: MessageTemplates | null): string {
+  return fillTemplate(templateFor("lembrete", w, t), lessonVars(l, w));
+}
+
+/** Aviso logo depois de marcar. */
+export function confirmMessage(l: LessonInfo, w: Vocabulary, t?: MessageTemplates | null): string {
+  return fillTemplate(templateFor("confirmacao", w, t), lessonVars(l, w));
 }
 
 /** "Estou a caminho" com a localização de agora (só no Max). */
-export function onMyWayMessage(l: LessonInfo, w: Vocabulary, pos: { lat: number; lng: number } | null): string {
-  const map = pos ? ` Minha localização agora: https://maps.google.com/?q=${pos.lat.toFixed(5)},${pos.lng.toFixed(5)}` : "";
-  return `${greeting(l)} Estou a caminho para ${w.appointment.o} ${w.appointment.l}${ofStudent(l)}.${map}`;
+export function onMyWayMessage(l: LessonInfo, w: Vocabulary, pos: { lat: number; lng: number } | null, t?: MessageTemplates | null): string {
+  const map = pos ? `https://maps.google.com/?q=${pos.lat.toFixed(5)},${pos.lng.toFixed(5)}` : "";
+  return fillTemplate(templateFor("a_caminho", w, t), {
+    ...lessonVars(l, w),
+    mapa: map,
+    localizacao: map ? ` Minha localização agora: ${map}` : "",
+  });
 }
 
 /** A posição de agora, uma vez só, com o app aberto. Pede permissão na primeira vez. */

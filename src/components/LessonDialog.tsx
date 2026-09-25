@@ -23,7 +23,8 @@ import { cap } from "@/lib/vocabulary";
 import type { LessonPackage } from "@/lib/packages";
 import { LessonWhatsApp } from "@/components/LessonWhatsApp";
 import { usePlan } from "@/hooks/usePlan";
-import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
+import { confirmMessage, whatsAppLink } from "@/lib/whatsapp";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -63,6 +64,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   // apaga (o banco também não deixa - migration 20260924040000).
   const { isTeacher } = useAuth();
   const { plan } = usePlan();
+  const { templates } = useMessageTemplates();
   const teachers = isTeacher && defaultTeacher
     ? allTeachers.filter(t => teacherSlug(t.name) === defaultTeacher)
     : allTeachers;
@@ -336,7 +338,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     const notify = plan.whatsapp_link ? {
       action: {
         label: "Avisar no WhatsApp",
-        onClick: () => { window.open(whatsAppLink(phoneOf(first), reminderMessage(first, v)), "_blank", "noopener"); },
+        onClick: () => { window.open(whatsAppLink(phoneOf(first), confirmMessage(first, v, templates)), "_blank", "noopener"); },
       },
       duration: 10000,
     } : undefined;

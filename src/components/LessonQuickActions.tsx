@@ -6,6 +6,8 @@ import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
 import { haptics } from "@/lib/haptics";
 import type { Vocabulary } from "@/lib/vocabulary";
+import type { MessageTemplates } from "@/lib/messageTemplates";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import {
   currentPosition, onMyWayMessage, openExternal, reminderMessage, wazeLink, whatsAppLink,
 } from "@/lib/whatsapp";
@@ -34,14 +36,14 @@ export function WhatsAppGlyph({ className = "h-4 w-4" }: { className?: string })
  * mapa. No navegador, se a aba for bloqueada por ter vindo depois da espera do
  * GPS, oferece o botão de enviar num aviso.
  */
-export async function sendOnMyWay(lesson: QuickLesson, phone: string | null, w: Vocabulary) {
+export async function sendOnMyWay(lesson: QuickLesson, phone: string | null, w: Vocabulary, templates?: MessageTemplates | null) {
   let pos: { lat: number; lng: number } | null = null;
   try {
     pos = await currentPosition();
   } catch (e) {
     toast.error((e as Error).message);
   }
-  const url = whatsAppLink(phone, onMyWayMessage(lesson, w, pos));
+  const url = whatsAppLink(phone, onMyWayMessage(lesson, w, pos, templates));
   if (!openExternal(url)) {
     toast.success("Localização pronta", {
       action: { label: "Enviar no WhatsApp", onClick: () => { window.open(url, "_blank", "noopener"); } },
@@ -57,6 +59,7 @@ export async function sendOnMyWay(lesson: QuickLesson, phone: string | null, w: 
 export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; phone: string | null }) {
   const { plan } = usePlan();
   const w = useWords();
+  const { templates } = useMessageTemplates();
   const [locating, setLocating] = useState(false);
   const hoursAway = (new Date(lesson.start_at).getTime() - Date.now()) / 3_600_000;
   const presencial = !lesson.is_online && !!lesson.address;
@@ -65,7 +68,7 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
   const locate = async () => {
     haptics.tap();
     setLocating(true);
-    try { await sendOnMyWay(lesson, phone, w); } finally { setLocating(false); }
+    try { await sendOnMyWay(lesson, phone, w, templates); } finally { setLocating(false); }
   };
 
   const btn = "h-9 w-9 shrink-0 rounded-full";
@@ -73,7 +76,7 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
     <div className="flex shrink-0 items-center">
       {plan.whatsapp_link && (
         <Button asChild size="icon" variant="ghost" className={btn} title="Lembrar no WhatsApp">
-          <a href={whatsAppLink(phone, reminderMessage(lesson, w))} target="_blank" rel="noopener noreferrer" onClick={() => haptics.tap()}>
+          <a href={whatsAppLink(phone, reminderMessage(lesson, w, templates))} target="_blank" rel="noopener noreferrer" onClick={() => haptics.tap()}>
             <WhatsAppGlyph />
           </a>
         </Button>

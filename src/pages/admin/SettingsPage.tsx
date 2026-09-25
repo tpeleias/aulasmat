@@ -394,6 +394,14 @@ export default function SettingsPage() {
         </Card>
       )}
 
+      <Card className="flex items-center justify-between gap-3 p-5">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">Mensagens do WhatsApp</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Lembrete, confirmação, "estou a caminho" e cobrança, com o seu jeito de falar.</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">Configurar mensagens</Link></Button>
+      </Card>
+
       {plan.packages && <PackagesSettings />}
 
       <Card className="p-5 space-y-4">

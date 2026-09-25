@@ -4,7 +4,7 @@ import AnimatedOutlet from "@/components/AnimatedOutlet";
 import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Calendar, Ban, Wallet, LogOut, UserRound, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp } from "lucide-react";
+import { Calendar, Ban, Wallet, LogOut, UserRound, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp, MessageSquareText } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -22,6 +22,7 @@ import { publicSiteUrl } from "@/lib/publicUrl";
 import { useVocabulary } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 import BusinessOnboarding from "@/components/BusinessOnboarding";
+import { refreshLessonsWidget } from "@/lib/widgetSync";
 
 const primary: NavItem[] = [
   { to: "/admin", label: "Hoje", icon: Home, end: true },
@@ -39,6 +40,7 @@ const secondaryFor = (v: Vocabulary): NavItem[] => [
   { to: "/admin/acessos", label: "Acessos", icon: ShieldCheck },
   { to: "/admin/professores", label: v.staff.p, icon: UserCog },
   { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
+  { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquareText },
   { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },
 ];
 
@@ -82,6 +84,13 @@ export default function AdminLayout() {
         {plan.plano !== "pro" ? "ESSENCIAL" : plan.tier === "pro_solo" ? "PRO" : "MAX"}
       </Badge>
     );
+
+  // O widget de aulas se atualiza sempre que o app abre (e quando o plano
+  // chega), com os atalhos de WhatsApp e "estou a caminho" que o plano libera.
+  useEffect(() => {
+    if (!session || planLoading) return;
+    refreshLessonsWidget({ words: v, remind: !!plan.whatsapp_link, locate: !!plan.arrival_location });
+  }, [session, planLoading, plan.whatsapp_link, plan.arrival_location, v]);
 
   if (loading) return null;
   if (!session) return <Navigate to="/entrar" replace />;
