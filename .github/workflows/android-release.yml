@@ -11,9 +11,11 @@ on:
       track:
         description: 'Para onde enviar na Play (none = só gera o aab, sem enviar)'
         required: true
-        default: production
+        # O Cronys está no teste interno (internal); produção só quando o
+        # Thiago decidir abrir para o público.
+        default: internal
         type: choice
-        options: [production, beta, alpha, internal, none]
+        options: [internal, alpha, beta, production, none]
 
 jobs:
   bundle:
