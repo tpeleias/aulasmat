@@ -2284,4 +2284,15 @@ INSERT INTO public.lesson_packages (account_id, name, lessons, price, service_id
 SELECT current_setting('teste.sm')::uuid, '10 clareamentos', 10, 4000, id FROM public.services WHERE name = 'Clareamento';
 SELECT public.assert((SELECT service_id FROM public.lesson_packages WHERE name = '10 clareamentos') IS NOT NULL, 'pacote de um servico');
 
+
+\echo ''
+\echo '--- 40. Profissional novo vai para o fim da prioridade ---'
+
+UPDATE public.teachers SET sort_order = 5 WHERE account_id = current_setting('teste.sm')::uuid AND name = 'Rui';
+INSERT INTO public.teachers (account_id, name, active) VALUES (current_setting('teste.sm')::uuid, 'Aaron', true);
+SELECT public.assert((SELECT name FROM public.teachers WHERE account_id = current_setting('teste.sm')::uuid ORDER BY sort_order DESC, name LIMIT 1) = 'Aaron',
+  'o novo entra depois de todos (mesmo com nome que viria primeiro)');
+SELECT public.assert((SELECT sort_order FROM public.teachers WHERE account_id = current_setting('teste.sm')::uuid AND name = 'Aaron') = 6,
+  'na posicao seguinte ao ultimo');
+
 \echo '=== FIM ==='

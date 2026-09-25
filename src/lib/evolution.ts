@@ -20,7 +20,7 @@ export type EvolutionHomework = {
 };
 
 export type TimelineEntry =
-  | { kind: "aula"; date: string; subject: string | null; teacher: string; summary: string | null }
+  | { kind: "aula"; id: string; date: string; subject: string | null; teacher: string; summary: string | null }
   | { kind: "licao"; date: string; title: string; status: string; feedback: string | null };
 
 // Só aula REALIZADA vira entrada na linha do tempo - cancelada/recusada não
@@ -30,7 +30,7 @@ export function buildTimeline(lessons: EvolutionLesson[], homework: EvolutionHom
   const entries: TimelineEntry[] = [
     ...lessons
       .filter(l => l.status === "realizada")
-      .map((l): TimelineEntry => ({ kind: "aula", date: l.start_at, subject: l.subject, teacher: l.teacher, summary: l.class_summary })),
+      .map((l): TimelineEntry => ({ kind: "aula", id: l.id, date: l.start_at, subject: l.subject, teacher: l.teacher, summary: l.class_summary })),
     ...homework.map((h): TimelineEntry => ({ kind: "licao", date: h.deadline, title: h.title, status: h.status, feedback: h.feedback })),
   ];
   return entries.sort((a, b) => b.date.localeCompare(a.date));

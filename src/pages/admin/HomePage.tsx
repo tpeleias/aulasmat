@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import PendingSummaries from "@/components/PendingSummaries";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { addDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -193,6 +194,8 @@ export default function HomePage() {
             </ul>
           )}
         </section>
+
+        <PendingSummaries refreshKey={reloads} />
 
         {!isTeacher && <section>
           <SectionTitle icon={Wallet} title="Financeiro" action={<Link to="/admin/financeiro" className="text-sm text-primary">Abrir</Link>} />

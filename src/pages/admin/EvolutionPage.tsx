@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { LessonSummaryDialog, type SummaryLesson } from "@/components/LessonSummaryDialog";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, BookOpen, GraduationCap } from "lucide-react";
+import { TrendingUp, BookOpen, GraduationCap, MessageSquarePlus, Pencil } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { capitalize } from "@/lib/balance";
@@ -34,6 +36,13 @@ export default function EvolutionPage() {
   const [loading, setLoading] = useState(true);
 
   const studentId = searchParams.get("aluno") ?? "";
+  // O resumo sendo escrito ou editado ("Como foi?").
+  const [editing, setEditing] = useState<SummaryLesson | null>(null);
+  const applySummary = (id: string, summary: string | null) => setLessonsByStudent(prev => {
+    const next = new Map(prev);
+    for (const [k, list] of next) next.set(k, list.map(l => (l.id === id ? { ...l, class_summary: summary } : l)));
+    return next;
+  });
 
   useEffect(() => {
     (async () => {
@@ -132,9 +141,18 @@ export default function EvolutionPage() {
                             <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
                           </div>
                           {e.summary ? (
-                            <p className="mt-1.5 text-sm text-muted-foreground">{e.summary}</p>
+                            <div className="mt-1.5 flex items-start gap-2">
+                              <p className="flex-1 whitespace-pre-wrap text-sm text-muted-foreground">{e.summary}</p>
+                              <Button size="icon" variant="ghost" className="h-7 w-7 shrink-0" title="Editar resumo"
+                                onClick={() => setEditing({ id: e.id, student_name: student.student_name, start_at: e.date, subject: e.subject, class_summary: e.summary })}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           ) : (
-                            <p className="mt-1.5 text-xs text-muted-foreground italic">Sem resumo registrado.</p>
+                            <Button size="sm" variant="outline" className="mt-2 h-8 gap-1.5 rounded-xl text-xs"
+                              onClick={() => setEditing({ id: e.id, student_name: student.student_name, start_at: e.date, subject: e.subject, class_summary: null })}>
+                              <MessageSquarePlus className="h-3.5 w-3.5" /> Como foi? Escrever resumo
+                            </Button>
                           )}
                         </>
                       ) : (
@@ -156,6 +174,7 @@ export default function EvolutionPage() {
           </div>
         </>
       )}
+      <LessonSummaryDialog lesson={editing} onClose={() => setEditing(null)} onSaved={summary => editing && applySummary(editing.id, summary)} />
     </div>
   );
 }
