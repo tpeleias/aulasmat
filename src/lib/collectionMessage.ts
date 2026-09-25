@@ -4,6 +4,7 @@ import { fmtMoney } from "@/lib/balance";
 import type { OpenItem } from "@/lib/billing";
 import { buildPixPayload } from "@/lib/pix";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
+import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
 // Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
 // saía na cobrança de qualquer escola.
@@ -56,7 +57,7 @@ function pixLine(key: string) {
   return kind ? `Chave (${kind}): ${key}` : `Chave: ${key}`;
 }
 
-export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, v: Vocabulary = DEFAULT_VOCABULARY) {
+export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, v: Vocabulary = DEFAULT_VOCABULARY, templates?: MessageTemplates | null) {
   const ap = v.appointment;
   const students = new Set(items.map(i => i.student.trim().toLowerCase()));
   const single = students.size === 1 ? items[0]?.student : null;
@@ -124,17 +125,14 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
   ].filter(Boolean) as string[];
   const howToPay = ways.length ? `\n\n*Como pagar* (do jeito mais fácil pra você):\n\n${ways.join("\n\n")}` : "";
 
-  const intro = single
-    ? `Passando pra fechar ${ap.os} ${ap.lp} de *${single.trim()}* que já aconteceram e ainda estão em aberto:`
-    : `Passando pra fechar ${ap.os} ${ap.lp} que já aconteceram e ainda estão em aberto:`;
-
-  return `Oi! Tudo bem? 😊
-
-${intro}
-
-${blocks.join("\n\n")}
-
-${summary}${savings}${howToPay}
-
-Depois é só mandar o comprovante que a gente dá baixa por aqui. Qualquer dúvida, é só chamar! Obrigado! 🤓`;
+  // O texto em volta é o modelo da empresa (Mensagens); a lista, o resumo e o
+  // "como pagar" continuam montados aqui, com as contas certas.
+  return fillTemplate(templateFor("cobranca", v, templates), {
+    de_aluno: single ? ` de *${single.trim()}*` : "",
+    aluno: single?.trim() ?? "",
+    lista: blocks.join("\n\n"),
+    resumo: `${summary}${savings}`,
+    total: fmtMoney(total),
+    como_pagar: howToPay,
+  });
 }

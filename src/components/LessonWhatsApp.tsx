@@ -6,6 +6,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
 import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
 import { WhatsAppGlyph, sendOnMyWay } from "@/components/LessonQuickActions";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 
 type LessonLike = {
   id?: string;
@@ -25,6 +26,7 @@ type LessonLike = {
 export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: string | null }) {
   const { plan, loading } = usePlan();
   const w = useWords();
+  const { templates } = useMessageTemplates();
   const [locating, setLocating] = useState(false);
 
   if (loading || !lesson.id || lesson.status !== "agendada") return null;
@@ -49,14 +51,14 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
       return;
     }
     setLocating(true);
-    try { await sendOnMyWay({ ...lesson, id: lesson.id! }, phone, w); } finally { setLocating(false); }
+    try { await sendOnMyWay({ ...lesson, id: lesson.id! }, phone, w, templates); } finally { setLocating(false); }
   };
 
   return (
     <div className="space-y-2 rounded-md border border-border p-3">
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline" className="gap-1.5">
-          <a href={whatsAppLink(phone, reminderMessage(lesson, w))} target="_blank" rel="noopener noreferrer">
+          <a href={whatsAppLink(phone, reminderMessage(lesson, w, templates))} target="_blank" rel="noopener noreferrer">
             <WhatsAppGlyph /> Lembrar no WhatsApp
           </a>
         </Button>

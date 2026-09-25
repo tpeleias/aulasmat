@@ -18,6 +18,7 @@ import { syncBillingWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
 import { Bot, CalendarDays, CalendarPlus, Ban, Wifi, ChevronRight, Sparkles, Wallet } from "lucide-react";
 import { LessonQuickActions, sendOnMyWay } from "@/components/LessonQuickActions";
+import { loadMessageTemplates } from "@/hooks/useMessageTemplates";
 import PeriodSummary from "@/components/PeriodSummary";
 import type { SummaryLesson } from "@/lib/periodSummary";
 import { useAuth } from "@/hooks/useAuth";
@@ -132,7 +133,7 @@ export default function HomePage() {
     setSearchParams(searchParams, { replace: true });
     supabase.from("lessons").select("id, student_name, guardian_name, start_at, address, is_online")
       .eq("id", caminho).maybeSingle().then(({ data }) => {
-        if (data) sendOnMyWay(data, phoneOf(data), w);
+        if (data) loadMessageTemplates().then(t => sendOnMyWay(data, phoneOf(data), w, t));
       });
   }, [caminho, phonesLoaded, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 

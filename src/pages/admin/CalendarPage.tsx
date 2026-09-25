@@ -10,7 +10,8 @@ import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { teacherColor } from "@/lib/teacherColors";
 import { isDiscarded, isRequest } from "@/lib/lessonStatus";
 import { capitalize } from "@/lib/balance";
-import { syncUpcomingLessonsWidget } from "@/lib/widgetSync";
+import { phoneFinder, syncUpcomingLessonsWidget } from "@/lib/widgetSync";
+import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { haptics } from "@/lib/haptics";
 import { useTapGuard } from "@/lib/tapGuard";
 import { Capacitor } from "@capacitor/core";
@@ -72,6 +73,7 @@ export default function CalendarPage() {
   // WhatsApp de cada cliente, para o atalho de lembrete no widget.
   const [phones, setPhones] = useState<{ student_name: string; guardian_name: string | null; whatsapp: string | null }[]>([]);
   const { plan } = usePlan();
+  const { templates } = useMessageTemplates();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [upcoming, setUpcoming] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -137,16 +139,10 @@ export default function CalendarPage() {
   // Separado do load: os professores chegam depois, e a cor do widget depende
   // da ordem deles.
   useEffect(() => {
-    const phoneOf = (x: { student_name: string; guardian_name?: string | null }) => {
-      const same = phones.filter(p => p.student_name.toLowerCase() === x.student_name.trim().toLowerCase());
-      const hit = same.length === 1 ? same[0]
-        : same.find(p => (p.guardian_name ?? "").toLowerCase() === (x.guardian_name ?? "").trim().toLowerCase());
-      return hit?.whatsapp ?? null;
-    };
     syncUpcomingLessonsWidget(upcoming, teacherSlugs, {
-      words: w, remind: !!plan.whatsapp_link, locate: !!plan.arrival_location, phoneOf,
+      words: w, remind: !!plan.whatsapp_link, locate: !!plan.arrival_location, phoneOf: phoneFinder(phones), templates,
     });
-  }, [upcoming, teacherSlugs, phones, plan.whatsapp_link, plan.arrival_location, w]);
+  }, [upcoming, teacherSlugs, phones, plan.whatsapp_link, plan.arrival_location, w, templates]);
 
   const [hStart, hEnd] = useMemo(() => {
     const [a] = settings.work_start.split(":").map(Number);
