@@ -431,6 +431,20 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         <DialogHeader><DialogTitle>{isTeacher ? cap(a.s) : lesson?.id ? `Editar ${a.l}` : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           {lesson?.id && <LessonWhatsApp lesson={lesson} phone={phoneOf(lesson)} />}
+          {/* Professor: escreve o resumo da própria aula que já começou (e ela
+              vira realizada). Resto do diálogo continua só leitura. */}
+          {isTeacher && lesson?.id && teacherCanSummarize && (
+            <div className="space-y-2 rounded-md border border-primary/40 p-3">
+              <Label>Como foi? Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
+              <Textarea
+                value={teacherSummary}
+                onChange={e => setTeacherSummary(e.target.value)}
+                placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
+                rows={3}
+              />
+              {lesson.status === "agendada" && (
+                <p className="text-xs text-muted-foreground">Ao salvar, {a.o} {a.l} fica {a.pick("marcado", "marcada")} como {a.pick("realizado", "realizada")}.</p>
+              )}
           {/* Login de professor: só consulta (migration 20260925100000). */}
           <fieldset disabled={isTeacher} className="contents">
           {services && services.length > 0 && (
@@ -550,6 +564,20 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             como <strong className="text-foreground">voucher</strong> no Financeiro ao registrar o pagamento.
           </div>
           </>}
+          {/* "Como foi?" à vista quando {a.o} {a.l} já aconteceu - antes ficava
+              escondido nos detalhes e ninguém achava. */}
+          {!isTeacher && form.status === "realizada" && (
+            <div className="rounded-md border border-primary/40 bg-primary/5 p-3">
+              <Label>Como foi? Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
+              <Textarea
+                className="mt-1"
+                value={form.class_summary ?? ""}
+                onChange={e => setForm({ ...form, class_summary: e.target.value })}
+                placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
+                rows={3}
+              />
+            </div>
+          )}
           <Collapsible key={isTeacher ? "prof" : "admin"} defaultOpen={isTeacher} className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
@@ -588,17 +616,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {lesson?.absence_charged && (
                 <p className="rounded-md bg-muted px-3 py-2 text-xs">Falta cobrada: {a.o} {a.l} não aconteceu, mas entrou na cobrança.</p>
               )}
-              {form.status === "realizada" && (
-                <div>
-                  <Label>Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
-                  <Textarea
-                    value={form.class_summary ?? ""}
-                    onChange={e => setForm({ ...form, class_summary: e.target.value })}
-                    placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
-                    rows={3}
-                  />
-                </div>
-              )}
               <div><Label>Observações</Label><Textarea value={form.notes ?? ""} onChange={e => setForm({ ...form, notes: e.target.value })} /></div>
             </CollapsibleContent>
           </Collapsible>
@@ -622,20 +639,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           )}
           </fieldset>
-          {/* Professor: escreve o resumo da própria aula que já começou (e ela
-              vira realizada). Resto do diálogo continua só leitura. */}
-          {isTeacher && lesson?.id && teacherCanSummarize && (
-            <div className="space-y-2 rounded-md border border-primary/40 p-3">
-              <Label>Resumo {a.do} {a.l} (visível para {v.client.o} {v.client.l})</Label>
-              <Textarea
-                value={teacherSummary}
-                onChange={e => setTeacherSummary(e.target.value)}
-                placeholder={v.model === "aulas" ? 'Ex: "Trabalhamos equações do 2º grau e iniciamos a lista X."' : "O que foi feito, e o que fica para a próxima vez."}
-                rows={3}
-              />
-              {lesson.status === "agendada" && (
-                <p className="text-xs text-muted-foreground">Ao salvar, {a.o} {a.l} fica {a.pick("marcado", "marcada")} como {a.pick("realizado", "realizada")}.</p>
-              )}
             </div>
           )}
         </div>

@@ -25,7 +25,7 @@ describe("buildTimeline", () => {
     ];
     const timeline = buildTimeline(lessons, []);
     expect(timeline).toHaveLength(1);
-    expect(timeline[0]).toEqual({ kind: "aula", date: "2026-03-01T10:00:00Z", subject: "Matemática", teacher: "prof", summary: "Revisão" });
+    expect(timeline[0]).toEqual({ kind: "aula", id: "1", date: "2026-03-01T10:00:00Z", subject: "Matemática", teacher: "prof", summary: "Revisão" });
   });
 
   it("junta aula e lição, mais recente primeiro", () => {
