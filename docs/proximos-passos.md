@@ -66,6 +66,78 @@ por um tempo até em aba anônima; testar abrindo `/favicon.ico` direto pela
 barra de endereço é o jeito confiável de confirmar se o servidor já está
 com o arquivo certo, sem depender do cache do ícone da aba.
 
+## Preços novos: Essencial, Pro e Max (25/09)
+
+Pedido do Thiago: Essencial a R$ 49 estava barato; renomear para Essencial /
+Pro / Max; anual com desconto menor; cupons mais leves. Escolhas dele:
+Essencial continua grátis, anual 10% off, cupons mais leves e só no mensal.
+
+| Plano (slug interno) | Mensal | Anual (10% off) | O que é |
+|---|---|---|---|
+| Essencial (`essencial`) | grátis | - | 1 profissional, 5 clientes |
+| **Pro** (`pro_solo`, ex-Pro Solo) | **R$ 79,90** | R$ 862,90 | 1 profissional, tudo liberado |
+| **Max** (`pro`, ex-Pro Equipe) | **R$ 159,90** | R$ 1.726,90 | 5 profissionais incluídos |
+| Profissional extra (Max) | R$ 29,90 | R$ 322,90 | a partir do sexto |
+| Assistente (adicional, fora de venda) | R$ 39 | R$ 390 | **em aberto** - ver abaixo |
+
+- Os slugs e os lookup_keys do Stripe **não mudaram** (`cronys_pro_solo_*`,
+  `cronys_pro_equipe_*`): só os nomes que aparecem e os preços. Os preços
+  novos herdaram os lookup_keys; os antigos estão desativados no Stripe.
+  Quem já assinava fica no preço antigo até trocar (padrão do Stripe).
+- Banco: `plan_features` devolve "Cronys Pro" / "Cronys Max"
+  (migration 20260925060000). Telas: selo PRO / MAX, /assinar, página
+  inicial, profissionais, painel do gestor.
+- Demonstração: assistente desligado (o robô da Play clica em tudo e gastaria
+  API). Portal de Aulas continua com assistente (`lifetime_assistant`).
+
+### Assistente: R$ 39 sozinho está caro - proposta (a decidir)
+
+Ideia: em vez de vender só o chat, o adicional vira um pacote "inteligente"
+com o que o Cronys tem de diferente, ou entra direto no Max:
+1. **Max inclui o assistente** (com o limite de 150 msg/mês) e o Pro compra
+   como adicional mais barato (ex.: R$ 19,90). O Max fica com cara de "plano
+   completo" e justifica os R$ 159,90.
+2. **Pacote "Cronys+" (R$ 29,90)**: assistente + lembretes automáticos por
+   WhatsApp + "Estou a caminho" com localização + relatório mensal por
+   e-mail para o dono. Vende o conjunto, não o chat.
+3. Manter R$ 39, mas com teste de 7 dias do assistente para quem já assina.
+Recomendação: a 1 (simples de explicar e dá motivo para subir de plano).
+
+### Localização "estou chegando" (ideia registrada, não feita)
+
+Pedido: o profissional manda a localização ao cliente avisando que está a
+caminho. Dois modelos avaliados:
+
+**Modelo 1 - "Estou a caminho" (um toque, localização única).** Na aula do
+dia, botão "Estou a caminho": o app pede permissão de localização (só com o
+app aberto), pega a posição uma vez e abre o WhatsApp com a mensagem pronta
+("Estou a caminho, chego em ~15 min: link do mapa"). Nada fica guardado no
+servidor.
+- Viável e barato: 1-2 dias. Plugin `@capacitor/geolocation` no Android,
+  `navigator.geolocation` no site.
+- Play: permissão de localização "em uso", sem formulário especial; basta
+  citar no formulário de segurança de dados (localização aproximada/precisa,
+  não coletada pelo servidor, compartilhada por ação do usuário).
+- LGPD tranquila: a pessoa escolhe mandar, na hora, para quem ela quer.
+- Limite: é uma foto do momento; se o trânsito mudar, precisa mandar de novo.
+
+**Modelo 2 - rastreio em tempo real (tipo Uber).** O app manda a posição a
+cada X segundos até chegar, e o cliente abre um link com o mapa ao vivo.
+- Bem mais caro: 1-2 semanas. Precisa de localização **em segundo plano**
+  (o celular bloqueado no bolso), serviço em primeiro plano no Android com
+  notificação fixa, tabela de posições no banco, página pública com mapa,
+  apagar os dados depois.
+- Play: localização em segundo plano passa por **revisão especial** (vídeo
+  mostrando o uso, justificativa, aviso destacado antes de pedir). Costuma
+  ser recusada quando não é a função principal do app - risco real de
+  atrasar publicações.
+- LGPD: é dado de localização de funcionário; precisa de consentimento
+  claro, prazo de retenção curto e cuidado para não virar vigilância.
+- Bateria e plano de dados do profissional.
+
+Recomendação: começar pelo Modelo 1 (junto com as notificações por WhatsApp,
+que já estão na fila). O 2 só se clientes pedirem muito.
+
 ## PRÓXIMO → FEITO em 24/09 (tarde): planos, Stripe, limite do assistente, domínio
 
 Pedido: "começa pela seção PRÓXIMO". Como o Thiago não podia acompanhar, as
@@ -77,7 +149,7 @@ ficaram fáceis de trocar - **revisar**:
 | Contas Pro de hoje | **Pro Equipe** (ninguém perde nada) | painel do gestor → Solo |
 | Tolerância de atraso | **2 dias** (Thiago, 24/09; era 7) | `billing_grace_days()`, uma linha numa migration |
 | Limite do assistente | **150 mensagens/mês** e teto **US$ 5/mês** por empresa | painel do gestor, clique no "x/150 msg" |
-| Preço de lançamento | código **LANCAMENTO** (sem ç: o Stripe só aceita letras sem acento, números e traço): 20% para sempre no Solo e na Equipe, 20 usos (Solo sai R$ 39,20). Era FUNDADOR até 24/09; o cupom por trás tem id `fundador`, que não muda | painel do Stripe → Cupons |
+| Preço de lançamento | código **LANCAMENTO** (sem ç: o Stripe só aceita letras sem acento, números e traço): **15%** para sempre, só no mensal, 20 usos (Pro sai R$ 67,92). Refeito em 25/09 no cupom `lancamento` | painel do Stripe → Cupons |
 | Assistente | **desligado em todas as empresas e fora de venda** (Thiago, 24/09: sem gasto de API até começar a cobrar). Pronto como adicional: produto "Cronys Assistente" no Stripe, R$ 39/mês ou R$ 390/ano (provisório) | ver "Para ligar o assistente" abaixo |
 
 ### O que está na produção
@@ -151,28 +223,32 @@ ficaram fáceis de trocar - **revisar**:
   No app e para quem já está logado, `/` continua sendo o login.
   `/entrar?criar=empresa` abre direto o cadastro de empresa.
 
-### Cupons prontos no Stripe (teste) - todos DESATIVADOS
+### Cupons prontos no Stripe (teste) - refeitos em 25/09, mais leves e SÓ NO MENSAL
 
-Criados em 24/09 para ligar na época. Só nos planos (Solo e Equipe), nunca no
-profissional extra nem no assistente. Ativar/desativar: Stripe → Catálogo de
-produtos → Cupons → o desconto → Códigos promocionais → o código.
+Refeitos em 25/09 (Thiago: "descontos muito pesados"). Só nos planos (Pro e
+Max), nunca no profissional extra nem no assistente, e **só no plano
+mensal**: a função `billing` só abre o campo de código no Checkout mensal
+(o anual já sai 10% mais barato), e o portal do cliente não aceita mais
+código. Ativar/desativar: Stripe → Catálogo de produtos → Cupons → o
+desconto → Códigos promocionais → o código.
 
 | Desconto (id) | Quanto | Códigos | Quando |
 |---|---|---|---|
-| Preço de lançamento (`fundador`) | 20% para sempre, 20 usos | **LANCAMENTO** (ATIVO) | agora |
-| Primeiro mês pela metade (`primeiro-mes`) | 50% no 1º mês, só quem nunca pagou | PRIMEIROMES | fim do teste grátis, anúncios |
-| Datas comemorativas (`datas-comemorativas`) | 25% por 3 meses | CONSUMIDOR, DIADOCLIENTE, ANONOVO, VOLTAASAULAS | 15/03, 15/09, virada do ano, jan-fev e jul |
-| Dia da profissão (`dia-da-profissao`) | 30% por 3 meses | PROFESSOR, MEDICO, PSICOLOGO, VETERINARIO, FISIOTERAPEUTA, NUTRICIONISTA, EDUCADORFISICO | 15/10, 18/10, 27/08, 09/09, 13/10, 31/08, 01/09 |
-| Black Friday (`black-friday`) | 40% por 3 meses | BLACKFRIDAY, CYBERMONDAY | 27/11 e 30/11/2026 |
-| Volte para o Cronys (`volte`) | 30% por 3 meses | VOLTA | e-mail para quem cancelou |
+| Preço de lançamento (`lancamento`) | 15% para sempre, 20 usos | **LANCAMENTO** e **FUNDADOR** (ATIVOS; FUNDADOR é o de teste do Thiago) | agora |
+| Primeiro mês com 30% off (`primeiro-mes`) | 30% no 1º mês, só quem nunca pagou | PRIMEIROMES | fim do teste grátis, anúncios |
+| Datas comemorativas (`datas-comemorativas`) | 10% por 2 meses | CONSUMIDOR, DIADOCLIENTE, ANONOVO, VOLTAASAULAS | 15/03, 15/09, virada do ano, jan-fev e jul |
+| Dia da profissão (`dia-da-profissao`) | 15% por 2 meses | PROFESSOR, MEDICO, PSICOLOGO, VETERINARIO, FISIOTERAPEUTA, NUTRICIONISTA, EDUCADORFISICO | 15/10, 18/10, 27/08, 09/09, 13/10, 31/08, 01/09 |
+| Black Friday (`black-friday`) | 25% por 3 meses | BLACKFRIDAY, CYBERMONDAY | 27/11 e 30/11/2026 |
+| Volte para o Cronys (`volte`) | 20% por 2 meses | VOLTA | e-mail para quem cancelou |
 
 Atenção:
-- **FUNDADOR ainda está ativo** - desativar no painel (a ferramenta daqui
-  não desativa código).
-- Desconto "por 3 meses" num plano **anual** cai na primeira fatura inteira
-  (o ano é cobrado de uma vez dentro dos 3 meses): 30% de R$ 990. Se não
-  quiser isso, crie a data comemorativa como "valor fixo" ou avise nos
-  anúncios que vale só no mensal.
+- Os cupons antigos (20%-50%) foram **apagados**; o cupom `fundador` também.
+  A assinatura de teste que já usava FUNDADOR mantém o desconto antigo (o
+  Stripe não tira desconto de quem já tem).
+- Brecha pequena: quem assina o mensal com LANCAMENTO e depois troca para o
+  anual no portal leva os 15% junto (desconto "para sempre" fica na
+  assinatura). Aceitável com 20 usos; se incomodar, o webhook pode tirar o
+  desconto quando o intervalo virar anual.
 - Uma empresa usa um código por assinatura; o código novo não soma com o
   antigo.
 - No modo real, os cupons precisam ser criados de novo (o teste não passa
@@ -244,11 +320,18 @@ Tudo o que ficou com o Thiago, desta e das sessões anteriores. Conferido na
 produção em 24/09: `admin-create-user` e a tabela de backup ainda existem; o
 código FUNDADOR ainda está ativo.
 
+**Novo em 25/09**
+- Decidir o assistente (proposta em "Assistente: R$ 39 sozinho está caro").
+- Checagens: ficam para depois (Thiago, 25/09).
+- Play Console: se a descrição da loja citar preço ou "Pro Solo/Pro Equipe",
+  trocar para Pro / Max.
+
 **Rápido (minutos, no painel)**
 1. Play Console → Fichas da loja: colar nome, breve descrição e descrição
    completa (textos passados na conversa de 24/09).
 2. Play Console → Definições da loja: conferir o e-mail de contato.
-3. Stripe → Cupons → "Preço de lançamento" → desativar o código FUNDADOR.
+3. ~~Desativar FUNDADOR~~ - Thiago decidiu manter (é o código de teste);
+   desde 25/09 ele dá os mesmos 15% do LANCAMENTO.
 4. Netlify → Domain management: cronys.com.br como Primary domain.
 5. Supabase → Edge Functions → `admin-create-user` → Delete (desativada
    desde 20/09; nenhuma tela usa).

@@ -79,7 +79,7 @@ export default function AdminLayout() {
         className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
         title={plan.plano === "pro" ? plan.nome : `Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`}
       >
-        {plan.plano !== "pro" ? "ESSENCIAL" : plan.tier === "pro_solo" ? "PRO SOLO" : "PRO"}
+        {plan.plano !== "pro" ? "ESSENCIAL" : plan.tier === "pro_solo" ? "PRO" : "MAX"}
       </Badge>
     );
 

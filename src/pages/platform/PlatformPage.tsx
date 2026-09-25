@@ -51,10 +51,10 @@ type Row = {
 
 const PLANOS = [
   { slug: "essencial", rotulo: "Essencial" },
-  { slug: "pro_solo", rotulo: "Solo" },
-  { slug: "pro", rotulo: "Equipe" },
+  { slug: "pro_solo", rotulo: "Pro" },
+  { slug: "pro", rotulo: "Max" },
 ] as const;
-const nomePlano = (p: string) => p === "pro" ? "Cronys Pro Equipe" : p === "pro_solo" ? "Cronys Pro Solo" : "Cronys Essencial";
+const nomePlano = (p: string) => p === "pro" ? "Cronys Max" : p === "pro_solo" ? "Cronys Pro" : "Cronys Essencial";
 
 const slugify = (raw: string) =>
   raw.normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -144,7 +144,7 @@ export default function PlatformPage() {
   const mudarPlano = async (r: Row, plano: Row["plan"]) => {
     if (plano === r.plan) return;
     if (plano === "pro_solo" && r.professores > 1
-        && !confirm(`Passar "${r.name}" para o Pro Solo?\n\nos ${r.professores} profissionais ativos ficam pausados (o dono reativa 1). Nada é apagado.`)) return;
+        && !confirm(`Passar "${r.name}" para o Pro?\n\nos ${r.professores} profissionais ativos ficam pausados (o dono reativa 1). Nada é apagado.`)) return;
     // Rebaixar acima do limite pausa TODOS os alunos (ou professores) dela, e o
     // dono escolhe quem liberar - não é mais só "trava o próximo cadastro".
     // Os números 5 e 1 são os de plan_features('essencial').

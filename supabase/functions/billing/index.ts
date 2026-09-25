@@ -135,7 +135,8 @@ Deno.serve(async (req) => {
       customer,
       client_reference_id: accountId,
       line_items: lineItems,
-      allow_promotion_codes: true,
+      // Cupom só no mensal: o anual já sai com 10% de desconto.
+      allow_promotion_codes: interval === "month",
       locale: "pt-BR",
       subscription_data: { metadata: { account_id: accountId } },
       metadata: { account_id: accountId },

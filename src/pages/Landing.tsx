@@ -88,7 +88,7 @@ export default function Landing() {
 
         <section id="planos" className="scroll-mt-6 pb-14">
           <h2 className="text-2xl font-bold">Planos</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Preços em reais. No anual, 2 meses saem de graça. Sem fidelidade.</p>
+          <p className="mt-1 text-sm text-muted-foreground">Preços em reais. No anual, 10% de desconto. Sem fidelidade.</p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {PLANS.map(p => (
               <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro" ? "border-primary/50" : ""}`}>
@@ -109,7 +109,7 @@ export default function Landing() {
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Pro Equipe: 5 profissionais incluídos; a partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
+            Max: 5 profissionais incluídos; a partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
             Em breve: assistente com inteligência artificial, como adicional.
             Assinatura cobrada por cartão, pelo Stripe; na fatura aparece CRONYS.
           </p>
