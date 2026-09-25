@@ -67,7 +67,10 @@ export function AvailabilityBoard({ teacher }: Props) {
       setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [teacher]);
+    // A lista de profissionais chega depois: sem ela, a escassez própria do
+    // profissional era ignorada e o quadro mostrava horários diferentes da
+    // página /disponibilidade/<profissional>.
+  }, [teacher, teachers]);
 
   if (loading) return <p className="text-center text-muted-foreground py-12">Carregando…</p>;
 

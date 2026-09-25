@@ -56,7 +56,9 @@ export default function StudentBooking() {
     () => allTeachers.filter(t => teacherDoes(t, service?.id, links, !!plan.teacher_services)),
     [allTeachers, service?.id, links, plan.teacher_services],
   );
-  const anyAllowed = !!plan.any_teacher && teachers.length > 1;
+  // "Qualquer profissional" só com serviços cadastrados: sem eles, cada um
+  // atende uma coisa diferente e "qualquer um" não faz sentido.
+  const anyAllowed = !!plan.any_teacher && offered.length > 0 && teachers.length > 1;
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const trocaId = params.get("troca");
