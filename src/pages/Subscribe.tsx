@@ -136,7 +136,7 @@ export default function Subscribe() {
             <input type="checkbox" className="mt-1" checked={withAssistant} onChange={e => setWithAssistant(e.target.checked)} />
             <span>
               No <b>Pro</b>, incluir o <b>Assistente</b> (+{brl(interval === "month" ? ASSISTANT_ADDON.mensal : ASSISTANT_ADDON.anual)}/{interval === "month" ? "mês" : "ano"}):
-              marque, remarque e consulte o financeiro conversando, com limite mensal de uso. No Max ele já vem incluso.
+              marque, remarque e consulte o financeiro conversando, até 100 mensagens por mês. No Max ele já vem incluso, com 200.
             </span>
           </label>
         )}

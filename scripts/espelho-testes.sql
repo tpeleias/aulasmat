@@ -1931,4 +1931,48 @@ SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cu
 SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
   'cancelou: sem assistente');
 
+
+\echo ''
+\echo '--- 34. Limite do assistente por plano; um admin por empresa ---'
+
+SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 100
+                     AND (SELECT cost_usd FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 3,
+  'Pro (ou sem plano pago): 100 mensagens, teto US$ 3');
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.a33')::uuid;
+SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 200
+                     AND (SELECT cost_usd FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 5,
+  'Max: 200 mensagens, teto US$ 5');
+UPDATE public.accounts SET assistant_monthly_messages = 500 WHERE id = current_setting('teste.a33')::uuid;
+SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 500,
+  'o ajuste a mao do gestor vale mais que o do plano');
+SELECT public.assert((public.assistant_usage_status(current_setting('teste.a33')::uuid) ->> 'limit')::int = 500,
+  'e e o que o assistente confere');
+UPDATE public.accounts SET assistant_monthly_messages = NULL WHERE id = current_setting('teste.a33')::uuid;
+
+-- Um admin por empresa.
+INSERT INTO auth.users (id, email) VALUES ('34000000-0000-0000-0000-000000000001', 'segundo@x');
+DO $$
+BEGIN
+  INSERT INTO public.user_roles (user_id, role, account_id)
+  VALUES ('34000000-0000-0000-0000-000000000001', 'admin', current_setting('teste.a33')::uuid);
+  RAISE EXCEPTION 'FALHOU: segundo admin na mesma empresa';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - a empresa tem um admin so';
+END $$;
+DO $$
+BEGIN
+  UPDATE public.user_roles SET role = 'admin', account_id = current_setting('teste.a33')::uuid
+   WHERE user_id = '34000000-0000-0000-0000-000000000001';
+  INSERT INTO public.user_roles (user_id, role, account_id)
+  VALUES ('34000000-0000-0000-0000-000000000001', 'teacher', current_setting('teste.a33')::uuid);
+  UPDATE public.user_roles SET role = 'admin'
+   WHERE user_id = '34000000-0000-0000-0000-000000000001' AND role = 'teacher';
+  RAISE EXCEPTION 'FALHOU: professor virou admin';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - professor nao vira admin';
+END $$;
+UPDATE public.accounts SET multi_admin = true WHERE id = current_setting('teste.a33')::uuid;
+INSERT INTO public.user_roles (user_id, role, account_id)
+VALUES ('34000000-0000-0000-0000-000000000001', 'admin', current_setting('teste.a33')::uuid);
+SELECT public.assert((SELECT count(*) FROM public.user_roles WHERE account_id = current_setting('teste.a33')::uuid AND role = 'admin') = 2,
+  'com multi_admin (so o Portal de Aulas), pode ter mais de um');
+
 \echo '=== FIM ==='

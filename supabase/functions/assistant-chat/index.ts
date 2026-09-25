@@ -442,14 +442,14 @@ Deno.serve(async (req) => {
       _capability: "assistant", _account: accountId,
     });
     if (podeAssistente !== true) {
-      return json({ error: "O Assistente é do Cronys Pro. Sua conta está no Cronys Essencial." }, 402);
+      return json({ error: "O Assistente vem no Cronys Max, ou como adicional no Pro." }, 402);
     }
 
     // Limite do mês, também ANTES da API: passou, responde sem gastar nada.
     const { data: uso } = await admin.rpc("assistant_usage_status", { _account: accountId });
     if (uso && uso.allowed === false) {
       return json({
-        error: `Você usou as ${uso.limit} mensagens do assistente deste mês. O limite volta no dia 1º; para aumentar, fale com quem cuida da sua conta.`,
+        error: `Você chegou ao limite do assistente deste mês (até ${uso.limit} mensagens). Ele volta no dia 1º; para aumentar, fale com quem cuida da sua conta.`,
         usage: uso,
       }, 429);
     }

@@ -116,6 +116,23 @@ Essencial continua grátis, anual 10% off, cupons mais leves e só no mensal.
   ACCESS_FINE/COARSE_LOCATION no Android, sem segundo plano), e só coloca o
   link do mapa na mensagem. Nada é gravado no servidor.
 
+### Limite do assistente por plano e um admin por empresa (25/09, noite) - FEITO
+
+- Limite: **Pro (adicional) 100 mensagens/mês, teto US$ 3; Max (incluso) 200
+  mensagens/mês, teto US$ 5**. Só o dono (admin) usa o assistente; professor
+  não tem. Migration 20260925080000: `plan_features.assistant_messages` /
+  `assistant_cost_usd`; `accounts.assistant_monthly_*` virou ajuste à mão do
+  gestor (nulo = vale o do plano). Função `assistant_limits(conta)`.
+- A mensagem de limite do assistente foi reescrita no código
+  (`assistant-chat`), mas a função publicada ainda é a anterior - sobe na
+  próxima mudança nela.
+- **Um admin por empresa**: gatilho `user_roles_single_admin` recusa um segundo
+  admin (e professor virando admin). Exceção: `accounts.multi_admin`, ligada
+  só no Portal de Aulas. Hoje nenhuma tela ou função cria admin além do
+  cadastro da empresa; a trava garante daqui para frente.
+- Guarda de SQL do Claude (`.claude/hooks/sql-guard.sh`): agora só pergunta o
+  destrutivo (drop table/schema, truncate, delete/update sem where).
+
 ### WhatsApp automático (Max) - pelo número DE CADA EMPRESA (decidido 25/09)
 
 Thiago: sair do número da Cronys não faz sentido (a empresa não vê o que foi
