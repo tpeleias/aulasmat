@@ -6,4 +6,6 @@
 São telas reais do app rodando com uma empresa-modelo inventada (nenhum dado
 de cliente). Para refazer: `tools/` (mock.mjs = os dados de exemplo,
 capture.mjs = abre o app e fotografa, compose.mjs = moldura e frase).
-Para publicar: Actions → Update Google Play listing images → apply = true.
+Textos da ficha: `listing/` (título, descrição curta e completa).
+Para publicar: Actions → Update Google Play listing → apply = true.
+A ficha está em pt-BR (padrão) e pt-PT, com o mesmo conteúdo.

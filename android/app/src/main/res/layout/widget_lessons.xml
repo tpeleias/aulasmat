@@ -68,6 +68,9 @@
             <TextView android:id="@+id/row1_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/row1_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
+        <ImageView android:id="@+id/row1_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
+        <ImageView android:id="@+id/row1_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row1_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout
@@ -98,6 +101,9 @@
             <TextView android:id="@+id/row2_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/row2_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
+        <ImageView android:id="@+id/row2_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
+        <ImageView android:id="@+id/row2_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row2_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout
@@ -128,6 +134,9 @@
             <TextView android:id="@+id/row3_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/row3_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
+        <ImageView android:id="@+id/row3_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
+        <ImageView android:id="@+id/row3_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row3_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout
@@ -158,6 +167,9 @@
             <TextView android:id="@+id/row4_name" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#ECE7DB" android:textSize="13sp" android:maxLines="1" android:ellipsize="end" />
             <TextView android:id="@+id/row4_address" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="#A9A79C" android:textSize="11sp" android:maxLines="1" android:ellipsize="end" />
         </LinearLayout>
+        <ImageView android:id="@+id/row4_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
+        <ImageView android:id="@+id/row4_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row4_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
     <LinearLayout

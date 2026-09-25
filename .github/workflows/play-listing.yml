@@ -1,20 +1,25 @@
-name: Update Google Play listing images
+name: Update Google Play listing
 
-# Sobe as imagens da ficha da loja que estão em store/<idioma>/:
-#   phoneScreenshots/*.png  (em ordem de nome)  e  featureGraphic.png
+# Atualiza a ficha da loja a partir do repositório:
+#   store/listing/title.txt, short-description.txt, full-description.txt
+#   store/pt-BR/phoneScreenshots/*.png (em ordem de nome) e featureGraphic.png
 # Com apply = false só mostra o que está na loja hoje (nada muda).
 on:
   workflow_dispatch:
     inputs:
       apply:
-        description: 'Enviar as imagens (false = só listar o que está lá)'
+        description: 'Publicar (false = só listar o que está lá)'
         required: true
         default: false
         type: boolean
-      language:
-        description: 'Idioma da ficha (auto = o idioma padrão do app na Play)'
+      languages:
+        description: 'Idiomas da ficha a atualizar (separados por vírgula)'
         required: true
-        default: auto
+        default: 'pt-BR,pt-PT'
+      default_language:
+        description: 'Idioma padrão da ficha (vazio = não muda)'
+        required: false
+        default: 'pt-BR'
 
 jobs:
   listing:
@@ -29,7 +34,8 @@ jobs:
         env:
           PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
           APPLY: ${{ inputs.apply }}
-          LANG_CODE: ${{ inputs.language }}
+          LANGS: ${{ inputs.languages }}
+          DEFAULT_LANG: ${{ inputs.default_language }}
         run: |
           python - <<'PY'
           import glob, json, os, sys
@@ -43,8 +49,9 @@ jobs:
           creds.refresh(Request())
           h = {"Authorization": f"Bearer {creds.token}"}
           pkg = "com.aulasmat.app"
-          lang = os.environ["LANG_CODE"]
           apply = os.environ["APPLY"] == "true"
+          langs = [x.strip() for x in os.environ["LANGS"].split(",") if x.strip()]
+          default_lang = os.environ.get("DEFAULT_LANG", "").strip()
           base = f"https://androidpublisher.googleapis.com/androidpublisher/v3/applications/{pkg}"
           up = f"https://androidpublisher.googleapis.com/upload/androidpublisher/v3/applications/{pkg}"
 
@@ -53,49 +60,68 @@ jobs:
                   sys.exit(f"ERRO em {what} ({r.status_code}): {r.text}")
               return r.json() if r.text else {}
 
+          def read(path):
+              return open(path, encoding="utf-8").read().strip() if os.path.exists(path) else None
+
           edit = ok(requests.post(f"{base}/edits", headers=h), "abrir edição")["id"]
           committed = False
           try:
               details = ok(requests.get(f"{base}/edits/{edit}/details", headers=h), "ler detalhes")
-              langs = [x.get("language") for x in ok(requests.get(f"{base}/edits/{edit}/listings", headers=h), "listar idiomas").get("listings", [])]
-              print("Idioma padrão:", details.get("defaultLanguage"), "| fichas:", langs)
-              if lang == "auto":
-                  lang = details.get("defaultLanguage")
-              # As imagens do repositório estão em store/pt-BR, qualquer que seja o código na Play.
-              src = f"store/{lang}" if os.path.isdir(f"store/{lang}") else "store/pt-BR"
-              listing = requests.get(f"{base}/edits/{edit}/listings/{lang}", headers=h)
-              if listing.status_code == 200:
-                  l = listing.json()
-                  print("Título:", l.get("title"))
-                  print("Descrição curta:", l.get("shortDescription"))
-                  print("Descrição completa:\n" + (l.get("fullDescription") or ""))
-              for kind in ["phoneScreenshots", "featureGraphic", "icon"]:
-                  imgs = ok(requests.get(f"{base}/edits/{edit}/listings/{lang}/{kind}", headers=h), f"listar {kind}").get("images", [])
-                  print(f"{kind} hoje: {len(imgs)}")
-                  for i in imgs:
-                      print("   ", i.get("url"))
+              listings = {x["language"]: x for x in ok(requests.get(f"{base}/edits/{edit}/listings", headers=h), "listar fichas").get("listings", [])}
+              print("Idioma padrão:", details.get("defaultLanguage"), "| fichas:", list(listings))
+              for lang, l in listings.items():
+                  for kind in ["phoneScreenshots", "featureGraphic"]:
+                      imgs = ok(requests.get(f"{base}/edits/{edit}/listings/{lang}/{kind}", headers=h), f"listar {kind}").get("images", [])
+                      print(f"[{lang}] {kind}: {len(imgs)}")
+                      for i in imgs:
+                          print("   ", i.get("url"))
               if not apply:
                   print("Só listagem (apply = false). Nada foi mudado.")
                   sys.exit(0)
 
-              shots = sorted(glob.glob(f"{src}/phoneScreenshots/*.png"))
-              if shots:
-                  ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/phoneScreenshots", headers=h), "apagar capturas")
-                  for f in shots:
-                      with open(f, "rb") as fh:
-                          ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/phoneScreenshots?uploadType=media",
-                                           headers={**h, "Content-Type": "image/png"}, data=fh.read()), f"enviar {f}")
-                      print("enviada:", f)
-              fg = f"{src}/featureGraphic.png"
-              if os.path.exists(fg):
-                  ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/featureGraphic", headers=h), "apagar destaque")
-                  with open(fg, "rb") as fh:
-                      ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/featureGraphic?uploadType=media",
-                                       headers={**h, "Content-Type": "image/png"}, data=fh.read()), "enviar destaque")
-                  print("enviada:", fg)
+              current = listings.get(details.get("defaultLanguage")) or next(iter(listings.values()), {})
+              title = read("store/listing/title.txt") or current.get("title")
+              short = read("store/listing/short-description.txt") or current.get("shortDescription")
+              full = read("store/listing/full-description.txt") or current.get("fullDescription")
+              shots = sorted(glob.glob("store/pt-BR/phoneScreenshots/*.png"))
+              fg = "store/pt-BR/featureGraphic.png"
+
+              for lang in langs:
+                  body = {"language": lang, "title": title, "shortDescription": short, "fullDescription": full}
+                  if listings.get(lang, {}).get("video"):
+                      body["video"] = listings[lang]["video"]
+                  ok(requests.put(f"{base}/edits/{edit}/listings/{lang}", headers=h, json=body), f"texto {lang}")
+                  print(f"[{lang}] texto atualizado")
+                  if shots:
+                      ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/phoneScreenshots", headers=h), f"apagar capturas {lang}")
+                      for f in shots:
+                          with open(f, "rb") as fh:
+                              ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/phoneScreenshots?uploadType=media",
+                                               headers={**h, "Content-Type": "image/png"}, data=fh.read()), f"enviar {f}")
+                      print(f"[{lang}] {len(shots)} capturas enviadas")
+                  if os.path.exists(fg):
+                      ok(requests.delete(f"{base}/edits/{edit}/listings/{lang}/featureGraphic", headers=h), f"apagar destaque {lang}")
+                      with open(fg, "rb") as fh:
+                          ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/featureGraphic?uploadType=media",
+                                           headers={**h, "Content-Type": "image/png"}, data=fh.read()), f"enviar destaque {lang}")
+                      print(f"[{lang}] destaque enviado")
+                  # O ícone é o mesmo em todos os idiomas: copia o atual se a ficha for nova.
+                  if lang not in listings:
+                      src = details.get("defaultLanguage")
+                      icons = ok(requests.get(f"{base}/edits/{edit}/listings/{src}/icon", headers=h), "ler ícone").get("images", [])
+                      if icons:
+                          png = requests.get(icons[0]["url"] + "=s512").content
+                          ok(requests.post(f"{up}/edits/{edit}/listings/{lang}/icon?uploadType=media",
+                                           headers={**h, "Content-Type": "image/png"}, data=png), f"ícone {lang}")
+                          print(f"[{lang}] ícone copiado")
+
+              if default_lang and default_lang != details.get("defaultLanguage"):
+                  ok(requests.patch(f"{base}/edits/{edit}/details", headers=h, json={"defaultLanguage": default_lang}), "idioma padrão")
+                  print("Idioma padrão agora:", default_lang)
+
               ok(requests.post(f"{base}/edits/{edit}:commit", headers=h), "salvar na loja")
               committed = True
-              print("OK: imagens publicadas na ficha da loja.")
+              print("OK: ficha da loja atualizada.")
           finally:
               if not committed:
                   requests.delete(f"{base}/edits/{edit}", headers=h)

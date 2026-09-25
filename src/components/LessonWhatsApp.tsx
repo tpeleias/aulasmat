@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
-import { Loader2, MapPin, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { Loader2, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
-import { currentPosition, onMyWayMessage, reminderMessage, whatsAppLink } from "@/lib/whatsapp";
+import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
+import { WhatsAppGlyph, sendOnMyWay } from "@/components/LessonQuickActions";
 
 type LessonLike = {
   id?: string;
@@ -25,11 +26,6 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
   const { plan, loading } = usePlan();
   const w = useWords();
   const [locating, setLocating] = useState(false);
-  // O link do "Estou a caminho" fica pronto depois de pegar a localização. O
-  // envio é um segundo toque de propósito: abrir o WhatsApp sozinho depois de
-  // esperar o GPS é bloqueado pelo navegador (não veio de um toque).
-  const [onMyWay, setOnMyWay] = useState<string | null>(null);
-  useEffect(() => { setOnMyWay(null); }, [lesson.id]);
 
   if (loading || !lesson.id || lesson.status !== "agendada") return null;
 
@@ -53,16 +49,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
       return;
     }
     setLocating(true);
-    try {
-      const pos = await currentPosition();
-      setOnMyWay(whatsAppLink(phone, onMyWayMessage(lesson, w, pos)));
-    } catch (e) {
-      toast.error((e as Error).message);
-      // Sem localização ainda dá para avisar que está a caminho.
-      setOnMyWay(whatsAppLink(phone, onMyWayMessage(lesson, w, null)));
-    } finally {
-      setLocating(false);
-    }
+    try { await sendOnMyWay({ ...lesson, id: lesson.id! }, phone, w); } finally { setLocating(false); }
   };
 
   return (
@@ -70,21 +57,15 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" variant="outline" className="gap-1.5">
           <a href={whatsAppLink(phone, reminderMessage(lesson, w))} target="_blank" rel="noopener noreferrer">
-            <MessageCircle className="h-4 w-4" /> Lembrar no WhatsApp
+            <WhatsAppGlyph /> Lembrar no WhatsApp
           </a>
         </Button>
-        {showOnMyWay && (onMyWay ? (
-          <Button asChild size="sm" className="gap-1.5">
-            <a href={onMyWay} target="_blank" rel="noopener noreferrer" onClick={() => setTimeout(() => setOnMyWay(null), 500)}>
-              <MapPin className="h-4 w-4" /> Enviar "estou a caminho"
-            </a>
-          </Button>
-        ) : (
+        {showOnMyWay && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={locate} disabled={locating}>
             {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
             Estou a caminho{!plan.arrival_location && " (Max)"}
           </Button>
-        ))}
+        )}
       </div>
       {!phone && (
         <p className="text-xs text-muted-foreground">

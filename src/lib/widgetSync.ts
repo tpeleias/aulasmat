@@ -2,6 +2,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
+import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
+import type { Vocabulary } from "@/lib/vocabulary";
 
 const LESSONS_KEY = "upcoming_lessons_widget";
 const BILLING_KEY = "billing_widget";
@@ -23,6 +25,15 @@ export interface WidgetLessonInput {
   address: string | null;
   is_online: boolean;
   teacher: string;
+  guardian_name?: string | null;
+}
+
+/** Atalhos do widget: o que o plano libera e onde achar o WhatsApp do cliente. */
+export interface WidgetShortcuts {
+  words: Vocabulary;
+  remind: boolean;
+  locate: boolean;
+  phoneOf: (l: { student_name: string; guardian_name?: string | null }) => string | null;
 }
 
 async function publish(key: string, value: unknown) {
@@ -37,7 +48,7 @@ async function publish(key: string, value: unknown) {
 // `teacherOrder`: apelidos dos professores na ordem da agenda. O widget pinta
 // de outra cor a aula de quem não é o primeiro - antes era o nome "mayara"
 // cravado no código Android.
-export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], teacherOrder: string[] = []) {
+export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], teacherOrder: string[] = [], shortcuts?: WidgetShortcuts) {
   if (!Capacitor.isNativePlatform()) return;
   const payload = lessons
     .slice()
@@ -53,6 +64,8 @@ export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], te
       isOnline: l.is_online,
       teacher: l.teacher,
       alt: teacherOrder.length > 1 && teacherOrder.indexOf(l.teacher) > 0,
+      waUrl: shortcuts?.remind ? whatsAppLink(shortcuts.phoneOf(l), reminderMessage(l, shortcuts.words)) : "",
+      locate: !!shortcuts?.locate && !l.is_online,
     }));
   await publish(LESSONS_KEY, payload);
 }

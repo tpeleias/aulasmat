@@ -91,7 +91,7 @@ export default function Landing() {
           <p className="mt-1 text-sm text-muted-foreground">Preços em reais. No anual, 10% de desconto. Sem fidelidade.</p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {PLANS.map(p => (
-              <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro" ? "border-primary/50" : ""}`}>
+              <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro_solo" ? "border-primary/50" : ""}`}>
                 <h3 className="text-lg font-semibold">{p.nome}</h3>
                 <p className="text-sm text-muted-foreground">{p.resumo}</p>
                 <div className="mt-4">
@@ -102,7 +102,7 @@ export default function Landing() {
                 <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                   {p.itens.map(i => <li key={i} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {i}</li>)}
                 </ul>
-                <Button asChild className="mt-6" variant={p.tier === "pro" ? "default" : "outline"}>
+                <Button asChild className="mt-6" variant={p.tier === "pro_solo" ? "default" : "outline"}>
                   <Link to="/entrar?criar=empresa">{p.mensal === 0 ? "Criar conta grátis" : p.tier === "pro_solo" ? "Testar 14 dias grátis" : "Começar pelo teste do Pro"}</Link>
                 </Button>
               </Card>

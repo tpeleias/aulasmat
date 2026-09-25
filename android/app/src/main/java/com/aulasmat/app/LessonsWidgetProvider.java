@@ -32,6 +32,10 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
     private static final int[] ROW_DAY_IDS = { R.id.row1_day, R.id.row2_day, R.id.row3_day, R.id.row4_day };
     private static final int[] ROW_NAME_IDS = { R.id.row1_name, R.id.row2_name, R.id.row3_name, R.id.row4_name };
     private static final int[] ROW_ADDRESS_IDS = { R.id.row1_address, R.id.row2_address, R.id.row3_address, R.id.row4_address };
+    // Atalhos de cada aula: lembrete no WhatsApp, "estou a caminho" e rota.
+    private static final int[] ROW_WA_IDS = { R.id.row1_wa, R.id.row2_wa, R.id.row3_wa, R.id.row4_wa };
+    private static final int[] ROW_LOC_IDS = { R.id.row1_loc, R.id.row2_loc, R.id.row3_loc, R.id.row4_loc };
+    private static final int[] ROW_NAV_IDS = { R.id.row1_nav, R.id.row2_nav, R.id.row3_nav, R.id.row4_nav };
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -144,19 +148,49 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
             }
 
             if (!isOnline && !address.isEmpty()) {
-                Intent waze = new Intent(Intent.ACTION_VIEW, Uri.parse("https://waze.com/ul?q=" + Uri.encode(address) + "&navigate=yes"));
-                PendingIntent wazePending = PendingIntent.getActivity(
-                    context,
-                    base + 10 + i,
-                    waze,
-                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-                );
+                PendingIntent wazePending = viewUrl(context, base + 10 + i,
+                    "https://waze.com/ul?q=" + Uri.encode(address) + "&navigate=yes");
                 views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], wazePending);
+                views.setOnClickPendingIntent(ROW_NAV_IDS[i], wazePending);
+                views.setViewVisibility(ROW_NAV_IDS[i], View.VISIBLE);
             } else {
                 views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], openAgenda);
+                views.setViewVisibility(ROW_NAV_IDS[i], View.GONE);
+            }
+
+            // O link do lembrete já vem pronto do app (número e mensagem), só
+            // para quem tem o WhatsApp de um toque no plano.
+            String waUrl = lesson.optString("waUrl", "");
+            if (!waUrl.isEmpty()) {
+                views.setOnClickPendingIntent(ROW_WA_IDS[i], viewUrl(context, base + 20 + i, waUrl));
+                views.setViewVisibility(ROW_WA_IDS[i], View.VISIBLE);
+            } else {
+                views.setViewVisibility(ROW_WA_IDS[i], View.GONE);
+            }
+
+            // "Estou a caminho" precisa do GPS, então abre o app, que pega a
+            // posição e já manda para o WhatsApp.
+            String lessonId = lesson.optString("id", "");
+            if (lesson.optBoolean("locate", false) && !lessonId.isEmpty()) {
+                views.setOnClickPendingIntent(ROW_LOC_IDS[i],
+                    WidgetIntents.openRoute(context, "/admin?caminho=" + Uri.encode(lessonId), base + 30 + i));
+                views.setViewVisibility(ROW_LOC_IDS[i], View.VISIBLE);
+            } else {
+                views.setViewVisibility(ROW_LOC_IDS[i], View.GONE);
             }
         }
 
         appWidgetManager.updateAppWidget(appWidgetId, views);
+    }
+
+    private static PendingIntent viewUrl(Context context, int requestCode, String url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 }
