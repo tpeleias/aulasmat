@@ -17,7 +17,7 @@
 // Quem muda o plano no banco nunca é esta função: é o webhook, quando o Stripe
 // confirma o pagamento. Aqui só se abre a porta.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { ASSISTANT_LOOKUP, LOOKUP, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, type Interval, type Tier } from "../_shared/stripe.ts";
+import { ASSISTANT_LOOKUP, LOOKUP, ensureCurrency, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, toCurrency, type Interval, type Tier } from "../_shared/stripe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -50,12 +50,17 @@ Deno.serve(async (req) => {
     if (!accountId) return json({ error: "Só o administrador da empresa cuida da assinatura." }, 403);
 
     const { data: acc } = await admin.from("accounts")
-      .select("id, name, stripe_customer_id, stripe_subscription_id, billing_status, is_public_default")
+      .select("id, name, stripe_customer_id, stripe_subscription_id, billing_status, is_public_default, locale, currency")
       .eq("id", accountId).maybeSingle();
     if (!acc) return json({ error: "Empresa não encontrada." }, 404);
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "checkout");
+    // Moeda da empresa (Configurações → Língua e moeda). Fora do real: só o
+    // mensal, sem cupom, e o Stripe cobra na moeda dela.
+    const currency = toCurrency(acc.currency);
+    const foreign = currency !== "brl";
+    const stripeLocale = acc.locale === "en" ? "en" : "pt-BR";
     const origin = req.headers.get("origin") ?? "";
     const site = SITES.includes(origin) ? origin : (Deno.env.get("PUBLIC_SITE_URL") ?? SITES[0]);
 
@@ -83,6 +88,7 @@ Deno.serve(async (req) => {
         return json({ error: "No Max o Assistente já vem incluso." }, 400);
       }
       if (wantsAssistant && !current) {
+        await ensureCurrency([ASSISTANT_LOOKUP[interval]], toCurrency(sub.currency));
         const ids = await priceIds([ASSISTANT_LOOKUP[interval]]);
         await stripe("POST", "/subscription_items", {
           subscription: acc.stripe_subscription_id, price: ids[ASSISTANT_LOOKUP[interval]], quantity: 1,
@@ -94,24 +100,32 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
-    // Cliente no Stripe: um por empresa, criado na primeira vez.
+    const hasSub = !!acc.stripe_subscription_id && acc.billing_status !== "canceled";
+
+    // Cliente no Stripe: um por empresa, criado na primeira vez. Um cliente
+    // que já pagou numa moeda não assina em outra; se a empresa trocou de
+    // moeda sem assinatura ativa, começa um cliente novo.
     let customer = acc.stripe_customer_id as string | null;
+    if (customer && !hasSub && action === "checkout") {
+      const c = await stripe("GET", `/customers/${customer}`);
+      if (c?.deleted || (c?.currency && c.currency !== currency)) customer = null;
+    }
     if (!customer) {
       const c = await stripe("POST", "/customers", {
         email: user.email ?? undefined,
         name: acc.name,
         metadata: { account_id: accountId },
+        preferred_locales: [stripeLocale],
       });
       customer = c.id as string;
       await admin.from("accounts").update({ stripe_customer_id: customer }).eq("id", accountId);
     }
 
-    const hasSub = !!acc.stripe_subscription_id && acc.billing_status !== "canceled";
     if (action === "portal" || (action === "checkout" && hasSub)) {
       const configs = await stripe("GET", "/billing_portal/configurations", { active: true, limit: 20 });
       const cfg = (configs.data ?? []).find((c: any) => c.metadata?.cronys === "1");
       const session = await stripe("POST", "/billing_portal/sessions", {
-        customer, return_url: `${site}/assinar`, ...(cfg ? { configuration: cfg.id } : {}),
+        customer, return_url: `${site}/assinar`, locale: stripeLocale, ...(cfg ? { configuration: cfg.id } : {}),
       });
       return json({ url: session.url, portal: true });
     }
@@ -119,13 +133,16 @@ Deno.serve(async (req) => {
     if (action !== "checkout") return json({ error: "Ação desconhecida." }, 400);
 
     const tier: Tier = body?.tier === "pro_solo" ? "pro_solo" : "pro";
-    const interval: Interval = body?.interval === "year" ? "year" : "month";
+    // O anual (com 10% de desconto) é só em real.
+    const interval: Interval = body?.interval === "year" && !foreign ? "year" : "month";
     // O adicional do assistente é só do Pro; no Max ele vem incluso.
     const withAssistant = wantsAssistant && tier === "pro_solo";
     const baseKey = LOOKUP[tier][interval];
     const extraKey = LOOKUP.extra[interval];
     const assistantKey = ASSISTANT_LOOKUP[interval];
-    const ids = await priceIds([baseKey, ...(tier === "pro" ? [extraKey] : []), ...(withAssistant ? [assistantKey] : [])]);
+    const keys = [baseKey, ...(tier === "pro" ? [extraKey] : []), ...(withAssistant ? [assistantKey] : [])];
+    await ensureCurrency(keys, currency);
+    const ids = await priceIds(keys);
 
     // Quem assina a Equipe já com mais de 5 profissionais ativos paga os extras
     // desde o começo. Conta como se já estivesse na Equipe.
@@ -142,9 +159,11 @@ Deno.serve(async (req) => {
       customer,
       client_reference_id: accountId,
       line_items: lineItems,
-      // Cupom só no mensal: o anual já sai com 10% de desconto.
-      allow_promotion_codes: interval === "month",
-      locale: "pt-BR",
+      currency,
+      // Cupom só no mensal em real: o anual já sai com 10% de desconto, e
+      // fora do real não há desconto.
+      allow_promotion_codes: interval === "month" && !foreign,
+      locale: stripeLocale,
       subscription_data: { metadata: { account_id: accountId } },
       metadata: { account_id: accountId },
       success_url: `${site}/assinar?ok=1`,

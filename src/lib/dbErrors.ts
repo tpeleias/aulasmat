@@ -41,6 +41,9 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
       return L(`${cap(v.staff.este)} ${v.staff.l} não faz ${v.topic.este} ${v.topic.l}.`, `This ${v.staff.l} does not offer this ${v.topic.l}.`);
     case "servico_invalido":
       return L(`${v.topic.s} não encontrado.`, `${v.topic.s} not found.`);
+    case "moeda_assinatura":
+      return L("Com a assinatura ativa não dá para trocar a moeda: ela é cobrada na moeda em que foi feita. Para trocar, cancele a assinatura e assine de novo.",
+        "You can't change the currency while subscribed: the subscription is billed in the currency it started in. To change it, cancel and subscribe again.");
     case "resumo_aula":
       return L(`Só dá para escrever o resumo de ${v.appointment.um} ${v.appointment.l} sua que já começou.`, `You can only write notes for your own ${v.appointment.l} that has already started.`);
   }

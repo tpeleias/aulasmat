@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { forgetPlan, type Plan } from "@/hooks/usePlan";
-import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
+import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, ANNUAL_AVAILABLE, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
 
 import { L } from "@/lib/i18n";
 /**
@@ -123,14 +123,15 @@ export default function Subscribe() {
           </Card>
         )}
 
-        <div className="mt-8 inline-flex rounded-xl border border-border p-1 text-sm">
+        {ANNUAL_AVAILABLE && <div className="mt-8 inline-flex rounded-xl border border-border p-1 text-sm">
           {(["month", "year"] as Interval[]).map(i => (
             <button key={i} onClick={() => setInterval_(i)}
               className={`rounded-lg px-4 py-1.5 ${interval === i ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
               {i === "month" ? L("Mensal", "Monthly") : L("Anual · 10% off", "Yearly · 10% off")}
             </button>
           ))}
-        </div>
+        </div>}
+        {!ANNUAL_AVAILABLE && <p className="mt-8 text-sm text-muted-foreground">{L("Planos mensais.", "Monthly plans.")}</p>}
 
         {onSale && !subscribed && (
           <label className="mt-4 flex items-start gap-2 text-sm">
@@ -186,7 +187,9 @@ export default function Subscribe() {
         </div>
 
         <p className="mt-6 text-xs text-muted-foreground">
-          {L("Pagamento processado pelo Stripe; na fatura aparece CRONYS. Tem um código de desconto? Use na tela de pagamento. Ao assinar você concorda com os", "Payments processed by Stripe; your statement shows CRONYS. Have a discount code? Use it at checkout. By subscribing you agree to the")}{" "}
+          {L("Pagamento processado pelo Stripe; na fatura aparece CRONYS.", "Payments processed by Stripe; your statement shows CRONYS.")}{" "}
+          {ANNUAL_AVAILABLE && <>{L("Tem um código de desconto? Use na tela de pagamento.", "Have a discount code? Use it at checkout.")}{" "}</>}
+          {L("Ao assinar você concorda com os", "By subscribing you agree to the")}{" "}
           <Link to="/termos" className="underline">{L("termos de uso", "terms of use")}</Link>.
         </p>
       </div>

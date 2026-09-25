@@ -6,7 +6,7 @@ import { CronysWordmark } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { presetFor, BUSINESS_MODELS } from "@/lib/vocabulary";
-import { PLANS, EXTRA_TEACHER, brl } from "@/lib/subscription";
+import { PLANS, EXTRA_TEACHER, ANNUAL_AVAILABLE, brl } from "@/lib/subscription";
 import { isEnglish, setLocale, L } from "@/lib/i18n";
 
 const RECURSOS_EN = [
@@ -103,7 +103,9 @@ export default function Landing() {
 
         <section id="planos" className="scroll-mt-6 pb-14">
           <h2 className="text-2xl font-bold">{L("Planos", "Plans")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{L("Preços em reais. No anual, 10% de desconto. Sem fidelidade.", "Prices in Brazilian reais (BRL); your card converts automatically. 10% off yearly. No commitment.")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{ANNUAL_AVAILABLE
+            ? L("Preços em reais. No anual, 10% de desconto. Sem fidelidade.", "Prices in Brazilian reais (BRL). 10% off yearly. No commitment.")
+            : L("Planos mensais, sem fidelidade.", "Monthly plans. No commitment, cancel anytime.")}</p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {PLANS.map(p => (
               <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro_solo" ? "border-primary/50" : ""}`}>
