@@ -25,7 +25,7 @@ export type Plan = {
   school_code?: string | null;
   /**
    * A faixa exata (migration 20260925010000). `plano` continua "pro" nas duas
-   * faixas pagas, que é o que o app antigo entende; aqui se separa Solo de Equipe.
+   * faixas pagas, que é o que o app antigo entende; aqui se separa Pro (pro_solo) de Max (pro).
    */
   tier?: "essencial" | "pro_solo" | "pro";
   included_teachers?: number;

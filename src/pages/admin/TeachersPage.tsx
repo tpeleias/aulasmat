@@ -39,7 +39,7 @@ export default function TeachersPage() {
   }, []);
   const [busy, setBusy] = useState(false);
 
-  // Pro Equipe com assinatura: cada profissional ativo acima dos incluídos é
+  // Max com assinatura: cada profissional ativo acima dos incluídos é
   // cobrado. Depois de mudar quem está ativo, acerta a assinatura no Stripe
   // (edge function billing). Falhar aqui não desfaz nada; o webhook e a
   // próxima mudança acertam de novo.
@@ -172,14 +172,14 @@ export default function TeachersPage() {
         <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
         {cobraExtra && (
           <p className="text-xs text-muted-foreground mt-1">
-            O Pro Equipe inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")} ({ativos} agora).
+            O Max inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")} ({ativos} agora).
             {ativos > incluidos! ? ` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.` : " A partir do próximo, cada um entra na assinatura."}
           </p>
         )}
         {semVaga && (
           <div className="mt-3">
             <ProUpsell titulo={`O ${plan.nome} vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`} icon={GraduationCap} compacto>
-              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Pro Equipe cada um tem acesso
+              você já tem {ativos} ativo{ativos === 1 ? "" : "s"}. No Cronys Max cada um tem acesso
               próprio — é o plano de quem tem equipe.
             </ProUpsell>
           </div>

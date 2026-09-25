@@ -892,7 +892,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
 SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
 SELECT public.assert(public.account_can('assistant'), 'com assistente (empresa do Thiago: tudo liberado para sempre)');
-SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Pro Equipe' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Pro Equipe (plano "pro")');
+SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Max' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Max (plano "pro")');
 COMMIT;
 
 
@@ -1559,8 +1559,8 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
 SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() ->> 'tier' = 'pro'
-                     AND public.my_plan() ->> 'nome' = 'Cronys Pro Equipe',
-  'o teste gratis e do Pro Equipe, e o app antigo continua vendo "pro"');
+                     AND public.my_plan() ->> 'nome' = 'Cronys Max',
+  'o teste gratis e do Max, e o app antigo continua vendo "pro"');
 -- Equipe: sem teto, 5 incluidos; o sexto e o setimo viram extra, nao erro.
 INSERT INTO public.teachers (name, active) VALUES ('p2', true), ('p3', true), ('p4', true), ('p5', true), ('p6', true), ('p7', true);
 SELECT public.assert((public.my_plan() ->> 'extra_teachers')::int = 2,
@@ -1743,7 +1743,7 @@ COMMIT;
 \echo '--- 31. Portal de Aulas: tudo liberado para sempre ---'
 
 SELECT public.assert((SELECT lifetime AND plan = 'pro' AND assistant_override FROM public.accounts WHERE slug = 'portaldeaulas'),
-  'Portal de Aulas: Pro Equipe e assistente, marcada como para sempre');
+  'Portal de Aulas: Max e assistente, marcada como para sempre');
 
 -- Todos os caminhos que rebaixam: nenhum pega.
 SELECT public.billing_apply_subscription((SELECT id FROM public.accounts WHERE slug = 'portaldeaulas'),
@@ -1769,7 +1769,7 @@ UPDATE public.accounts SET billing_status = 'none', past_due_since = NULL WHERE 
 \echo '--- 32. Demonstracao para sempre; falta cobrada; pacotes por empresa ---'
 
 SELECT public.assert(coalesce((SELECT lifetime AND plan = 'pro' FROM public.accounts WHERE slug = 'demo'), true),
-  'Demonstracao (se existir): Pro Equipe para sempre');
+  'Demonstracao (se existir): Max para sempre');
 SELECT public.assert(coalesce((SELECT NOT assistant_override FROM public.accounts WHERE slug = 'demo'), true),
   'mas sem o assistente (o robo da Play clica em tudo)');
 SELECT public.assert((SELECT lifetime AND lifetime_assistant AND assistant_override FROM public.accounts WHERE slug = 'portaldeaulas'),

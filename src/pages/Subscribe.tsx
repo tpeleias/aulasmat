@@ -126,7 +126,7 @@ export default function Subscribe() {
           {(["month", "year"] as Interval[]).map(i => (
             <button key={i} onClick={() => setInterval_(i)}
               className={`rounded-lg px-4 py-1.5 ${interval === i ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-              {i === "month" ? "Mensal" : "Anual · 2 meses grátis"}
+              {i === "month" ? "Mensal" : "Anual · 10% off"}
             </button>
           ))}
         </div>
