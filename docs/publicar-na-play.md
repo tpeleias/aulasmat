@@ -75,7 +75,7 @@ para a Play**, com as notas de `android/whatsnew/whatsnew-pt-BR`, e manda para
 a revisão da Google (status `completed`). Nada de baixar e subir à mão.
 
 - Rodar: GitHub → Actions → Build Android release (Play) → Run workflow →
-  versão (ex.: 1.16.0) e trilha (`internal` por padrão, que é onde o Cronys
+  versão (ex.: 1.16.0) e trilha (`internal+alpha` por padrão: teste interno e teste fechado juntos; `internal` = só o interno, onde o Cronys
   está hoje; `alpha` = teste fechado; `production` = público; `none` só gera o aab).
 - Conferir a chave sem enviar nada: Actions → Check Google Play access → Run
   workflow (lista as versões de cada trilha). Conferido em 25/09: OK.

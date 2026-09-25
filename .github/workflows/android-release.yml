@@ -11,11 +11,12 @@ on:
       track:
         description: 'Para onde enviar na Play (none = só gera o aab, sem enviar)'
         required: true
-        # O Cronys está no teste interno (internal); produção só quando o
-        # Thiago decidir abrir para o público.
-        default: internal
+        # internal+alpha: o teste interno (o Thiago vê na hora, sem revisão) e o
+        # teste fechado (os testadores; conta para liberar a produção). Produção
+        # só quando o Thiago decidir abrir para o público.
+        default: internal+alpha
         type: choice
-        options: [internal, alpha, beta, production, none]
+        options: [internal+alpha, internal, alpha, beta, production, none]
 
 jobs:
   bundle:
@@ -121,7 +122,49 @@ jobs:
           packageName: com.aulasmat.app
           releaseFiles: android/app/build/outputs/bundle/release/app-release.aab
           releaseName: ${{ inputs.version_name }}
-          track: ${{ inputs.track }}
+          # Em "internal+alpha" o aab sobe uma vez só, no interno; o passo
+          # seguinte põe a mesma versão no teste fechado.
+          track: ${{ inputs.track == 'internal+alpha' && 'internal' || inputs.track }}
           # completed = vai para a revisão da Google e, aprovado, publica sozinho.
           status: completed
           whatsNewDirectory: android/whatsnew
+
+      # O mesmo aab (mesmo código de versão) também vai para o teste fechado.
+      # Enviar o arquivo de novo daria erro de "versão já usada".
+      - name: Also release to closed testing (alpha)
+        if: steps.play.outputs.upload == 'true' && inputs.track == 'internal+alpha'
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          VERSION_CODE: ${{ github.run_number }}
+          VERSION_NAME: ${{ inputs.version_name }}
+        run: |
+          pip install --quiet google-auth requests
+          python - <<'PY'
+          import json, os, sys
+          import requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          creds = service_account.Credentials.from_service_account_info(
+              json.loads(os.environ["PLAY_JSON"]), scopes=["https://www.googleapis.com/auth/androidpublisher"])
+          creds.refresh(Request())
+          h = {"Authorization": f"Bearer {creds.token}"}
+          base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.aulasmat.app"
+
+          def ok(r, what):
+              if r.status_code >= 300:
+                  sys.exit(f"ERRO em {what} ({r.status_code}): {r.text}")
+              return r.json() if r.text else {}
+
+          notes = open("android/whatsnew/whatsnew-pt-BR", encoding="utf-8").read().strip()
+          edit = ok(requests.post(f"{base}/edits", headers=h), "abrir edição")["id"]
+          body = {"track": "alpha", "releases": [{
+              "name": os.environ["VERSION_NAME"],
+              "versionCodes": [os.environ["VERSION_CODE"]],
+              "status": "completed",
+              "releaseNotes": [{"language": "pt-BR", "text": notes}],
+          }]}
+          ok(requests.put(f"{base}/edits/{edit}/tracks/alpha", headers=h, json=body), "teste fechado")
+          ok(requests.post(f"{base}/edits/{edit}:commit", headers=h), "salvar")
+          print(f"OK: versão {os.environ['VERSION_NAME']} ({os.environ['VERSION_CODE']}) também no teste fechado.")
+          PY

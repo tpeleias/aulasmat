@@ -1,0 +1,66 @@
+name: Promote version on Google Play
+
+# Põe numa trilha uma versão que já está na Play (sem gerar aab de novo).
+# Ex.: levar ao teste fechado a versão que está no interno, ou à produção.
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Código da versão (o número do run do build, ex.: 28)'
+        required: true
+      version_name:
+        description: 'Nome da versão (ex.: 1.17.0)'
+        required: true
+      track:
+        description: 'Trilha de destino'
+        required: true
+        default: alpha
+        type: choice
+        options: [alpha, internal, beta, production]
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install --quiet google-auth requests
+      - name: Promote
+        env:
+          PLAY_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          VERSION_NAME: ${{ inputs.version_name }}
+          TRACK: ${{ inputs.track }}
+        run: |
+          python - <<'PY'
+          import json, os, sys
+          import requests
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import Request
+
+          creds = service_account.Credentials.from_service_account_info(
+              json.loads(os.environ["PLAY_JSON"]), scopes=["https://www.googleapis.com/auth/androidpublisher"])
+          creds.refresh(Request())
+          h = {"Authorization": f"Bearer {creds.token}"}
+          base = "https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.aulasmat.app"
+
+          def ok(r, what):
+              if r.status_code >= 300:
+                  sys.exit(f"ERRO em {what} ({r.status_code}): {r.text}")
+              return r.json() if r.text else {}
+
+          track = os.environ["TRACK"]
+          notes = open("android/whatsnew/whatsnew-pt-BR", encoding="utf-8").read().strip()
+          edit = ok(requests.post(f"{base}/edits", headers=h), "abrir edição")["id"]
+          body = {"track": track, "releases": [{
+              "name": os.environ["VERSION_NAME"],
+              "versionCodes": [os.environ["VERSION_CODE"]],
+              "status": "completed",
+              "releaseNotes": [{"language": "pt-BR", "text": notes}],
+          }]}
+          ok(requests.put(f"{base}/edits/{edit}/tracks/{track}", headers=h, json=body), f"trilha {track}")
+          ok(requests.post(f"{base}/edits/{edit}:commit", headers=h), "salvar")
+          print(f"OK: {os.environ['VERSION_NAME']} ({os.environ['VERSION_CODE']}) na trilha {track}.")
+          PY
