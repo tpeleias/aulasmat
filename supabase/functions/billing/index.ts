@@ -56,8 +56,8 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "checkout");
-    // Moeda da empresa (Configurações → Língua e moeda). Fora do real: só o
-    // mensal, sem cupom, e o Stripe cobra na moeda dela.
+    // Moeda da empresa (Configurações → Língua e moeda). O Stripe cobra na
+    // moeda dela; fora do real não há cupom.
     const currency = toCurrency(acc.currency);
     const foreign = currency !== "brl";
     const stripeLocale = acc.locale === "en" ? "en" : "pt-BR";
@@ -133,8 +133,7 @@ Deno.serve(async (req) => {
     if (action !== "checkout") return json({ error: "Ação desconhecida." }, 400);
 
     const tier: Tier = body?.tier === "pro_solo" ? "pro_solo" : "pro";
-    // O anual (com 10% de desconto) é só em real.
-    const interval: Interval = body?.interval === "year" && !foreign ? "year" : "month";
+    const interval: Interval = body?.interval === "year" ? "year" : "month";
     // O adicional do assistente é só do Pro; no Max ele vem incluso.
     const withAssistant = wantsAssistant && tier === "pro_solo";
     const baseKey = LOOKUP[tier][interval];
@@ -161,7 +160,7 @@ Deno.serve(async (req) => {
       line_items: lineItems,
       currency,
       // Cupom só no mensal em real: o anual já sai com 10% de desconto, e
-      // fora do real não há desconto.
+      // fora do real não há cupom.
       allow_promotion_codes: interval === "month" && !foreign,
       locale: stripeLocale,
       subscription_data: { metadata: { account_id: accountId } },

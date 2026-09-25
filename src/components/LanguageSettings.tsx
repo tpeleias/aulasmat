@@ -66,8 +66,8 @@ export default function LanguageSettings() {
         {locked
           ? L("A moeda fica travada enquanto a assinatura do Cronys estiver ativa, porque ela é cobrada nessa moeda.",
               "The currency is locked while your Cronys subscription is active, since it's billed in that currency.")
-          : L("A assinatura do Cronys é cobrada nesta moeda. Em dólar, euro ou libra os planos são mensais.",
-              "Your Cronys subscription is billed in this currency. In USD, EUR or GBP plans are monthly.")}
+          : L("A assinatura do Cronys é cobrada nesta moeda.",
+              "Your Cronys subscription is billed in this currency.")}
       </p>
     </Card>
   );

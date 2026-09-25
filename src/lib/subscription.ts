@@ -20,27 +20,28 @@ export type PlanCard = {
   itens: string[];
 };
 
-// Preços em real (anual = 10% de desconto sobre 12 meses) e, fora do Brasil,
-// o preço de mercado de cada moeda - só mensal, sem anual e sem cupom. Os
-// números têm de bater com FOREIGN_PRICES em supabase/functions/_shared/stripe.ts.
-const FOREIGN: Record<"USD" | "EUR" | "GBP", { pro_solo: number; pro: number; extra: number; assistant: number }> = {
-  USD: { pro_solo: 15, pro: 39, extra: 7, assistant: 9 },
-  EUR: { pro_solo: 15, pro: 39, extra: 7, assistant: 9 },
-  GBP: { pro_solo: 13, pro: 33, extra: 6, assistant: 8 },
+// Preços em real e, fora do Brasil, o preço de mercado de cada moeda. O anual
+// é 10% de desconto sobre 12 meses (fora do real, arredondado para inteiro).
+// Os números têm de bater com FOREIGN_PRICES em supabase/functions/_shared/stripe.ts.
+type Price = { mensal: number; anual: number };
+const FOREIGN: Record<"USD" | "EUR" | "GBP", { pro_solo: Price; pro: Price; extra: Price; assistant: Price }> = {
+  USD: { pro_solo: { mensal: 15, anual: 162 }, pro: { mensal: 39, anual: 421 }, extra: { mensal: 7, anual: 76 }, assistant: { mensal: 9, anual: 97 } },
+  EUR: { pro_solo: { mensal: 15, anual: 162 }, pro: { mensal: 39, anual: 421 }, extra: { mensal: 7, anual: 76 }, assistant: { mensal: 9, anual: 97 } },
+  GBP: { pro_solo: { mensal: 13, anual: 140 }, pro: { mensal: 33, anual: 356 }, extra: { mensal: 6, anual: 65 }, assistant: { mensal: 8, anual: 86 } },
 };
 const cur = getCurrency();
 const foreign = cur === "BRL" ? null : FOREIGN[cur];
 
-/** O anual com desconto (e o cupom) só existem em real. */
-export const ANNUAL_AVAILABLE = !foreign;
+/** Cupom de desconto só existe em real. */
+export const COUPONS_AVAILABLE = !foreign;
 
-export const EXTRA_TEACHER = foreign ? { mensal: foreign.extra, anual: 0 } : { mensal: 29.9, anual: 322.9 };
+export const EXTRA_TEACHER = foreign ? foreign.extra : { mensal: 29.9, anual: 322.9 };
 /**
  * Adicional do assistente (lookup_key cronys_assistente_*), só para o Pro: no
  * Max pago ele vem incluso. Preço único. Só é oferecido quando o banco diz
  * que está à venda (assistant_on_sale).
  */
-export const ASSISTANT_ADDON = foreign ? { mensal: foreign.assistant, anual: 0 } : { mensal: 39, anual: 421.2 };
+export const ASSISTANT_ADDON = foreign ? foreign.assistant : { mensal: 39, anual: 421.2 };
 export const EQUIPE_INCLUDED = 5;
 
 /** Preço de plano na moeda da empresa: "R$ 79,90", "$15", "€39", "£13". */
@@ -60,8 +61,8 @@ export const PLANS: PlanCard[] = [
     tier: "pro_solo",
     nome: "Pro",
     resumo: L("Para quem atende sozinho", "For solo professionals"),
-    mensal: foreign ? foreign.pro_solo : 79.9,
-    anual: foreign ? 0 : 862.9,
+    mensal: foreign ? foreign.pro_solo.mensal : 79.9,
+    anual: foreign ? foreign.pro_solo.anual : 862.9,
     itens: L(["1 profissional (você)", "Clientes sem limite", "Lembrete e confirmação pelo WhatsApp com um toque", "Pacotes, vouchers e desconto por família", "Palavras do seu ramo", "Bloqueio que se repete toda semana", `Assistente como adicional (${brl(ASSISTANT_ADDON.mensal)}/mês, até 100 mensagens/mês)`],
       ["1 professional (you)", "Unlimited clients", "One-tap WhatsApp reminders and confirmations", "Packages, vouchers and family discounts", "Your industry's words", "Weekly recurring blocks", `Assistant add-on (${brl(ASSISTANT_ADDON.mensal)}/month, up to 100 messages/month)`]),
   },
@@ -69,8 +70,8 @@ export const PLANS: PlanCard[] = [
     tier: "pro",
     nome: "Max",
     resumo: L("Para escola, clínica ou estúdio", "For schools, clinics and studios"),
-    mensal: foreign ? foreign.pro : 159.9,
-    anual: foreign ? 0 : 1726.9,
+    mensal: foreign ? foreign.pro.mensal : 159.9,
+    anual: foreign ? foreign.pro.anual : 1726.9,
     itens: L([`Até ${EQUIPE_INCLUDED} profissionais contando você (você + ${EQUIPE_INCLUDED - 1}), cada um com acesso próprio`, `${brl(EXTRA_TEACHER.mensal)}/mês por profissional a mais`, "Assistente com inteligência artificial incluso (até 200 mensagens/mês)", "\"Estou a caminho\" com a localização, pelo WhatsApp", "Lembretes automáticos pelo WhatsApp (em breve)", "Tudo do Pro"],
       [`Up to ${EQUIPE_INCLUDED} professionals including you (you + ${EQUIPE_INCLUDED - 1}), each with their own login`, `${brl(EXTRA_TEACHER.mensal)}/month per extra professional`, "AI assistant included (up to 200 messages/month)", "\"On my way\" with your location, via WhatsApp", "Automatic WhatsApp reminders (coming soon)", "Everything in Pro"]),
   },
