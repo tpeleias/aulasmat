@@ -146,7 +146,7 @@ export default function Subscribe() {
             const current = subscribed && plan?.tier === p.tier;
             const price = interval === "month" ? p.mensal : p.anual;
             return (
-              <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro" ? "border-primary/50" : ""}`}>
+              <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro_solo" ? "border-primary/50" : ""}`}>
                 <div className="flex items-center justify-between gap-2">
                   <h2 className="text-xl font-semibold">{p.nome}</h2>
                   {current && <Badge>seu plano</Badge>}

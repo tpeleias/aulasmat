@@ -28,7 +28,7 @@ export const EXTRA_TEACHER = { mensal: 29.9, anual: 322.9 };
 export const ASSISTANT_ADDON = { mensal: 39, anual: 421.2 };
 export const EQUIPE_INCLUDED = 5;
 
-export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 2 });
+export const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: Number.isInteger(v) ? 0 : 2, maximumFractionDigits: 2 });
 
 export const PLANS: PlanCard[] = [
   {

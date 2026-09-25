@@ -19,6 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useWords } from "@/hooks/useVocabulary";
+import { usePlan } from "@/hooks/usePlan";
 
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -68,6 +69,9 @@ export default function CalendarPage() {
     } catch { return []; }
   });
   const [settings, setSettings] = useState<Settings>({ work_start: "08:00", work_end: "22:00", slot_minutes: 60 });
+  // WhatsApp de cada cliente, para o atalho de lembrete no widget.
+  const [phones, setPhones] = useState<{ student_name: string; guardian_name: string | null; whatsapp: string | null }[]>([]);
+  const { plan } = usePlan();
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [upcoming, setUpcoming] = useState<Lesson[]>([]);
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -123,12 +127,26 @@ export default function CalendarPage() {
     setExceptions((ex.data ?? []) as BlockException[]);
     const upcomingLessons = (up.data ?? []) as Lesson[];
     setUpcoming(upcomingLessons);
+    // "*" e não a lista: whatsapp só existe depois da migration 20260925070000.
+    const { data: st } = await supabase.from("students").select("*");
+    setPhones(((st ?? []) as { student_name: string; guardian_name: string | null; whatsapp?: string | null }[])
+      .map(x => ({ student_name: x.student_name, guardian_name: x.guardian_name, whatsapp: x.whatsapp ?? null })));
   }, [anchor, dayCount]);
 
   useEffect(() => { load(); }, [load]);
   // Separado do load: os professores chegam depois, e a cor do widget depende
   // da ordem deles.
-  useEffect(() => { syncUpcomingLessonsWidget(upcoming, teacherSlugs); }, [upcoming, teacherSlugs]);
+  useEffect(() => {
+    const phoneOf = (x: { student_name: string; guardian_name?: string | null }) => {
+      const same = phones.filter(p => p.student_name.toLowerCase() === x.student_name.trim().toLowerCase());
+      const hit = same.length === 1 ? same[0]
+        : same.find(p => (p.guardian_name ?? "").toLowerCase() === (x.guardian_name ?? "").trim().toLowerCase());
+      return hit?.whatsapp ?? null;
+    };
+    syncUpcomingLessonsWidget(upcoming, teacherSlugs, {
+      words: w, remind: !!plan.whatsapp_link, locate: !!plan.arrival_location, phoneOf,
+    });
+  }, [upcoming, teacherSlugs, phones, plan.whatsapp_link, plan.arrival_location, w]);
 
   const [hStart, hEnd] = useMemo(() => {
     const [a] = settings.work_start.split(":").map(Number);

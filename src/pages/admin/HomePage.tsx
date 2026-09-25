@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { addDays, format, startOfDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,8 @@ import { fmtMoney, capitalize } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { syncBillingWidget } from "@/lib/widgetSync";
 import { haptics } from "@/lib/haptics";
-import { Bot, CalendarDays, CalendarPlus, Ban, MapPin, Wifi, ChevronRight, Sparkles, Wallet } from "lucide-react";
+import { Bot, CalendarDays, CalendarPlus, Ban, Wifi, ChevronRight, Sparkles, Wallet } from "lucide-react";
+import { LessonQuickActions, sendOnMyWay } from "@/components/LessonQuickActions";
 import PeriodSummary from "@/components/PeriodSummary";
 import type { SummaryLesson } from "@/lib/periodSummary";
 import { useAuth } from "@/hooks/useAuth";
@@ -43,10 +44,6 @@ function greeting(d: Date) {
   return "Boa noite";
 }
 
-function openWaze(address: string) {
-  window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
-}
-
 export default function HomePage() {
   const navigate = useNavigate();
   const w = useWords();
@@ -61,10 +58,24 @@ export default function HomePage() {
   const [allLessons, setAllLessons] = useState<SummaryLesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [dlgOpen, setDlgOpen] = useState(false);
+  // WhatsApp de cada cliente (students.whatsapp), para os atalhos das aulas de hoje.
+  const [phones, setPhones] = useState<{ student_name: string; guardian_name: string | null; whatsapp: string | null }[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
   // Recarregar a tela (puxar para baixo, aula salva) reconfere os primeiros passos.
   const [reloads, setReloads] = useState(0);
 
+  const phoneOf = useCallback((l: { student_name: string; guardian_name?: string | null }) => {
+    const same = phones.filter(p => p.student_name.toLowerCase() === l.student_name.trim().toLowerCase());
+    const hit = same.length === 1 ? same[0]
+      : same.find(p => (p.guardian_name ?? "").toLowerCase() === (l.guardian_name ?? "").trim().toLowerCase());
+    return hit?.whatsapp ?? null;
+  }, [phones]);
+
   const load = useCallback(async () => {
+    // "*" e não a lista: whatsapp só existe depois da migration 20260925070000.
+    supabase.from("students").select("*").then(({ data }) =>
+      setPhones(((data ?? []) as { student_name: string; guardian_name: string | null; whatsapp?: string | null }[])
+        .map(s => ({ student_name: s.student_name, guardian_name: s.guardian_name, whatsapp: s.whatsapp ?? null }))));
     const now = new Date();
     const dayStart = startOfDay(now).toISOString();
     const dayEnd = startOfDay(addDays(now, 1)).toISOString();
@@ -109,6 +120,21 @@ export default function HomePage() {
     haptics.tap();
     navigate("/admin/assistente", { state: { prefill: text } });
   };
+
+  // Atalho do widget: "/admin?caminho=<aula>" manda o "estou a caminho" daquela
+  // aula assim que o app abre. Espera o cadastro carregar para achar o WhatsApp.
+  const caminho = searchParams.get("caminho");
+  const [phonesLoaded, setPhonesLoaded] = useState(false);
+  useEffect(() => { if (phones.length) setPhonesLoaded(true); }, [phones]);
+  useEffect(() => {
+    if (!caminho || (!phonesLoaded && loading)) return;
+    searchParams.delete("caminho");
+    setSearchParams(searchParams, { replace: true });
+    supabase.from("lessons").select("id, student_name, guardian_name, start_at, address, is_online")
+      .eq("id", caminho).maybeSingle().then(({ data }) => {
+        if (data) sendOnMyWay(data, phoneOf(data), w);
+      });
+  }, [caminho, phonesLoaded, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <PullToRefresh onRefresh={load}>
@@ -158,13 +184,8 @@ export default function HomePage() {
                         {l.subject ?? ap.s} · {capitalize(l.teacher)}{l.is_online ? " · online" : ""}
                       </div>
                     </div>
-                    {l.is_online ? (
-                      <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    ) : l.address ? (
-                      <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0 rounded-full text-primary" onClick={() => { haptics.tap(); openWaze(l.address!); }} title="Abrir rota">
-                        <MapPin className="h-4 w-4" />
-                      </Button>
-                    ) : null}
+                    {l.is_online && <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    <LessonQuickActions lesson={l} phone={phoneOf(l)} />
                   </li>
                 );
               })}

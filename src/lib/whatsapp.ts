@@ -3,6 +3,7 @@
 // custa nada - é o que o Pro e o Max têm (plan_features.whatsapp_link).
 
 import { format } from "date-fns";
+import { Capacitor } from "@capacitor/core";
 import { ptBR } from "date-fns/locale";
 import type { Vocabulary } from "@/lib/vocabulary";
 import { cap } from "@/lib/vocabulary";
@@ -77,4 +78,23 @@ export function currentPosition(timeoutMs = 15000): Promise<{ lat: number; lng: 
       { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 60000 },
     );
   });
+}
+
+/**
+ * Abre um link fora do app (WhatsApp, Waze). No Android o próprio app entrega
+ * o link ao sistema, mesmo depois de esperar o GPS. No navegador, abrir aba
+ * depois de uma espera pode ser bloqueado: devolve false para a tela oferecer
+ * um botão.
+ */
+export function openExternal(url: string): boolean {
+  if (Capacitor.isNativePlatform()) {
+    window.location.href = url;
+    return true;
+  }
+  return window.open(url, "_blank", "noopener,noreferrer") !== null;
+}
+
+/** Waze com a rota até o endereço. */
+export function wazeLink(address: string): string {
+  return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
 }
