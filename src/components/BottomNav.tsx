@@ -5,10 +5,11 @@ import { MoreHorizontal } from "lucide-react";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { haptics } from "@/lib/haptics";
 
+import { L } from "@/lib/i18n";
 export type NavItem = { to: string; label: string; icon: LucideIcon; end?: boolean };
 
 // Mobile-only tab bar. Desktop keeps the sidebar (rendered by the layout).
-export default function BottomNav({ items, more, moreTitle = "Mais" }: {
+export default function BottomNav({ items, more, moreTitle = L("Mais", "More") }: {
   items: NavItem[];
   more?: (close: () => void) => ReactNode;
   moreTitle?: string;
@@ -21,7 +22,7 @@ export default function BottomNav({ items, more, moreTitle = "Mais" }: {
       <nav
         className="fixed inset-x-0 bottom-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-        aria-label="Navegação principal"
+        aria-label={L("Navegação principal", "Main navigation")}
       >
         <div className="grid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
           {items.map(it => (

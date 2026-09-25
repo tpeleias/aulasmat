@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
@@ -34,6 +33,7 @@ import { cap, type Vocabulary } from "@/lib/vocabulary";
 import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
 import { useServices, type Service } from "@/hooks/useServices";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
@@ -336,7 +336,7 @@ export default function BillingPage() {
       // Abatimento pontual: entra como voucher solto (sem aula vinculada), e
       // por isso o desconto fixo nunca o recalcula nem o apaga.
       const descricao = dScope === "lesson"
-        ? `Desconto de ${rotulo} - ${dItem!.detail} de ${format(new Date(dItem!.date), "dd/MM", { locale: ptBR })}`
+        ? `Desconto de ${rotulo} - ${dItem!.detail} de ${format(new Date(dItem!.date), L("dd/MM", "MMM d"), { locale: dateLocale() })}`
         : `Desconto de ${rotulo} em ${discountFor.items.length} cobrança${discountFor.items.length > 1 ? "s" : ""} em aberto`;
       const { error } = await supabase.rpc("register_payment", {
         _student: discountFor.student,
@@ -510,7 +510,7 @@ export default function BillingPage() {
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
-                          {v.appointment.proximo} {v.appointment.l}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
+                          {v.appointment.proximo} {v.appointment.l}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
                           · {a.nextLesson.subject ?? v.appointment.s} ({capitalize(a.nextLesson.teacher)})
                         </div>
                       )}
@@ -524,7 +524,7 @@ export default function BillingPage() {
                             {a.items.map(i => (
                               <li key={i.id} className="flex items-start justify-between gap-2 px-3 py-2 text-sm">
                                 <span className="min-w-0 truncate">
-                                  <span className="capitalize">{format(new Date(i.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
+                                  <span className="capitalize">{format(new Date(i.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
                                   <span className="text-muted-foreground"> · {i.detail}</span>
                                   {i.discount && (
                                     <div className="text-[10px] text-muted-foreground truncate">{i.discount.label}</div>
@@ -564,7 +564,7 @@ export default function BillingPage() {
                                     {val >= 0 ? <ArrowDownLeft className="w-3.5 h-3.5 shrink-0 text-success" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
                                     <Badge variant="outline" className="shrink-0 text-[10px]">{kindLabel(t, v)}</Badge>
                                     <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
-                                    <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{format(new Date(t.created_at), "dd/MM", { locale: ptBR })}</span>
+                                    <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{format(new Date(t.created_at), L("dd/MM", "MMM d"), { locale: dateLocale() })}</span>
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <span className={`font-medium tabular-nums whitespace-nowrap ${val >= 0 ? "text-success" : ""}`}>{val > 0 ? "+" : ""}{fmtMoney(val)}</span>
@@ -752,7 +752,7 @@ export default function BillingPage() {
                   >
                     {discountFor.items.map(i => (
                       <option key={i.id} value={i.id}>
-                        {format(new Date(i.date), "dd/MM HH:mm", { locale: ptBR })} · {i.detail} · {fmtMoney(i.amount)}
+                        {format(new Date(i.date), L("dd/MM HH:mm", "MMM d, HH:mm"), { locale: dateLocale() })} · {i.detail} · {fmtMoney(i.amount)}
                       </option>
                     ))}
                   </select>

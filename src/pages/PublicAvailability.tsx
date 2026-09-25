@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
 import { useParams } from "react-router-dom";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
-import { capitalize } from "@/lib/balance";
+import { capitalize, fmtMoney } from "@/lib/balance";
 import { colorOf } from "@/lib/teacherColors";
 
+import { dateLocale, L } from "@/lib/i18n";
 type PublicService = { id: string; name: string; duration_minutes: number; price: number | null; mode: "presencial" | "online" | "ambos"; color: string | null };
 type PublicCatalog = {
   services: PublicService[];
@@ -170,7 +170,7 @@ export default function PublicAvailability() {
                     {sv.name}
                     <span className="text-xs text-muted-foreground">
                       {sv.duration_minutes} min
-                      {sv.price != null ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                      {sv.price != null ? ` · ${fmtMoney(Number(sv.price))}` : ""}
                       {sv.mode === "online" ? " · on-line" : sv.mode === "presencial" ? " · presencial" : ""}
                     </span>
                   </button>
@@ -193,7 +193,7 @@ export default function PublicAvailability() {
           <div key={day.toISOString()}>
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
               </h2>
               {slots.length > 0 && slots.length <= 2 && (
                 <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">

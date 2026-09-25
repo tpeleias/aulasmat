@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Calendar, Wallet, FolderOpen, ListChecks, UserPlus, KeyRound } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
@@ -21,7 +20,8 @@ import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { dateLocale, L } from "@/lib/i18n";
+const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentDashboard() {
   const { student, loading } = useStudent();
@@ -114,7 +114,7 @@ export default function StudentDashboard() {
           {requests.map(l => (
             <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
               <div>
-                <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
+                <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
                 <div className="text-xs text-muted-foreground">{l.duration_minutes} min · Prof. {capitalize(l.teacher)}</div>
               </div>
               <div className="flex items-center gap-1">
@@ -135,10 +135,10 @@ export default function StudentDashboard() {
         {upcoming.slice(0, 5).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
             </div>
-            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+            <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}`} />
           </div>
         ))}
       </Card>
@@ -151,7 +151,7 @@ export default function StudentDashboard() {
           </div>
           {openItems.slice(0, 6).map(i => (
             <div key={i.id} className="flex items-center justify-between gap-2 text-sm border-t border-border pt-2 first:border-0 first:pt-0">
-              <span>{format(new Date(i.date), "dd/MM HH:mm")}<span className="text-muted-foreground"> · {i.detail}</span></span>
+              <span>{format(new Date(i.date), L("dd/MM HH:mm", "MMM d, HH:mm"))}<span className="text-muted-foreground"> · {i.detail}</span></span>
               <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
             </div>
           ))}
@@ -176,7 +176,7 @@ export default function StudentDashboard() {
         {past.slice(0, 5).map(l => (
           <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
               <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
             </div>
             {l.class_summary && (

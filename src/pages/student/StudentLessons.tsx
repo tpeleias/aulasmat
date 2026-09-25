@@ -6,9 +6,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { WhatsAppButton } from "@/components/WhatsAppButton";
-import { scopeToAccount } from "@/lib/balance";
+import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { isDiscarded, isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
 import { useWords } from "@/hooks/useVocabulary";
@@ -16,7 +15,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Repeat } from "lucide-react";
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { dateLocale, L } from "@/lib/i18n";
+const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentLessons() {
   const { student, isChild } = useStudent();
@@ -78,11 +78,11 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
         <Card key={l.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{l.teacher}</div>
               {l.reschedule_of && isRequest(l.status) && byId.get(l.reschedule_of) && (
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
-                  <Repeat className="h-3 w-3" /> Troca {ap.do} {ap.l} de {format(new Date(byId.get(l.reschedule_of).start_at), "dd/MM 'às' HH:mm")}
+                  <Repeat className="h-3 w-3" /> Troca {ap.do} {ap.l} de {format(new Date(byId.get(l.reschedule_of).start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))}
                 </div>
               )}
               {openSwapFor.has(l.id) && l.status === "agendada" && (
@@ -114,7 +114,7 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
                 </Button>
               )}
               {!hideFinancial && (
-                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`} />
+                <WhatsAppButton teacher={l.teacher} message={`Olá! Sobre ${w.appointment.o} ${w.appointment.l} em ${format(new Date(l.start_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}`} />
               )}
             </div>
           </div>

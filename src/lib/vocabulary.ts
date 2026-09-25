@@ -1,3 +1,4 @@
+import { getLocale, type Locale } from "@/lib/i18n";
 // As palavras da tela, por ramo de negócio.
 //
 // O app faz a mesma coisa para uma escola, uma clínica ou uma oficina: agenda,
@@ -35,6 +36,37 @@ export const TERM_LABELS: Record<TermKey, string> = {
 
 const t = (s: string, p: string, g: Gender): TermSpec => ({ s, p, g });
 const responsavel = t("Responsável", "Responsáveis", "m");
+
+// Em inglês não há gênero; `g` fica só para o tipo fechar.
+const e = (s: string, p: string): TermSpec => ({ s, p, g: "m" });
+
+/** As palavras de cada ramo em inglês (empresa com locale "en"). */
+export const PRESETS_EN: Record<BusinessModel, { nome: string; exemplo: string; terms: VocabularySpec }> = {
+  aulas: { nome: "Tutoring and lessons", exemplo: "Private lessons, tutoring, languages, music", terms: {
+    business: e("School", "Schools"), staff: e("Teacher", "Teachers"), appointment: e("Lesson", "Lessons"),
+    client: e("Student", "Students"), guardian: e("Parent", "Parents"), topic: e("Subject", "Subjects") } },
+  saude: { nome: "Health and medical clinics", exemplo: "Doctors' offices, clinics, physiotherapy, nutrition", terms: {
+    business: e("Clinic", "Clinics"), staff: e("Doctor", "Doctors"), appointment: e("Appointment", "Appointments"),
+    client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Specialty", "Specialties") } },
+  psicologia: { nome: "Psychology and therapy", exemplo: "Psychologists, therapists, speech therapy", terms: {
+    business: e("Practice", "Practices"), staff: e("Therapist", "Therapists"), appointment: e("Session", "Sessions"),
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Approach", "Approaches") } },
+  beleza: { nome: "Beauty salons and aesthetics", exemplo: "Hairdressers, nail salons, barbershops, aesthetics", terms: {
+    business: e("Salon", "Salons"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+  pet: { nome: "Pets and veterinary", exemplo: "Vets, grooming, dog training", terms: {
+    business: e("Vet clinic", "Vet clinics"), staff: e("Vet", "Vets"), appointment: e("Appointment", "Appointments"),
+    client: e("Pet", "Pets"), guardian: e("Owner", "Owners"), topic: e("Service", "Services") } },
+  esportes: { nome: "Sports and fitness", exemplo: "Personal trainers, gyms, sports schools", terms: {
+    business: e("Gym", "Gyms"), staff: e("Coach", "Coaches"), appointment: e("Session", "Sessions"),
+    client: e("Athlete", "Athletes"), guardian: e("Guardian", "Guardians"), topic: e("Activity", "Activities") } },
+  oficina: { nome: "Repair shops and maintenance", exemplo: "Car repair, tech support, repairs", terms: {
+    business: e("Shop", "Shops"), staff: e("Technician", "Technicians"), appointment: e("Service visit", "Service visits"),
+    client: e("Customer", "Customers"), guardian: e("Owner", "Owners"), topic: e("Service", "Services") } },
+  outro: { nome: "Other business", exemplo: "Any appointment-based service", terms: {
+    business: e("Business", "Businesses"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+};
 
 export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; terms: VocabularySpec }> = {
   aulas: {
@@ -138,6 +170,11 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
 
 const lower = (x: string) => x.toLocaleLowerCase("pt-BR");
 
+/** O ramo na língua da empresa (nome, exemplo e palavras). */
+export function presetFor(model: BusinessModel, locale: Locale = getLocale()) {
+  return locale === "en" ? PRESETS_EN[model] : PRESETS[model];
+}
+
 /** Primeira letra maiúscula: `${cap(w.um)} ${w.l}` → "Uma aula". */
 export const cap = (x: string) => x.charAt(0).toLocaleUpperCase("pt-BR") + x.slice(1);
 
@@ -157,7 +194,11 @@ export class Word {
   readonly l: string;
   readonly lp: string;
 
-  constructor(spec: TermSpec) {
+  /** Em inglês os artigos e adjetivos não concordam: "the", "a", "New". */
+  readonly en: boolean;
+
+  constructor(spec: TermSpec, en = false) {
+    this.en = en;
     this.s = spec.s;
     this.p = spec.p;
     this.g = spec.g;
@@ -167,21 +208,23 @@ export class Word {
 
   pick<T>(m: T, f: T): T { return this.g === "f" ? f : m; }
 
-  get o() { return this.pick("o", "a"); }
-  get os() { return this.pick("os", "as"); }
-  get um() { return this.pick("um", "uma"); }
-  get do() { return this.pick("do", "da"); }
-  get dos() { return this.pick("dos", "das"); }
-  get no() { return this.pick("no", "na"); }
-  get ao() { return this.pick("ao", "à"); }
-  get este() { return this.pick("este", "esta"); }
-  get esse() { return this.pick("esse", "essa"); }
-  get seu() { return this.pick("seu", "sua"); }
-  get seus() { return this.pick("seus", "suas"); }
-  get novo() { return this.pick("Novo", "Nova"); }
-  get nenhum() { return this.pick("Nenhum", "Nenhuma"); }
-  get proximo() { return this.pick("Próximo", "Próxima"); }
-  get proximos() { return this.pick("Próximos", "Próximas"); }
+  private x(pt: string, en: string) { return this.en ? en : pt; }
+
+  get o() { return this.x(this.pick("o", "a"), "the"); }
+  get os() { return this.x(this.pick("os", "as"), "the"); }
+  get um() { return this.x(this.pick("um", "uma"), /^[aeiou]/i.test(this.s) ? "an" : "a"); }
+  get do() { return this.x(this.pick("do", "da"), "of the"); }
+  get dos() { return this.x(this.pick("dos", "das"), "of the"); }
+  get no() { return this.x(this.pick("no", "na"), "in the"); }
+  get ao() { return this.x(this.pick("ao", "à"), "to the"); }
+  get este() { return this.x(this.pick("este", "esta"), "this"); }
+  get esse() { return this.x(this.pick("esse", "essa"), "that"); }
+  get seu() { return this.x(this.pick("seu", "sua"), "your"); }
+  get seus() { return this.x(this.pick("seus", "suas"), "your"); }
+  get novo() { return this.x(this.pick("Novo", "Nova"), "New"); }
+  get nenhum() { return this.x(this.pick("Nenhum", "Nenhuma"), "No"); }
+  get proximo() { return this.x(this.pick("Próximo", "Próxima"), "Next"); }
+  get proximos() { return this.x(this.pick("Próximos", "Próximas"), "Next"); }
 }
 
 export type Vocabulary = { model: BusinessModel | null } & Record<TermKey, Word>;
@@ -199,12 +242,13 @@ export function isBusinessModel(x: unknown): x is BusinessModel {
 }
 
 /** As palavras do ramo (ou as genéricas, se não escolheu), com as editadas por cima. */
-export function buildVocabulary(model: BusinessModel | null, custom?: unknown): Vocabulary {
-  const base = PRESETS[model ?? "outro"].terms;
+export function buildVocabulary(model: BusinessModel | null, custom?: unknown, locale: Locale = getLocale()): Vocabulary {
+  const en = locale === "en";
+  const base = (en ? PRESETS_EN : PRESETS)[model ?? "outro"].terms;
   const extra = (custom && typeof custom === "object" ? custom : {}) as Record<string, unknown>;
   const words = {} as Record<TermKey, Word>;
   for (const k of TERM_KEYS) {
-    words[k] = new Word(isTermSpec(extra[k]) ? extra[k] as TermSpec : base[k]);
+    words[k] = new Word(isTermSpec(extra[k]) ? extra[k] as TermSpec : base[k], en);
   }
   return { model, ...words };
 }
@@ -213,8 +257,8 @@ export function buildVocabulary(model: BusinessModel | null, custom?: unknown): 
  * O que funções puras usam quando ninguém passa vocabulário - e o que os
  * testes antigos esperam. É o ramo em que o app nasceu.
  */
-export const DEFAULT_VOCABULARY = buildVocabulary("aulas");
-export const GENERIC_VOCABULARY = buildVocabulary(null);
+export const DEFAULT_VOCABULARY = buildVocabulary("aulas", null, "pt-BR");
+export const GENERIC_VOCABULARY = buildVocabulary(null, null, "pt-BR");
 
 /** "Médicos · Consultas · Pacientes" - o resumo que aparece ao escolher o ramo. */
 export function vocabularySummary(v: Vocabulary): string {

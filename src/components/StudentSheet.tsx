@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2, TrendingUp, PauseCircle } from "lucide-react";
 import { format, isFuture } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { fmtMoney, capitalize } from "@/lib/balance";
 import { isDiscarded, statusLabel } from "@/lib/lessonStatus";
 import type { AccountStatement } from "@/lib/billing";
 import { daysOpen, isOverdue } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 export type SheetStudent = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
@@ -81,7 +81,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
             tone={overdue ? "destructive" : credit > 0 ? "success" : "default"}
             hint={overdue ? `${daysOpen(statement!.oldestOpenDate)} dias` : undefined}
           />}
-          <Stat label="Próxima" value={next ? format(new Date(next.start_at), "EEE dd/MM", { locale: ptBR }) : "—"} hint={next ? format(new Date(next.start_at), "HH:mm") : undefined} />
+          <Stat label="Próxima" value={next ? format(new Date(next.start_at), L("EEE dd/MM", "EEE, MMM d"), { locale: dateLocale() }) : "—"} hint={next ? format(new Date(next.start_at), "HH:mm") : undefined} />
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -102,7 +102,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
               {recent.map(l => (
                 <li key={l.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
                   <div className="min-w-0">
-                    <div className="font-medium capitalize">{format(new Date(l.start_at), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+                    <div className="font-medium capitalize">{format(new Date(l.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
                     <div className="truncate text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {capitalize(l.teacher)}</div>
                   </div>
                   <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{statusLabel(l.status, w)}</Badge>

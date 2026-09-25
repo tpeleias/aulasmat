@@ -12,6 +12,7 @@ import {
   currentPosition, onMyWayMessage, openExternal, reminderMessage, wazeLink, whatsAppLink,
 } from "@/lib/whatsapp";
 
+import { L } from "@/lib/i18n";
 export type QuickLesson = {
   id: string;
   student_name: string;
@@ -45,8 +46,8 @@ export async function sendOnMyWay(lesson: QuickLesson, phone: string | null, w: 
   }
   const url = whatsAppLink(phone, onMyWayMessage(lesson, w, pos, templates));
   if (!openExternal(url)) {
-    toast.success("Localização pronta", {
-      action: { label: "Enviar no WhatsApp", onClick: () => { window.open(url, "_blank", "noopener"); } },
+    toast.success(L("Localização pronta", "Location ready"), {
+      action: { label: L("Enviar no WhatsApp", "Send on WhatsApp"), onClick: () => { window.open(url, "_blank", "noopener"); } },
       duration: 15000,
     });
   }
@@ -75,19 +76,19 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
   return (
     <div className="flex shrink-0 items-center">
       {plan.whatsapp_link && (
-        <Button asChild size="icon" variant="ghost" className={btn} title="Lembrar no WhatsApp">
+        <Button asChild size="icon" variant="ghost" className={btn} title={L("Lembrar no WhatsApp", "Remind on WhatsApp")}>
           <a href={whatsAppLink(phone, reminderMessage(lesson, w, templates))} target="_blank" rel="noopener noreferrer" onClick={() => haptics.tap()}>
             <WhatsAppGlyph />
           </a>
         </Button>
       )}
       {canLocate && (
-        <Button size="icon" variant="ghost" className={`${btn} text-primary`} onClick={locate} disabled={locating} title="Estou a caminho (manda sua localização)">
+        <Button size="icon" variant="ghost" className={`${btn} text-primary`} onClick={locate} disabled={locating} title={L("Estou a caminho (manda sua localização)", "On my way (sends your location)")}>
           {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
         </Button>
       )}
       {presencial && (
-        <Button size="icon" variant="ghost" className={`${btn} text-primary`} title="Abrir rota"
+        <Button size="icon" variant="ghost" className={`${btn} text-primary`} title={L("Abrir rota", "Open route")}
           onClick={() => { haptics.tap(); openExternal(wazeLink(lesson.address!)); }}>
           <Navigation className="h-4 w-4" fill="currentColor" />
         </Button>

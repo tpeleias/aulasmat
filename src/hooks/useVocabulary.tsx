@@ -2,9 +2,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary } from "@/lib/vocabulary";
+import { isCurrency, isLocale, setLocale, type Currency, type Locale } from "@/lib/i18n";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
@@ -59,10 +60,17 @@ function parse(raw: unknown): Raw | null {
     active: r.active !== false,
     custom: r.custom ?? null,
     custom_saved: r.custom_saved === true,
+    // Língua e moeda da empresa (migration 20260925170000).
+    locale: isLocale(r.locale) ? r.locale : undefined,
+    currency: isCurrency(r.currency) ? r.currency : undefined,
   };
 }
 
 const VocabularyContext = createContext<Ctx | null>(null);
+
+// Se a tela já foi desenhada com a língua anterior (para decidir se recarrega).
+let painted = false;
+if (typeof window !== "undefined") window.setTimeout(() => { painted = true; }, 0);
 
 export function VocabularyProvider({ children }: { children: ReactNode }) {
   const { user, loading: authLoading } = useAuth();
@@ -93,6 +101,17 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     void reload();
   }, [authLoading, user?.id, reload]);
+
+  // A língua da empresa vale para quem está logado nela. Sem login a resposta
+  // é a da empresa do endereço público, e aí vale a do aparelho (a tela de
+  // entrada de um visitante estrangeiro não pode virar português).
+  // Mudou depois de desenhar: recarrega a tela inteira, que é o jeito simples
+  // de todo texto passar pela língua nova.
+  useEffect(() => {
+    if (!user || !raw?.locale) return;
+    const changed = setLocale(raw.locale, raw.currency ?? (raw.locale === "en" ? "USD" : "BRL"));
+    if (changed && painted) window.location.reload();
+  }, [user, raw?.locale, raw?.currency]);
 
   const apply = useCallback((data: unknown) => {
     const parsed = parse(data);

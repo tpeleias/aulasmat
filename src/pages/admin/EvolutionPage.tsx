@@ -8,13 +8,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TrendingUp, BookOpen, GraduationCap, MessageSquarePlus, Pencil } from "lucide-react";
 import { format, isPast } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { capitalize } from "@/lib/balance";
 import { buildTimeline, computeAttendance, type EvolutionLesson, type EvolutionHomework } from "@/lib/evolution";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SubmissionRow = { homework_id: string; teacher_feedback: string | null; submitted_at: string };
 
@@ -137,7 +137,7 @@ export default function EvolutionPage() {
                         <>
                           <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium capitalize">{format(new Date(e.date), "EEE dd/MM 'às' HH:mm", { locale: ptBR })}</span>
+                            <span className="font-medium capitalize">{format(new Date(e.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
                             <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
                           </div>
                           {e.summary ? (
@@ -161,7 +161,7 @@ export default function EvolutionPage() {
                             <BookOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="font-medium">{e.title}</span>
                             <Badge variant={e.status === "entregue" ? "secondary" : "outline"} className="text-[10px]">{homeworkLabel({ status: e.status, deadline: e.date })}</Badge>
-                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{format(new Date(e.date), "dd/MM", { locale: ptBR })}</span>
+                            <span className="ml-auto shrink-0 text-xs text-muted-foreground">{format(new Date(e.date), L("dd/MM", "MMM d"), { locale: dateLocale() })}</span>
                           </div>
                           {e.feedback && <p className="mt-1.5 text-sm text-muted-foreground">{e.feedback}</p>}
                         </>

@@ -1,11 +1,11 @@
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { fmtMoney } from "@/lib/balance";
 import type { OpenItem } from "@/lib/billing";
 import { buildPixPayload } from "@/lib/pix";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
+import { dateLocale, L } from "@/lib/i18n";
 // Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
 // saía na cobrança de qualquer escola.
 export type PaymentInfo = {
@@ -32,8 +32,8 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 // monoespaçada), então cada aula vira um bloco curto em vez de uma linha longa.
 function dayLabel(iso: string) {
   const d = new Date(iso);
-  const weekday = format(d, "EEEE", { locale: ptBR }).replace("-feira", "");
-  return `${weekday[0].toUpperCase()}${weekday.slice(1)}, ${format(d, "dd/MM")}`;
+  const weekday = format(d, "EEEE", { locale: dateLocale() }).replace("-feira", "");
+  return `${weekday[0].toUpperCase()}${weekday.slice(1)}, ${format(d, L("dd/MM", "MMM d"))}`;
 }
 
 // billing.ts monta "Matemática (60 min)"; aqui vira "Matemática · 60 min".

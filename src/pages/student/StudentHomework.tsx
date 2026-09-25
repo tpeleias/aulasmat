@@ -9,6 +9,7 @@ import { differenceInDays, isPast, format } from "date-fns";
 import { toast } from "sonner";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
+import { L } from "@/lib/i18n";
 export default function StudentHomework() {
   const { student } = useStudent();
   const [homeworks, setHomeworks] = useState<any[]>([]);
@@ -84,7 +85,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" /> Faltam {days} {days === 1 ? "dia" : "dias"}</Badge>
         )}
       </div>
-      <div className="text-xs text-muted-foreground">Prazo: {format(deadline, "dd/MM/yyyy HH:mm")}</div>
+      <div className="text-xs text-muted-foreground">Prazo: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
 
       {subs.length > 0 && (
         <div className="space-y-2">
@@ -92,7 +93,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           {subs.map((s: any) => (
             <div key={s.id} className="flex items-center justify-between border border-border rounded p-2">
               <div className="text-sm">
-                <div>Enviado em {format(new Date(s.submitted_at), "dd/MM HH:mm")}</div>
+                <div>Enviado em {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
                 {s.teacher_feedback && <div className="text-xs text-primary mt-1">Feedback: {s.teacher_feedback}</div>}
               </div>
               <Button size="sm" variant="outline" onClick={() => download(s.file_path)}><Download className="w-4 h-4" /></Button>

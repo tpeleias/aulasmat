@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+import { dateLocale, L } from "@/lib/i18n";
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
 export const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
@@ -53,7 +53,7 @@ export function DateTimeField({ value, onChange }: { value: string; onChange: (v
       </div>
       {complete && (
         <p className="text-xs text-muted-foreground first-letter:uppercase">
-          {format(new Date(`${date}T${hour}:${minute}`), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+          {format(new Date(`${date}T${hour}:${minute}`), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
         </p>
       )}
     </div>

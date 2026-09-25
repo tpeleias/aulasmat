@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
@@ -21,12 +20,13 @@ import { lessonErrorMessage } from "@/lib/lessonErrors";
 import { toast } from "sonner";
 import { Calendar, Clock, AlertCircle, Flame, Repeat } from "lucide-react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
-import { capitalize } from "@/lib/balance";
+import { capitalize, fmtMoney } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { useServices, teacherDoes } from "@/hooks/useServices";
 
+import { dateLocale, L } from "@/lib/i18n";
 // "Qualquer profissional" no seletor (Max): o app escolhe pela prioridade.
 const ANY = "__qualquer__";
 
@@ -220,7 +220,7 @@ export default function StudentBooking() {
       return;
     }
     if (original) {
-      toast.success(`Pedido de troca enviado! ${cap(ap.o)} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} responder.`);
+      toast.success(`Pedido de troca enviado! ${cap(ap.o)} ${ap.l} de ${format(new Date(original.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))} continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} responder.`);
       setBusy(false);
       navigate("/aluno/aulas");
       return;
@@ -253,7 +253,7 @@ export default function StudentBooking() {
       {trocaId && original && (
         <Card className="flex flex-wrap items-center justify-between gap-2 border-primary/40 p-4 text-sm">
           <div>
-            Trocando {ap.o} {ap.l} de <b>{format(new Date(original.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</b>.
+            Trocando {ap.o} {ap.l} de <b>{format(new Date(original.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</b>.
             <p className="text-xs text-muted-foreground">
               Ela continua {ap.pick("marcado", "marcada")} até {st.o} {st.l} aprovar o horário novo; se recusar, nada muda.
             </p>
@@ -276,7 +276,7 @@ export default function StudentBooking() {
               {offered.map(sv => (
                 <SelectItem key={sv.id} value={sv.id}>
                   {sv.name} · {sv.duration_minutes} min
-                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${Number(sv.price).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` : ""}
+                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${fmtMoney(Number(sv.price))}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -305,7 +305,7 @@ export default function StudentBooking() {
             <div key={day.toISOString()}>
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                  {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
                 </h2>
                 {slots.length > 0 && slots.length <= 2 && (
                   <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">
@@ -350,12 +350,12 @@ export default function StudentBooking() {
               <div className="space-y-2">
                 <p>
                   {original
-                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
+                    ? <>Você vai pedir para trocar {ap.o} {ap.l} de {format(new Date(original.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))} por este horário, com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
                     : <>Você vai pedir {ap.um} {ap.l} com <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>}
                 </p>
                 {pending && (
                   <p className="text-foreground font-medium">
-                    {format(pending.start, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+                    {format(pending.start, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
                     <br />
                     das {fmtTime(pending.start)} às {fmtTime(pending.end)}
                   </p>

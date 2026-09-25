@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useWords } from "@/hooks/useVocabulary";
 import { firstSteps, type FirstStepsData } from "@/lib/firstSteps";
 
+import { L } from "@/lib/i18n";
 const HIDDEN_KEY = "cronys-first-steps-hidden";
 
 function readHidden() {
@@ -61,10 +62,10 @@ export default function FirstSteps({ refreshKey = 0 }: { refreshKey?: number }) 
     <Card className="rounded-2xl p-4">
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 font-semibold"><Rocket className="h-4 w-4 text-primary" /> Primeiros passos</h2>
-          <p className="text-xs text-muted-foreground">{doneCount} de {steps.length} feitos</p>
+          <h2 className="flex items-center gap-2 font-semibold"><Rocket className="h-4 w-4 text-primary" /> {L("Primeiros passos", "Getting started")}</h2>
+          <p className="text-xs text-muted-foreground">{L(`${doneCount} de ${steps.length} feitos`, `${doneCount} of ${steps.length} done`)}</p>
         </div>
-        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={hide} title="Esconder a lista">
+        <Button size="icon" variant="ghost" className="h-8 w-8 rounded-full" onClick={hide} title={L("Esconder a lista", "Hide this list")}>
           <X className="h-4 w-4" />
         </Button>
       </div>

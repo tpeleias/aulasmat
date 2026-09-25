@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FileText, Download } from "lucide-react";
 import { format } from "date-fns";
 
+import { L } from "@/lib/i18n";
 export default function StudentMaterials() {
   const { student } = useStudent();
   const [materials, setMaterials] = useState<any[]>([]);
@@ -33,7 +34,7 @@ export default function StudentMaterials() {
           <FileText className="w-6 h-6 text-primary" />
           <div className="flex-1 min-w-0">
             <div className="font-medium truncate">{m.title}</div>
-            <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), "dd/MM/yyyy")}</div>
+            <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy", "MMM d, yyyy"))}</div>
           </div>
           <Button size="sm" variant="outline" onClick={() => download(m.file_path, m.title)}>
             <Download className="w-4 h-4 mr-1" /> Baixar

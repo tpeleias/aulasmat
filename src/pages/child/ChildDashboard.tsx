@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, FolderOpen, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 export default function ChildDashboard() {
   const { student, loading } = useStudent();
   const w = useWords();
@@ -59,10 +59,10 @@ export default function ChildDashboard() {
         </div>
         {nextLesson ? (
           <div className="space-y-2">
-            <div className="text-2xl font-bold">{format(new Date(nextLesson.start_at), "EEEE, dd 'de' MMMM", { locale: ptBR })}</div>
+            <div className="text-2xl font-bold">{format(new Date(nextLesson.start_at), L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}</div>
             <div className="flex flex-wrap items-center gap-2 text-muted-foreground">
               <Clock className="w-4 h-4" />
-              <span>{format(new Date(nextLesson.start_at), "HH:mm", { locale: ptBR })}</span>
+              <span>{format(new Date(nextLesson.start_at), "HH:mm", { locale: dateLocale() })}</span>
               <span>· {nextLesson.duration_minutes} min</span>
               <span>· Prof. {capitalize(nextLesson.teacher)}</span>
             </div>
@@ -79,7 +79,7 @@ export default function ChildDashboard() {
         {upcoming.slice(0, 8).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
-              <div className="text-sm font-medium">{format(new Date(l.start_at), "EEEE, dd/MM 'às' HH:mm", { locale: ptBR })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? "Prof. " : ""}{capitalize(l.teacher)}</div>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function ChildDashboard() {
           <div key={h.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="text-sm">
               <div className="font-medium">{h.title}</div>
-              <div className="text-xs text-muted-foreground">Prazo: {format(new Date(h.deadline), "dd/MM HH:mm")}</div>
+              <div className="text-xs text-muted-foreground">Prazo: {format(new Date(h.deadline), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
             </div>
             <Badge variant="secondary">{h.status}</Badge>
           </div>

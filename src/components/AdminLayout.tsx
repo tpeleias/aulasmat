@@ -24,24 +24,25 @@ import type { Vocabulary } from "@/lib/vocabulary";
 import BusinessOnboarding from "@/components/BusinessOnboarding";
 import { refreshLessonsWidget } from "@/lib/widgetSync";
 
+import { L } from "@/lib/i18n";
 const primary: NavItem[] = [
-  { to: "/admin", label: "Hoje", icon: Home, end: true },
-  { to: "/admin/agenda", label: "Agenda", icon: Calendar },
-  { to: "/admin/assistente", label: "Assistente", icon: Bot },
-  { to: "/admin/financeiro", label: "Financeiro", icon: Wallet },
+  { to: "/admin", label: L("Hoje", "Today"), icon: Home, end: true },
+  { to: "/admin/agenda", label: L("Agenda", "Calendar"), icon: Calendar },
+  { to: "/admin/assistente", label: L("Assistente", "Assistant"), icon: Bot },
+  { to: "/admin/financeiro", label: L("Financeiro", "Billing"), icon: Wallet },
 ];
 
 // Os endereços (/admin/alunos, /admin/professores) ficam: widgets e links
 // salvos apontam para eles. O que muda com o ramo é só o rótulo.
 const secondaryFor = (v: Vocabulary): NavItem[] => [
-  { to: "/admin/relatorios", label: "Relatórios", icon: FileText },
-  { to: "/admin/evolucao", label: "Evolução", icon: TrendingUp },
+  { to: "/admin/relatorios", label: L("Relatórios", "Reports"), icon: FileText },
+  { to: "/admin/evolucao", label: L("Evolução", "Progress"), icon: TrendingUp },
   { to: "/admin/alunos", label: v.client.p, icon: Users },
-  { to: "/admin/acessos", label: "Acessos", icon: ShieldCheck },
+  { to: "/admin/acessos", label: L("Acessos", "Access"), icon: ShieldCheck },
   { to: "/admin/professores", label: v.staff.p, icon: UserCog },
-  { to: "/admin/bloqueios", label: "Bloqueios", icon: Ban },
-  { to: "/admin/mensagens", label: "Mensagens", icon: MessageSquareText },
-  { to: "/admin/configuracoes", label: "Configurações", icon: SettingsIcon },
+  { to: "/admin/bloqueios", label: L("Bloqueios", "Time off"), icon: Ban },
+  { to: "/admin/mensagens", label: L("Mensagens", "Messages"), icon: MessageSquareText },
+  { to: "/admin/configuracoes", label: L("Configurações", "Settings"), icon: SettingsIcon },
 ];
 
 // O que o login de professor (papel 'teacher') enxerga. O resto - financeiro,
@@ -79,9 +80,9 @@ export default function AdminLayout() {
       <Badge
         variant={plan.plano === "pro" ? "default" : "outline"}
         className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
-        title={plan.plano === "pro" ? plan.nome : `Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`}
+        title={plan.plano === "pro" ? plan.nome : L(`Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`, `Cronys Essential: 1 ${v.staff.l} and 5 ${v.client.lp}`)}
       >
-        {plan.plano !== "pro" ? "ESSENCIAL" : plan.tier === "pro_solo" ? "PRO" : "MAX"}
+        {plan.plano !== "pro" ? L("ESSENCIAL", "ESSENTIAL") : plan.tier === "pro_solo" ? "PRO" : "MAX"}
       </Badge>
     );
 
@@ -98,7 +99,7 @@ export default function AdminLayout() {
   if (isTeacher && !teacherCan(location.pathname)) return <Navigate to="/admin" replace />;
   if (!isAdmin && !isTeacher) return (
     <div className="flex flex-1 items-center justify-center p-6 text-center">
-      <div><h2 className="text-xl font-semibold mb-2">Acesso restrito</h2><p className="text-muted-foreground">Sua conta não tem permissão de administrador.</p><Button className="mt-4" onClick={signOut}>Sair</Button></div>
+      <div><h2 className="text-xl font-semibold mb-2">{L("Acesso restrito", "Restricted access")}</h2><p className="text-muted-foreground">{L("Sua conta não tem permissão de administrador.", "Your account does not have admin permission.")}</p><Button className="mt-4" onClick={signOut}>{L("Sair", "Sign out")}</Button></div>
     </div>
   );
 
@@ -115,7 +116,7 @@ export default function AdminLayout() {
   const copyLink = (path: string, label: string) => {
     navigator.clipboard.writeText(publicSiteUrl() + path);
     haptics.success();
-    toast.success(`Link ${label} copiado!`);
+    toast.success(L(`Link ${label} copiado!`, `Link ${label} copied!`));
   };
 
   const sidebarLink = (it: NavItem) => (
@@ -137,7 +138,7 @@ export default function AdminLayout() {
             <div>
               <CronysWordmark tamanho="1.25rem" />
               <div className="mt-1 flex items-center gap-1.5">
-                <span className="text-xs text-sidebar-foreground/60">{isTeacher ? "Minha agenda" : v.business.s}</span>
+                <span className="text-xs text-sidebar-foreground/60">{isTeacher ? L("Minha agenda", "My calendar") : v.business.s}</span>
                 {!isTeacher && <SeloPlano />}
               </div>
             </div>
@@ -148,18 +149,18 @@ export default function AdminLayout() {
             {secondaryNav.map(sidebarLink)}
           </nav>
           <div className="p-3 border-t border-sidebar-border space-y-2">
-            <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">Links públicos</div>
+            <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">{L("Links públicos", "Public links")}</div>
             {linkTeachers.map(t => {
               const slug = teacherSlug(t.name);
               return (
-                <Button key={t.id} onClick={() => copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`)} variant="secondary" size="sm" className="w-full justify-start gap-2">
-                  <LinkIcon className="w-4 h-4" />Link - {capitalize(t.name)}
+                <Button key={t.id} onClick={() => copyLink(`/disponibilidade/${slug}`, L(`de ${capitalize(t.name)}`, `for ${capitalize(t.name)}`))} variant="secondary" size="sm" className="w-full justify-start gap-2">
+                  <LinkIcon className="w-4 h-4" />{L("Link", "Link")} - {capitalize(t.name)}
                 </Button>
               );
             })}
             <ThemeToggle />
-            <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />Minha conta</NavLink></Button>
-            <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />Sair</Button>
+            <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />{L("Minha conta", "My account")}</NavLink></Button>
+            <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />{L("Sair", "Sign out")}</Button>
           </div>
         </aside>
 
@@ -202,7 +203,7 @@ export default function AdminLayout() {
               {linkTeachers.map(t => {
                 const slug = teacherSlug(t.name);
                 return (
-                  <Button key={t.id} variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink(`/disponibilidade/${slug}`, `de ${capitalize(t.name)}`); close(); }}>
+                  <Button key={t.id} variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink(`/disponibilidade/${slug}`, L(`de ${capitalize(t.name)}`, `for ${capitalize(t.name)}`)); close(); }}>
                     <LinkIcon className="h-4 w-4" /> Link {capitalize(t.name)}
                   </Button>
                 );
@@ -211,10 +212,10 @@ export default function AdminLayout() {
             <div className="flex items-center justify-between border-t border-border pt-3">
               <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
                 {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {theme === "dark" ? "Modo claro" : "Modo escuro"}
+                {theme === "dark" ? L("Modo claro", "Light mode") : L("Modo escuro", "Dark mode")}
               </Button>
-              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> Minha conta</NavLink></Button>
-              <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> Sair</Button>
+              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> {L("Minha conta", "My account")}</NavLink></Button>
+              <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> {L("Sair", "Sign out")}</Button>
             </div>
           </div>
         )}

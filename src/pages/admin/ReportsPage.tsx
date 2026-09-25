@@ -6,7 +6,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Download, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { accountKey, accountLabel, fmtMoney } from "@/lib/balance";
 import type { LedgerTx } from "@/lib/billing";
 import { summarizeIncome, summarizeByService, toCsv, MESES, yearsWithData, type ServiceLesson } from "@/lib/reports";
@@ -18,6 +17,7 @@ import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SettingsRow = { contact_email: string | null; issuer_document: string | null };
 
@@ -79,7 +79,7 @@ export default function ReportsPage() {
   const exportCsv = () => {
     const csv = toCsv(
       ["Data", "Família", "Descrição", "Valor"],
-      summary.rows.map(r => [format(new Date(r.date), "dd/MM/yyyy"), r.accountLabel, r.description, r.amount.toFixed(2).replace(".", ",")]),
+      summary.rows.map(r => [format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy")), r.accountLabel, r.description, r.amount.toFixed(2).replace(".", ",")]),
     );
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const name = `recebido-${year}${month !== null ? `-${String(month + 1).padStart(2, "0")}` : ""}.csv`;
@@ -121,9 +121,9 @@ export default function ReportsPage() {
         payer: receiptAcc.payer,
         period: `${MESES[receiptMonth].toLowerCase()} de ${receiptYear}`,
         servicePlural: w.appointment.lp,
-        rows: receiptRows.map(r => ({ date: format(new Date(r.date), "dd/MM/yyyy"), description: r.description, amount: r.amount })),
+        rows: receiptRows.map(r => ({ date: format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy")), description: r.description, amount: r.amount })),
         total: receiptTotal,
-        issuedAt: format(new Date(), "dd/MM/yyyy"),
+        issuedAt: format(new Date(), L("dd/MM/yyyy", "MMM d, yyyy")),
       });
       const slug = receiptAcc.payer.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]+/g, "-").toLowerCase();
       await saveOrShareFile(`recibo-${slug}-${receiptYear}-${String(receiptMonth + 1).padStart(2, "0")}.pdf`, pdf, `Recibo - ${receiptAcc.payer}`);
@@ -266,12 +266,12 @@ export default function ReportsPage() {
               <ul className="list-disc pl-5 space-y-0.5">
                 {receiptRows.map((r, i) => (
                   <li key={i}>
-                    {format(new Date(r.date), "dd/MM/yyyy", { locale: ptBR })} — {r.description} ({fmtMoney(r.amount)})
+                    {format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy"), { locale: dateLocale() })} — {r.description} ({fmtMoney(r.amount)})
                   </li>
                 ))}
               </ul>
               <p className="text-right text-xs text-muted-foreground pt-2">
-                Emitido em {format(new Date(), "dd/MM/yyyy", { locale: ptBR })}
+                Emitido em {format(new Date(), L("dd/MM/yyyy", "MMM d, yyyy"), { locale: dateLocale() })}
               </p>
               <div className="pt-6 text-center">
                 <div className="mx-auto w-56 border-t border-foreground/40" />

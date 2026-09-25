@@ -18,6 +18,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
 import { useWords } from "@/hooks/useVocabulary";
 
+import { L } from "@/lib/i18n";
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null; teacher: string };
 
 const WEEKDAYS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
@@ -145,7 +146,7 @@ export default function BlocksPage() {
               <Card key={b.id} className="p-4 flex items-center justify-between">
                 <div>
                   <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
-                  <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), "dd/MM/yyyy HH:mm")} – {b.end_at && format(new Date(b.end_at), "dd/MM HH:mm")}</div>
+                  <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))} – {b.end_at && format(new Date(b.end_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
                 </div>
                 {canRemove(b) && <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>}
               </Card>

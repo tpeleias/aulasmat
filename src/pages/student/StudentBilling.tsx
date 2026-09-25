@@ -9,7 +9,8 @@ import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
 
-const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { L } from "@/lib/i18n";
+const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentBilling() {
   const { student } = useStudent();
@@ -63,7 +64,7 @@ export default function StudentBilling() {
             {openItems.map(i => (
               <div key={i.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-0 first:pt-0">
                 <div>
-                  <div>{format(new Date(i.date), "dd/MM/yyyy 'às' HH:mm")}</div>
+                  <div>{format(new Date(i.date), L("dd/MM/yyyy 'às' HH:mm", "MMM d, yyyy 'at' HH:mm"))}</div>
                   <div className="text-xs text-muted-foreground">{i.detail}{i.partial ? " · saldo restante" : ""}</div>
                 </div>
                 <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
@@ -88,7 +89,7 @@ export default function StudentBilling() {
             <div key={t.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0 text-sm">
               <div>
                 <div>{t.description ?? (t.kind === "lesson" ? ap.s : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? "Pacote" : "Lançamento")}</div>
-                <div className="text-xs text-muted-foreground">{format(new Date(t.created_at), "dd/MM/yyyy HH:mm")}</div>
+                <div className="text-xs text-muted-foreground">{format(new Date(t.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
               </div>
               <Badge variant={Number(t.amount) >= 0 ? "default" : "destructive"}>{fmt(Number(t.amount))}</Badge>
             </div>

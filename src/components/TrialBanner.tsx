@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { usePlan } from "@/hooks/usePlan";
 import { canSellHere } from "@/lib/subscription";
 
+import { L } from "@/lib/i18n";
 /**
  * Aviso do teste grátis do Pro, para a escola que se cadastrou sozinha.
  *
@@ -24,13 +25,13 @@ export default function TrialBanner() {
       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div>
         <div className="font-medium">
-          Teste grátis do Cronys Pro até {format(end, "dd/MM")}
-          {days === 0 ? " (termina hoje)" : ` (${days} dia${days === 1 ? "" : "s"})`}
+          {L("Teste grátis do Cronys Pro até", "Cronys Pro free trial until")} {format(end, L("dd/MM", "MMM d"))}
+          {days === 0 ? L(" (termina hoje)", " (ends today)") : L(` (${days} dia${days === 1 ? "" : "s"})`, ` (${days} day${days === 1 ? "" : "s"})`)}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do limite fica
-          pausado até você escolher o que liberar.
-          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Assinar agora</Link></>}
+          {L("Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do limite fica pausado até você escolher o que liberar.",
+             "After that your account moves to Essential: nothing is deleted, and anything over the limit is paused until you choose what to keep.")}
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">{L("Assinar agora", "Subscribe now")}</Link></>}
         </p>
       </div>
     </div>
@@ -47,13 +48,13 @@ function TesterBanner({ until }: { until: string }) {
       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div>
         <div className="font-medium">
-          Cronys Max de cortesia até {format(end, "dd/MM")}
-          {days === 0 ? " (termina hoje)" : ` (${days} dia${days === 1 ? "" : "s"})`}
+          {L("Cronys Max de cortesia até", "Complimentary Cronys Max until")} {format(end, L("dd/MM", "MMM d"))}
+          {days === 0 ? L(" (termina hoje)", " (ends today)") : L(` (${days} dia${days === 1 ? "" : "s"})`, ` (${days} day${days === 1 ? "" : "s"})`)}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          Obrigado por testar! Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do
-          limite fica pausado até você escolher o que liberar.
-          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">Assinar</Link></>}
+          {L("Obrigado por testar! Depois disso a conta passa para o Essencial: nada é apagado, e o que passar do limite fica pausado até você escolher o que liberar.",
+             "Thanks for testing! After that your account moves to Essential: nothing is deleted, and anything over the limit is paused until you choose what to keep.")}
+          {canSellHere() && <> <Link to="/assinar" className="font-medium text-primary underline">{L("Assinar", "Subscribe")}</Link></>}
         </p>
       </div>
     </div>

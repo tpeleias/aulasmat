@@ -1,5 +1,6 @@
 import { addMinutes, isBefore, isEqual, format, startOfDay, addDays, getDay } from "date-fns";
 
+import { L } from "@/lib/i18n";
 export type Range = { start: Date; end: Date };
 export type RecurringBlock = { weekday: number; start_time: string; end_time: string };
 
@@ -46,8 +47,8 @@ export function computeFreeSlots(
 }
 
 export function fmtTime(d: Date) { return format(d, "HH:mm"); }
-export function fmtDate(d: Date) { return format(d, "dd/MM"); }
-export function fmtFull(d: Date) { return format(d, "EEEE, dd 'de' MMMM"); }
+export function fmtDate(d: Date) { return format(d, L("dd/MM", "MMM d")); }
+export function fmtFull(d: Date) { return format(d, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d")); }
 
 // Deterministic seeded pseudo-random so the public/student "shop window" is stable per day/teacher
 export function seedRandom(seed: string): () => number {

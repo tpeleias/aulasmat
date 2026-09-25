@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { format, subDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { MessageSquarePlus, NotebookPen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { capitalize } from "@/lib/balance";
 import { LessonSummaryDialog, type SummaryLesson } from "@/components/LessonSummaryDialog";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Row = SummaryLesson & { teacher: string };
 
 const DAYS = 10;
@@ -43,13 +43,14 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
     <section className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
       <div className="mb-2 flex items-center gap-2">
         <NotebookPen className="h-4 w-4 text-primary" />
-        <h2 className="font-semibold">Como foi?</h2>
+        <h2 className="font-semibold">{L("Como foi?", "How did it go?")}</h2>
         <span className="text-xs text-muted-foreground">
-          {rows.length} {rows.length === 1 ? ap.l : ap.lp} sem resumo
+          {rows.length} {rows.length === 1 ? ap.l : ap.lp} {L("sem resumo", "without notes")}
         </span>
       </div>
       <p className="mb-3 text-xs text-muted-foreground">
-        Conte em poucas linhas o que foi feito. {cap(w.client.o)} {w.client.l} vê em "Minhas {ap.lp}", e fica na Evolução.
+        {L(`Conte em poucas linhas o que foi feito. ${cap(w.client.o)} ${w.client.l} vê em "Minhas ${ap.lp}", e fica na Evolução.`,
+           `Write a few lines about what was done. The ${w.client.l} sees it in "My ${ap.lp}", and it stays in Progress.`)}
       </p>
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
         {rows.slice(0, MAX).map(l => (
@@ -57,18 +58,18 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{l.student_name}</div>
               <div className="truncate text-xs text-muted-foreground">
-                <span className="capitalize">{format(new Date(l.start_at), "EEE dd/MM HH:mm", { locale: ptBR })}</span>
+                <span className="capitalize">{format(new Date(l.start_at), L("EEE dd/MM HH:mm", "EEE, MMM d, HH:mm"), { locale: dateLocale() })}</span>
                 {l.subject ? ` · ${l.subject}` : ""} · {capitalize(l.teacher)}
               </div>
             </div>
             <Button size="sm" variant="secondary" className="shrink-0 gap-1 rounded-xl" onClick={() => setOpen(l)}>
-              <MessageSquarePlus className="h-3.5 w-3.5" /> Como foi?
+              <MessageSquarePlus className="h-3.5 w-3.5" /> {L("Como foi?", "How did it go?")}
             </Button>
           </li>
         ))}
       </ul>
       {rows.length > MAX && (
-        <p className="mt-2 text-xs text-muted-foreground">E mais {rows.length - MAX}. Os outros aparecem aqui conforme você registra.</p>
+        <p className="mt-2 text-xs text-muted-foreground">{L(`E mais ${rows.length - MAX}. Os outros aparecem aqui conforme você registra.`, `And ${rows.length - MAX} more. They show up here as you write.`)}</p>
       )}
       <LessonSummaryDialog
         lesson={open}

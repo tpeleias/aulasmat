@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { addDays, startOfDay, format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Flame } from "lucide-react";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Props = { teacher?: string };
 
 export function AvailabilityBoard({ teacher }: Props) {
@@ -80,7 +80,7 @@ export function AvailabilityBoard({ teacher }: Props) {
         <div key={day.toISOString()}>
           <div className="flex items-center gap-2 mb-2 flex-wrap">
             <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              {format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
+              {format(day, L("EEEE, dd 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}
             </h3>
             {slots.length > 0 && slots.length <= 2 && (
               <Badge className="bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-1 animate-pulse">

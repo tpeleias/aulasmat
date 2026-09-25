@@ -1,5 +1,4 @@
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import { Preferences } from "@capacitor/preferences";
 import { reminderMessage, whatsAppLink } from "@/lib/whatsapp";
@@ -9,6 +8,8 @@ import { teacherSlug } from "@/hooks/useTeachers";
 import { loadMessageTemplates } from "@/hooks/useMessageTemplates";
 import type { Vocabulary } from "@/lib/vocabulary";
 
+import { dateLocale, L } from "@/lib/i18n";
+import { fmtMoney } from "@/lib/balance";
 const LESSONS_KEY = "upcoming_lessons_widget";
 const BILLING_KEY = "billing_widget";
 const MAX_WIDGET_LESSONS = 4;
@@ -61,7 +62,7 @@ export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], te
     .slice(0, MAX_WIDGET_LESSONS)
     .map((l) => ({
       id: l.id,
-      day: format(new Date(l.start_at), "EEE dd/MM", { locale: ptBR }),
+      day: format(new Date(l.start_at), L("EEE dd/MM", "EEE, MMM d"), { locale: dateLocale() }),
       time: format(new Date(l.start_at), "HH:mm"),
       student: l.student_name,
       subject: l.subject ?? "",
@@ -82,7 +83,7 @@ export interface WidgetBillingInput {
 
 export async function syncBillingWidget(input: WidgetBillingInput) {
   if (!Capacitor.isNativePlatform()) return;
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const fmt = (v: number) => fmtMoney(v);
   const debtors = input.accounts.filter(a => a.owed > 0);
   await publish(BILLING_KEY, {
     total: fmt(input.totalOwed),

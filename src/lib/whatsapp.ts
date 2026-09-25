@@ -4,11 +4,11 @@
 
 import { format } from "date-fns";
 import { Capacitor } from "@capacitor/core";
-import { ptBR } from "date-fns/locale";
 import type { Vocabulary } from "@/lib/vocabulary";
 import { cap } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
+import { dateLocale, L } from "@/lib/i18n";
 /**
  * Número como o banco guarda (students.whatsapp): só dígitos, com o 55.
  * Aceita o que a pessoa digita - "(11) 98765-4321", "+55 11 98765 4321".
@@ -51,7 +51,7 @@ export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string>
     aluno,
     de_aluno: toGuardian ? ` de ${aluno}` : "",
     responsavel: cap(firstName(l.guardian_name)),
-    dia: format(d, "EEEE, dd/MM", { locale: ptBR }),
+    dia: format(d, L("EEEE, dd/MM", "EEEE, MMM d"), { locale: dateLocale() }),
     hora: format(d, "HH:mm"),
     endereco: l.is_online ? "on-line" : address,
     local: l.is_online ? ` (${w.appointment.s.toLowerCase()} on-line)` : address ? ` em ${address}` : "",

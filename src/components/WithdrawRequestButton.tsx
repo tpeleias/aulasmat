@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { X } from "lucide-react";
 
+import { dateLocale, L } from "@/lib/i18n";
 // A função do banco devolve um código, não uma mensagem: quem decide como falar
 // com a família é a tela. "ja-respondido" é o caso interessante - acontece
 // quando o admin aprovou entre a família abrir a tela e apertar o botão, e a
@@ -67,7 +67,7 @@ export function WithdrawRequestButton({
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="text-foreground font-medium">
-                  {format(new Date(startAt), "EEEE, dd 'de' MMMM 'às' HH:mm", { locale: ptBR })}
+                  {format(new Date(startAt), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
                 </p>
                 <p>
                   O horário volta a ficar livre e o pedido sai da lista de pedidos.

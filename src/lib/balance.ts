@@ -1,7 +1,8 @@
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 // Helpers for the new financial labels.
-export const fmtMoney = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { fmtCurrency } from "@/lib/i18n";
+// Na moeda e no formato da empresa (src/lib/i18n.ts).
+export const fmtMoney = (v: number) => fmtCurrency(v);
 
 export type BalanceDisplay = {
   label: "Crédito Disponível" | "A pagar" | "Sem movimentação";

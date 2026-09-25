@@ -14,11 +14,13 @@ import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
+import LanguageSettings from "@/components/LanguageSettings";
 import PackagesSettings from "@/components/PackagesSettings";
 import ServicesSettings from "@/components/ServicesSettings";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
 
+import { intlLocale } from "@/lib/i18n";
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
 type Scarcity = Record<string, ScarcityDay>;
@@ -141,6 +143,8 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground">Tipo de negócio, janela de trabalho, pagamento e contato.</p>
       </div>
 
+      <LanguageSettings />
+
       <VocabularySettings />
 
       <Card className="p-5 space-y-4">
@@ -171,7 +175,7 @@ export default function SettingsPage() {
           </div>
           {plan.plano === "pro" && plan.trial_ends_at && (
             <p className="rounded-md bg-primary/5 px-3 py-2 text-xs">
-              Teste grátis até <strong>{new Date(plan.trial_ends_at).toLocaleDateString("pt-BR")}</strong>.
+              Teste grátis até <strong>{new Date(plan.trial_ends_at).toLocaleDateString(intlLocale())}</strong>.
               Depois a conta passa para o Essencial, sem apagar nada.
             </p>
           )}
@@ -207,14 +211,14 @@ export default function SettingsPage() {
           </ul>
           {plan.billing_status === "active" && plan.paid_until && (
             <p className="text-xs text-muted-foreground">
-              Assinatura {plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em {new Date(plan.paid_until).toLocaleDateString("pt-BR")}.
+              Assinatura {plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em {new Date(plan.paid_until).toLocaleDateString(intlLocale())}.
               {(plan.extra_teachers ?? 0) > 0 && ` Inclui ${plan.extra_teachers} ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp} a mais.`}
             </p>
           )}
           {plan.billing_status === "past_due" && (
             <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
               O pagamento da assinatura não passou.
-              {plan.grace_until && ` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString("pt-BR")}, a conta passa para o Essencial (nada é apagado).`}
+              {plan.grace_until && ` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString(intlLocale())}, a conta passa para o Essencial (nada é apagado).`}
             </p>
           )}
           {plan.plano !== "pro" && (

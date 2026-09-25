@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, addMinutes, format, getDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
@@ -24,6 +23,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/hooks/useAuth";
 
+import { dateLocale, L } from "@/lib/i18n";
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
@@ -34,9 +34,9 @@ const HEADER_H = 56; // px for the day header row
 type DayCount = 1 | 3 | 7;
 
 const DAY_COUNTS: { value: DayCount; label: string }[] = [
-  { value: 1, label: "1 dia" },
-  { value: 3, label: "3 dias" },
-  { value: 7, label: "Semana" },
+  { value: 1, label: L("1 dia", "1 day") },
+  { value: 3, label: L("3 dias", "3 days") },
+  { value: 7, label: L("Semana", "Week") },
 ];
 
 const LONG_PRESS_MS = 500;
@@ -327,18 +327,18 @@ export default function CalendarPage() {
         <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
         <div className="text-[10px] text-muted-foreground truncate leading-tight">
           {isPending ? `${format(ls, "HH:mm")} · pedido`
-            : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, "HH:mm")} · falta cobrada`
+            : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, "HH:mm")} · ${L("falta cobrada", "no-show charged")}`
             : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}
         </div>
         {lesson.is_online ? (
-          <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={`${ap.s} on-line`}><Wifi className="w-3 h-3" /></span>
+          <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={L(`${ap.s} on-line`, `Online ${ap.l}`)}><Wifi className="w-3 h-3" /></span>
         ) : lesson.address ? (
           <a
             href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(lesson.address)}`}
             target="_blank" rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}
             className="absolute top-1 right-1 p-0.5 text-muted-foreground hover:text-primary"
-            title="Abrir rota no Google Maps"
+            title={L("Abrir rota no Google Maps", "Open route in Google Maps")}
           ><MapPin className="w-3 h-3" /></a>
         ) : null}
       </button>
@@ -365,7 +365,7 @@ export default function CalendarPage() {
           style={{ height: HEADER_H }}
           className={`border-b border-border p-2 text-center text-xs ${isSameDay(d, new Date()) ? "bg-accent text-accent-foreground font-semibold" : ""}`}
         >
-          <div className="uppercase">{format(d, "EEE", { locale: ptBR })}</div>
+          <div className="uppercase">{format(d, "EEE", { locale: dateLocale() })}</div>
           <div className="text-base font-semibold">{format(d, "dd")}</div>
         </div>
 
@@ -385,8 +385,8 @@ export default function CalendarPage() {
                     <button
                       {...tapGuard(() => { haptics.tap(); setFreeing({ blockId: block.blockId!, day: d, label: block.label }); })}
                       className="absolute inset-0 flex items-end justify-center pb-1 text-[10px] font-medium text-transparent hover:text-destructive focus-visible:text-destructive"
-                      title="Liberar somente este dia"
-                    >Liberar este dia</button>
+                      title={L("Liberar somente este dia", "Free up this day only")}
+                    >{L("Liberar este dia", "Free this day")}</button>
                   )}
                 </div>
               );
@@ -437,18 +437,18 @@ export default function CalendarPage() {
     >
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold">Calendário</h1>
+          <h1 className="text-2xl font-bold">{L("Calendário", "Calendar")}</h1>
           <p className="text-sm text-muted-foreground">
             {teacherFilter === "all"
-              ? `Próximos 7 dias · ${format(new Date(), "dd 'de' MMM", { locale: ptBR })} — ${format(addDays(new Date(), 7), "dd 'de' MMM yyyy", { locale: ptBR })}`
+              ? `${L("Próximos 7 dias", "Next 7 days")} · ${format(new Date(), L("dd 'de' MMM", "MMM d"), { locale: dateLocale() })} — ${format(addDays(new Date(), 7), L("dd 'de' MMM yyyy", "MMM d, yyyy"), { locale: dateLocale() })}`
               : days.length === 1
-                ? format(days[0], "EEEE, dd 'de' MMM yyyy", { locale: ptBR })
-                : `${format(days[0], "dd 'de' MMM", { locale: ptBR })} — ${format(days[days.length - 1], "dd 'de' MMM yyyy", { locale: ptBR })}`}
+                ? format(days[0], L("EEEE, dd 'de' MMM yyyy", "EEEE, MMM d, yyyy"), { locale: dateLocale() })
+                : `${format(days[0], L("dd 'de' MMM", "MMM d"), { locale: dateLocale() })} — ${format(days[days.length - 1], L("dd 'de' MMM yyyy", "MMM d, yyyy"), { locale: dateLocale() })}`}
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           {!isTeacher && <div className="inline-flex rounded-md border border-border p-0.5 bg-muted flex-wrap">
-            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>Todos</button>
+            <button onClick={() => setTeacherFilter("all")} className={`px-3 py-1 text-xs rounded ${teacherFilter === "all" ? "bg-background shadow-sm font-medium" : "text-muted-foreground"}`}>{L("Todos", "All")}</button>
             {teachers.map(t => {
               const slug = teacherSlug(t.name);
               const active = teacherFilter === slug;
@@ -469,7 +469,7 @@ export default function CalendarPage() {
                 ))}
               </div>
               <Button variant="outline" size="icon" onClick={() => shiftRange(-1)}><ChevronLeft className="w-4 h-4" /></Button>
-              <Button variant="outline" onClick={goToToday}>Hoje</Button>
+              <Button variant="outline" onClick={goToToday}>{L("Hoje", "Today")}</Button>
               <Button variant="outline" size="icon" onClick={() => shiftRange(1)}><ChevronRight className="w-4 h-4" /></Button>
             </>
           )}
@@ -480,13 +480,13 @@ export default function CalendarPage() {
         <div className="bg-card rounded-xl shadow-[var(--shadow-card)] p-5">
           <div className="flex items-center gap-2 mb-3">
             <CalendarDays className="w-4 h-4 text-primary" />
-            <h2 className="font-semibold">{ap.proximos} {ap.lp} — próximos 7 dias</h2>
+            <h2 className="font-semibold">{L(`${ap.proximos} ${ap.lp} — próximos 7 dias`, `Upcoming ${ap.lp} — next 7 days`)}</h2>
             <span className="text-xs text-muted-foreground">({shownUpcomingCount})</span>
           </div>
 
           {teachers.length > 1 && (
             <div className="mb-4 flex flex-wrap items-center gap-1.5">
-              <span className="text-xs text-muted-foreground">Mostrar:</span>
+              <span className="text-xs text-muted-foreground">{L("Mostrar:", "Show:")}</span>
               {teachers.map(t => {
                 const slug = teacherSlug(t.name);
                 const on = !hiddenInSummary.includes(slug);
@@ -504,7 +504,7 @@ export default function CalendarPage() {
                 <button
                   onClick={() => { haptics.tap(); setHiddenInSummary([]); try { localStorage.removeItem("agenda_resumo_ocultos"); } catch { /* ignore */ } }}
                   className="rounded-full px-2 py-1 text-xs text-muted-foreground underline underline-offset-2"
-                >Todos</button>
+                >{L("Todos", "All")}</button>
               )}
             </div>
           )}
@@ -512,8 +512,8 @@ export default function CalendarPage() {
           {shownUpcomingCount === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-8">
               {upcoming.length === 0
-                ? `${ap.nenhum} ${ap.l} ${ap.pick("agendado", "agendada")} nos próximos 7 dias.`
-                : `${ap.nenhum} ${ap.l} ${w.staff.dos} ${w.staff.lp} ${w.staff.pick("selecionados", "selecionadas")}.`}
+                ? L(`${ap.nenhum} ${ap.l} ${ap.pick("agendado", "agendada")} nos próximos 7 dias.`, `No ${ap.lp} booked in the next 7 days.`)
+                : L(`${ap.nenhum} ${ap.l} ${w.staff.dos} ${w.staff.lp} ${w.staff.pick("selecionados", "selecionadas")}.`, `No ${ap.lp} for the selected ${w.staff.lp}.`)}
             </div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2">
@@ -538,15 +538,15 @@ export default function CalendarPage() {
                           >
                             <div className="flex items-start gap-3">
                               <div className="shrink-0 w-20">
-                                <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: ptBR })}</div>
-                                <div className="text-sm font-semibold leading-tight">{format(ls, "dd/MM")}</div>
+                                <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: dateLocale() })}</div>
+                                <div className="text-sm font-semibold leading-tight">{format(ls, L("dd/MM", "MMM d"))}</div>
                                 <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">{l.student_name}</div>
                                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                                   {serviceColor(l) && <span className={`h-2 w-2 shrink-0 rounded-full ${serviceColor(l)!.dot}`} />}
-                                  {l.subject ?? "—"} · {l.duration_minutes}min{l.is_online ? " · on-line" : ""}
+                                  {l.subject ?? "—"} · {l.duration_minutes}min{l.is_online ? L(" · on-line", " · online") : ""}
                                 </div>
                                 {!l.is_online && l.address && (
                                   <div className="text-xs text-muted-foreground break-words">{l.address}</div>
@@ -569,8 +569,8 @@ export default function CalendarPage() {
           <Button variant="ghost" size="icon" onClick={() => shiftRange(-1)}><ChevronLeft className="w-4 h-4" /></Button>
           <div className="text-sm font-semibold capitalize text-center">
             {days.length === 1
-              ? format(days[0], "EEEE, dd 'de' MMM", { locale: ptBR })
-              : `${format(days[0], "dd/MM")} — ${format(days[days.length - 1], "dd/MM")}`}
+              ? format(days[0], L("EEEE, dd 'de' MMM", "EEEE, MMM d"), { locale: dateLocale() })
+              : `${format(days[0], L("dd/MM", "MMM d"))} — ${format(days[days.length - 1], L("dd/MM", "MMM d"))}`}
           </div>
           <Button variant="ghost" size="icon" onClick={() => shiftRange(1)}><ChevronRight className="w-4 h-4" /></Button>
         </div>
@@ -594,8 +594,8 @@ export default function CalendarPage() {
             </span>
           );
         })}
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>{ap.s} {ap.pick("pago", "paga")}</span>
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>Bloqueio</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>{L(`${ap.s} ${ap.pick("pago", "paga")}`, `Paid ${ap.l}`)}</span>
+        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>{L("Bloqueio", "Time off")}</span>
       </div>
 
       <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} defaultTeacher={defaultTeacher} />
@@ -603,17 +603,18 @@ export default function CalendarPage() {
       <AlertDialog open={!!freeing} onOpenChange={v => !v && setFreeing(null)}>
         <AlertDialogContent className="rounded-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Liberar este horário?</AlertDialogTitle>
+            <AlertDialogTitle>{L("Liberar este horário?", "Free up this time?")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {freeing && `"${freeing.label}" sai da agenda em ${format(freeing.day, "EEEE, dd/MM", { locale: ptBR })}. A regra recorrente continua valendo nas outras semanas.`}
+              {freeing && L(`"${freeing.label}" sai da agenda em ${format(freeing.day, "EEEE, dd/MM", { locale: dateLocale() })}. A regra recorrente continua valendo nas outras semanas.`,
+                `"${freeing.label}" is removed from ${format(freeing.day, "EEEE, MMM d", { locale: dateLocale() })}. The recurring rule still applies on other weeks.`)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl">{L("Cancelar", "Cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className="rounded-xl"
               onClick={() => { if (freeing) skipRecurringForDay(freeing.blockId, freeing.day); setFreeing(null); }}
-            >Liberar</AlertDialogAction>
+            >{L("Liberar", "Free up")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

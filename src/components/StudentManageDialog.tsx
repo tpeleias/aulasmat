@@ -16,6 +16,7 @@ import { isValidUsername, normalizeUsername } from "@/lib/username";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
+import { L } from "@/lib/i18n";
 type Student = { id: string; student_name: string; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
 
 // teacherMode: o login de professor (funcionário) só vê Materiais e Tarefas, só
@@ -329,7 +330,7 @@ function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
             <FileText className="w-4 h-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{m.title}</div>
-              <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), "dd/MM/yyyy HH:mm")}</div>
+              <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
             </div>
             <Button size="icon" variant="ghost" onClick={() => download(m.file_path)}><Download className="w-4 h-4" /></Button>
             {(!perms.ownerId || m.uploaded_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(m)}><Trash2 className="w-4 h-4" /></Button>}
@@ -407,7 +408,7 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{h.title}</div>
                 {h.description && <div className="text-xs text-muted-foreground">{h.description}</div>}
-                <div className="text-xs text-muted-foreground mt-1">Prazo: {format(new Date(h.deadline), "dd/MM/yyyy HH:mm")}</div>
+                <div className="text-xs text-muted-foreground mt-1">Prazo: {format(new Date(h.deadline), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant={h.status === "entregue" ? "default" : "secondary"}>{h.status}</Badge>
@@ -417,7 +418,7 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
             {(subs[h.id] ?? []).map(s => (
               <div key={s.id} className="text-xs border-t border-border pt-2 flex items-center justify-between">
                 <div>
-                  <div>Entrega em {format(new Date(s.submitted_at), "dd/MM HH:mm")}</div>
+                  <div>Entrega em {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
                   {s.teacher_feedback && <div className="text-primary">Feedback: {s.teacher_feedback}</div>}
                 </div>
                 <div className="flex gap-1">

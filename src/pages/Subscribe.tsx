@@ -12,6 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { forgetPlan, type Plan } from "@/hooks/usePlan";
 import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
 
+import { L } from "@/lib/i18n";
 /**
  * Assinar o Cronys - só no SITE. O pagamento é no Checkout do Stripe; quem
  * muda o plano no banco é o webhook, quando o Stripe confirma (por isso a
@@ -106,9 +107,9 @@ export default function Subscribe() {
               <div className="font-medium">{tierName(plan.tier)} {plan.billing_interval === "year" ? "(anual)" : "(mensal)"}</div>
               {plan.billing_status === "past_due"
                 ? <p className="text-destructive">
-                    Pagamento em atraso{plan.grace_until ? ` - a conta passa para o Essencial em ${format(new Date(plan.grace_until), "dd/MM")} se não for acertado` : ""}.
+                    Pagamento em atraso{plan.grace_until ? ` - a conta passa para o Essencial em ${format(new Date(plan.grace_until), L("dd/MM", "MMM d"))} se não for acertado` : ""}.
                   </p>
-                : plan.paid_until && <p className="text-muted-foreground">Renova em {format(new Date(plan.paid_until), "dd/MM/yyyy")}.</p>}
+                : plan.paid_until && <p className="text-muted-foreground">Renova em {format(new Date(plan.paid_until), L("dd/MM/yyyy", "MMM d, yyyy"))}.</p>}
             </div>
             {onSale && isAdmin && plan.billing_status === "active" && plan.tier === "pro_solo" && (
               <Button variant="outline" disabled={!!busy} onClick={() => toggleAssistant(!plan.assistant_billed)}>
