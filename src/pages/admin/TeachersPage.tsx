@@ -172,7 +172,7 @@ export default function TeachersPage() {
         <p className="text-xs text-muted-foreground mt-2">O nome é guardado em minúsculas e usado como identificador interno.</p>
         {cobraExtra && (
           <p className="text-xs text-muted-foreground mt-1">
-            O Max inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")} ({ativos} agora).
+            O Max inclui {incluidos} {st.lp} {st.pick("ativos", "ativas")}, contando você se você atende ({ativos} agora). Se você só administra, desative o seu nome aqui e ele não conta.
             {ativos > incluidos! ? ` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.` : " A partir do próximo, cada um entra na assinatura."}
           </p>
         )}

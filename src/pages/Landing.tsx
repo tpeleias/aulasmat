@@ -109,7 +109,7 @@ export default function Landing() {
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            Max: 5 profissionais incluídos; a partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
+            Max: 5 profissionais que atendem, contando você (você + 4); quem só administra e não atende não conta. A partir do sexto, {brl(EXTRA_TEACHER.mensal)}/mês cada.
             O teste grátis de 14 dias é do Pro; o Max você assina quando precisar da equipe.
             Assinatura cobrada por cartão, pelo Stripe; na fatura aparece CRONYS.
           </p>

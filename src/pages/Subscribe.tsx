@@ -158,7 +158,7 @@ export default function Subscribe() {
                 </div>
                 {p.tier === "pro" && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {EQUIPE_INCLUDED} profissionais incluídos; cada um a mais,{" "}
+                    {EQUIPE_INCLUDED} profissionais incluídos, contando você se você atende (você + {EQUIPE_INCLUDED - 1}); cada um a mais,{" "}
                     {brl(interval === "month" ? EXTRA_TEACHER.mensal : EXTRA_TEACHER.anual)}/{interval === "month" ? "mês" : "ano"}.
                   </p>
                 )}
