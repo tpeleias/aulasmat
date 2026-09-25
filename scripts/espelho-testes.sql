@@ -2332,4 +2332,14 @@ SET LOCAL ROLE anon;
 SELECT public.assert((public.my_vocabulary() ->> 'locale') = 'pt-BR', 'pagina publica le a lingua da empresa do endereco');
 COMMIT;
 
+
+\echo ''
+\echo '--- 42. Empresa criada em ingles nasce em ingles ---'
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('42000000-0000-0000-0000-000000000001', 'owner@studio.us', '{"signup_kind":"school","school_name":"Studio NY","teacher_name":"Kate","locale":"en","currency":"USD"}'),
+  ('42000000-0000-0000-0000-000000000002', 'dono@estudio.br', '{"signup_kind":"school","school_name":"Estudio BR","teacher_name":"Rafa","locale":"xx"}');
+SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Studio NY') = 'en/USD', 'cadastro em ingles: en/USD');
+SELECT public.assert((SELECT locale || '/' || currency FROM public.accounts WHERE name = 'Estudio BR') = 'pt-BR/BRL', 'lingua invalida vira portugues/real');
+
 \echo '=== FIM ==='

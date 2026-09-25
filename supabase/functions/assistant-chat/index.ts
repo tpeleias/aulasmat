@@ -455,10 +455,17 @@ Deno.serve(async (req) => {
     }
 
     // `messages` in Claude's own wire format: [{ role: "user"|"assistant", content: [...blocks] }]
-    const { messages, vocabulary } = await req.json();
+    const { messages, vocabulary, timezone } = await req.json();
     if (!Array.isArray(messages) || messages.length === 0) return json({ error: "messages obrigatório" }, 400);
 
-    const nowSaoPaulo = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "full", timeStyle: "short" });
+    // Língua, moeda e fuso da empresa (migration 20260925170000): a empresa de
+    // fora conversa em inglês, na moeda dela e no fuso do aparelho.
+    const { data: acctRow } = await admin.from("accounts").select("locale, currency").eq("id", accountId).maybeSingle();
+    const english = acctRow?.locale === "en";
+    const currency = ["BRL", "USD", "EUR", "GBP"].includes(acctRow?.currency) ? acctRow!.currency as string : "BRL";
+    let tz = "America/Sao_Paulo";
+    try { if (typeof timezone === "string" && timezone.length < 60) { new Intl.DateTimeFormat("en", { timeZone: timezone }); tz = timezone; } } catch { /* fuso inválido: fica o de São Paulo */ }
+    const nowSaoPaulo = new Date().toLocaleString(english ? "en-US" : "pt-BR", { timeZone: tz, dateStyle: "full", timeStyle: "short" });
 
     // O valor da aula é de cada empresa, e o prompt precisa falar do valor
     // certo: com o número cravado, o assistente de outra empresa anunciava o
@@ -468,7 +475,7 @@ Deno.serve(async (req) => {
     const { data: settingsRow } = await admin
       .from("settings").select("default_lesson_price").eq("account_id", accountId).maybeSingle();
     const listPrice = Number(settingsRow?.default_lesson_price) || 220;
-    const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    const brl = (v: number) => v.toLocaleString(english ? "en-US" : "pt-BR", { style: "currency", currency });
 
     const { data: discountRows } = await admin
       .from("account_discounts").select("student_name, guardian_name, kind, value").eq("account_id", accountId);
@@ -479,7 +486,7 @@ Deno.serve(async (req) => {
         ).join("; ");
 
     const systemPrompt = `Você é o assistente do Cronys, o app que um professor particular usa para gerenciar aulas, alunos e financeiro (carteira).
-${vocabularyNote(vocabulary)}
+${vocabularyNote(vocabulary)}${english ? `\nIDIOMA: esta empresa usa o app em INGLÊS. Responda SEMPRE em inglês, com os valores em ${currency}, mesmo que estas instruções estejam em português. Os nomes das ferramentas e dos campos continuam os mesmos.\n` : ""}
 
 A data e a hora atuais estão no fim destas instruções. Use-as para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
@@ -507,7 +514,7 @@ Protocolo OBRIGATÓRIO de identificação do aluno (nunca pule isso ao criar ou 
     // entrada) virem do cache a 10% do preço nas chamadas seguintes.
     const system = [
       { type: "text", text: systemPrompt, cache_control: { type: "ephemeral" } },
-      { type: "text", text: `Data e hora atuais: ${nowSaoPaulo} (America/Sao_Paulo).` },
+      { type: "text", text: `Data e hora atuais: ${nowSaoPaulo} (${tz}). Datas ISO que você enviar às ferramentas devem estar neste fuso.` },
     ];
 
     let convo = [...messages];

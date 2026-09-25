@@ -113,6 +113,8 @@ export default function AssistantPage() {
       const { data, error: fnError } = await supabase.functions.invoke("assistant-chat", {
         body: {
           messages: nextMessages,
+          // Fuso do aparelho: a empresa pode não estar no Brasil.
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           vocabulary: Object.fromEntries((["staff", "appointment", "client", "guardian"] as const)
             .map(k => [k, { s: w[k].s, p: w[k].p }])),
         },
