@@ -69,9 +69,9 @@ deixou as decisões comigo; ficou assim:
   (código 41) - sempre preencher o nome da versão.
 - **`.aab` 1.12.1 (código 43)** enviado ao teste interno (run 43): corrige o
   diálogo de aula que abria vazio para o admin (PR #59, bug vindo de 266427d).
-- **Próximo `.aab` (1.12.2) ESPERANDO juntar com a próxima correção** (Thiago,
-  26/09): leva o login que não cai mais em "aguardando liberação" quando a
-  consulta do papel não responde (PR #60). No site já está.
+- **`.aab` 1.12.2** (26/09, pedido do Thiago): login que não cai mais em
+  "aguardando liberação" (PR #60), Google Agenda "cada um o próprio" (#61-#63)
+  e Google Agenda do cliente (#64).
 - Testado com o Google de verdade pelo Thiago em 26/09: conecta e sincroniza
   nos dois sentidos. No primeiro
   teste, conferir: nomes de escopo aceitos na tela de consentimento, a agenda
