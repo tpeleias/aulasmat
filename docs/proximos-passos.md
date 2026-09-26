@@ -75,6 +75,18 @@ migration nova; `src/test/plans.test.ts` falha se o banco divergir).
 - Migration `20260926100000_plans_start_active_clients.sql` (aplicada).
   Funções: billing v8, stripe-webhook v7, assistant-chat v18.
 
+### Switch geral do assistente (26/09) - FEITO
+
+Painel do gestor → card "Assistente pelos planos". **Desligado (padrão e
+como está na produção)**: nenhum plano libera o assistente (nem a amostra do
+Pro, nem a IA do Max, nem o adicional comprado) e o adicional sai de venda;
+só funciona na empresa liberada uma a uma na tabela (Portal de Aulas).
+Ligado: vale o que cada plano traz. Tabela `platform_settings`, funções
+`assistant_enabled_for_plans()` e `platform_set_assistant_enabled()`
+(migration 20260926120000). Espelho: bloco 45. A tela do assistente mostra
+"chega em breve" enquanto estiver desligado. Os cartões de preço ainda
+anunciam a IA - ligar o switch antes de vender o Max de verdade.
+
 ### Stripe - modo teste PRONTO; modo real FALTA (é o Thiago quem libera)
 
 Com chave de teste os preços se criam/atualizam sozinhos (ensurePrices). Com
