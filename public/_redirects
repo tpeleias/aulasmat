@@ -2,11 +2,4 @@
 # handled by React Router inside index.html, not by a separate file per route. Without
 # this rule, Netlify looks for a real file at that path and returns its own 404 for
 # anything besides the exact root URL.
-#
-# Google Agenda: o Google devolve a pessoa a um endereço do cronys.com.br (a
-# verificação do app pelo Google exige domínio nosso), e o Netlify repassa para
-# a função google-calendar do Supabase, com os parâmetros. Tem de vir antes da
-# regra geral.
-/google-agenda/callback   https://dqfzuviwejlobrwebyum.supabase.co/functions/v1/google-calendar/callback   200
-
 /*   /index.html   200

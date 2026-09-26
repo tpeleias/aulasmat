@@ -8,7 +8,6 @@ import { ProUpsell } from "@/components/ProUpsell";
 import { usePlan } from "@/hooks/usePlan";
 import { capitalize } from "@/lib/balance";
 import { openExternal } from "@/lib/whatsapp";
-import { publicSiteUrl } from "@/lib/publicUrl";
 import { L } from "@/lib/i18n";
 import { toast } from "sonner";
 import { CalendarDays, Loader2 } from "lucide-react";
@@ -64,7 +63,6 @@ export default function GoogleCalendarSettings() {
       body: {
         action: "connect",
         teacher_id: r.teacher_id,
-        return_to: publicSiteUrl(),
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
       },
     });

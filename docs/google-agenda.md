@@ -81,10 +81,11 @@ só na agenda que o próprio Cronys criou. Nada de ler ou editar as outras.
 - Tipo: **Aplicativo da Web**
 - Nome: `Cronys web`
 - URIs de redirecionamento autorizados → Adicionar URI:
-  `https://dqfzuviwejlobrwebyum.supabase.co/functions/v1/google-calendar/callback`
-  (enquanto o Netlify estiver parado; para a verificação do Google, depois,
-  acrescentar também `https://cronys.com.br/google-agenda/callback` e pôr o
-  segredo `GOOGLE_REDIRECT_URI` no Supabase com esse endereço)
+  `https://cronys.lovable.app/google-agenda/callback` (o site no ar hoje) e
+  `https://cronys.com.br/google-agenda/callback` (para quando o domínio voltar;
+  aí pôr o segredo `GOOGLE_SITE=https://cronys.com.br` no Supabase).
+  Nunca o endereço do Supabase: é o endereço de retorno que a tela de permissão
+  do Google mostra para a pessoa ("o Google vai permitir que X aceda...").
 - Criar. Aparecem o **ID do cliente** e a **Chave secreta do cliente**.
 
 (Não precisa de "Origens JavaScript autorizadas".)
@@ -99,9 +100,8 @@ Não mande a chave secreta pelo chat. Cole direto no Supabase:
    - `GOOGLE_CLIENT_SECRET` = a chave secreta
 3. Salvar. Não precisa republicar a função.
 
-Por último, **mesclar o PR** desta mudança: é o `main` que publica no Netlify a
-regra `public/_redirects` que leva `cronys.com.br/google-agenda/callback` até a
-função, e as telas novas.
+Por último, publicar o site (Lovable) com a página `/google-agenda/callback`,
+que recebe a volta do Google e repassa o código à função.
 
 Teste: entre como admin de uma empresa Pro/Max → Bloqueios → **Conectar
 Google** → escolher a conta → marcar as duas caixas → volta para "Google

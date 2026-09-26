@@ -1,15 +1,51 @@
-import { Link, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useLocation, useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { L } from "@/lib/i18n";
-import { CalendarCheck, CalendarX } from "lucide-react";
+import { CalendarCheck, CalendarX, Loader2 } from "lucide-react";
 
-// Para onde o Google devolve a pessoa depois de conectar a agenda (a função
-// google-calendar redireciona para cá com ?status=). Quem conectou pelo app
+// A volta do Google depois de conectar a agenda. O Google devolve a pessoa a
+// /google-agenda/callback deste site (é esse endereço que a tela de permissão
+// do Google mostra, por isso tem de ser do Cronys); esta página repassa o
+// código à função google-calendar e mostra o resultado. Quem conectou pelo app
 // Android está no navegador do celular: é só voltar ao app.
 export default function GoogleCalendarReturn() {
   const [params] = useSearchParams();
-  const status = params.get("status");
+  const { pathname } = useLocation();
+  const isCallback = pathname.replace(/\/+$/, "").endsWith("/callback");
+  const [status, setStatus] = useState<string | null>(isCallback ? null : params.get("status"));
+  const sent = useRef(false);
+
+  useEffect(() => {
+    if (!isCallback || sent.current) return;
+    sent.current = true;
+    supabase.functions.invoke("google-calendar", {
+      body: {
+        action: "callback",
+        code: params.get("code") ?? undefined,
+        state: params.get("state") ?? undefined,
+        error: params.get("error") ?? undefined,
+      },
+    }).then(({ data }) => {
+      setStatus((data as { status?: string } | null)?.status ?? "erro");
+      // Tira o código da barra de endereço (ele só vale uma vez).
+      window.history.replaceState(null, "", "/google-agenda");
+    });
+  }, [isCallback, params]);
+
+  if (status === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <Card className="max-w-md w-full p-6 space-y-4 text-center">
+          <Loader2 className="w-10 h-10 mx-auto animate-spin text-primary" />
+          <p>{L("Conectando o Google Agenda...", "Connecting Google Calendar...")}</p>
+        </Card>
+      </div>
+    );
+  }
+
   const ok = status === "ok";
   const msg = ok
     ? L("Google Agenda conectado. O ocupado de lá já bloqueia o horário no Cronys, e os agendamentos aparecem na agenda \"Cronys\" do Google.",

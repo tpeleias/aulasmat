@@ -1,8 +1,8 @@
 // Google Agenda por profissional (Pro e Max). Ver a migration
 // 20260926140000_google_calendar.sql para o desenho completo.
 //
-//   POST {action: "connect", teacher_id, return_to?, tz?}  -> {url} do consentimento do Google
-//   GET  /callback?code&state                              <- o Google devolve a pessoa aqui
+//   POST {action: "connect", teacher_id, tz?}             -> {url} do consentimento do Google
+//   POST {action: "callback", code, state, error?}         <- a página /google-agenda/callback repassa a volta do Google
 //   POST {action: "sync", teacher_id?}                      -> sincroniza agora (a tela chama ao abrir)
 //   POST {action: "disconnect", teacher_id}                 -> apaga a agenda "Cronys", revoga e esquece
 //   POST /cron {mode: "push" | "pull"} + x-cron-secret      <- o pg_cron, pelo pg_net
@@ -21,11 +21,6 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
-
-// Para onde a pessoa volta depois do Google. Só estes: um "voltar para" vindo
-// do navegador sem conferência viraria redirecionamento aberto.
-const SITES = ["https://cronys.com.br", "https://www.cronys.com.br", "https://cronys.netlify.app", "https://cronys.lovable.app"];
-const RETURN_PATH = "/google-agenda";
 
 const SCOPES = [
   "openid",
@@ -63,10 +58,6 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
 }
 
-function redirect(to: string) {
-  return new Response(null, { status: 302, headers: { location: to } });
-}
-
 // ---------------------------------------------------------------------------
 // Estado assinado (vai e volta pelo Google)
 // ---------------------------------------------------------------------------
@@ -79,7 +70,7 @@ async function hmac(data: string): Promise<string> {
   return b64url(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data))));
 }
 
-type State = { t: string; u: string; a: string; r: string; tz: string; exp: number };
+type State = { t: string; u: string; a: string; tz: string; exp: number };
 
 async function signState(s: State): Promise<string> {
   const body = b64url(new TextEncoder().encode(JSON.stringify(s)));
@@ -101,14 +92,18 @@ class GoogleError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-// O endereço de volta cadastrado no Google Cloud. Por enquanto, direto na
-// função: o site no ar é o do Lovable, que não repassa endereço para fora, e o
-// Netlify (que repassa, ver public/_redirects) está parado sem crédito. Para a
-// verificação do app pelo Google vai precisar ser domínio nosso: com o Netlify
-// de volta, pôr o segredo GOOGLE_REDIRECT_URI =
-// https://cronys.com.br/google-agenda/callback (e cadastrar esse no Google).
+// O site para onde o Google devolve a pessoa. É o endereço que a tela de
+// permissão do Google mostra ("o Google vai permitir que X aceda..."), então
+// tem de ser do Cronys, nunca o do Supabase. Quem recebe é a página
+// /google-agenda/callback do próprio site (src/pages/GoogleCalendarReturn.tsx),
+// que repassa o código para cá (ação "callback") - funciona em qualquer
+// hospedagem, sem regra de repasse. Hoje o site no ar é o do Lovable; quando o
+// cronys.com.br voltar, pôr o segredo GOOGLE_SITE=https://cronys.com.br (e
+// cadastrar https://cronys.com.br/google-agenda/callback no Google Cloud).
+const SITE = Deno.env.get("GOOGLE_SITE") ?? "https://cronys.lovable.app";
+
 function redirectUri() {
-  return Deno.env.get("GOOGLE_REDIRECT_URI") ?? `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-calendar/callback`;
+  return `${SITE}/google-agenda/callback`;
 }
 
 async function tokenRequest(params: Record<string, string>) {
@@ -353,6 +348,51 @@ async function syncOne(admin: SupabaseClient, teacherId: string, opts: { importB
 }
 
 // ---------------------------------------------------------------------------
+// Volta do Google: a página /google-agenda/callback do site repassa o código
+// ---------------------------------------------------------------------------
+async function finishConnect(admin: SupabaseClient, p: { code?: string; state?: string; error?: string }): Promise<string> {
+  const state = await readState(p.state ?? null);
+  if (!state) return "invalido";
+  if (!p.code) return p.error === "access_denied" ? "negado" : "erro";
+
+  const t = await tokenRequest({ grant_type: "authorization_code", code: p.code, redirect_uri: redirectUri() }).catch(e => {
+    console.error("google-calendar callback", e);
+    return null;
+  });
+  if (!t?.refresh_token) return "erro";
+  const granted = new Set((t.scope ?? "").split(" "));
+  let email: string | null = null;
+  if (t.id_token) {
+    try { email = JSON.parse(new TextDecoder().decode(fromB64url(t.id_token.split(".")[1]))).email ?? null; } catch { /* sem e-mail */ }
+  }
+  // Reconectar a mesma conta mantém a agenda "Cronys"; outra conta começa do zero.
+  const { data: old } = await admin.from("google_calendar_connections").select("google_email, export_calendar_id").eq("teacher_id", state.t).maybeSingle();
+  const { error } = await admin.from("google_calendar_connections").upsert({
+    teacher_id: state.t,
+    account_id: state.a,
+    google_email: email,
+    refresh_token: t.refresh_token,
+    access_token: t.access_token,
+    access_expires_at: new Date(Date.now() + t.expires_in * 1000).toISOString(),
+    export_calendar_id: old && old.google_email === email ? old.export_calendar_id : null,
+    // Na tela do Google a pessoa pode desmarcar uma das permissões.
+    import_enabled: granted.has(SCOPE_FREEBUSY),
+    export_enabled: granted.has(SCOPE_APP_CREATED),
+    status: "ok",
+    last_error: null,
+    connected_by: state.u,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) {
+    console.error("google-calendar callback", error.message);
+    return "erro";
+  }
+  // Erro na primeira passada fica anotado na conexão (a tela mostra); a conexão vale.
+  await syncOne(admin, state.t, { importBusy: true, exportEvents: true, tz: state.tz });
+  return "ok";
+}
+
+// ---------------------------------------------------------------------------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const url = new URL(req.url);
@@ -361,51 +401,6 @@ Deno.serve(async (req) => {
   const configured = !!Deno.env.get("GOOGLE_CLIENT_ID") && !!Deno.env.get("GOOGLE_CLIENT_SECRET");
 
   try {
-    // --- volta do Google --------------------------------------------------
-    if (url.pathname.endsWith("/callback")) {
-      const state = configured ? await readState(url.searchParams.get("state")) : null;
-      const back = (status: string) => redirect(`${state?.r ?? SITES[0] + RETURN_PATH}?status=${status}`);
-      if (!state) return back("invalido");
-      const code = url.searchParams.get("code");
-      if (!code) return back(url.searchParams.get("error") === "access_denied" ? "negado" : "erro");
-
-      const t = await tokenRequest({ grant_type: "authorization_code", code, redirect_uri: redirectUri() }).catch(e => {
-        console.error("google-calendar callback", e);
-        return null;
-      });
-      if (!t?.refresh_token) return back("erro");
-      const granted = new Set((t.scope ?? "").split(" "));
-      let email: string | null = null;
-      if (t.id_token) {
-        try { email = JSON.parse(new TextDecoder().decode(fromB64url(t.id_token.split(".")[1]))).email ?? null; } catch { /* sem e-mail */ }
-      }
-      // Reconectar a mesma conta mantém a agenda "Cronys"; outra conta começa do zero.
-      const { data: old } = await admin.from("google_calendar_connections").select("google_email, export_calendar_id").eq("teacher_id", state.t).maybeSingle();
-      const { error } = await admin.from("google_calendar_connections").upsert({
-        teacher_id: state.t,
-        account_id: state.a,
-        google_email: email,
-        refresh_token: t.refresh_token,
-        access_token: t.access_token,
-        access_expires_at: new Date(Date.now() + t.expires_in * 1000).toISOString(),
-        export_calendar_id: old && old.google_email === email ? old.export_calendar_id : null,
-        // Na tela do Google a pessoa pode desmarcar uma das permissões.
-        import_enabled: granted.has(SCOPE_FREEBUSY),
-        export_enabled: granted.has(SCOPE_APP_CREATED),
-        status: "ok",
-        last_error: null,
-        connected_by: state.u,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) {
-        console.error("google-calendar callback", error.message);
-        return back("erro");
-      }
-      // Erro na primeira passada fica anotado na conexão (a tela mostra); a conexão vale.
-      await syncOne(admin, state.t, { importBusy: true, exportEvents: true, tz: state.tz });
-      return back("ok");
-    }
-
     // --- pg_cron ------------------------------------------------------------
     if (url.pathname.endsWith("/cron")) {
       const { data: secret } = await admin.rpc("google_calendar_cron_secret");
@@ -433,6 +428,15 @@ Deno.serve(async (req) => {
         }
       }
       return json({ mode, done });
+    }
+
+    // --- volta do Google (sem login: quem prova é o estado assinado) --------
+    if (req.method === "POST") {
+      const peek = await req.clone().json().catch(() => ({}));
+      if (peek?.action === "callback") {
+        if (!configured) return json({ status: "erro" });
+        return json({ status: await finishConnect(admin, { code: peek.code, state: peek.state, error: peek.error }) });
+      }
     }
 
     // --- chamadas da tela ---------------------------------------------------
@@ -467,10 +471,8 @@ Deno.serve(async (req) => {
       const { data: allowed } = await userClient.rpc("account_can", { _capability: "google_calendar" });
       if (allowed !== true) return json({ error: "O Google Agenda faz parte do Pro e do Max.", hint: "plano:google_calendar" }, 402);
       const { data: t } = await admin.from("teachers").select("account_id").eq("id", teacherId).maybeSingle();
-      const origin = String(body?.return_to ?? "");
-      const site = SITES.includes(origin) ? origin : (Deno.env.get("PUBLIC_SITE_URL") ?? SITES[0]);
       const state = await signState({
-        t: teacherId, u: user.id, a: t!.account_id, r: site + RETURN_PATH,
+        t: teacherId, u: user.id, a: t!.account_id,
         tz: typeof body?.tz === "string" && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(body.tz) ? body.tz : "America/Sao_Paulo",
         exp: Date.now() + 15 * 60_000,
       });

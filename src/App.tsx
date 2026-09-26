@@ -87,6 +87,7 @@ const App = () => (
             <Route path="/excluir-conta" element={<DeleteAccountInfo />} />
             <Route path="/minha-conta" element={<MyAccount />} />
             <Route path="/google-agenda" element={<GoogleCalendarReturn />} />
+            <Route path="/google-agenda/callback" element={<GoogleCalendarReturn />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>
