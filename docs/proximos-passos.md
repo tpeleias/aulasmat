@@ -198,6 +198,16 @@ escrito neste arquivo — perguntar a ele qual é antes de seguir.
 
 ## Dois lugares publicados — Netlify e Lovable
 
+**ATUALIZADO 26/09: o `cronys.com.br` é servido pelo LOVABLE** (conferido: mesmo
+bundle de `cronys.lovable.app`, servidor Cloudflare, sem cabeçalho do Netlify).
+O Netlify só serve `cronys.netlify.app`, que ninguém usa, e está sem crédito -
+sugerido ao Thiago parar os builds de lá. **Publicar = `deploy_project` no
+Lovable** depois de mesclar. O texto abaixo é histórico.
+
+Google Agenda: segredo `GOOGLE_SITE=https://cronys.com.br` posto no Supabase
+(26/09); a tela de permissão do Google mostra cronys.com.br. Próximo: a
+verificação da marca pelo Google (docs/google-agenda.md, passo 5).
+
 Descoberto nesta sessão: o projeto nasceu no Lovable e continua existindo
 lá, sincronizado por GitHub com este mesmo repositório (mesmo `main`).
 São publicações **independentes**, cada uma exige sua própria ação:
