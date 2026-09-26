@@ -29,9 +29,10 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    e-mails de login (Supabase Auth) em inglês, IVA/VAT (UE e Reino Unido) e
    cupons em moeda estrangeira.
 6. **Stripe no modo real** - ver "Planos novos" (sync_prices, portal, cupom).
-7. **Google Agenda** - código FEITO e publicado (26/09). Falta ele: projeto no
-   Google Cloud + as duas chaves no Supabase, passo a passo em
-   `docs/google-agenda.md`; depois, a verificação do app pelo Google.
+7. **Google Agenda** - FEITO e testado (26/09), com profissional e cliente, em pt
+   e en. Falta: testar com um cliente de verdade e pedir a verificação do app
+   pelo Google (tira o aviso de "app não verificado" e o limite de 100 usuários).
+   As mensagens traduzidas (PR #66) chegam ao Android no próximo `.aab` (1.12.3).
 
 ## Google Agenda (26/09) - FEITO no código; falta o Thiago no Google Cloud
 
@@ -53,9 +54,10 @@ deixou as decisões comigo; ficou assim:
 - **Ritmo:** aula mexida → `google_sync_queue` (trigger em lessons) → pg_cron a
   cada minuto chama a função pelo pg_net se a fila tiver algo; puxada completa
   a cada 10 min e ao abrir a agenda. Segredo do cron e URL da função no Vault.
-- **Volta do Google:** `cronys.com.br/google-agenda/callback`, repassado pelo
-  Netlify (`public/_redirects`) à função - a verificação do Google exige
-  domínio nosso. Página `/google-agenda` mostra o resultado.
+- **Volta do Google:** página `cronys.com.br/google-agenda/callback` do site
+  (servido pelo Lovable), que repassa o código à função (ação "callback").
+  Segredo `GOOGLE_SITE=https://cronys.com.br`. Página `/google-agenda` mostra o
+  resultado.
 - Política de privacidade (pt e en) com a seção do Google e o Uso Limitado.
 - Migration `20260926140000_google_calendar.sql` (aplicada), função
   `google-calendar` v2 (verify_jwt desligado: o retorno do Google e o cron não
