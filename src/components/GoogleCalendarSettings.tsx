@@ -10,6 +10,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { capitalize } from "@/lib/balance";
 import { openExternal } from "@/lib/whatsapp";
 import { L } from "@/lib/i18n";
+import { dbErrorMessage } from "@/lib/dbErrors";
+import { googleFunctionError, googleStoredError } from "@/lib/googleCalendarErrors";
 import { toast } from "sonner";
 import { CalendarDays, Loader2 } from "lucide-react";
 
@@ -65,7 +67,7 @@ export default function GoogleCalendarSettings() {
     if (!clients) return;
     setClients({ ...clients, on });
     const { error } = await supabase.from("settings").update({ client_google_calendar: on } as never).eq("id", clients.id);
-    if (error) { toast.error(error.message); setClients({ ...clients, on: !on }); }
+    if (error) { toast.error(dbErrorMessage(error)); setClients({ ...clients, on: !on }); }
   };
   // Quem conectou no navegador do celular volta ao app: relê ao voltar.
   useEffect(() => {
@@ -94,7 +96,7 @@ export default function GoogleCalendarSettings() {
     });
     setBusy(null);
     if (error || !data?.url) {
-      toast.error(data?.error ?? L("Não deu para abrir o Google agora.", "Couldn't open Google right now."));
+      toast.error(await googleFunctionError(data, error));
       return;
     }
     openExternal(data.url);
@@ -103,7 +105,7 @@ export default function GoogleCalendarSettings() {
   const setSwitches = async (r: Row, imp: boolean, exp: boolean) => {
     setRows(rs => rs.map(x => (x.teacher_id === r.teacher_id ? { ...x, import_enabled: imp, export_enabled: exp } : x)));
     const { error } = await supabase.rpc("google_calendar_set" as never, { _teacher: r.teacher_id, _import: imp, _export: exp } as never);
-    if (error) { toast.error(error.message); load(); return; }
+    if (error) { toast.error(dbErrorMessage(error)); load(); return; }
     // Aplica já (o ocupado entra, ou os agendamentos saem do Google).
     supabase.functions.invoke("google-calendar", { body: { action: "sync", teacher_id: r.teacher_id } }).then(() => load());
   };
@@ -113,7 +115,7 @@ export default function GoogleCalendarSettings() {
     setBusy(teacherId ?? "none");
     const { error } = await supabase.rpc("google_calendar_claim_self" as never, { _teacher: teacherId } as never);
     setBusy(null);
-    if (error) toast.error(error.message);
+    if (error) toast.error(dbErrorMessage(error));
     load();
   };
   const hasSelf = rows.some(r => r.is_self);
@@ -212,7 +214,7 @@ export default function GoogleCalendarSettings() {
               </div>
             )}
             {r.can_manage && r.connected && r.last_error && (
-              <p className="text-xs text-destructive">{r.last_error}</p>
+              <p className="text-xs text-destructive">{googleStoredError(r.last_error)}</p>
             )}
           </div>
         ))}

@@ -151,7 +151,7 @@ async function accessToken(admin: SupabaseClient, c: Conn): Promise<string> {
   } catch (e) {
     // invalid_grant: a pessoa tirou o acesso no Google (ou a senha mudou).
     if (e instanceof GoogleError && e.message === "invalid_grant") {
-      await saveConn(admin, c, { status: "revoked", last_error: "O acesso ao Google foi retirado. Conecte de novo.", updated_at: new Date().toISOString() });
+      await saveConn(admin, c, { status: "revoked", last_error: "google:revoked", updated_at: new Date().toISOString() });
       if (c.teacher_id) await admin.rpc("google_calendar_replace_busy", {
         _teacher: c.teacher_id, _from: new Date(Date.now() - 2 * DAY).toISOString(),
         _to: new Date(Date.now() + 365 * DAY).toISOString(), _ranges: [],
@@ -199,9 +199,14 @@ const eventId = (lessonId: string) => "cr" + lessonId.replace(/-/g, "");
 
 async function ensureCalendar(admin: SupabaseClient, c: Conn, token: string, tz: string): Promise<string> {
   if (c.export_calendar_id) return c.export_calendar_id;
+  // A descrição da agenda na língua da empresa.
+  const { data: acc } = await admin.from("accounts").select("locale").eq("id", c.account_id).maybeSingle();
+  const description = acc?.locale === "en"
+    ? "Appointments from Cronys. To change them, use the app."
+    : "Agendamentos do Cronys. Para mudar, use o app.";
   const cal = await gfetch(token, "/calendars", {
     method: "POST",
-    body: JSON.stringify({ summary: "Cronys", description: "Agendamentos do Cronys. Para mudar, use o app.", timeZone: tz }),
+    body: JSON.stringify({ summary: "Cronys", description, timeZone: tz }),
   });
   await saveConn(admin, c, { export_calendar_id: cal.id });
   c.export_calendar_id = cal.id;
@@ -375,7 +380,7 @@ async function syncOne(admin: SupabaseClient, teacherId: string, opts: { importB
   } catch (e) {
     // 403: a pessoa desmarcou uma das caixas na tela do Google.
     const msg = e instanceof GoogleError && e.status === 403
-      ? "O Google não deu essa permissão. Desconecte e conecte de novo, marcando as duas caixas."
+      ? "google:permission"
       : e instanceof Error ? e.message : String(e);
     console.error("google-calendar sync", teacherId, e instanceof Error ? e.message : e);
     await saveConn(admin, conn, { status: conn.status === "revoked" || msg === "invalid_grant" ? "revoked" : "error", last_error: msg.slice(0, 300) });
@@ -394,7 +399,7 @@ async function syncClient(admin: SupabaseClient, userId: string, tz?: string) {
     if (conn.status !== "ok") await saveConn(admin, conn, { status: "ok", last_error: null });
   } catch (e) {
     const msg = e instanceof GoogleError && e.status === 403
-      ? "O Google não deu essa permissão. Desconecte e conecte de novo, marcando a caixa."
+      ? "google:permission"
       : e instanceof Error ? e.message : String(e);
     console.error("google-calendar client sync", userId, e instanceof Error ? e.message : e);
     await saveConn(admin, conn, { status: msg === "invalid_grant" ? "revoked" : "error", last_error: msg.slice(0, 300) });
@@ -542,11 +547,11 @@ Deno.serve(async (req) => {
 
     // --- o cliente no portal: só o próprio Google, só exportar ---------------
     if (body?.kind === "client") {
-      if (!configured) return json({ error: "O Google Agenda ainda não foi configurado no Cronys." }, 503);
+      if (!configured) return json({ error: "O Google Agenda ainda não foi configurado no Cronys.", code: "not_configured" }, 503);
       const { data: st } = await userClient.rpc("client_calendar_status");
       const row = (Array.isArray(st) ? st[0] : st) as { enabled?: boolean } | null;
       if (action === "connect") {
-        if (!row?.enabled) return json({ error: "Quem te atende ainda não liberou o Google Agenda." }, 403);
+        if (!row?.enabled) return json({ error: "Quem te atende ainda não liberou o Google Agenda.", code: "not_enabled" }, 403);
         const { data: acct } = await userClient.rpc("current_account_id");
         const state = await signState({
           t: "", u: user.id, a: String(acct), k: "c",
@@ -594,12 +599,12 @@ Deno.serve(async (req) => {
       return json({ synced: ids.length });
     }
 
-    if (!teacherId || !(await canManage(teacherId))) return json({ error: "forbidden" }, 403);
+    if (!teacherId || !(await canManage(teacherId))) return json({ error: "forbidden", code: "forbidden" }, 403);
 
     if (action === "connect") {
-      if (!configured) return json({ error: "O Google Agenda ainda não foi configurado no Cronys." }, 503);
+      if (!configured) return json({ error: "O Google Agenda ainda não foi configurado no Cronys.", code: "not_configured" }, 503);
       const { data: allowed } = await userClient.rpc("account_can", { _capability: "google_calendar" });
-      if (allowed !== true) return json({ error: "O Google Agenda faz parte do Pro e do Max.", hint: "plano:google_calendar" }, 402);
+      if (allowed !== true) return json({ error: "O Google Agenda faz parte do Pro e do Max.", code: "plan" }, 402);
       const { data: t } = await admin.from("teachers").select("account_id").eq("id", teacherId).maybeSingle();
       const state = await signState({
         t: teacherId, u: user.id, a: t!.account_id,

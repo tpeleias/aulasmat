@@ -2597,11 +2597,13 @@ SELECT public.google_calendar_claim_self(current_setting('teste.hugo')::uuid);
 SELECT public.assert((SELECT can_manage AND is_self AND NOT claimable FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
   'o admin marca o Hugo como "sou eu" e passa a conectar so ele');
 DO $$
+DECLARE _h text;
 BEGIN
   PERFORM public.google_calendar_claim_self(current_setting('teste.gabi')::uuid);
   RAISE EXCEPTION 'FALHOU: admin marcou como seu um cadastro com login';
 EXCEPTION WHEN insufficient_privilege THEN
-  RAISE NOTICE '  ok - cadastro com login nao vira "sou eu" do admin';
+  GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
+  PERFORM public.assert(_h = 'google_sou_eu_invalido', 'cadastro com login nao vira "sou eu" do admin (chave ' || _h || ' para a tela traduzir)');
 END $$;
 DO $$
 BEGIN
