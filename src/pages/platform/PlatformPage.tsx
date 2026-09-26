@@ -88,7 +88,12 @@ export default function PlatformPage() {
   const [renomear, setRenomear] = useState<Row | null>(null);
   const [nomeNovo, setNomeNovo] = useState("");
 
+  // Switch geral (migration 20260926120000): desligado, o assistente só
+  // funciona nas empresas liberadas uma a uma aqui embaixo.
+  const [assistenteGeral, setAssistenteGeral] = useState<boolean | null>(null);
+
   const load = async () => {
+    supabase.rpc("assistant_enabled_for_plans" as never).then(({ data }) => setAssistenteGeral(data === true));
     const { data, error } = await supabase.rpc("platform_accounts_overview");
     if (error) { toast.error(error.message); setLoading(false); return; }
     setRows((data ?? []) as Row[]);
@@ -179,6 +184,19 @@ export default function PlatformPage() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(`Assistente ${proximo ? "liberado" : "bloqueado"} para "${r.name}"`);
+    load();
+  };
+
+  const alternarAssistenteGeral = async () => {
+    const proximo = !assistenteGeral;
+    if (proximo && !confirm(
+      "Liberar o assistente pelos planos?\n\nA amostra do Pro, a IA do Max e o adicional passam a funcionar (e o adicional volta a ser vendido). Cada conversa custa API."
+    )) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("platform_set_assistant_enabled" as never, { _on: proximo } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(proximo ? "Assistente liberado pelos planos" : "Assistente bloqueado em todos os planos");
     load();
   };
 
@@ -286,11 +304,20 @@ export default function PlatformPage() {
           contagens abaixo. Nome de aluno, agenda e financeiro de cada empresa
           não chegam até aqui — a trava está no banco, não nesta tela.
           <br />
-          <span className="mt-1 inline-flex items-center gap-1">
-            <Bot className="h-3 w-3" /> O Assistente fica bloqueado em qualquer plano,
-            inclusive no Pro e no teste: só funciona para a empresa que você
-            <strong className="text-foreground">liberar</strong> aqui.
-          </span>
+        </Card>
+
+        <Card className="flex items-center gap-3 rounded-xl p-3">
+          <Bot className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <div className="min-w-0 flex-1 text-sm">
+            <p className="font-medium">Assistente pelos planos</p>
+            <p className="text-xs text-muted-foreground">
+              {assistenteGeral
+                ? "Ligado: a amostra do Pro, a IA do Max e o adicional funcionam, e o adicional está à venda."
+                : "Desligado: bloqueado em todos os planos. Só funciona nas empresas que você liberar uma a uma na tabela (o Portal de Aulas fica sempre liberado)."}
+            </p>
+          </div>
+          <Switch checked={assistenteGeral === true} disabled={busy || assistenteGeral === null}
+            onCheckedChange={alternarAssistenteGeral} aria-label="Assistente pelos planos" />
         </Card>
 
         {loading ? <ListSkeleton rows={3} /> : (

@@ -14,6 +14,11 @@ BEGIN
   RAISE NOTICE '  ok - %', _what;
 END $$;
 
+-- O switch geral do assistente (migration 20260926120000) nasce desligado.
+-- Os blocos antigos testam o assistente que vem pelo plano, então ele fica
+-- ligado aqui; o bloco 45 testa o desligado.
+UPDATE public.platform_settings SET assistant_enabled = true;
+
 -- ---------------------------------------------------------------------------
 -- Cenário: duas empresas, a mesma responsável "Ana" nas duas
 -- ---------------------------------------------------------------------------
@@ -2466,5 +2471,75 @@ INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, st
 VALUES (current_setting('teste.st')::uuid, 'Novo', 'Mae', 'tina', now() + interval '8 days', 60, 'solicitada', 'single', 'pendente');
 SELECT public.assert(true, 'no Pro o pedido do cliente novo entra');
 COMMIT;
+
+\echo ''
+\echo '--- 45. Switch geral do assistente: desligado, so quem o gestor liberou ---'
+
+DO $$
+DECLARE _op uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_op, 'gestor45@x');
+  DELETE FROM public.user_roles WHERE user_id = _op;
+  INSERT INTO public.platform_admins (user_id, note) VALUES (_op, 'teste 45');
+  PERFORM set_config('teste.op45', _op::text, false);
+END $$;
+INSERT INTO public.accounts (name, slug, plan) VALUES ('Max Pago 45', 'maxpago45', 'pro');
+UPDATE public.accounts SET billing_status = 'active', trial_ends_at = NULL WHERE slug = 'maxpago45';
+SELECT set_config('teste.m45', (SELECT id::text FROM public.accounts WHERE slug = 'maxpago45'), false);
+UPDATE public.accounts SET assistant_billed = true WHERE id = current_setting('teste.st')::uuid;
+SELECT public.assert(public.account_can('assistant', current_setting('teste.m45')::uuid)
+                     AND public.account_can('assistant', current_setting('teste.st')::uuid),
+  'switch ligado: Max pago e Pro com adicional usam o assistente');
+
+-- Admin de empresa nao mexe no switch.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ust'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_set_assistant_enabled(false);
+  RAISE EXCEPTION 'FALHOU: admin de empresa desligou o switch geral';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - admin de empresa nao mexe no switch geral';
+END $$;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.platform_settings;
+  RAISE EXCEPTION 'FALHOU: tabela do switch legivel direto';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - a tabela do switch nao e lida direto';
+END $$;
+COMMIT;
+
+-- O gestor desliga.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op45'), true);
+SELECT public.assert(public.platform_set_assistant_enabled(false) = false, 'o gestor desliga o switch geral');
+COMMIT;
+SELECT public.assert(NOT public.assistant_on_sale(), 'desligado: o adicional sai de venda');
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.m45')::uuid),
+  'desligado: Max pago fica sem assistente');
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.st')::uuid),
+  'desligado: amostra do Pro e adicional comprado ficam sem assistente');
+SELECT public.assert(public.account_can('assistant', (SELECT id FROM public.accounts WHERE slug = 'portaldeaulas')),
+  'desligado: o Portal de Aulas (liberado pelo gestor) continua com assistente');
+UPDATE public.accounts SET assistant_override = true WHERE id = current_setting('teste.m45')::uuid;
+SELECT public.assert(public.account_can('assistant', current_setting('teste.m45')::uuid),
+  'desligado: empresa liberada uma a uma pelo gestor usa o assistente');
+UPDATE public.accounts SET assistant_override = false WHERE id = current_setting('teste.m45')::uuid;
+
+-- Religa: volta o que cada plano traz.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op45'), true);
+SELECT public.assert(public.platform_set_assistant_enabled(true), 'o gestor religa o switch geral');
+SELECT public.assert(public.assistant_enabled_for_plans(), 'o painel le o switch ligado');
+COMMIT;
+SELECT public.assert(public.account_can('assistant', current_setting('teste.m45')::uuid),
+  'religado: Max pago volta a ter o assistente');
 
 \echo '=== FIM ==='
