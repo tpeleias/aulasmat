@@ -449,6 +449,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {lesson.status === "agendada" && (
                 <p className="text-xs text-muted-foreground">{L(`Ao salvar, ${a.o} ${a.l} fica ${a.pick("marcado", "marcada")} como ${a.pick("realizado", "realizada")}.`, `Saving marks the ${a.l} as done.`)}</p>
               )}
+            </div>
+          )}
           {/* Login de professor: só consulta (migration 20260925100000). */}
           <fieldset disabled={isTeacher} className="contents">
           {services && services.length > 0 && (
@@ -645,8 +647,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           )}
           </fieldset>
-            </div>
-          )}
         </div>
         <DialogFooter className="gap-2">
           {lesson?.id && !isTeacher && <Button variant="destructive" onClick={remove}>{L("Excluir", "Delete")}</Button>}
