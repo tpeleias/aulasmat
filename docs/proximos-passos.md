@@ -9,7 +9,9 @@ um chat inteiro. Atualize/apague itens conforme forem resolvidos.
 O Thiago pediu para ser lembrado destes itens até decidir/fazer:
 
 1. **Proteção contra senhas vazadas** (Supabase → Authentication → "Leaked
-   password protection"). Um clique, é ele quem faz.
+   password protection") - **ESPERANDO o Supabase Pro** (só existe no Pro; ele
+   não vê motivo para assinar agora, 26/09). NÃO cobrar a cada rodada: lembrar
+   só quando ele contar que assinou o Supabase Pro.
 2. **WhatsApp automático por empresa** - decidir entre API oficial da Meta
    (paga por mensagem, número verificado por empresa) e provedor
    intermediário. Ver a seção "WhatsApp automático (Max)" mais abaixo.
