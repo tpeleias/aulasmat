@@ -52,6 +52,17 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
     case "moeda_assinatura":
       return L("Com a assinatura ativa não dá para trocar a moeda: ela é cobrada na moeda em que foi feita. Para trocar, cancele a assinatura e assine de novo.",
         "You can't change the currency while subscribed: the subscription is billed in the currency it started in. To change it, cancel and subscribe again.");
+    case "plano":
+      if (arg === "google_calendar") return L("O Google Agenda faz parte do Cronys Pro e do Max.", "Google Calendar is part of Cronys Pro and Max.");
+      break;
+    case "google_sem_permissao":
+      return L("Você só pode mexer no seu próprio Google Agenda.", "You can only change your own Google Calendar.");
+    case "google_conecte_primeiro":
+      return L("Conecte o Google Agenda primeiro.", "Connect Google Calendar first.");
+    case "google_sou_eu_invalido":
+      return L("Esse cadastro não pode ser marcado como seu.", "This profile can't be marked as yours.");
+    case "google_trocar_desconecte":
+      return L("Desconecte o Google do seu cadastro atual antes de trocar.", "Disconnect Google from your current profile before switching.");
     case "resumo_aula":
       return L(`Só dá para escrever o resumo de ${v.appointment.um} ${v.appointment.l} sua que já começou.`, `You can only write notes for your own ${v.appointment.l} that has already started.`);
   }

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { openExternal } from "@/lib/whatsapp";
 import { L } from "@/lib/i18n";
+import { googleFunctionError, googleStoredError } from "@/lib/googleCalendarErrors";
 import { toast } from "sonner";
 import { CalendarDays, Loader2 } from "lucide-react";
 
@@ -40,7 +41,7 @@ export default function ClientGoogleCalendar() {
     });
     setBusy(false);
     if (error || !data?.url) {
-      toast.error(data?.error ?? L("Não deu para abrir o Google agora.", "Couldn't open Google right now."));
+      toast.error(await googleFunctionError(data, error));
       return;
     }
     openExternal(data.url);
@@ -71,7 +72,7 @@ export default function ClientGoogleCalendar() {
               : L("Receba seus horários no seu Google Agenda. Remarcou aqui, muda lá sozinho. Nada da sua agenda é lido.",
                   "Get your appointments in your Google Calendar. Rescheduled here, it changes there. Nothing in your calendar is read.")}
           </p>
-          {st.connected && st.status === "error" && st.last_error && <p className="mt-1 text-xs text-destructive">{st.last_error}</p>}
+          {st.connected && st.status === "error" && st.last_error && <p className="mt-1 text-xs text-destructive">{googleStoredError(st.last_error)}</p>}
         </div>
       </div>
       <div className="flex items-center gap-2">
