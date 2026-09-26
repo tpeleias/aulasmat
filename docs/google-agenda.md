@@ -28,6 +28,16 @@ minutos. Depois disso o botão "Conectar Google" funciona.
 - Desconectar apaga a agenda "Cronys" do Google, tira o ocupado importado e
   revoga o acesso.
 
+## Clientes (26/09)
+
+Pro e Max. O admin liga em Configurações → Google Agenda → **Clientes também**.
+Aí cada cliente com acesso ao portal vê "Conectar Google Agenda" na tela
+inicial e recebe os próprios horários numa agenda "Cronys" no Google dele:
+"Aula com Thiago · Matemática" (a palavra do ramo da empresa), com endereço ou
+"Online", sem valores. Só nesse sentido: a permissão pedida é só
+`calendar.app.created`. Desligar o switch (ou sair do Pro/Max) esvazia a agenda
+"Cronys" dos clientes na próxima passada. Migration 20260926190000.
+
 ## 1. Criar o projeto no Google Cloud
 
 1. Entre em <https://console.cloud.google.com> com a conta que vai ser "dona"

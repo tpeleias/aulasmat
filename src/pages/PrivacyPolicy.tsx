@@ -93,6 +93,12 @@ export default function PrivacyPolicy() {
               profissional. O Cronys não lê nem altera nenhuma outra agenda ou evento.
             </p>
             <p>
+              Se a empresa liberar, o cliente também pode conectar a própria conta Google, apenas para
+              receber os próprios horários numa agenda "Cronys" criada na conta dele. Nesse caso nada
+              da agenda do cliente é lido: o Cronys só inclui, altera e remove os horários dele nessa
+              agenda.
+            </p>
+            <p>
               O uso e a transferência de informações recebidas das APIs do Google seguem a{" "}
               <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-primary underline">
                 Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos

@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
+import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
 export default function ChildDashboard() {
   const { student, loading } = useStudent();
   const w = useWords();
@@ -51,6 +52,8 @@ export default function ChildDashboard() {
       <div>
         <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {student.student_name.split(" ")[0]} 👋</h1>
       </div>
+
+      <ClientGoogleCalendar />
 
       <Card className="p-6 space-y-4 border-primary/30">
         <div className="flex items-center gap-2 text-primary">

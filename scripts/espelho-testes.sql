@@ -2751,4 +2751,77 @@ SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.google_calendar_connection
                      AND NOT EXISTS (SELECT 1 FROM public.blocks WHERE source = 'google' AND account_id = current_setting('teste.g')::uuid),
   'desconectar apaga a conexao e o ocupado importado');
 
+\echo ''
+\echo '--- 47. Google Agenda do cliente: switch da empresa, aulas dele, fila ---'
+
+DO $$
+DECLARE _g uuid := current_setting('teste.g')::uuid; _resp uuid := gen_random_uuid(); _outro uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_resp, 'rosa-g@x'), (_outro, 'outro-g@x');
+  DELETE FROM public.user_roles WHERE user_id IN (_resp, _outro);
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_resp, 'student', _g), (_outro, 'student', _g);
+  INSERT INTO public.students (account_id, student_name, guardian_name, user_id) VALUES
+    (_g, 'Lia', 'Rosa', _resp), (_g, 'Teo', 'Outra', _outro);
+  INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status) VALUES
+    (_g, 'Lia', 'Rosa', 'hugo', now() + interval '5 days', 60, 'agendada'),
+    (_g, 'Lia', 'Rosa', 'hugo', now() + interval '6 days', 60, 'solicitada'),
+    (_g, 'Teo', 'Outra', 'hugo', now() + interval '7 days', 60, 'agendada');
+  PERFORM set_config('teste.resp', _resp::text, false);
+  PERFORM set_config('teste.outro', _outro::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.resp'), true);
+SELECT public.assert((SELECT NOT enabled AND NOT connected FROM public.client_calendar_status()),
+  'switch da empresa desligado: o cliente nao ve o Conectar');
+COMMIT;
+UPDATE public.settings SET client_google_calendar = true WHERE account_id = current_setting('teste.g')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.resp'), true);
+SELECT public.assert((SELECT enabled FROM public.client_calendar_status()), 'switch ligado no Max: o cliente pode conectar');
+DO $$
+BEGIN
+  PERFORM 1 FROM public.client_calendar_connections;
+  RAISE EXCEPTION 'FALHOU: cliente leu a tabela de conexoes';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - cliente nao le a tabela de conexoes (refresh token)';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.client_calendar_lessons(current_setting('teste.resp')::uuid, now(), now() + interval '30 days');
+  RAISE EXCEPTION 'FALHOU: cliente chamou a lista de aulas da funcao';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - a lista de aulas para o Google e so da funcao';
+END $$;
+COMMIT;
+
+UPDATE public.accounts SET business_model = 'aulas' WHERE id = current_setting('teste.g')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.client_calendar_lessons(current_setting('teste.resp')::uuid, now(), now() + interval '30 days')) = 1,
+  'o cliente recebe so a aula dele confirmada (nem pedido, nem a do outro cliente)');
+SELECT public.assert((SELECT word = 'Aula' AND teacher_name = 'Hugo' AND NOT is_online
+                        FROM public.client_calendar_lessons(current_setting('teste.resp')::uuid, now(), now() + interval '30 days')),
+  'evento: "Aula com Hugo" (palavra do ramo, nome do profissional)');
+
+-- Conectado (o que a funcao grava): aula mexida enfileira so ele.
+INSERT INTO public.client_calendar_connections (user_id, account_id, google_email, refresh_token)
+VALUES (current_setting('teste.resp')::uuid, current_setting('teste.g')::uuid, 'rosa@gmail.com', 'rt-rosa');
+DELETE FROM public.client_calendar_queue;
+UPDATE public.lessons SET start_at = start_at + interval '1 hour' WHERE student_name = 'Teo' AND account_id = current_setting('teste.g')::uuid;
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.client_calendar_queue), 'aula de outro cliente nao enfileira a Rosa');
+UPDATE public.lessons SET start_at = start_at + interval '1 hour' WHERE student_name = 'Lia' AND status = 'agendada' AND account_id = current_setting('teste.g')::uuid;
+SELECT public.assert(EXISTS (SELECT 1 FROM public.client_calendar_queue WHERE user_id = current_setting('teste.resp')::uuid),
+  'aula da Lia remarcada enfileira a Rosa');
+
+-- Plano sem Google Agenda: o switch nao vale.
+UPDATE public.accounts SET plan = 'start' WHERE id = current_setting('teste.g')::uuid;
+SELECT public.assert(NOT public.client_calendar_enabled(current_setting('teste.g')::uuid), 'no Start o switch do cliente nao vale');
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.g')::uuid;
+SELECT public.client_calendar_forget(current_setting('teste.resp')::uuid);
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.client_calendar_connections WHERE user_id = current_setting('teste.resp')::uuid),
+  'desconectar o cliente apaga a conexao');
+
 \echo '=== FIM ==='

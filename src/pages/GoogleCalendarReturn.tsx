@@ -16,6 +16,8 @@ export default function GoogleCalendarReturn() {
   const { pathname } = useLocation();
   const isCallback = pathname.replace(/\/+$/, "").endsWith("/callback");
   const [status, setStatus] = useState<string | null>(isCallback ? null : params.get("status"));
+  // "client": o cliente conectou pelo portal (só recebe os horários).
+  const [kind, setKind] = useState<string>("staff");
   const sent = useRef(false);
 
   useEffect(() => {
@@ -29,7 +31,9 @@ export default function GoogleCalendarReturn() {
         error: params.get("error") ?? undefined,
       },
     }).then(({ data }) => {
-      setStatus((data as { status?: string } | null)?.status ?? "erro");
+      const d = data as { status?: string; kind?: string } | null;
+      setStatus(d?.status ?? "erro");
+      setKind(d?.kind ?? "staff");
       // Tira o código da barra de endereço (ele só vale uma vez).
       window.history.replaceState(null, "", "/google-agenda");
     });
@@ -47,7 +51,10 @@ export default function GoogleCalendarReturn() {
   }
 
   const ok = status === "ok";
-  const msg = ok
+  const msg = ok && kind === "client"
+    ? L("Google Agenda conectado. Seus horários já estão na agenda \"Cronys\" do seu Google e se atualizam sozinhos.",
+        "Google Calendar connected. Your appointments are now in the \"Cronys\" calendar in your Google and update on their own.")
+    : ok
     ? L("Google Agenda conectado. O ocupado de lá já bloqueia o horário no Cronys, e os agendamentos aparecem na agenda \"Cronys\" do Google.",
         "Google Calendar connected. Busy times there now block the time in Cronys, and bookings show up in the \"Cronys\" calendar in Google.")
     : status === "negado"
@@ -63,7 +70,7 @@ export default function GoogleCalendarReturn() {
           {L("Se você começou pelo app do celular, pode fechar esta página e voltar para ele.",
              "If you started from the phone app, you can close this page and go back to it.")}
         </p>
-        <Button asChild><Link to="/admin/bloqueios">{L("Abrir o Cronys", "Open Cronys")}</Link></Button>
+        <Button asChild><Link to={kind === "client" ? "/" : "/admin/bloqueios"}>{L("Abrir o Cronys", "Open Cronys")}</Link></Button>
       </Card>
     </div>
   );

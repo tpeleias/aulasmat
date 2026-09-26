@@ -158,6 +158,12 @@ export function PrivacyEn({ contact }: { contact: string | null }) {
           not read or change any other calendar or event.
         </p>
         <p>
+          If the business allows it, a client can also connect their own Google account, only to
+          receive their own appointments in a "Cronys" calendar created in their account. In that case
+          nothing in the client's calendar is read: Cronys only adds, changes and removes their
+          appointments in that calendar.
+        </p>
+        <p>
           Cronys's use and transfer of information received from Google APIs adheres to the{" "}
           <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-primary underline">
             Google API Services User Data Policy</a>, including the Limited Use requirements. This data is
