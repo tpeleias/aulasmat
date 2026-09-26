@@ -17,6 +17,10 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    intermediário. Ver a seção "WhatsApp automático (Max)" mais abaixo.
 3. **12 testadores** para a faixa fechada da Play (ele vai buscar conhecidos;
    é uma das últimas coisas).
+   26/09: Google Grupo `teste-cronys@googlegroups.com` criado. Ligar o grupo à
+   trilha só pelo Play Console (a API recusa: "alpha track has been upgraded to
+   use open or closed testing"). Teste fechado atualizado para 1.12.2 (44) pelo
+   `play-promote.yml` - antes estava no código 33.
 4. **Ideias para trazer clientes** (fazer depois, na ordem que ele escolher):
    - Programa de indicação - ver "Indicação" abaixo (guardado, não começar).
    - Link de agendamento público para Instagram/WhatsApp, com "feito com Cronys".
