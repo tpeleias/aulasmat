@@ -10,14 +10,19 @@
 //                cancelar
 //   sync_seats - acerta a cobrança de profissional extra (a tela chama depois
 //                de ativar/desativar alguém na Equipe)
-//   assistant  - põe ou tira o adicional do assistente de quem já assina o
-//                Pro (pôr só quando assistant_on_sale() for verdadeiro; no Max
-//                ele vem incluso)
+//   assistant  - põe ou tira o adicional de IA de quem já assina o Start ou o
+//                Pro (no Max a IA vem inclusa)
+//   sync_prices - SÓ o gestor da plataforma: cria/atualiza no Stripe os preços
+//                de supabase/functions/_shared/plans.ts. Com chave de teste isso
+//                acontece sozinho no checkout; com a real, só por aqui.
+//
+// Preço, plano e limite: supabase/functions/_shared/plans.ts.
 //
 // Quem muda o plano no banco nunca é esta função: é o webhook, quando o Stripe
 // confirma o pagamento. Aqui só se abre a porta.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { ASSISTANT_LOOKUP, LOOKUP, ensureCurrency, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, toCurrency, type Interval, type Tier } from "../_shared/stripe.ts";
+import { ASSISTANT_LOOKUP, LOOKUP, allPricePairs, allowsExtraTeachers, ensurePrices, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, toCurrency, type Interval, type Tier } from "../_shared/stripe.ts";
+import { COUPON_CURRENCIES, PLANS } from "../_shared/plans.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,6 +49,16 @@ Deno.serve(async (req) => {
     if (uErr || !user) return json({ error: "unauthorized" }, 401);
 
     const admin = createClient(url, serviceKey);
+    const body = await req.json().catch(() => ({}));
+    const action = String(body?.action ?? "checkout");
+
+    // O gestor da plataforma cria/atualiza os preços (inclusive no modo real).
+    if (action === "sync_prices") {
+      const { data: isOp } = await userClient.rpc("is_platform_admin");
+      if (isOp !== true) return json({ error: "forbidden" }, 403);
+      return json({ created: await ensurePrices(allPricePairs(), { force: true }) });
+    }
+
     const { data: role } = await admin.from("user_roles").select("account_id")
       .eq("user_id", user.id).eq("role", "admin").not("account_id", "is", null).limit(1).maybeSingle();
     const accountId = (role?.account_id ?? null) as string | null;
@@ -54,12 +69,10 @@ Deno.serve(async (req) => {
       .eq("id", accountId).maybeSingle();
     if (!acc) return json({ error: "Empresa não encontrada." }, 404);
 
-    const body = await req.json().catch(() => ({}));
-    const action = String(body?.action ?? "checkout");
     // Moeda da empresa (Configurações → Língua e moeda). O Stripe cobra na
-    // moeda dela; fora do real não há cupom.
+    // moeda dela. Cupom só nas moedas de COUPON_CURRENCIES.
     const currency = toCurrency(acc.currency);
-    const foreign = currency !== "brl";
+    const couponOk = COUPON_CURRENCIES.map(c => c.toLowerCase()).includes(currency);
     const stripeLocale = acc.locale === "en" ? "en" : "pt-BR";
     const origin = req.headers.get("origin") ?? "";
     const site = SITES.includes(origin) ? origin : (Deno.env.get("PUBLIC_SITE_URL") ?? SITES[0]);
@@ -83,12 +96,13 @@ Deno.serve(async (req) => {
       const current = items.find((i) => isAssistantLookup(i.price?.lookup_key));
       const base = items.find((i) => tierOfLookup(i.price?.lookup_key));
       const interval: Interval = base?.price?.recurring?.interval === "year" ? "year" : "month";
-      // No Max o assistente já vem incluso: o adicional é só do Pro.
-      if (wantsAssistant && tierOfLookup(base?.price?.lookup_key) === "pro") {
+      // O adicional é do Start e do Pro; no Max a IA vem inclusa.
+      const baseTier = tierOfLookup(base?.price?.lookup_key);
+      if (wantsAssistant && (!baseTier || !PLANS[baseTier].assistantAddon)) {
         return json({ error: "No Max o Assistente já vem incluso." }, 400);
       }
       if (wantsAssistant && !current) {
-        await ensureCurrency([ASSISTANT_LOOKUP[interval]], toCurrency(sub.currency));
+        await ensurePrices([{ item: "assistant", interval }]);
         const ids = await priceIds([ASSISTANT_LOOKUP[interval]]);
         await stripe("POST", "/subscription_items", {
           subscription: acc.stripe_subscription_id, price: ids[ASSISTANT_LOOKUP[interval]], quantity: 1,
@@ -132,22 +146,31 @@ Deno.serve(async (req) => {
 
     if (action !== "checkout") return json({ error: "Ação desconhecida." }, 400);
 
-    const tier: Tier = body?.tier === "pro_solo" ? "pro_solo" : "pro";
+    const tier: Tier = body?.tier === "start" ? "start" : body?.tier === "pro_solo" ? "pro_solo" : "pro";
     const interval: Interval = body?.interval === "year" ? "year" : "month";
-    // O adicional do assistente é só do Pro; no Max ele vem incluso.
-    const withAssistant = wantsAssistant && tier === "pro_solo";
+    // O adicional de IA é do Start e do Pro; no Max ela vem inclusa.
+    const withAssistant = wantsAssistant && PLANS[tier].assistantAddon;
     const baseKey = LOOKUP[tier][interval];
     const extraKey = LOOKUP.extra[interval];
     const assistantKey = ASSISTANT_LOOKUP[interval];
-    const keys = [baseKey, ...(tier === "pro" ? [extraKey] : []), ...(withAssistant ? [assistantKey] : [])];
-    await ensureCurrency(keys, currency);
+    const withExtra = allowsExtraTeachers(tier);
+    const keys = [baseKey, ...(withExtra ? [extraKey] : []), ...(withAssistant ? [assistantKey] : [])];
+    await ensurePrices([
+      { item: tier, interval },
+      ...(withExtra ? [{ item: "extra" as const, interval }] : []),
+      ...(withAssistant ? [{ item: "assistant" as const, interval }] : []),
+    ]);
     const ids = await priceIds(keys);
 
-    // Quem assina a Equipe já com mais de 5 profissionais ativos paga os extras
-    // desde o começo. Conta como se já estivesse na Equipe.
+    // Quem assina já com mais profissionais ativos do que o plano inclui paga
+    // os extras desde o começo (o Pro vai até 3; acima disso, o Max).
     const { count: ativos } = await admin.from("teachers").select("id", { count: "exact", head: true })
       .eq("account_id", accountId).eq("active", true);
-    const extra = tier === "pro" ? Math.max(0, (ativos ?? 0) - 5) : 0;
+    const extra = withExtra ? Math.max(0, (ativos ?? 0) - PLANS[tier].includedTeachers) : 0;
+    const maxT = PLANS[tier].maxTeachers;
+    if (maxT !== null && (ativos ?? 0) > maxT) {
+      return json({ error: `Este plano vai até ${maxT} profissional(is) ativo(s). Desative alguns ou escolha o Max.` }, 400);
+    }
 
     const lineItems: Record<string, unknown>[] = [{ price: ids[baseKey], quantity: 1 }];
     if (extra > 0) lineItems.push({ price: ids[extraKey], quantity: extra });
@@ -159,9 +182,8 @@ Deno.serve(async (req) => {
       client_reference_id: accountId,
       line_items: lineItems,
       currency,
-      // Cupom só no mensal em real: o anual já sai com 10% de desconto, e
-      // fora do real não há cupom.
-      allow_promotion_codes: interval === "month" && !foreign,
+      // Cupom (LANCAMENTO) só no mensal: o anual já sai com desconto.
+      allow_promotion_codes: interval === "month" && couponOk,
       locale: stripeLocale,
       subscription_data: { metadata: { account_id: accountId } },
       metadata: { account_id: accountId },

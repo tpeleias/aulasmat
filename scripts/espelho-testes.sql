@@ -573,7 +573,7 @@ SELECT public.assert((SELECT count(*) FROM public.lessons
 
 
 \echo ''
-\echo '--- 17. Planos: o limite e do banco, nao da tela ---'
+\echo '--- 17. Planos: o limite e do banco, nao da tela (clientes ATIVOS) ---'
 
 -- A empresa A e Pro (dona do endereco publico). Criamos uma Essencial do zero.
 DO $$
@@ -595,23 +595,20 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
 
 SELECT public.assert(public.account_plan() = 'essencial', 'a empresa nova nasce no Essencial');
-SELECT public.assert(public.account_limit('students') = 5, 'com limite de 5 alunos');
+SELECT public.assert(public.account_limit('students') IS NULL, 'cadastrar cliente e livre');
+SELECT public.assert((public.my_plan() ->> 'max_active_clients')::int = 10, 'o limite e de 10 clientes ATIVOS');
+SELECT public.assert((public.my_plan() ->> 'active_client_days')::int = 60, 'ativo = atendimento nos ultimos 60 dias ou marcado');
 SELECT public.assert(public.account_limit('teachers') = 1, 'e de 1 professor');
 SELECT public.assert(public.account_can('assistant') = false, 'sem assistente');
 SELECT public.assert(public.account_can('packages') = false, 'sem pacotes/vouchers');
 SELECT public.assert(public.account_can('recurring_blocks') = false, 'sem bloqueio recorrente');
+SELECT public.assert(public.account_can('vocabulary') = true, 'palavras do ramo agora vem no Essencial');
 
--- 5 alunos passam; o sexto nao.
+-- Cadastro livre: 12 clientes entram.
 INSERT INTO public.students (student_name, guardian_name) VALUES
   ('A1','R1'), ('A2','R2'), ('A3','R3'), ('A4','R4'), ('A5','R5');
-SELECT public.assert((SELECT count(*) FROM public.students) = 5, 'cinco alunos entram');
-DO $$
-BEGIN
-  INSERT INTO public.students (student_name) VALUES ('A6');
-  RAISE EXCEPTION 'FALHOU: cadastrou o sexto aluno no Essencial';
-EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - o sexto aluno e recusado pelo BANCO, nao pela tela';
-END $$;
+INSERT INTO public.students (student_name) VALUES ('B6'),('B7'),('B8'),('B9'),('B10'),('B11'),('B12');
+SELECT public.assert((SELECT count(*) FROM public.students) = 12, 'doze clientes cadastrados, sem limite de cadastro');
 
 -- 1 professor passa; o segundo nao.
 INSERT INTO public.teachers (name, active) VALUES ('Unico', true);
@@ -632,6 +629,41 @@ BEGIN
 EXCEPTION WHEN check_violation THEN
   RAISE NOTICE '  ok - reativar um professor desativado tambem respeita o limite';
 END $$;
+
+-- Dez clientes com atendimento marcado: todos entram.
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+SELECT n, g, 'unico', now() + make_interval(days => 3, hours => i), 60
+  FROM (VALUES (1,'A1','R1'),(2,'A2','R2'),(3,'A3','R3'),(4,'A4','R4'),(5,'A5','R5'),
+               (6,'B6',NULL),(7,'B7',NULL),(8,'B8',NULL),(9,'B9',NULL),(10,'B10',NULL)) v(i, n, g);
+SELECT public.assert(public.active_client_count() = 10, '10 clientes ativos');
+-- O decimo primeiro nao.
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes)
+  VALUES ('B11', 'unico', now() + interval '5 days', 60);
+  RAISE EXCEPTION 'FALHOU: marcou para o 11o cliente ativo';
+EXCEPTION WHEN check_violation THEN
+  IF sqlerrm NOT LIKE '%clientes novos%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o 11o cliente ativo e recusado pelo BANCO';
+END $$;
+-- Quem ja e ativo continua marcando.
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
+VALUES ('A1', 'R1', 'unico', now() + interval '10 days', 60);
+SELECT public.assert(public.active_client_count() = 10, 'segundo atendimento do mesmo cliente nao conta de novo');
+-- Atendimento antigo (fora dos 60 dias) nao torna ninguem ativo.
+INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes, status)
+VALUES ('B12', 'unico', now() - interval '90 days', 60, 'realizada');
+SELECT public.assert(public.active_client_count() = 10, 'atendimento de 90 dias atras nao conta');
+-- Desmarcar libera vaga, e o inativo pode voltar.
+UPDATE public.lessons SET status = 'cancelada' WHERE student_name = 'B10';
+SELECT public.assert(public.active_client_count() = 9, 'desmarcado nao conta');
+INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes)
+VALUES ('B12', 'unico', now() + interval '6 days', 60);
+SELECT public.assert(public.active_client_count() = 10, 'o cliente inativo volta quando ha vaga');
+-- Marcar como feito nao e "cliente novo".
+UPDATE public.lessons SET status = 'realizada' WHERE student_name = 'B9';
+SELECT public.assert((SELECT status FROM public.lessons WHERE student_name = 'B9') = 'realizada',
+  'marcar como feito no limite continua livre');
 
 -- Bloqueio pontual sim, recorrente nao.
 INSERT INTO public.blocks (title, teacher, block_type, start_at, end_at)
@@ -665,109 +697,91 @@ EXCEPTION WHEN check_violation THEN
 END $$;
 COMMIT;
 
+-- Outra empresa nao ve a contagem desta.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
+DO $$
+BEGIN
+  PERFORM public.active_client_count_for(current_setting('teste.a')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin contou clientes de outra empresa';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - a contagem por empresa nao e publica';
+END $$;
+ROLLBACK;
+
 \echo ''
-\echo '--- 18. Virar Pro solta tudo; rebaixar trava tudo e o professor escolhe o que liberar ---'
+\echo '--- 18. Subir e rebaixar: nada se apaga, cliente nao trava, profissional o admin escolhe ---'
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.e')::uuid, 'pro') ->> 'plan') = 'pro',
-  'o gestor muda a empresa para Pro');
+  'o gestor muda a empresa para Max');
 COMMIT;
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
-SELECT public.assert(public.account_limit('students') IS NULL, 'no Pro o limite de alunos some');
--- Desde 20260924070000 o Pro nao traz o assistente: so a liberacao do gestor.
-SELECT public.assert(public.account_can('assistant') = false, 'mas o assistente continua bloqueado ate o gestor liberar');
+SELECT public.assert((public.my_plan() ->> 'max_active_clients') IS NULL, 'no Max nao ha limite de clientes');
+SELECT public.assert(public.account_can('assistant') = false, 'Max sem assinatura paga nao traz o assistente');
 INSERT INTO public.students (student_name) VALUES ('A6');
-SELECT public.assert((SELECT count(*) FROM public.students) = 6, 'o sexto aluno agora entra');
 INSERT INTO public.teachers (name, active) VALUES ('Segundo', true);
 INSERT INTO public.blocks (title, teacher, block_type, weekday, start_time, end_time)
 VALUES ('Toda terca', 'unico', 'recurring', 2, '14:00', '16:00');
 SELECT public.assert((public.set_account_discount('A1','R1','percent',10) ->> 'removed') = 'false',
   'e o desconto por familia passa a ser aceito');
--- Uma aula ja marcada para o A6, para ver o que acontece com ela ao rebaixar.
 INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
-VALUES ('A6', NULL, 'segundo', '2027-01-04 10:00-03', 60);
+VALUES ('A6', NULL, 'segundo', now() + interval '20 days', 60);
+SELECT public.assert(public.active_client_count() = 11, '11 clientes ativos no Max');
 COMMIT;
 
--- Rebaixar: 6 alunos com limite 5 e 2 professores ativos com limite 1 -
--- trava TODOS dos dois tipos. Ninguem e escolhido automaticamente.
+-- Rebaixar: cliente NENHUM trava; os 2 professores ativos (limite 1) ficam pausados.
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert(
-  (SELECT r ->> 'alunos_travados' = '6' AND r ->> 'professores_travados' = '2'
+  (SELECT coalesce(r ->> 'alunos_travados', '0') = '0' AND r ->> 'professores_travados' = '2'
      FROM (SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'essencial') AS r) x),
-  'rebaixar trava os 6 alunos e os 2 professores ativos');
+  'rebaixar nao trava cliente; pausa os 2 profissionais ativos');
 SELECT public.assert(
-  (SELECT alunos_travados = 6 AND professores_travados = 2
+  (SELECT alunos_travados = 0 AND professores_travados = 2
      FROM public.platform_accounts_overview() WHERE id = current_setting('teste.e')::uuid),
-  'e o painel do gestor mostra quantos estao travados');
+  'e o painel do gestor mostra isso');
 COMMIT;
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
-SELECT public.assert((SELECT count(*) FROM public.students) = 6,
-  'travar nao apaga: a empresa CONTINUA com os 6 alunos');
-SELECT public.assert((SELECT count(*) FROM public.students WHERE plan_locked) = 6, 'todos travados');
-SELECT public.assert((SELECT count(*) FROM public.teachers WHERE active) = 0, 'nenhum professor ativo');
+SELECT public.assert((SELECT count(*) FROM public.students) = 13, 'nada e apagado: os 13 clientes continuam');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE plan_locked) = 0, 'nenhum cliente travado');
+SELECT public.assert((SELECT count(*) FROM public.lessons) = 14, 'nenhum atendimento apagado');
+SELECT public.assert((SELECT count(*) FROM public.teachers WHERE active) = 0, 'nenhum profissional ativo ate o admin escolher');
 SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Reserva') = false
                      AND (SELECT plan_locked FROM public.teachers WHERE name = 'Reserva') = false,
   'o professor que o dono ja tinha desligado NAO vira travado-pelo-plano');
 SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'A6' AND status = 'agendada') = 1,
-  'a aula ja marcada do aluno travado continua marcada');
--- Pro-only que ja existia fica, de proposito (ver migration 20260923020000).
+  'o atendimento ja marcado continua marcado');
 SELECT public.assert((SELECT count(*) FROM public.blocks WHERE block_type='recurring') = 1,
   'o bloqueio recorrente que ja existia continua');
 SELECT public.assert((SELECT count(*) FROM public.account_discounts) = 1,
   'e o desconto que ja existia tambem');
 UPDATE public.students SET guardian_name = 'R1 editado' WHERE student_name = 'A1';
 SELECT public.assert((SELECT count(*) FROM public.students WHERE guardian_name='R1 editado') = 1,
-  'editar aluno travado continua funcionando');
+  'editar cliente continua funcionando');
 SELECT public.assert((public.set_account_discount('A1','R1 editado', NULL, NULL) ->> 'removed') = 'true',
   'e tirar um desconto continua livre, para ela poder desfazer');
-DO $$
-BEGIN
-  INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
-  VALUES ('A1', 'R1 editado', 'unico', '2027-01-05 10:00-03', 60);
-  RAISE EXCEPTION 'FALHOU: marcou aula para aluno travado';
-EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - aluno travado nao recebe aula nova';
-END $$;
-COMMIT;
 
--- O professor escolhe: libera 5 alunos e 1 professor. O sexto nao passa.
-BEGIN;
-SET LOCAL SESSION AUTHORIZATION authenticator;
-SET LOCAL ROLE authenticated;
-SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
-UPDATE public.students SET plan_locked = false WHERE student_name IN ('A1','A2','A3','A4','A5');
-SELECT public.assert((SELECT count(*) FROM public.students WHERE NOT plan_locked) = 5, 'libera 5 alunos');
-DO $$
-BEGIN
-  UPDATE public.students SET plan_locked = false WHERE student_name = 'A6';
-  RAISE EXCEPTION 'FALHOU: liberou o sexto aluno no Essencial';
-EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - o sexto nao e liberado, nem por UPDATE direto na API';
-END $$;
-DO $$
-BEGIN
-  INSERT INTO public.students (student_name) VALUES ('A7');
-  RAISE EXCEPTION 'FALHOU: criou aluno novo com 5 liberados';
-EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - e criar um novo tambem trava';
-END $$;
+-- O admin escolhe o profissional que fica.
 UPDATE public.teachers SET active = true WHERE name = 'Unico';
 SELECT public.assert((SELECT plan_locked FROM public.teachers WHERE name = 'Unico') = false,
   'reativar o professor limpa a marca de travado');
+UPDATE public.lessons SET guardian_name = 'R1 editado' WHERE student_name = 'A1';
 DO $$
 BEGIN
   UPDATE public.teachers SET active = true WHERE name = 'Segundo';
@@ -775,30 +789,32 @@ BEGIN
 EXCEPTION WHEN check_violation THEN
   RAISE NOTICE '  ok - o segundo professor nao volta';
 END $$;
+
+-- 11 ativos com limite 10: os que ja sao ativos seguem; cliente novo nao entra.
 INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
-VALUES ('A1', 'R1 editado', 'unico', '2027-01-05 10:00-03', 60);
-SELECT public.assert(true, 'aluno liberado com professor liberado recebe aula');
+VALUES ('A1', 'R1 editado', 'unico', now() + interval '12 days', 60);
+SELECT public.assert(true, 'cliente ja ativo continua recebendo atendimento acima do limite');
+DO $$
+BEGIN
+  INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes)
+  VALUES ('B11', 'unico', now() + interval '13 days', 60);
+  RAISE EXCEPTION 'FALHOU: entrou cliente novo acima do limite';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - cliente novo nao entra ate ficar abaixo do limite';
+END $$;
 DO $$
 BEGIN
   INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes)
-  VALUES ('A1', 'R1 editado', 'segundo', '2027-01-06 10:00-03', 60);
-  RAISE EXCEPTION 'FALHOU: marcou aula com professor travado';
+  VALUES ('A1', 'R1 editado', 'segundo', now() + interval '14 days', 60);
+  RAISE EXCEPTION 'FALHOU: marcou com professor pausado';
 EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - professor travado nao recebe aula nova';
+  RAISE NOTICE '  ok - professor pausado nao recebe atendimento novo';
 END $$;
-DO $$
-BEGIN
-  UPDATE public.lessons SET student_name = 'A6', guardian_name = NULL
-   WHERE student_name = 'A1' AND start_at = '2027-01-05 10:00-03';
-  RAISE EXCEPTION 'FALHOU: passou uma aula para o aluno travado';
-EXCEPTION WHEN check_violation THEN
-  RAISE NOTICE '  ok - nem trocando o aluno de uma aula existente';
-END $$;
--- Mas desmarcar ou mudar o horario da aula do travado continua livre.
-UPDATE public.lessons SET start_at = '2027-01-04 11:00-03' WHERE student_name = 'A6';
+-- Mudar horario e desmarcar continuam livres.
+UPDATE public.lessons SET start_at = start_at + interval '1 hour' WHERE student_name = 'A6';
 UPDATE public.lessons SET status = 'cancelada' WHERE student_name = 'A6';
 SELECT public.assert((SELECT status FROM public.lessons WHERE student_name = 'A6') = 'cancelada',
-  'mudar horario e desmarcar a aula do travado continua livre');
+  'mudar horario e desmarcar continuam livres');
 COMMIT;
 
 -- O admin NAO chama a trava diretamente (ela recebe a empresa por parametro).
@@ -811,7 +827,7 @@ BEGIN
   PERFORM public.lock_over_plan_limits(current_setting('teste.a')::uuid);
   RAISE EXCEPTION 'FALHOU: admin chamou lock_over_plan_limits';
 EXCEPTION WHEN insufficient_privilege THEN
-  RAISE NOTICE '  ok - admin nao trava alunos de outra empresa';
+  RAISE NOTICE '  ok - admin nao trava nada de outra empresa';
 END $$;
 DO $$
 BEGIN
@@ -822,22 +838,21 @@ EXCEPTION WHEN insufficient_privilege THEN
 END $$;
 ROLLBACK;
 
--- Voltar ao Pro destrava so o que o plano travou.
+-- Voltar ao Max solta o profissional que o plano pausou.
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert(
-  (SELECT r ->> 'alunos_liberados' = '1' AND r ->> 'professores_liberados' = '1'
+  (SELECT r ->> 'professores_liberados' = '1'
      FROM (SELECT public.platform_set_account_plan(current_setting('teste.e')::uuid, 'pro') AS r) x),
-  'voltar ao Pro libera o aluno e o professor que ficaram travados');
+  'voltar ao Max libera o professor que ficou pausado');
 COMMIT;
 
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uae'), true);
-SELECT public.assert((SELECT count(*) FROM public.students WHERE plan_locked) = 0, 'nenhum aluno travado no Pro');
 SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Segundo'), 'o Segundo volta ativo');
 SELECT public.assert((SELECT active FROM public.teachers WHERE name = 'Reserva') = false,
   'e o Reserva, que o dono tinha desligado, continua desligado');
@@ -1159,13 +1174,14 @@ END $$;
 INSERT INTO public.students (student_name) SELECT 'Aluno ' || g FROM generate_series(1, 6) g;
 COMMIT;
 
--- Fim do teste: vira Essencial de verdade e trava o que passa do limite.
+-- Fim do teste: vira Essencial de verdade; nada e apagado nem travado (o limite e de clientes ATIVOS).
 UPDATE public.accounts SET trial_ends_at = now() - interval '1 minute' WHERE id = current_setting('teste.a24')::uuid;
 SELECT public.assert(public.expire_trials() >= 1, 'o teste vencido e encerrado pela rotina diaria');
 SELECT public.assert((SELECT plan = 'essencial' AND trial_ends_at IS NULL FROM public.accounts WHERE id = current_setting('teste.a24')::uuid),
   'a escola passa para o Essencial');
-SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a24')::uuid AND plan_locked) = 6,
-  'e os 6 alunos ficam pausados para ela escolher quais liberar');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a24')::uuid) = 6
+                     AND (SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a24')::uuid AND plan_locked) = 0,
+  'e os 6 alunos continuam la, sem trava');
 
 -- O gestor definir o plano encerra o teste.
 UPDATE public.accounts SET plan = 'pro', trial_ends_at = now() + interval '5 days' WHERE id = current_setting('teste.a24')::uuid;
@@ -1402,24 +1418,17 @@ EXCEPTION WHEN raise_exception THEN
 END $$;
 COMMIT;
 
--- Saindo do Pro: o app volta ao generico; o tipo e as palavras editadas ficam
--- guardados, sem valer.
+-- Desde 26/09 as palavras do ramo valem tambem no Essencial.
 UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.a24')::uuid;
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.u24'), true);
-SELECT public.assert(NOT (public.my_vocabulary() ->> 'active')::boolean
-                     AND (public.my_vocabulary() -> 'custom') = 'null'::jsonb
-                     AND (public.my_vocabulary() ->> 'custom_saved')::boolean
+SELECT public.assert((public.my_vocabulary() ->> 'active')::boolean
                      AND (public.my_vocabulary() ->> 'business_model') = 'saude',
-  'no Essencial fica generico, com o tipo e as palavras editadas guardados');
-DO $$
-BEGIN
-  PERFORM public.set_custom_vocabulary('{"staff":{"s":"X","p":"Xs","g":"m"}}');
-  RAISE EXCEPTION 'FALHOU: Essencial editou as palavras';
-EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - Essencial nao edita as palavras';
-END $$;
+  'no Essencial as palavras do ramo continuam valendo');
+SELECT public.assert((public.set_custom_vocabulary('{"staff":{"s":"X","p":"Xs","g":"m"}}') ->> 'custom_saved')::boolean,
+  'e o Essencial edita as palavras');
 
 -- Mensagem neutra, com a chave que a tela traduz.
 DO $$
@@ -1450,10 +1459,11 @@ BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '27000000-0000-0000-0000-000000000001', true);
-SELECT public.assert(public.account_plan() IN ('pro', 'pro_solo') AND public.account_can('assistant') = false,
-  'empresa nova, no teste do Pro, nasce sem assistente');
-SELECT public.assert((public.my_plan() ->> 'assistant') = 'false' AND (public.my_plan() ->> 'assistant_override') = 'false',
-  'e a tela recebe "nao liberado" (e nao a venda do Pro)');
+-- Desde 26/09 o Pro traz uma amostra de IA (20 mensagens), que vale no teste.
+SELECT public.assert(public.account_plan() = 'pro_solo' AND public.account_can('assistant') = true,
+  'empresa nova, no teste do Pro, ja tem a amostra de IA');
+SELECT public.assert((public.my_plan() -> 'assistant_usage' ->> 'limit')::int = 20,
+  'com 20 mensagens por mes');
 COMMIT;
 
 BEGIN;
@@ -1462,8 +1472,8 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, true) ->> 'assistant') = 'true',
   'o gestor libera');
-SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, false) ->> 'assistant') = 'false',
-  'e bloqueia de novo');
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, false) ->> 'assistant') = 'true',
+  'tirar a liberacao manual nao tira a amostra que o plano traz');
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
   'o painel antigo (que manda "limpar" para ligar no Pro) continua ligando');
 COMMIT;
@@ -1653,12 +1663,16 @@ BEGIN
   RAISE EXCEPTION 'FALHOU: viu o uso do assistente de outra empresa';
 EXCEPTION WHEN insufficient_privilege THEN NULL;
 END $$;
+-- Desde 26/09 o Pro aceita ate 3 profissionais (1 incluido + 2 extras).
+UPDATE public.teachers SET active = true WHERE name IN ('p2', 'p3');
+SELECT public.assert((public.my_plan() ->> 'extra_teachers')::int = 2, 'no Pro, 3 profissionais = 2 extras');
 DO $$
 BEGIN
-  UPDATE public.teachers SET active = true WHERE name = 'p2';
-  RAISE EXCEPTION 'FALHOU: Solo reativou um segundo profissional';
-EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - no Solo, so 1 profissional ativo';
+  UPDATE public.teachers SET active = true WHERE name = 'p4';
+  RAISE EXCEPTION 'FALHOU: Pro reativou um quarto profissional';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - no Pro, no maximo 3 profissionais (o 4o e o Max)';
 END $$;
+UPDATE public.teachers SET active = false WHERE name IN ('p2', 'p3');
 DO $$
 BEGIN
   PERFORM public.billing_apply_subscription(current_setting('teste.a29')::uuid, 'cus_x', 'sub_x', 'active', 'pro', 'month', now() + interval '1 month');
@@ -1689,8 +1703,9 @@ UPDATE public.accounts SET past_due_since = now() - make_interval(days => public
 SELECT public.assert(public.expire_unpaid_subscriptions() = 1, 'a rotina diaria rebaixa quem passou da tolerancia');
 SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a29')::uuid) = 'essencial',
   'passou da tolerancia: cai para o Essencial');
-SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 8,
-  'com a trava de rebaixamento (nada apagado, clientes pausados)');
+SELECT public.assert((SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid) = 8
+                     AND (SELECT count(*) FROM public.students WHERE account_id = current_setting('teste.a29')::uuid AND plan_locked) = 0,
+  'rebaixado: nada apagado, nenhum cliente pausado');
 SELECT public.assert((SELECT count(*) FROM public.accounts WHERE billing_status = 'none' AND plan <> 'essencial') > 0
                      AND (SELECT plan FROM public.accounts WHERE slug = 'portaldeaulas') = 'pro',
   'empresa sem assinatura no Stripe nao e tocada pela rotina');
@@ -1931,8 +1946,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('33000000-0000-0000-0000-000000000001', 'max@x', '{"signup_kind":"school","school_name":"Escola Max","teacher_name":"Lia"}');
 SELECT set_config('teste.a33', (SELECT account_id::text FROM public.user_roles WHERE user_id = '33000000-0000-0000-0000-000000000001'), false);
 
-SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
-  'no teste gratis (Pro) nao tem assistente');
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'no teste gratis (Pro) ja tem a amostra de IA');
 SELECT public.assert(NOT public.account_can('arrival_location', current_setting('teste.a33')::uuid)
                      AND public.account_can('whatsapp_link', current_setting('teste.a33')::uuid),
   'Pro: WhatsApp de um toque sim, localizacao nao');
@@ -1967,12 +1982,14 @@ COMMIT;
 
 -- Voltou para o Pro pelo portal: o assistente incluso vai embora.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month');
-SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
-  'no Pro sem o adicional, sem assistente');
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid)
+                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 20,
+  'no Pro sem o adicional: so a amostra, 20 mensagens');
 -- Pro com o adicional comprado: tem.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month', true);
-SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid),
-  'Pro com o adicional: tem assistente');
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid)
+                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 120,
+  'Pro com o adicional: a amostra (20) soma com o adicional (100) = 120');
 -- Cancelou: nada.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'canceled', NULL, NULL, NULL, false);
 SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
@@ -1984,7 +2001,13 @@ SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.
 
 SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 100
                      AND (SELECT cost_usd FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 3,
-  'Pro (ou sem plano pago): 100 mensagens, teto US$ 3');
+  'liberacao manual sem plano que traga IA: a franquia do adicional, 100 mensagens, teto US$ 3');
+UPDATE public.accounts SET plan = 'start', assistant_billed = true WHERE id = current_setting('teste.a33')::uuid;
+SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 100,
+  'Start com o adicional: 100 mensagens');
+UPDATE public.accounts SET plan = 'start', assistant_billed = false, assistant_override = NULL WHERE id = current_setting('teste.a33')::uuid;
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'Start sem o adicional: sem IA');
 UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.a33')::uuid;
 SELECT public.assert((SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 200
                      AND (SELECT cost_usd FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 5,
@@ -2367,6 +2390,81 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.adm_s'), true);
 SELECT public.assert((public.set_account_locale(NULL, 'GBP') ->> 'currency') = 'GBP', 'sem assinatura a moeda muda');
+COMMIT;
+
+\echo ''
+\echo '--- 44. Start: 25 clientes ativos; pedido da familia no limite ---'
+
+DO $$
+DECLARE _s uuid; _ua uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Start Ltda', 'start-ltda', 'start') RETURNING id INTO _s;
+  INSERT INTO public.settings (account_id, allow_student_booking, min_request_notice_hours) VALUES (_s, true, 0);
+  INSERT INTO auth.users (id, email) VALUES (_ua, 'admin-start@x');
+  DELETE FROM public.user_roles WHERE user_id = _ua;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_ua, 'admin', _s);
+  PERFORM set_config('teste.st', _s::text, false);
+  PERFORM set_config('teste.ust', _ua::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ust'), true);
+SELECT public.assert((public.my_plan() ->> 'max_active_clients')::int = 25 AND public.account_can('packages')
+                     AND public.account_limit('teachers') = 1 AND NOT public.account_can('assistant'),
+  'Start: 25 ativos, recursos pagos, 1 profissional, IA so com o adicional');
+INSERT INTO public.teachers (name, active) VALUES ('Tina', true);
+INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes)
+SELECT 'S' || g, 'tina', now() + make_interval(days => 2, hours => g), 60 FROM generate_series(1, 25) g;
+SELECT public.assert((public.my_plan() ->> 'active_clients')::int = 25, 'my_plan mostra 25 de 25 ativos');
+DO $$
+DECLARE _h text;
+BEGIN
+  INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes)
+  VALUES ('S26', 'tina', now() + interval '9 days', 60);
+  RAISE EXCEPTION 'FALHOU: 26o cliente ativo no Start';
+EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
+  PERFORM public.assert(_h = 'limite_clientes_ativos:25', 'o limite vem com a chave para a tela (' || _h || ')');
+END $$;
+COMMIT;
+
+-- A familia de um cliente novo pede horario com a agenda no limite: recusa neutra.
+DO $$
+DECLARE _f uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_f, 'familia-start@x');
+  DELETE FROM public.user_roles WHERE user_id = _f;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_f, 'student', current_setting('teste.st')::uuid);
+  INSERT INTO public.students (account_id, student_name, guardian_name, user_id)
+  VALUES (current_setting('teste.st')::uuid, 'Novo', 'Mae', _f);
+  PERFORM set_config('teste.fst', _f::text, false);
+END $$;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.fst'), true);
+DO $$
+BEGIN
+  INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, package_type, payment_status)
+  VALUES (current_setting('teste.st')::uuid, 'Novo', 'Mae', 'tina', now() + interval '8 days', 60, 'solicitada', 'single', 'pendente');
+  RAISE EXCEPTION 'FALHOU: pedido de cliente novo passou do limite';
+EXCEPTION WHEN check_violation THEN
+  IF sqlerrm ILIKE '%plano%' THEN RAISE EXCEPTION 'FALHOU: a familia viu falar de plano'; END IF;
+  RAISE NOTICE '  ok - a familia recebe recusa neutra, sem falar de plano';
+END $$;
+COMMIT;
+
+-- Sobe para o Pro: sem limite, o pedido passa.
+UPDATE public.accounts SET plan = 'pro_solo' WHERE id = current_setting('teste.st')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.fst'), true);
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, package_type, payment_status)
+VALUES (current_setting('teste.st')::uuid, 'Novo', 'Mae', 'tina', now() + interval '8 days', 60, 'solicitada', 'single', 'pendente');
+SELECT public.assert(true, 'no Pro o pedido do cliente novo entra');
 COMMIT;
 
 \echo '=== FIM ==='

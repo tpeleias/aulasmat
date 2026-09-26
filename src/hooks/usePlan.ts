@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 import { L } from "@/lib/i18n";
+import { PLANS as PLAN_CFG, planFeaturesJson, type PlanId } from "@shared/plans";
 export type PlanSlug = "essencial" | "pro";
 
 export type Plan = {
@@ -30,7 +31,17 @@ export type Plan = {
    * A faixa exata (migration 20260925010000). `plano` continua "pro" nas duas
    * faixas pagas, que é o que o app antigo entende; aqui se separa Pro (pro_solo) de Max (pro).
    */
-  tier?: "essencial" | "pro_solo" | "pro";
+  tier?: PlanId;
+  /** Clientes ativos no máximo (nulo = ilimitado) e quantos há agora (migration 20260926100000). */
+  max_active_clients?: number | null;
+  active_client_days?: number;
+  active_clients?: number;
+  /** Mensagens de IA que o plano traz (amostra no Pro, inclusas no Max). */
+  assistant_messages?: number;
+  /** O plano aceita o adicional de IA (Start e Pro). */
+  assistant_addon?: boolean;
+  /** O plano aceita profissional extra (Pro e Max). */
+  extra_teachers_allowed?: boolean;
   included_teachers?: number;
   /** none | active | past_due | canceled - a assinatura no Stripe. */
   billing_status?: string;
@@ -64,16 +75,17 @@ export type Plan = {
 // tela de venda para quem tem Pro é um aborrecimento; liberar o que é pago
 // para quem não tem é um furo.
 export const PLANO_DESCONHECIDO: Plan = {
+  ...(planFeaturesJson("essencial") as Partial<Plan>),
   plano: "essencial",
+  tier: "essencial",
   nome: "Cronys Essencial",
   max_teachers: 1,
-  max_students: 5,
+  max_students: null,
   assistant: false,
   assistant_override: null,
   packages: false,
   recurring_blocks: false,
-  vocabulary: false,
-};
+} as Plan;
 
 let cached: Plan | null = null;
 
@@ -81,7 +93,8 @@ export function primePlan(p: Plan) { cached = p; }
 
 /** O nome do plano na língua da empresa. */
 export function planName(tier: string): string {
-  return tier === "pro" ? "Cronys Max" : tier === "pro_solo" ? "Cronys Pro" : L("Cronys Essencial", "Cronys Essential");
+  const p = PLAN_CFG[(tier in PLAN_CFG ? tier : "essencial") as PlanId];
+  return `Cronys ${L(p.name.pt, p.name.en)}`;
 }
 
 /** Esquece o plano guardado (depois de assinar, por exemplo) - a próxima tela relê. */

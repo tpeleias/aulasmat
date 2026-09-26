@@ -156,8 +156,9 @@ export default function AssistantPage() {
             {L(`Marcar ${w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.`, `Book, reschedule, record payments and check billing — just by chatting.`)}
           </p>
         </div>
-        {/* Cada conversa custa dinheiro: o assistente vem no Max pago, é
-            adicional no Pro, ou liberado pela Cronys (migration 20260925070000).
+        {/* Cada conversa custa dinheiro: a IA vem no Max pago, tem amostra no
+            Pro, é adicional no Start e no Pro, ou liberada pela Cronys
+            (plans.ts e migration 20260926100000).
             No app Android, só informa - sem preço nem link de compra. */}
         <Card className="mx-auto max-w-md rounded-2xl border-dashed p-6 text-center">
           <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10">
@@ -171,9 +172,9 @@ export default function AssistantPage() {
           <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
             {plan.tier === "pro"
               ? L("Ele vem incluso no Max com a assinatura ativa.", "It's included in Max with an active subscription.")
-              : plan.tier === "pro_solo"
-                ? L("Ele vem incluso no Cronys Max. No Pro, dá para adicionar à assinatura.", "It's included in Cronys Max. On Pro, you can add it to your subscription.")
-                : L("Ele vem incluso no Cronys Max, e no Pro pode ser adicionado.", "It's included in Cronys Max, and can be added on Pro.")}
+              : plan.tier === "pro_solo" || plan.tier === "start"
+                ? L("Ele vem incluso no Cronys Max. No seu plano, dá para adicionar à assinatura.", "It's included in Cronys Max. On your plan, you can add it to your subscription.")
+                : L("Ele vem incluso no Cronys Max, tem uma amostra no Pro e pode ser adicionado no Start e no Pro.", "It's included in Cronys Max, has a sample on Pro, and can be added on Start and Pro.")}
           </p>
           {canSellHere() && isAdmin && (
             <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">{L("Ver planos", "See plans")}</Link></Button>

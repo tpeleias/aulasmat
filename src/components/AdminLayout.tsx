@@ -80,9 +80,9 @@ export default function AdminLayout() {
       <Badge
         variant={plan.plano === "pro" ? "default" : "outline"}
         className={`h-5 px-1.5 text-[10px] font-medium ${className}`}
-        title={plan.plano === "pro" ? plan.nome : L(`Cronys Essencial: 1 ${v.staff.l} e 5 ${v.client.lp}`, `Cronys Essential: 1 ${v.staff.l} and 5 ${v.client.lp}`)}
+        title={plan.max_active_clients != null ? L(`${plan.nome}: até ${plan.max_active_clients} ${v.client.lp} ativos`, `${plan.nome}: up to ${plan.max_active_clients} active ${v.client.lp}`) : plan.nome}
       >
-        {plan.plano !== "pro" ? L("ESSENCIAL", "ESSENTIAL") : plan.tier === "pro_solo" ? "PRO" : "MAX"}
+        {plan.nome.replace(/^Cronys /, "").toUpperCase()}
       </Badge>
     );
 

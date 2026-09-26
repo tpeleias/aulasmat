@@ -23,8 +23,11 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    - Depoimentos na página inicial (dos primeiros testadores).
    - Parcerias com associações e cursos de formação, com cupom.
    - Lembrete automático por WhatsApp (é o item 2).
-5. **Vender lá fora - o que falta**: ficha da loja Play em inglês (en-US) e
-   e-mails de login (Supabase Auth) em inglês.
+5. **Vender lá fora - o que falta**: ficha da loja Play em inglês (en-US),
+   e-mails de login (Supabase Auth) em inglês, IVA/VAT (UE e Reino Unido) e
+   cupons em moeda estrangeira.
+6. **Stripe no modo real** - ver "Planos novos" (sync_prices, portal, cupom).
+7. **Google Agenda** - sincronização, combinado para o fim da semana.
 
 ### Indicação - GUARDADO, pensar depois (25/09)
 
@@ -35,15 +38,72 @@ quanto, por quanto tempo, se acumula com várias indicações, e como gerenciar
 (cupom no Stripe por empresa + contagem de indicados ativos pelo webhook).
 Não começar sem ele decidir.
 
-### Preço fora do Brasil - FEITO em 25/09
+### Preço fora do Brasil - SUBSTITUÍDO em 26/09 (ver "Planos novos" abaixo)
 
-Mensal e anual (10% off, arredondado) em USD/EUR/GBP, **sem cupom** fora do
-real. Valores em `supabase/functions/_shared/stripe.ts` (FOREIGN_PRICES) e
-`src/lib/subscription.ts` - têm de bater. Pro $15/$162, Max $39/$421, extra
-$7/$76, assistente $9/$97; euro igual ao dólar; libra £13/£140, £33/£356,
-£6/£65, £8/£86. No Stripe real, os preços em moeda estrangeira se criam
-sozinhos na primeira venda (ensureCurrency). Moeda travada com assinatura
-ativa (migration 20260925190000).
+Os valores de 25/09 (FOREIGN_PRICES, anual com 10% off) saíram. Agora tudo
+mora em `supabase/functions/_shared/plans.ts`, anual = 10 mensalidades.
+
+## Planos novos: Essencial, Start, Pro e Max (26/09) - FEITO
+
+**Um lugar só para plano e preço: `supabase/functions/_shared/plans.ts`.**
+A tela lê por `@shared/plans`, as funções por `../_shared/plans.ts`, e o
+`plan_features()` do banco é gerado por `npm run gen:plans` (cola o SQL numa
+migration nova; `src/test/plans.test.ts` falha se o banco divergir).
+
+| Plano (id) | Mensal BRL | USD/EUR | GBP | Profissionais | Clientes ativos | IA |
+|---|---|---|---|---|---|---|
+| Essencial (essencial) | grátis | - | - | 1 | 10 | não |
+| Start (start) | R$ 29,90 | 8 | 7 | 1 | 25 | adicional |
+| Pro (pro_solo) | R$ 49,90 | 15 | 12 | até 3 (1 incluso) | ilimitados | 20 msgs + adicional |
+| Max (pro) | R$ 129,90 | 39 | 32 | 5 inclusos + extras | ilimitados | 200 msgs |
+| Profissional extra | R$ 19,90 | 7 | 6 | | | |
+| IA adicional (100 msgs) | R$ 24,90 | 9 | 8 | | | |
+
+- Anual = 10× o mensal ("2 meses grátis"), à vista (Stripe não parcela
+  assinatura no Brasil). Na tela: "à vista · equivale a X/mês".
+- **Cliente ativo** = tem atendimento nos últimos 60 dias ou marcado
+  (ACTIVE_CLIENT_DAYS). No limite, o banco recusa só a aula que ativaria um
+  cliente novo (HINT `limite_clientes_ativos:N`); a família vê uma mensagem
+  neutra, o admin vê o convite para o próximo plano.
+- Pro: no 4º profissional a tela sugere o Max. Max: extras do 6º em diante.
+- Downgrade não apaga nada nem trava cliente; o admin escolhe quais
+  profissionais continuam ativos.
+- Cupom de lançamento (15% para sempre, só mensal, 20 usos, Start/Pro/Max):
+  só em BRL por enquanto (COUPON_CURRENCIES). Cupom `lancamento-v2`, códigos
+  LANCAMENTO e FUNDADOR (teste).
+- `autoMessagesQuota` (WhatsApp automático) existe e está nulo em todos.
+- Migration `20260926100000_plans_start_active_clients.sql` (aplicada).
+  Funções: billing v8, stripe-webhook v7, assistant-chat v18.
+
+### Stripe - modo teste PRONTO; modo real FALTA (é o Thiago quem libera)
+
+Com chave de teste os preços se criam/atualizam sozinhos (ensurePrices). Com
+chave real, **nunca sozinhos**: depois de trocar a chave, um admin da
+plataforma chama a ação `sync_prices` da função billing, que cria os 10
+preços (5 itens × mensal/anual, BRL com USD/EUR/GBP como currency_options) e
+desativa os velhos (quem já assina fica no preço antigo). Faltará ainda, no
+real: produto Start aparecer no portal de cliente (configuração do portal) e
+o cupom de lançamento com os códigos.
+
+Preços de teste hoje (lookup_key → id):
+cronys_start_mensal price_1UJlsoRpMYyvxMbbx7mIiEFP ·
+cronys_start_anual price_1UJlt0RpMYyvxMbbL7Ltg0kS ·
+cronys_pro_solo_mensal price_1UJltDRpMYyvxMbb52E0w6VN ·
+cronys_pro_solo_anual price_1UJltHRpMYyvxMbbU86K1OPd ·
+cronys_pro_equipe_mensal price_1UJltKRpMYyvxMbbNVIkhaHa ·
+cronys_pro_equipe_anual price_1UJltMRpMYyvxMbbjSVr5BhG ·
+cronys_extra_mensal price_1UJltPRpMYyvxMbbdE4X60cQ ·
+cronys_extra_anual price_1UJltRRpMYyvxMbbT6r87FoX ·
+cronys_assistente_mensal price_1UJltURpMYyvxMbbEqnhVeRW ·
+cronys_assistente_anual price_1UJltWRpMYyvxMbblUixjvQP
+
+### Decisões pendentes do Thiago (26/09)
+
+- Teste grátis: 14 dias (atual) ou 30?
+- Essencial com 10 clientes ativos (a proposta do outro chat dizia 5).
+- Anual à vista; parcelar em 12x exigiria outro gateway.
+- Cupons em moeda estrangeira: "terão", ainda não criados.
+- IVA/VAT para Europa e Reino Unido (Stripe Tax) antes de vender lá.
 
 ## Fila de itens pequenos (prontos para implementar)
 

@@ -22,6 +22,7 @@ import { haptics } from "@/lib/haptics";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/hooks/useAuth";
 import { ProUpsell } from "@/components/ProUpsell";
+import { nextPlanForClients, upgradeOffer } from "@/lib/subscription";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
@@ -169,23 +170,12 @@ export default function StudentsPage() {
     if (error) toast.error(error.message); else { haptics.success(); toast.success(L(`${c.s} ${c.pick("excluído", "excluída")}`, `${c.s} deleted`)); setSelected(null); load(); }
   };
 
-  const locked = useMemo(() => students.filter(s => s.plan_locked), [students]);
-  const unlockedCount = students.length - locked.length;
-  const atLimit = plan.max_students !== null && unlockedCount >= plan.max_students;
-
-  // O banco confere o limite (students_plan_unlock); aqui é só o pedido.
-  const unlock = async (st: Student) => {
-    const { error } = await supabase.from("students").update({ plan_locked: false } as never).eq("id", st.id);
-    if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
-    else { haptics.success(); toast.success(L(`${st.student_name} ${c.pick("liberado", "liberada")}`, `${st.student_name} released`)); load(); }
-  };
-
-  const pause = async (st: Student) => {
-    if (!confirm(L(`Pausar ${st.student_name}? Nada é apagado; só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")} até liberar de novo.`, `Pause ${st.student_name}? Nothing is deleted; you just can't book a new ${w.appointment.l} until you release them.`))) return;
-    const { error } = await supabase.from("students").update({ plan_locked: true } as never).eq("id", st.id);
-    if (error) { haptics.warning(); toast.error(error.message); }
-    else { haptics.success(); toast.success(L(`${st.student_name} ${c.pick("pausado", "pausada")}`, `${st.student_name} paused`)); setSelected(null); load(); }
-  };
+  // Limite do plano: clientes ATIVOS (atendimento nos últimos N dias ou
+  // marcado), contados pelo banco. Cadastrar é livre.
+  const activeLimit = plan.max_active_clients ?? null;
+  const activeNow = plan.active_clients ?? 0;
+  const atActiveLimit = activeLimit !== null && activeNow >= activeLimit;
+  const nextTier = activeLimit !== null ? nextPlanForClients(activeLimit) : null;
 
   const selectedStatement = selected ? statements.get(accountKey(selected)) : undefined;
   const selectedLessons = selected ? (lessonsByAccount.get(accountKey(selected)) ?? []) : [];
@@ -197,57 +187,34 @@ export default function StudentsPage() {
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2"><Users className="w-6 h-6" /> {c.p}</h1>
             <p className="text-sm text-muted-foreground">
-              {locked.length > 0
-                ? L(`${unlockedCount} liberado${unlockedCount === 1 ? "" : "s"} de ${plan.max_students ?? "∞"} · ${locked.length} pausado${locked.length === 1 ? "" : "s"}`, `${unlockedCount} active of ${plan.max_students ?? "∞"} · ${locked.length} paused`)
-                : <>{L(`${students.length} cadastrado${students.length === 1 ? "" : "s"}`, `${students.length} total`)}{plan.max_students !== null && L(` de ${plan.max_students}`, ` of ${plan.max_students}`)}</>}
+              {L(`${students.length} cadastrado${students.length === 1 ? "" : "s"}`, `${students.length} total`)}
+              {!isTeacher && activeLimit !== null && (
+                <span title={L(`Ativo: atendimento nos últimos ${plan.active_client_days ?? 60} dias ou marcado`, `Active: an appointment in the last ${plan.active_client_days ?? 60} days or booked`)}>
+                  {L(` · ${activeNow} de ${activeLimit} ${c.lp} ativos`, ` · ${activeNow} of ${activeLimit} active ${c.lp}`)}
+                </span>
+              )}
             </p>
           </div>
           <div className="flex shrink-0 gap-2">
             {!isTeacher && (
-              <Button variant="outline" className="rounded-xl gap-1.5" disabled={atLimit} title={L("Cadastrar vários de uma planilha", "Add many from a spreadsheet")}
+              <Button variant="outline" className="rounded-xl gap-1.5" title={L("Cadastrar vários de uma planilha", "Add many from a spreadsheet")}
                 onClick={() => { haptics.tap(); setImportOpen(true); }}>
                 <FileUp className="w-4 h-4" /> {L("Importar", "Import")}
               </Button>
             )}
             {!isTeacher && <Button
               className="rounded-xl gap-1.5"
-              disabled={atLimit}
               onClick={() => { haptics.tap(); setEditing({ student_name: "", guardian_name: "", address: "" }); }}>
               <Plus className="w-4 h-4" /> {L("Novo", "New")}
             </Button>}
           </div>
         </div>
 
-        {!isTeacher && locked.length > 0 && (
-          <div className="rounded-2xl border border-warning/40 bg-warning/10 p-4 space-y-3">
-            <div>
-              <div className="font-semibold text-sm">
-                {L(`${locked.length} ${locked.length === 1 ? c.l : c.lp} ${c.pick("pausado", "pausada")}${locked.length === 1 ? "" : "s"} pela mudança de plano`, `${locked.length} ${locked.length === 1 ? c.l : c.lp} paused by the plan change`)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {L(`Nada foi apagado - histórico, ${w.appointment.lp} e financeiro continuam. Só não dá para marcar ${w.appointment.l} ${w.appointment.pick("novo", "nova")}.`, `Nothing was deleted - history, ${w.appointment.lp} and billing stay. You just can't book new ${w.appointment.lp}.`)}
-                {plan.max_students !== null && L(` Escolha até ${plan.max_students} para liberar${unlockedCount > 0 ? ` (${unlockedCount} já ${c.pick("liberado", "liberada")}${unlockedCount === 1 ? "" : "s"})` : ""}.`, ` Choose up to ${plan.max_students} to keep active${unlockedCount > 0 ? ` (${unlockedCount} already active)` : ""}.`)}
-              </p>
-            </div>
-            <ul className="divide-y divide-border rounded-xl border border-border bg-card">
-              {locked.map(st => (
-                <li key={st.id} className="flex items-center justify-between gap-2 px-3 py-2 text-sm">
-                  <span className="min-w-0 truncate">
-                    {st.student_name}
-                    <span className="text-muted-foreground">{st.guardian_name ? ` · ${st.guardian_name}` : ""}</span>
-                  </span>
-                  <Button size="sm" variant="outline" className="h-8 shrink-0 rounded-xl" disabled={atLimit} onClick={() => unlock(st)}>
-                    {L("Liberar", "Release")}
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {!isTeacher && atLimit && locked.length === 0 && (
-          <ProUpsell titulo={L(`O Cronys Essencial vai até ${plan.max_students} ${c.lp}`, `Cronys Essential allows up to ${plan.max_students} ${c.lp}`)} icon={Users} compacto>
-            {L(`${c.os} ${students.length} que você já tem continuam aqui, com tudo. Para cadastrar o próximo, é o Cronys Pro.`, `the ${students.length} you already have stay here, with everything. To add the next one, you need Cronys Pro.`)}
+        {!isTeacher && atActiveLimit && (
+          <ProUpsell titulo={L(`Você chegou a ${activeLimit} ${c.lp} ativos, o limite do seu plano`, `You've reached ${activeLimit} active ${c.lp}, your plan's limit`)} icon={Users} compacto>
+            {L(`Quem já é ativo continua normal, e cadastrar é livre. Para marcar ${w.appointment.um} ${w.appointment.l} com ${c.um} ${c.l} novo, libere uma vaga (quem fica ${plan.active_client_days ?? 60} dias sem ${w.appointment.l} deixa de contar)`,
+               `Existing active ${c.lp} keep working, and adding is free. To book a new ${c.l}, free up a spot (anyone without ${w.appointment.lp} for ${plan.active_client_days ?? 60} days stops counting)`)}
+            {nextTier ? L(` ou mude para o ${upgradeOffer(nextTier)}.`, ` or upgrade to ${upgradeOffer(nextTier)}.`) : "."}
           </ProUpsell>
         )}
 
@@ -328,7 +295,6 @@ export default function StudentsPage() {
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
         onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}
         onEvolution={() => navigate(`/admin/evolucao?aluno=${selected!.id}`)}
-        onPause={!isTeacher && locked.length > 0 && selected && !selected.plan_locked ? () => pause(selected) : undefined}
       />
 
       <Dialog open={!!editing} onOpenChange={v => !v && setEditing(null)}>
@@ -373,7 +339,7 @@ export default function StudentsPage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         existing={students}
-        room={plan.max_students === null ? null : Math.max(0, plan.max_students - unlockedCount)}
+        room={null}
         onImported={load}
       />
 

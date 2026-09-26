@@ -10,83 +10,123 @@
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
-export type Tier = "pro_solo" | "pro";
-export type Interval = "month" | "year";
+import {
+  CURRENCIES, LOOKUP as PLAN_LOOKUP, PLANS, STRIPE_PRODUCT_NAME, itemOfLookup, priceCents,
+  type Currency as PlanCurrency, type Interval, type Item,
+} from "./plans.ts";
+
+export type { Interval, Item };
+export type Tier = "start" | "pro_solo" | "pro";
 
 const API = "https://api.stripe.com/v1";
 
+// Os nomes dos preços no Stripe vêm do arquivo de planos (plans.ts).
 export const LOOKUP: Record<Tier | "extra", Record<Interval, string>> = {
-  pro_solo: { month: "cronys_pro_solo_mensal", year: "cronys_pro_solo_anual" },
-  pro: { month: "cronys_pro_equipe_mensal", year: "cronys_pro_equipe_anual" },
-  extra: { month: "cronys_extra_mensal", year: "cronys_extra_anual" },
+  start: PLAN_LOOKUP.start,
+  pro_solo: PLAN_LOOKUP.pro_solo,
+  pro: PLAN_LOOKUP.pro,
+  extra: PLAN_LOOKUP.extra,
 };
+export const ASSISTANT_LOOKUP: Record<Interval, string> = PLAN_LOOKUP.assistant;
 
-// O adicional do assistente. Só entra na assinatura quando o banco diz que
-// está à venda (assistant_on_sale).
-export const ASSISTANT_LOOKUP: Record<Interval, string> = {
-  month: "cronys_assistente_mensal", year: "cronys_assistente_anual",
-};
-
-// Fora do real: mensal e anual (10% de desconto, arredondado para inteiro),
-// sem cupom. Os valores ficam como currency_options nos mesmos preços (mesmo
-// lookup_key), em centavos. Não são conversão do real: são preço de mercado
-// de cada moeda. Têm de bater com src/lib/subscription.ts.
 export type Currency = "brl" | "usd" | "eur" | "gbp";
-export const FOREIGN_PRICES: Record<Exclude<Currency, "brl">, Record<string, number>> = {
-  usd: {
-    cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900,
-    cronys_pro_solo_anual: 16200, cronys_pro_equipe_anual: 42100, cronys_extra_anual: 7600, cronys_assistente_anual: 9700,
-  },
-  eur: {
-    cronys_pro_solo_mensal: 1500, cronys_pro_equipe_mensal: 3900, cronys_extra_mensal: 700, cronys_assistente_mensal: 900,
-    cronys_pro_solo_anual: 16200, cronys_pro_equipe_anual: 42100, cronys_extra_anual: 7600, cronys_assistente_anual: 9700,
-  },
-  gbp: {
-    cronys_pro_solo_mensal: 1300, cronys_pro_equipe_mensal: 3300, cronys_extra_mensal: 600, cronys_assistente_mensal: 800,
-    cronys_pro_solo_anual: 14000, cronys_pro_equipe_anual: 35600, cronys_extra_anual: 6500, cronys_assistente_anual: 8600,
-  },
-};
 
 export function toCurrency(raw: unknown): Currency {
   const c = String(raw ?? "").toLowerCase();
   return c === "usd" || c === "eur" || c === "gbp" ? c : "brl";
 }
 
-/**
- * Garante que os preços têm a moeda estrangeira (currency_options). Assim o
- * modo real do Stripe se acerta sozinho na primeira venda, sem configurar
- * nada à mão lá - o valor que vale é o de FOREIGN_PRICES.
- */
-export async function ensureCurrency(keys: string[], currency: Currency) {
-  if (currency === "brl") return;
-  const table = FOREIGN_PRICES[currency];
-  const list = await stripe<{ data: { id: string; lookup_key: string; currency_options?: Record<string, { unit_amount: number }> }[] }>(
-    "GET", "/prices", { lookup_keys: keys, active: true, limit: 20, expand: ["data.currency_options"] });
-  for (const p of list.data) {
-    const want = table[p.lookup_key];
-    if (want == null) throw new Error(`Sem preço em ${currency.toUpperCase()} para ${p.lookup_key}.`);
-    if (p.currency_options?.[currency]?.unit_amount === want) continue;
-    // Manda as três moedas juntas: a atualização pode trocar a lista inteira.
-    const all: Record<string, { unit_amount: number }> = {};
-    for (const [c, t] of Object.entries(FOREIGN_PRICES)) if (t[p.lookup_key] != null) all[c] = { unit_amount: t[p.lookup_key] };
-    await stripe("POST", `/prices/${p.id}`, { currency_options: all });
-  }
-}
-
 export function isAssistantLookup(key: string | null | undefined) {
-  return !!key && key.startsWith("cronys_assistente_");
+  return itemOfLookup(key)?.item === "assistant";
 }
 
-/** De lookup_key para a faixa do Cronys; nulo para o que não é plano (o extra). */
+/** De lookup_key para a faixa do Cronys; nulo para o que não é plano (extra, IA). */
 export function tierOfLookup(key: string | null | undefined): Tier | null {
-  if (!key) return null;
-  if (key.startsWith("cronys_pro_solo_")) return "pro_solo";
-  if (key.startsWith("cronys_pro_equipe_")) return "pro";
-  return null;
+  const it = itemOfLookup(key)?.item;
+  return it === "start" || it === "pro_solo" || it === "pro" ? it : null;
 }
 
 export function isExtraLookup(key: string | null | undefined) {
-  return !!key && key.startsWith("cronys_extra_");
+  return itemOfLookup(key)?.item === "extra";
+}
+
+/** Plano que aceita profissional extra (Pro e Max). */
+export function allowsExtraTeachers(plan: string | null | undefined) {
+  return plan === "start" || plan === "pro_solo" || plan === "pro" ? PLANS[plan].extraTeachers : false;
+}
+
+/** A chave do Stripe é de teste? Só aí os preços se criam sozinhos. */
+export function stripeTestMode() {
+  const k = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+  return k.startsWith("sk_test_") || k.startsWith("rk_test_");
+}
+
+type StripePrice = {
+  id: string; lookup_key: string; product: string; unit_amount: number; currency: string;
+  recurring?: { interval: string };
+  currency_options?: Record<string, { unit_amount: number }>;
+};
+
+/** O que o preço deveria ser, segundo plans.ts: real como base e as outras moedas como opção. */
+function wanted(item: Item, interval: Interval) {
+  const opts: Record<string, { unit_amount: number }> = {};
+  for (const c of CURRENCIES) if (c !== "BRL") opts[c.toLowerCase()] = { unit_amount: priceCents(item, c as PlanCurrency, interval) };
+  return { base: priceCents(item, "BRL", interval), opts };
+}
+
+function matches(p: StripePrice, item: Item, interval: Interval) {
+  const w = wanted(item, interval);
+  if (p.currency !== "brl" || p.unit_amount !== w.base || p.recurring?.interval !== interval) return false;
+  return Object.entries(w.opts).every(([c, v]) => p.currency_options?.[c]?.unit_amount === v.unit_amount);
+}
+
+async function productFor(item: Item, existing?: StripePrice): Promise<string> {
+  if (existing?.product) return existing.product;
+  const list = await stripe<{ data: { id: string; name: string; active: boolean; metadata?: Record<string, string> }[] }>(
+    "GET", "/products", { active: true, limit: 100 });
+  const found = list.data.find(p => p.metadata?.cronys_item === item) ?? list.data.find(p => p.name === STRIPE_PRODUCT_NAME[item]);
+  if (found) return found.id;
+  const created = await stripe("POST", "/products", { name: STRIPE_PRODUCT_NAME[item], metadata: { cronys_item: item } });
+  return created.id as string;
+}
+
+/**
+ * Deixa no Stripe os preços que plans.ts define. Preço no Stripe não muda de
+ * valor: quando o valor muda, nasce um preço novo que herda o lookup_key, e o
+ * velho é desativado (quem já assina continua nele).
+ *
+ * Só roda sozinho com chave de TESTE. Com a chave real, só quando o gestor
+ * pede (ação sync_prices), para nunca criar preço de produção sem querer.
+ */
+export async function ensurePrices(pairs: { item: Item; interval: Interval }[], opts: { force?: boolean } = {}) {
+  if (!opts.force && !stripeTestMode()) return [];
+  const keys = pairs.map(p => PLAN_LOOKUP[p.item][p.interval]);
+  const list = await stripe<{ data: StripePrice[] }>("GET", "/prices", {
+    lookup_keys: keys, active: true, limit: 20, expand: ["data.currency_options"],
+  });
+  const done: string[] = [];
+  for (const { item, interval } of pairs) {
+    const key = PLAN_LOOKUP[item][interval];
+    const cur = list.data.find(p => p.lookup_key === key);
+    if (cur && matches(cur, item, interval)) continue;
+    const w = wanted(item, interval);
+    const product = await productFor(item, cur);
+    await stripe("POST", "/prices", {
+      product, currency: "brl", unit_amount: w.base, recurring: { interval },
+      currency_options: w.opts, lookup_key: key, transfer_lookup_key: true,
+      nickname: `${STRIPE_PRODUCT_NAME[item]} ${interval === "year" ? "anual" : "mensal"}`,
+    });
+    if (cur) await stripe("POST", `/prices/${cur.id}`, { active: false });
+    done.push(key);
+  }
+  return done;
+}
+
+/** Todos os preços do arquivo de planos. */
+export function allPricePairs(): { item: Item; interval: Interval }[] {
+  const out: { item: Item; interval: Interval }[] = [];
+  for (const item of Object.keys(PLAN_LOOKUP) as Item[]) for (const interval of ["month", "year"] as Interval[]) out.push({ item, interval });
+  return out;
 }
 
 // Form-encoding no formato do Stripe: a[b][0][c]=x.
@@ -148,7 +188,7 @@ export async function syncExtraSeats(admin: SupabaseClient, accountId: string) {
   if (!acc?.stripe_subscription_id || acc.billing_status === "canceled") return { skipped: true };
 
   const { data: extraRaw } = await admin.rpc("account_extra_teachers", { _account: accountId });
-  const wanted = acc.plan === "pro" ? Number(extraRaw ?? 0) : 0;
+  const wanted = allowsExtraTeachers(acc.plan) ? Number(extraRaw ?? 0) : 0;
 
   const sub = await stripe("GET", `/subscriptions/${acc.stripe_subscription_id}`);
   const items: any[] = sub.items?.data ?? [];
@@ -161,7 +201,7 @@ export async function syncExtraSeats(admin: SupabaseClient, accountId: string) {
   } else if (wanted > 0 && extraItem && extraItem.quantity !== wanted) {
     await stripe("POST", `/subscription_items/${extraItem.id}`, { quantity: wanted, proration_behavior: "create_prorations" });
   } else if (wanted > 0 && !extraItem) {
-    await ensureCurrency([LOOKUP.extra[interval]], toCurrency(sub.currency));
+    await ensurePrices([{ item: "extra", interval }]);
     const ids = await priceIds([LOOKUP.extra[interval]]);
     await stripe("POST", "/subscription_items", {
       subscription: acc.stripe_subscription_id, price: ids[LOOKUP.extra[interval]], quantity: wanted,

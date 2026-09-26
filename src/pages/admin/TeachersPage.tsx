@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { capitalize } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
+import { money, itemPrice, upgradeOffer } from "@/lib/subscription";
+import { teacherUpgrade, type PlanId } from "@shared/plans";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
@@ -60,7 +62,10 @@ export default function TeachersPage() {
     supabase.functions.invoke("billing", { body: { action: "sync_seats" } }).catch(() => {});
   };
   const incluidos = plan.included_teachers ?? null;
-  const cobraExtra = plan.tier === "pro" && incluidos !== null && plan.max_teachers === null;
+  // Pro e Max cobram profissional extra acima dos incluídos (plans.ts).
+  const cobraExtra = !!plan.extra_teachers_allowed && incluidos !== null;
+  // Quem bate o teto: o Pro sugere o Max; Essencial e Start, o Pro.
+  const sugestao = teacherUpgrade((plan.tier ?? "essencial") as PlanId, ativos + 1).suggest;
 
   const add = async () => {
     const v = name.trim().toLowerCase();
@@ -219,16 +224,19 @@ export default function TeachersPage() {
         <p className="text-xs text-muted-foreground mt-2">{L("O nome é guardado em minúsculas e usado como identificador interno.", "The name is saved in lowercase and used as an internal identifier.")}</p>
         {cobraExtra && (
           <p className="text-xs text-muted-foreground mt-1">
-            {L(`O Max inclui ${incluidos} ${st.lp} ${st.pick("ativos", "ativas")}, contando você se você atende (${ativos} agora). Se você só administra, desative o seu nome aqui e ele não conta.`,
-               `Max includes ${incluidos} active ${st.lp}, counting you if you also serve clients (${ativos} now). If you only manage, deactivate your name here and it won't count.`)}
-            {ativos > incluidos! ? L(` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.`, ` ${ativos - incluidos!} extra ${ativos - incluidos! === 1 ? "is" : "are"} added to the subscription.`) : L(" A partir do próximo, cada um entra na assinatura.", " From the next one on, each is added to the subscription.")}
+            {L(`O ${plan.nome} inclui ${incluidos} ${incluidos === 1 ? st.l : st.lp}, contando você se você atende (${ativos} ${ativos === 1 ? "ativo" : "ativos"} agora); cada um a mais custa ${money(itemPrice("extra", "month"))}/mês${plan.max_teachers !== null ? `, até ${plan.max_teachers} no total` : ""}. Se você só administra, desative o seu nome aqui e ele não conta.`,
+               `${plan.nome} includes ${incluidos} ${incluidos === 1 ? st.l : st.lp}, counting you if you also serve clients (${ativos} active now); each extra one is ${money(itemPrice("extra", "month"))}/month${plan.max_teachers !== null ? `, up to ${plan.max_teachers} in total` : ""}. If you only manage, deactivate your name here and it won't count.`)}
+            {ativos > incluidos! ? L(` ${ativos - incluidos!} a mais entra${ativos - incluidos! === 1 ? "" : "m"} na assinatura.`, ` ${ativos - incluidos!} extra ${ativos - incluidos! === 1 ? "is" : "are"} added to the subscription.`) : ""}
           </p>
         )}
         {semVaga && (
           <div className="mt-3">
             <ProUpsell titulo={L(`O ${plan.nome} vai até ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`, `${plan.nome} allows up to ${plan.max_teachers} ${plan.max_teachers === 1 ? st.l : st.lp}`)} icon={GraduationCap} compacto>
-              {L(`você já tem ${ativos} ativo${ativos === 1 ? "" : "s"}. No Cronys Max cada um tem acesso próprio — é o plano de quem tem equipe.`,
-                 `you already have ${ativos} active. On Cronys Max each one has their own login — it's the plan for teams.`)}
+              {sugestao === "pro"
+                ? L(`você já tem ${ativos} ativos. Com mais um, o melhor é o ${upgradeOffer("pro")}: até 5 incluídos e IA inclusa.`,
+                    `you already have ${ativos} active. For one more, the best fit is ${upgradeOffer("pro")}: up to 5 included, AI included.`)
+                : L(`você já tem ${ativos} ativo${ativos === 1 ? "" : "s"}. No ${upgradeOffer("pro_solo")} cabem até 3, cada extra por ${money(itemPrice("extra", "month"))}/mês.`,
+                    `you already have ${ativos} active. ${upgradeOffer("pro_solo")} fits up to 3, each extra for ${money(itemPrice("extra", "month"))}/month.`)}
             </ProUpsell>
           </div>
         )}

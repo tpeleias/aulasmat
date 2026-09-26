@@ -10,7 +10,10 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth";
 import { forgetPlan, type Plan } from "@/hooks/usePlan";
-import { PLANS, EXTRA_TEACHER, EQUIPE_INCLUDED, ASSISTANT_ADDON, COUPONS_AVAILABLE, brl, canSellHere, tierName, type Interval, type Tier } from "@/lib/subscription";
+import { PLANS, COUPONS_AVAILABLE, money, itemPrice, perLabel, canSellHere, tierName, TRIAL_DAYS, type Interval, type Tier } from "@/lib/subscription";
+import { PlanComparison } from "@/components/PlanComparison";
+import { PLANS as PLAN_CFG, ANNUAL_MONTHS_CHARGED, ASSISTANT_ADDON } from "@shared/plans";
+import { ShieldCheck } from "lucide-react";
 
 import { L } from "@/lib/i18n";
 import { CurrencyPicker } from "@/components/CurrencyPicker";
@@ -66,7 +69,7 @@ export default function Subscribe() {
   const go = async (action: "checkout" | "portal", tier?: Tier) => {
     setBusy(tier ?? action);
     const { data, error } = await supabase.functions.invoke("billing", {
-      body: { action, tier, interval, assistant: onSale && withAssistant && tier === "pro_solo" },
+      body: { action, tier, interval, assistant: onSale && withAssistant && !!tier && tier !== "essencial" && PLAN_CFG[tier].assistantAddon },
     });
     const url = (data as { url?: string } | null)?.url;
     if (error || !url) {
@@ -86,8 +89,12 @@ export default function Subscribe() {
         <Link to="/" className="mb-8 inline-flex"><CronysWordmark tamanho="1.25rem" className="text-foreground" /></Link>
 
         <h1 className="text-3xl font-bold tracking-tight">{L("Assinar o Cronys", "Subscribe to Cronys")}</h1>
-        <p className="mt-2 text-muted-foreground">
-          {L("Sem fidelidade: cancela quando quiser, e o que você cadastrou continua lá no plano gratuito.", "No commitment: cancel anytime, and everything you've saved stays on the free plan.")}
+        <p className="mt-3 inline-flex items-center gap-2 rounded-xl bg-primary/10 px-3 py-2 text-sm font-medium text-foreground">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          {L("Sem fidelidade: cancela quando quiser, e nada do que você cadastrou é apagado.", "No commitment: cancel anytime, and nothing you've saved is deleted.")}
+        </p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          {L(`Conta nova começa com ${TRIAL_DAYS} dias do Pro grátis, sem cartão. Depois, continua de graça no Essencial.`, `New accounts start with ${TRIAL_DAYS} days of Pro free, no card needed. Afterwards it stays free on Essential.`)}
         </p>
 
         {ok && (
@@ -112,9 +119,9 @@ export default function Subscribe() {
                   </p>
                 : plan.paid_until && <p className="text-muted-foreground">{L("Renova em", "Renews on")} {format(new Date(plan.paid_until), L("dd/MM/yyyy", "MMM d, yyyy"))}.</p>}
             </div>
-            {onSale && isAdmin && plan.billing_status === "active" && plan.tier === "pro_solo" && (
+            {onSale && isAdmin && plan.billing_status === "active" && plan.tier && plan.tier !== "essencial" && PLAN_CFG[plan.tier].assistantAddon && (
               <Button variant="outline" disabled={!!busy} onClick={() => toggleAssistant(!plan.assistant_billed)}>
-                {plan.assistant_billed ? L("Tirar o Assistente", "Remove the Assistant") : L(`Adicionar o Assistente (+${brl(ASSISTANT_ADDON.mensal)}/mês)`, `Add the Assistant (+${brl(ASSISTANT_ADDON.mensal)}/month)`)}
+                {plan.assistant_billed ? L("Tirar o adicional de IA", "Remove the AI add-on") : L(`Adicionar IA (+${money(itemPrice("assistant", "month"))}/mês)`, `Add AI (+${money(itemPrice("assistant", "month"))}/month)`)}
               </Button>
             )}
             <Button onClick={() => go("portal")} disabled={!!busy}>
@@ -130,7 +137,7 @@ export default function Subscribe() {
           {(["month", "year"] as Interval[]).map(i => (
             <button key={i} onClick={() => setInterval_(i)}
               className={`rounded-lg px-4 py-1.5 ${interval === i ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
-              {i === "month" ? L("Mensal", "Monthly") : L("Anual · 10% off", "Yearly · 10% off")}
+              {i === "month" ? L("Mensal", "Monthly") : L(`Anual · ${12 - ANNUAL_MONTHS_CHARGED} meses grátis`, `Yearly · ${12 - ANNUAL_MONTHS_CHARGED} months free`)}
             </button>
           ))}
         </div>
@@ -139,13 +146,14 @@ export default function Subscribe() {
           <label className="mt-4 flex items-start gap-2 text-sm">
             <input type="checkbox" className="mt-1" checked={withAssistant} onChange={e => setWithAssistant(e.target.checked)} />
             <span>
-              {L("No", "On")} <b>Pro</b>, {L("incluir o", "include the")} <b>{L("Assistente", "Assistant")}</b> (+{brl(interval === "month" ? ASSISTANT_ADDON.mensal : ASSISTANT_ADDON.anual)}/{interval === "month" ? L("mês", "month") : L("ano", "year")}):{" "}
-              {L("marque, remarque e consulte o financeiro conversando, até 100 mensagens por mês. No Max ele já vem incluso, com 200.", "book, reschedule and check billing by chatting, up to 100 messages a month. Max already includes it, with 200.")}
+              {L("No", "On")} <b>Start</b> {L("ou no", "or")} <b>Pro</b>, {L("incluir o adicional de", "include the")} <b>{L("IA", "AI add-on")}</b> (+{money(itemPrice("assistant", interval))}/{perLabel(interval)}):{" "}
+              {L(`marque, remarque e consulte o financeiro conversando, ${ASSISTANT_ADDON.messages} mensagens por mês (no Pro, somadas às ${PLAN_CFG.pro_solo.assistantMessages} da amostra). No Max a IA já vem inclusa, com ${PLAN_CFG.pro.assistantMessages}.`,
+                `book, reschedule and check billing by chatting, ${ASSISTANT_ADDON.messages} messages a month (on Pro, added to the ${PLAN_CFG.pro_solo.assistantMessages} sample ones). Max already includes AI, with ${PLAN_CFG.pro.assistantMessages}.`)}
             </span>
           </label>
         )}
 
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           {paid.map(p => {
             const current = subscribed && plan?.tier === p.tier;
             const price = interval === "month" ? p.mensal : p.anual;
@@ -157,13 +165,13 @@ export default function Subscribe() {
                 </div>
                 <p className="text-sm text-muted-foreground">{p.resumo}</p>
                 <div className="mt-4">
-                  <span className="text-3xl font-bold">{brl(price)}</span>
-                  <span className="text-muted-foreground">/{interval === "month" ? L("mês", "month") : L("ano", "year")}</span>
+                  <span className="text-3xl font-bold">{money(price)}</span>
+                  <span className="text-muted-foreground">/{perLabel(interval)}</span>
                 </div>
-                {p.tier === "pro" && (
+                {/* O anual é cobrado de uma vez (o Stripe não parcela assinatura); o "equivale a" é só a conta. */}
+                {interval === "year" && (
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {L(`${EQUIPE_INCLUDED} profissionais incluídos, contando você se você atende (você + ${EQUIPE_INCLUDED - 1}); cada um a mais,`, `${EQUIPE_INCLUDED} professionals included, counting you if you also work with clients (you + ${EQUIPE_INCLUDED - 1}); each extra one,`)}{" "}
-                    {brl(interval === "month" ? EXTRA_TEACHER.mensal : EXTRA_TEACHER.anual)}/{interval === "month" ? L("mês", "month") : L("ano", "year")}.
+                    {L(`à vista · equivale a ${money(p.anualMes)}/mês`, `billed yearly · works out to ${money(p.anualMes)}/month`)}
                   </p>
                 )}
                 <ul className="mt-4 flex-1 space-y-1.5 text-sm">
@@ -187,6 +195,9 @@ export default function Subscribe() {
             );
           })}
         </div>
+
+        <h2 className="mt-10 mb-3 text-lg font-semibold">{L("O que cada plano tem", "What each plan includes")}</h2>
+        <PlanComparison interval={interval} />
 
         <p className="mt-6 text-xs text-muted-foreground">
           {L("Pagamento processado pelo Stripe; na fatura aparece CRONYS.", "Payments processed by Stripe; your statement shows CRONYS.")}{" "}
