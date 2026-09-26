@@ -5,6 +5,8 @@
 //   POST {action: "callback", code, state, error?}         <- a página /google-agenda/callback repassa a volta do Google
 //   POST {action: "sync", teacher_id?}                      -> sincroniza agora (a tela chama ao abrir)
 //   POST {action: "disconnect", teacher_id}                 -> apaga a agenda "Cronys", revoga e esquece
+//   POST {action: "connect" | "disconnect", kind: "client"} -> o mesmo para o CLIENTE logado no portal
+//                                                              (só exportar: migration 20260926190000)
 //   POST /cron {mode: "push" | "pull"} + x-cron-secret      <- o pg_cron, pelo pg_net
 //
 // Permissões pedidas ao Google, as mais estreitas que resolvem:
@@ -30,6 +32,8 @@ const SCOPES = [
 ];
 const SCOPE_FREEBUSY = "https://www.googleapis.com/auth/calendar.freebusy";
 const SCOPE_APP_CREATED = "https://www.googleapis.com/auth/calendar.app.created";
+/** O cliente só recebe os horários: nada do Google dele é lido. */
+const CLIENT_SCOPES = ["openid", "email", SCOPE_APP_CREATED];
 
 const DAY = 24 * 60 * 60 * 1000;
 /** Janela do ocupado importado: de ontem até 60 dias para frente. */
@@ -41,18 +45,28 @@ const NOT_EXPORTED = ["solicitada", "cancelada", "recusada"];
 
 const API = "https://www.googleapis.com/calendar/v3";
 
+// Onde a conexão mora: profissional (google_calendar_connections, por
+// teacher_id) ou cliente (client_calendar_connections, por user_id).
+type Store = { table: "google_calendar_connections" | "client_calendar_connections"; key: "teacher_id" | "user_id"; id: string };
+const teacherStore = (id: string): Store => ({ table: "google_calendar_connections", key: "teacher_id", id });
+const clientStore = (id: string): Store => ({ table: "client_calendar_connections", key: "user_id", id });
+
 type Conn = {
-  teacher_id: string;
+  store: Store;
+  teacher_id?: string;
   account_id: string;
   google_email: string | null;
   refresh_token: string;
   access_token: string | null;
   access_expires_at: string | null;
   export_calendar_id: string | null;
-  import_enabled: boolean;
-  export_enabled: boolean;
+  import_enabled?: boolean;
+  export_enabled?: boolean;
   status: string;
 };
+
+const saveConn = (admin: SupabaseClient, c: Conn, patch: Record<string, unknown>) =>
+  admin.from(c.store.table).update(patch).eq(c.store.key, c.store.id);
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
@@ -70,7 +84,8 @@ async function hmac(data: string): Promise<string> {
   return b64url(new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(data))));
 }
 
-type State = { t: string; u: string; a: string; tz: string; exp: number };
+/** k: "c" quando é o cliente conectando (t fica vazio). */
+type State = { t: string; u: string; a: string; tz: string; exp: number; k?: "c" };
 
 async function signState(s: State): Promise<string> {
   const body = b64url(new TextEncoder().encode(JSON.stringify(s)));
@@ -129,19 +144,15 @@ async function accessToken(admin: SupabaseClient, c: Conn): Promise<string> {
   try {
     const t = await tokenRequest({ grant_type: "refresh_token", refresh_token: c.refresh_token });
     const expires = new Date(Date.now() + t.expires_in * 1000).toISOString();
-    await admin.from("google_calendar_connections")
-      .update({ access_token: t.access_token, access_expires_at: expires, updated_at: new Date().toISOString() })
-      .eq("teacher_id", c.teacher_id);
+    await saveConn(admin, c, { access_token: t.access_token, access_expires_at: expires, updated_at: new Date().toISOString() });
     c.access_token = t.access_token;
     c.access_expires_at = expires;
     return t.access_token;
   } catch (e) {
     // invalid_grant: a pessoa tirou o acesso no Google (ou a senha mudou).
     if (e instanceof GoogleError && e.message === "invalid_grant") {
-      await admin.from("google_calendar_connections")
-        .update({ status: "revoked", last_error: "O acesso ao Google foi retirado. Conecte de novo.", updated_at: new Date().toISOString() })
-        .eq("teacher_id", c.teacher_id);
-      await admin.rpc("google_calendar_replace_busy", {
+      await saveConn(admin, c, { status: "revoked", last_error: "O acesso ao Google foi retirado. Conecte de novo.", updated_at: new Date().toISOString() });
+      if (c.teacher_id) await admin.rpc("google_calendar_replace_busy", {
         _teacher: c.teacher_id, _from: new Date(Date.now() - 2 * DAY).toISOString(),
         _to: new Date(Date.now() + 365 * DAY).toISOString(), _ranges: [],
       });
@@ -176,7 +187,7 @@ async function importBusy(admin: SupabaseClient, c: Conn, token: string) {
   const ranges = (cal?.busy ?? []) as { start: string; end: string }[];
   const { error } = await admin.rpc("google_calendar_replace_busy", { _teacher: c.teacher_id, _from: from, _to: to, _ranges: ranges });
   if (error) throw new Error(error.message);
-  await admin.from("google_calendar_connections").update({ last_import_at: new Date().toISOString() }).eq("teacher_id", c.teacher_id);
+  await saveConn(admin, c, { last_import_at: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------
@@ -192,12 +203,38 @@ async function ensureCalendar(admin: SupabaseClient, c: Conn, token: string, tz:
     method: "POST",
     body: JSON.stringify({ summary: "Cronys", description: "Agendamentos do Cronys. Para mudar, use o app.", timeZone: tz }),
   });
-  await admin.from("google_calendar_connections").update({ export_calendar_id: cal.id }).eq("teacher_id", c.teacher_id);
+  await saveConn(admin, c, { export_calendar_id: cal.id });
   c.export_calendar_id = cal.id;
   return cal.id;
 }
 
 type Desired = { id: string; summary: string; description: string; location?: string; start: string; end: string };
+
+/** O cliente: "Aula com Thiago · Matemática", com endereço ou "Online", sem valores. */
+async function desiredClientEvents(admin: SupabaseClient, c: Conn, enabled: boolean): Promise<Desired[]> {
+  if (!enabled) return [];
+  const { data, error } = await admin.rpc("client_calendar_lessons", {
+    _user: c.store.id,
+    _from: new Date(Date.now() - EXPORT_BACK).toISOString(),
+    _to: new Date(Date.now() + EXPORT_AHEAD).toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as { id: string; start_at: string; duration_minutes: number | null; teacher_name: string; what: string | null; address: string | null; is_online: boolean; word: string; locale: string }[])
+    .map(l => {
+      const en = l.locale === "en";
+      const start = new Date(l.start_at);
+      return {
+        id: eventId(l.id),
+        summary: `${l.word} ${en ? "with" : "com"} ${l.teacher_name}${l.what ? ` · ${l.what}` : ""}`,
+        description: en
+          ? "Booked in Cronys. To reschedule or cancel, use the app."
+          : "Marcado pelo Cronys. Para remarcar ou desmarcar, use o app.",
+        location: l.is_online ? "Online" : (l.address || undefined),
+        start: start.toISOString(),
+        end: new Date(start.getTime() + (l.duration_minutes ?? 60) * 60_000).toISOString(),
+      };
+    });
+}
 
 async function desiredEvents(admin: SupabaseClient, c: Conn): Promise<Desired[]> {
   if (!c.export_enabled) return [];
@@ -247,11 +284,11 @@ function eventBody(d: Desired) {
 
 const sameInstant = (a?: string, b?: string) => !!a && !!b && new Date(a).getTime() === new Date(b).getTime();
 
-async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: string) {
+async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: string, enabled: boolean, wanted: () => Promise<Desired[]>) {
   // Exportação desligada e agenda nunca criada: nada a esvaziar.
-  if (!c.export_enabled && !c.export_calendar_id) return;
+  if (!enabled && !c.export_calendar_id) return;
   let calId = await ensureCalendar(admin, c, token, tz);
-  const want = await desiredEvents(admin, c);
+  const want = await wanted();
 
   const list = async () => {
     const have = new Map<string, any>();
@@ -276,9 +313,9 @@ async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: s
   } catch (e) {
     // A pessoa apagou a agenda "Cronys" no Google: cria de novo.
     if (!(e instanceof GoogleError) || e.status !== 404) throw e;
-    await admin.from("google_calendar_connections").update({ export_calendar_id: null }).eq("teacher_id", c.teacher_id);
+    await saveConn(admin, c, { export_calendar_id: null });
     c.export_calendar_id = null;
-    if (!c.export_enabled) return;
+    if (!enabled) return;
     calId = await ensureCalendar(admin, c, token, tz);
     have = new Map();
   }
@@ -309,7 +346,7 @@ async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: s
       if (!(err instanceof GoogleError) || (err.status !== 404 && err.status !== 410)) throw err;
     }
   }
-  await admin.from("google_calendar_connections").update({ last_export_at: new Date().toISOString() }).eq("teacher_id", c.teacher_id);
+  await saveConn(admin, c, { last_export_at: new Date().toISOString() });
 }
 
 // ---------------------------------------------------------------------------
@@ -318,7 +355,7 @@ async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: s
 async function syncOne(admin: SupabaseClient, teacherId: string, opts: { importBusy: boolean; exportEvents: boolean; tz?: string }) {
   const { data: c } = await admin.from("google_calendar_connections").select("*").eq("teacher_id", teacherId).maybeSingle();
   if (!c || c.status === "revoked") return;
-  const conn = c as Conn;
+  const conn = { ...c, store: teacherStore(teacherId) } as Conn;
   const { data: allowed } = await admin.rpc("account_can", { _capability: "google_calendar", _account: conn.account_id });
   if (allowed !== true) {
     // Saiu do Pro/Max: o ocupado importado deixa de valer (a conexão fica, para quando voltar).
@@ -331,19 +368,36 @@ async function syncOne(admin: SupabaseClient, teacherId: string, opts: { importB
   try {
     const token = await accessToken(admin, conn);
     if (opts.importBusy && conn.import_enabled) await importBusy(admin, conn, token);
-    if (opts.exportEvents) await exportEvents(admin, conn, token, opts.tz ?? "America/Sao_Paulo");
-    if (conn.status !== "ok") {
-      await admin.from("google_calendar_connections").update({ status: "ok", last_error: null }).eq("teacher_id", teacherId);
+    if (opts.exportEvents) {
+      await exportEvents(admin, conn, token, opts.tz ?? "America/Sao_Paulo", !!conn.export_enabled, () => desiredEvents(admin, conn));
     }
+    if (conn.status !== "ok") await saveConn(admin, conn, { status: "ok", last_error: null });
   } catch (e) {
     // 403: a pessoa desmarcou uma das caixas na tela do Google.
     const msg = e instanceof GoogleError && e.status === 403
       ? "O Google não deu essa permissão. Desconecte e conecte de novo, marcando as duas caixas."
       : e instanceof Error ? e.message : String(e);
     console.error("google-calendar sync", teacherId, e instanceof Error ? e.message : e);
-    await admin.from("google_calendar_connections")
-      .update({ status: conn.status === "revoked" || msg === "invalid_grant" ? "revoked" : "error", last_error: msg.slice(0, 300) })
-      .eq("teacher_id", teacherId);
+    await saveConn(admin, conn, { status: conn.status === "revoked" || msg === "invalid_grant" ? "revoked" : "error", last_error: msg.slice(0, 300) });
+  }
+}
+
+/** O cliente: só exporta. Switch da empresa desligado (ou plano sem Google) esvazia a agenda dele. */
+async function syncClient(admin: SupabaseClient, userId: string, tz?: string) {
+  const { data: c } = await admin.from("client_calendar_connections").select("*").eq("user_id", userId).maybeSingle();
+  if (!c || c.status === "revoked") return;
+  const conn = { ...c, store: clientStore(userId) } as Conn;
+  const { data: enabled } = await admin.rpc("client_calendar_enabled", { _account: conn.account_id });
+  try {
+    const token = await accessToken(admin, conn);
+    await exportEvents(admin, conn, token, tz ?? "America/Sao_Paulo", enabled === true, () => desiredClientEvents(admin, conn, enabled === true));
+    if (conn.status !== "ok") await saveConn(admin, conn, { status: "ok", last_error: null });
+  } catch (e) {
+    const msg = e instanceof GoogleError && e.status === 403
+      ? "O Google não deu essa permissão. Desconecte e conecte de novo, marcando a caixa."
+      : e instanceof Error ? e.message : String(e);
+    console.error("google-calendar client sync", userId, e instanceof Error ? e.message : e);
+    await saveConn(admin, conn, { status: msg === "invalid_grant" ? "revoked" : "error", last_error: msg.slice(0, 300) });
   }
 }
 
@@ -364,6 +418,28 @@ async function finishConnect(admin: SupabaseClient, p: { code?: string; state?: 
   let email: string | null = null;
   if (t.id_token) {
     try { email = JSON.parse(new TextDecoder().decode(fromB64url(t.id_token.split(".")[1]))).email ?? null; } catch { /* sem e-mail */ }
+  }
+  if (state.k === "c") {
+    const { data: oldC } = await admin.from("client_calendar_connections").select("google_email, export_calendar_id").eq("user_id", state.u).maybeSingle();
+    const { error: errC } = await admin.from("client_calendar_connections").upsert({
+      user_id: state.u,
+      account_id: state.a,
+      google_email: email,
+      refresh_token: t.refresh_token,
+      access_token: t.access_token,
+      access_expires_at: new Date(Date.now() + t.expires_in * 1000).toISOString(),
+      export_calendar_id: oldC && oldC.google_email === email ? oldC.export_calendar_id : null,
+      status: "ok",
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    });
+    if (errC) {
+      console.error("google-calendar client callback", errC.message);
+      return "erro";
+    }
+    if (!granted.has(SCOPE_APP_CREATED)) return "negado";
+    await syncClient(admin, state.u, state.tz);
+    return "ok";
   }
   // Reconectar a mesma conta mantém a agenda "Cronys"; outra conta começa do zero.
   const { data: old } = await admin.from("google_calendar_connections").select("google_email, export_calendar_id").eq("teacher_id", state.t).maybeSingle();
@@ -417,7 +493,21 @@ Deno.serve(async (req) => {
           await syncOne(admin, c.teacher_id, { importBusy: true, exportEvents: true });
           done++;
         }
+        const { data: clients } = await admin.from("client_calendar_connections").select("user_id").neq("status", "revoked");
+        for (const c of clients ?? []) {
+          if (Date.now() > deadline) break;
+          await admin.from("client_calendar_queue").delete().eq("user_id", c.user_id);
+          await syncClient(admin, c.user_id);
+          done++;
+        }
       } else {
+        const { data: cq } = await admin.from("client_calendar_queue").select("user_id").order("queued_at").limit(50);
+        for (const q of cq ?? []) {
+          if (Date.now() > deadline) break;
+          await admin.from("client_calendar_queue").delete().eq("user_id", q.user_id);
+          await syncClient(admin, q.user_id);
+          done++;
+        }
         const { data: queue } = await admin.from("google_sync_queue").select("teacher_id").order("queued_at").limit(50);
         for (const q of queue ?? []) {
           if (Date.now() > deadline) break;
@@ -435,7 +525,8 @@ Deno.serve(async (req) => {
       const peek = await req.clone().json().catch(() => ({}));
       if (peek?.action === "callback") {
         if (!configured) return json({ status: "erro" });
-        return json({ status: await finishConnect(admin, { code: peek.code, state: peek.state, error: peek.error }) });
+        const kind = (await readState(peek.state ?? null))?.k === "c" ? "client" : "staff";
+        return json({ status: await finishConnect(admin, { code: peek.code, state: peek.state, error: peek.error }), kind });
       }
     }
 
@@ -448,6 +539,45 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "");
     const teacherId = body?.teacher_id ? String(body.teacher_id) : null;
+
+    // --- o cliente no portal: só o próprio Google, só exportar ---------------
+    if (body?.kind === "client") {
+      if (!configured) return json({ error: "O Google Agenda ainda não foi configurado no Cronys." }, 503);
+      const { data: st } = await userClient.rpc("client_calendar_status");
+      const row = (Array.isArray(st) ? st[0] : st) as { enabled?: boolean } | null;
+      if (action === "connect") {
+        if (!row?.enabled) return json({ error: "Quem te atende ainda não liberou o Google Agenda." }, 403);
+        const { data: acct } = await userClient.rpc("current_account_id");
+        const state = await signState({
+          t: "", u: user.id, a: String(acct), k: "c",
+          tz: typeof body?.tz === "string" && /^[A-Za-z_]+(\/[A-Za-z0-9_+-]+)*$/.test(body.tz) ? body.tz : "America/Sao_Paulo",
+          exp: Date.now() + 15 * 60_000,
+        });
+        const q = new URLSearchParams({
+          client_id: Deno.env.get("GOOGLE_CLIENT_ID")!,
+          redirect_uri: redirectUri(),
+          response_type: "code",
+          scope: CLIENT_SCOPES.join(" "),
+          access_type: "offline",
+          prompt: "consent",
+          state,
+        });
+        return json({ url: `https://accounts.google.com/o/oauth2/v2/auth?${q}` });
+      }
+      if (action === "disconnect") {
+        const { data: c } = await admin.from("client_calendar_connections").select("*").eq("user_id", user.id).maybeSingle();
+        if (c) {
+          try {
+            const token = await accessToken(admin, { ...c, store: clientStore(user.id) } as Conn);
+            if (c.export_calendar_id) await gfetch(token, `/calendars/${encodeURIComponent(c.export_calendar_id)}`, { method: "DELETE" }).catch(() => null);
+          } catch { /* já sem acesso */ }
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${encodeURIComponent(c.refresh_token)}`, { method: "POST" }).catch(() => null);
+        }
+        await admin.rpc("client_calendar_forget", { _user: user.id });
+        return json({ ok: true });
+      }
+      return json({ error: "ação desconhecida" }, 400);
+    }
 
     const canManage = async (id: string) => (await userClient.rpc("google_calendar_can_manage", { _teacher: id })).data === true;
 
@@ -493,7 +623,7 @@ Deno.serve(async (req) => {
       const { data: c } = await admin.from("google_calendar_connections").select("*").eq("teacher_id", teacherId).maybeSingle();
       if (c && configured) {
         try {
-          const token = await accessToken(admin, c as Conn);
+          const token = await accessToken(admin, { ...c, store: teacherStore(teacherId) } as Conn);
           // Apagar a agenda "Cronys" leva todos os agendamentos exportados de uma vez.
           if (c.export_calendar_id) await gfetch(token, `/calendars/${encodeURIComponent(c.export_calendar_id)}`, { method: "DELETE" }).catch(() => null);
         } catch { /* já sem acesso: não há o que apagar lá */ }

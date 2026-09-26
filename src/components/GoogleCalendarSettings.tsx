@@ -6,6 +6,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { ProUpsell } from "@/components/ProUpsell";
 import { usePlan } from "@/hooks/usePlan";
+import { useAuth } from "@/hooks/useAuth";
 import { capitalize } from "@/lib/balance";
 import { openExternal } from "@/lib/whatsapp";
 import { L } from "@/lib/i18n";
@@ -43,6 +44,9 @@ export default function GoogleCalendarSettings() {
   const { plan } = usePlan();
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
+  const { isAdmin } = useAuth();
+  // Clientes recebendo os horários no Google deles (só o admin liga).
+  const [clients, setClients] = useState<{ id: number; on: boolean } | null>(null);
 
   const load = useCallback(async () => {
     const { data } = await supabase.rpc("google_calendar_status" as never);
@@ -50,6 +54,19 @@ export default function GoogleCalendarSettings() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (!isAdmin) return;
+    supabase.from("settings").select("id, client_google_calendar" as "id").maybeSingle().then(({ data }) => {
+      const d = data as { id: number; client_google_calendar?: boolean } | null;
+      if (d) setClients({ id: d.id, on: !!d.client_google_calendar });
+    });
+  }, [isAdmin]);
+  const setClientsOn = async (on: boolean) => {
+    if (!clients) return;
+    setClients({ ...clients, on });
+    const { error } = await supabase.from("settings").update({ client_google_calendar: on } as never).eq("id", clients.id);
+    if (error) { toast.error(error.message); setClients({ ...clients, on: !on }); }
+  };
   // Quem conectou no navegador do celular volta ao app: relê ao voltar.
   useEffect(() => {
     const onVisible = () => { if (document.visibilityState === "visible") load(); };
@@ -200,6 +217,19 @@ export default function GoogleCalendarSettings() {
           </div>
         ))}
       </div>
+
+      {isAdmin && clients && (
+        <label className="flex items-start justify-between gap-3 rounded-lg border p-3 text-sm">
+          <span>
+            <span className="font-medium">{L("Clientes também", "Clients too")}</span>
+            <span className="block text-xs text-muted-foreground">
+              {L("Cada cliente com acesso ao portal pode receber os próprios horários no Google Agenda dele (\"Aula com Thiago · Matemática\", com endereço ou online, sem valores). Só nesse sentido: nada do Google do cliente é lido.",
+                 "Each client with portal access can get their own appointments in their Google Calendar (\"Lesson with Thiago · Math\", with address or online, no prices). One way only: nothing in the client's Google is read.")}
+            </span>
+          </span>
+          <Switch checked={clients.on} onCheckedChange={setClientsOn} />
+        </label>
+      )}
     </Card>
   );
 }

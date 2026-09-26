@@ -21,6 +21,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
+import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
 const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentDashboard() {
@@ -107,6 +108,8 @@ export default function StudentDashboard() {
         <StatCard icon={ListChecks} label={L("Tarefas pendentes", "Pending tasks")} value={dueHomework.length} href="/aluno/tarefas" />
         <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/aluno/materiais" />
       </div>
+
+      <ClientGoogleCalendar />
 
       {requests.length > 0 && (
         <Card className="p-5 space-y-3">
