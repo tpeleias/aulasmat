@@ -13,9 +13,11 @@ import { toast } from "sonner";
 import { CalendarDays, Loader2 } from "lucide-react";
 
 // Google Agenda por profissional (Pro e Max). O admin vê todo mundo; o login de
-// profissional vê só a si. Quem fala com o Google é a função google-calendar;
-// aqui só se conecta, liga/desliga e desconecta. Ver a migration
-// 20260926140000_google_calendar.sql.
+// profissional vê só a si. Cada um conecta SÓ o próprio Google (ninguém entra
+// na conta Google de outra pessoa): o profissional com login, o dele; o admin,
+// o cadastro que ele marcou como "sou eu" (teachers.admin_user_id). Os demais
+// aparecem só com a situação. Quem fala com o Google é a função
+// google-calendar. Ver as migrations 20260926140000 e 20260926170000.
 
 type Row = {
   teacher_id: string;
@@ -28,9 +30,13 @@ type Row = {
   last_error: string | null;
   last_import_at: string | null;
   last_export_at: string | null;
-  /** Quem tem login próprio conecta o próprio Google; o admin só vê o dele. */
+  /** Pode conectar/mexer: é o próprio (login de profissional ou "sou eu" do admin). */
   can_manage: boolean;
   has_login: boolean;
+  /** Este cadastro é quem está logado. */
+  is_self: boolean;
+  /** Admin pode marcar como "sou eu" (sem login e sem dono). */
+  claimable: boolean;
 };
 
 export default function GoogleCalendarSettings() {
@@ -85,6 +91,16 @@ export default function GoogleCalendarSettings() {
     supabase.functions.invoke("google-calendar", { body: { action: "sync", teacher_id: r.teacher_id } }).then(() => load());
   };
 
+  // "Sou eu": o admin diz qual cadastro de profissional é ele (null = nenhum).
+  const claim = async (teacherId: string | null) => {
+    setBusy(teacherId ?? "none");
+    const { error } = await supabase.rpc("google_calendar_claim_self" as never, { _teacher: teacherId } as never);
+    setBusy(null);
+    if (error) toast.error(error.message);
+    load();
+  };
+  const hasSelf = rows.some(r => r.is_self);
+
   const disconnect = async (r: Row) => {
     if (!confirm(L(
       `Desconectar o Google de ${capitalize(r.teacher_name)}? O ocupado importado sai daqui e a agenda "Cronys" é apagada do Google.`,
@@ -112,6 +128,12 @@ export default function GoogleCalendarSettings() {
       </div>
 
       {rows.length === 0 && <p className="text-sm text-muted-foreground">{L("Nenhum profissional ativo.", "No active professionals.")}</p>}
+      {!hasSelf && rows.some(r => r.claimable) && (
+        <p className="text-sm rounded-md bg-muted/50 px-3 py-2">
+          {L("Você também atende? Toque em \"Sou eu\" no seu cadastro para conectar o seu Google.",
+             "Do you also see clients? Tap \"This is me\" on your profile to connect your Google.")}
+        </p>
+      )}
 
       <div className="space-y-3">
         {rows.map(r => (
@@ -128,9 +150,13 @@ export default function GoogleCalendarSettings() {
                 {r.connected && r.status === "error" && <Badge variant="outline">{L("Com erro", "Error")}</Badge>}
                 {busy === r.teacher_id && <Loader2 className="w-4 h-4 animate-spin" />}
                 {!r.can_manage ? (
-                  r.connected && r.status === "ok" && (
+                  r.claimable && !hasSelf ? (
+                    <Button size="sm" variant="outline" disabled={busy !== null} onClick={() => claim(r.teacher_id)}>
+                      {L("Sou eu", "This is me")}
+                    </Button>
+                  ) : r.connected && r.status === "ok" ? (
                     <Badge variant="outline">{r.import_enabled || r.export_enabled ? L("Sincronizado", "Synced") : L("Pausado", "Paused")}</Badge>
-                  )
+                  ) : null
                 ) : !r.connected || r.status === "revoked" ? (
                   <Button size="sm" disabled={busy !== null} onClick={() => connect(r)}>
                     {r.connected ? L("Reconectar", "Reconnect") : L("Conectar Google", "Connect Google")}
@@ -142,11 +168,19 @@ export default function GoogleCalendarSettings() {
                 )}
               </div>
             </div>
-            {!r.can_manage && (
+            {!r.can_manage && !(r.claimable && !hasSelf) && (
               <p className="text-xs text-muted-foreground">
-                {L(`Quem conecta é ${capitalize(r.teacher_name)}, pelo acesso próprio (a agenda do Google é pessoal).`,
-                   `${capitalize(r.teacher_name)} connects it from their own login (the Google calendar is personal).`)}
+                {r.has_login || !r.claimable
+                  ? L(`Quem conecta é ${capitalize(r.teacher_name)}, pelo acesso próprio (a agenda do Google é pessoal).`,
+                      `${capitalize(r.teacher_name)} connects it from their own login (the Google calendar is personal).`)
+                  : L(`Para conectar a agenda de ${capitalize(r.teacher_name)}, ${capitalize(r.teacher_name)} precisa de um acesso próprio (em Acessos) - cada um conecta só o próprio Google.`,
+                      `To connect ${capitalize(r.teacher_name)}'s calendar, ${capitalize(r.teacher_name)} needs their own login (in Access) - everyone connects only their own Google.`)}
               </p>
+            )}
+            {r.is_self && !r.has_login && !r.connected && (
+              <button type="button" className="text-xs text-muted-foreground underline" disabled={busy !== null} onClick={() => claim(null)}>
+                {L("Não sou eu", "This isn't me")}
+              </button>
             )}
             {r.can_manage && r.connected && r.status !== "revoked" && (
               <div className="grid sm:grid-cols-2 gap-2">

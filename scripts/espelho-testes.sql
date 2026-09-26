@@ -2555,7 +2555,9 @@ BEGIN
   INSERT INTO auth.users (id, email) VALUES (_adm, 'adm-g@x'), (_prof, 'gabi-g@x'), (_sadm, 'adm-sg@x');
   DELETE FROM public.user_roles WHERE user_id IN (_adm, _prof, _sadm);
   INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_adm, 'admin', _g), (_prof, 'teacher', _g), (_sadm, 'admin', _s);
-  INSERT INTO public.teachers (account_id, name, active, user_id) VALUES (_g, 'Gabi', true, _prof), (_g, 'Hugo', true, NULL), (_s, 'Solo', true, NULL);
+  INSERT INTO public.teachers (account_id, name, active, user_id) VALUES (_g, 'Gabi', true, _prof), (_g, 'Hugo', true, NULL);
+  -- Solo: o dono que atende (marcado como "sou eu" do admin da Start G).
+  INSERT INTO public.teachers (account_id, name, active, user_id, admin_user_id) VALUES (_s, 'Solo', true, NULL, _sadm);
   PERFORM set_config('teste.g', _g::text, false);
   PERFORM set_config('teste.gadm', _adm::text, false);
   PERFORM set_config('teste.gprof', _prof::text, false);
@@ -2586,9 +2588,19 @@ SELECT public.assert((SELECT count(*) FROM public.google_calendar_status()) = 2
                             FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
                      AND (SELECT NOT connected FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
   'o admin ve os dois profissionais: Gabi conectada, Hugo nao');
-SELECT public.assert((SELECT NOT can_manage AND has_login FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
-                     AND (SELECT can_manage AND NOT has_login FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
-  'o admin so ve a Gabi (tem login); o Hugo (sem login) e ele quem conecta');
+SELECT public.assert((SELECT NOT can_manage AND has_login AND NOT claimable FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
+                     AND (SELECT NOT can_manage AND claimable FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
+  'o admin so ve a Gabi (tem login); o Hugo sem "sou eu" ainda nao e dele');
+SELECT public.google_calendar_claim_self(current_setting('teste.hugo')::uuid);
+SELECT public.assert((SELECT can_manage AND is_self AND NOT claimable FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
+  'o admin marca o Hugo como "sou eu" e passa a conectar so ele');
+DO $$
+BEGIN
+  PERFORM public.google_calendar_claim_self(current_setting('teste.gabi')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin marcou como seu um cadastro com login';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - cadastro com login nao vira "sou eu" do admin';
+END $$;
 DO $$
 BEGIN
   PERFORM public.google_calendar_set(current_setting('teste.gabi')::uuid, false, false);
