@@ -5,6 +5,7 @@
 
 import { DEFAULT_VOCABULARY, cap, type Vocabulary } from "@/lib/vocabulary";
 import { L, isEnglish } from "@/lib/i18n";
+import { nextPlanForClients, nextPlanForTeachers, upgradeOffer } from "@/lib/subscription";
 
 type DbError = { message?: string; hint?: string | null; code?: string } | null | undefined;
 
@@ -14,11 +15,18 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
   const n = Number(arg);
   const staff = L(n === 1 ? `${n} ${v.staff.l} ativo` : `${n} ${v.staff.lp} ativos`, n === 1 ? `${n} active ${v.staff.l}` : `${n} active ${v.staff.lp}`);
   const clients = L(`${n} ${v.client.lp} liberados`, `${n} active ${v.client.lp}`);
+  const tNext = nextPlanForTeachers(n);
+  const tOffer = tNext ? L(` Com o ${upgradeOffer(tNext)} você tem mais.`, ` With ${upgradeOffer(tNext)} you get more.`) : "";
+  const cNext = nextPlanForClients(n);
   switch (key) {
+    case "limite_clientes_ativos":
+      return L(`Você chegou a ${n} ${v.client.lp} ativos, o limite do seu plano. Quem já é ativo continua normal; para receber ${v.client.lp} novos, libere uma vaga ou mude de plano.`,
+        `You've reached ${n} active ${v.client.lp}, your plan's limit. Existing ones keep working; to take new ${v.client.lp}, free up a spot or upgrade.`)
+        + (cNext ? L(` Sugestão: ${upgradeOffer(cNext)}.`, ` Suggestion: ${upgradeOffer(cNext)}.`) : "");
     case "limite_profissionais_cadastrar":
-      return L(`O seu plano permite ${staff}. Para ter mais, mude de plano.`, `Your plan allows ${staff}. To add more, change your plan.`);
+      return L(`O seu plano permite ${staff}.`, `Your plan allows ${staff}.`) + tOffer;
     case "limite_profissionais_reativar":
-      return L(`O seu plano permite ${staff}. Desative outro antes, ou mude de plano.`, `Your plan allows ${staff}. Deactivate another one first, or change your plan.`);
+      return L(`O seu plano permite ${staff}. Desative outro antes, ou mude de plano.`, `Your plan allows ${staff}. Deactivate another one first, or change your plan.`) + tOffer;
     case "limite_clientes_cadastrar":
       return L(`O seu plano permite ${clients}. Para cadastrar mais, mude para o Cronys Pro.`, `Your plan allows ${clients}. To add more, upgrade to Cronys Pro.`);
     case "limite_clientes_liberar":

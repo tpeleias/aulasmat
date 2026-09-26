@@ -51,11 +51,11 @@ export function TermsEn({ contact }: { contact: string | null }) {
       </Section>
       <Section title="3. Plans, trial and cancellation">
         <ul className="list-disc space-y-1 pl-5">
-          <li>The <strong>Cronys Essential</strong> plan is free and has limits on clients and professionals.</li>
-          <li>The paid plans (<strong>Cronys Pro</strong> and <strong>Cronys Max</strong>) unlock the features described in the app.</li>
+          <li>The <strong>Cronys Essential</strong> plan is free and has limits on active clients and professionals.</li>
+          <li>The paid plans (<strong>Cronys Start</strong>, <strong>Cronys Pro</strong> and <strong>Cronys Max</strong>) unlock the features described on the website and in the app.</li>
           <li>New businesses start with a Pro trial. When it ends without a subscription, the account
-            moves to Essential: nothing is deleted, and anything over the Essential limits is paused
-            until the business re-activates it.</li>
+            moves to Essential: nothing is deleted. Clients stay accessible, but new clients can only
+            be added below the plan limit, and the business chooses which professionals stay active.</li>
           <li>The subscription can be canceled at any time and stays active until the end of the
             period already paid, without prejudice to any withdrawal rights under applicable
             consumer law.</li>

@@ -6,7 +6,9 @@ import { CronysWordmark } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { presetFor, BUSINESS_MODELS } from "@/lib/vocabulary";
-import { PLANS, EXTRA_TEACHER, COUPONS_AVAILABLE, brl } from "@/lib/subscription";
+import { PLANS, COUPONS_AVAILABLE, money, itemPrice, TRIAL_DAYS, ACTIVE_CLIENT_DAYS } from "@/lib/subscription";
+import { PlanComparison } from "@/components/PlanComparison";
+import { ANNUAL_MONTHS_CHARGED, PLANS as PLAN_CFG } from "@shared/plans";
 import { isEnglish, toggleLanguage, L } from "@/lib/i18n";
 import { CurrencyPicker } from "@/components/CurrencyPicker";
 
@@ -67,7 +69,7 @@ export default function Landing() {
               "Private tutors, clinics, therapists, salons, pet groomers, studios and workshops. The app speaks your industry's language.")}
           </p>
           <div className="relative mt-8 flex flex-wrap gap-3">
-            <Button asChild size="lg" className="rounded-xl"><Link to="/entrar?criar=empresa">{L("Começar - 14 dias do Pro grátis", "Get started - 14 days of Pro free")}</Link></Button>
+            <Button asChild size="lg" className="rounded-xl"><Link to="/entrar?criar=empresa">{L(`Começar - ${TRIAL_DAYS} dias do Pro grátis`, `Get started - ${TRIAL_DAYS} days of Pro free`)}</Link></Button>
             <Button asChild size="lg" variant="outline" className="rounded-xl border-white/30 bg-transparent text-sidebar-foreground hover:bg-white/10 hover:text-sidebar-foreground">
               <a href="#planos">{L("Ver planos", "See plans")}</a>
             </Button>
@@ -107,39 +109,42 @@ export default function Landing() {
             <h2 className="text-2xl font-bold">{L("Planos", "Plans")}</h2>
             <CurrencyPicker />
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{COUPONS_AVAILABLE
-            ? L("Preços em reais. No anual, 10% de desconto. Sem fidelidade.", "Prices in Brazilian reais (BRL). 10% off yearly. No commitment.")
-            : L("No anual, 10% de desconto. Sem fidelidade.", "10% off yearly. No commitment, cancel anytime.")}</p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <p className="mt-1 text-sm text-muted-foreground">
+            <b className="text-foreground">{L("Sem fidelidade.", "No commitment.")}</b>{" "}
+            {COUPONS_AVAILABLE ? L("Preços em reais. ", "Prices in Brazilian reais (BRL). ") : ""}
+            {L(`No anual, ${12 - ANNUAL_MONTHS_CHARGED} meses grátis.`, `Yearly: ${12 - ANNUAL_MONTHS_CHARGED} months free.`)}
+          </p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {PLANS.map(p => (
               <Card key={p.tier} className={`flex flex-col p-6 ${p.tier === "pro_solo" ? "border-primary/50" : ""}`}>
                 <h3 className="text-lg font-semibold">{p.nome}</h3>
                 <p className="text-sm text-muted-foreground">{p.resumo}</p>
                 <div className="mt-4">
-                  <span className="text-3xl font-bold">{p.mensal === 0 ? L("Grátis", "Free") : brl(p.mensal)}</span>
+                  <span className="text-3xl font-bold">{p.mensal === 0 ? L("Grátis", "Free") : money(p.mensal)}</span>
                   {p.mensal > 0 && <span className="text-muted-foreground">{L("/mês", "/month")}</span>}
                 </div>
-                {p.anual > 0 && <p className="text-xs text-muted-foreground">{L(`ou ${brl(p.anual)}/ano`, `or ${brl(p.anual)}/year`)}</p>}
+                {p.anual > 0 && <p className="text-xs text-muted-foreground">{L(`ou ${money(p.anual)}/ano à vista (equivale a ${money(p.anualMes)}/mês)`, `or ${money(p.anual)}/year (works out to ${money(p.anualMes)}/month)`)}</p>}
                 <ul className="mt-4 flex-1 space-y-1.5 text-sm">
                   {p.itens.map(i => <li key={i} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {i}</li>)}
                 </ul>
                 <Button asChild className="mt-6" variant={p.tier === "pro_solo" ? "default" : "outline"}>
-                  <Link to="/entrar?criar=empresa">{p.mensal === 0 ? L("Criar conta grátis", "Create a free account") : p.tier === "pro_solo" ? L("Testar 14 dias grátis", "Try 14 days free") : L("Começar pelo teste do Pro", "Start with the Pro trial")}</Link>
+                  <Link to="/entrar?criar=empresa">{p.mensal === 0 ? L("Criar conta grátis", "Create a free account") : p.tier === "pro_solo" ? L(`Testar ${TRIAL_DAYS} dias grátis`, `Try ${TRIAL_DAYS} days free`) : L("Começar pelo teste do Pro", "Start with the Pro trial")}</Link>
                 </Button>
               </Card>
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            {L(`Max: 5 profissionais que atendem, contando você (você + 4); quem só administra e não atende não conta. A partir do sexto, ${brl(EXTRA_TEACHER.mensal)}/mês cada. O teste grátis de 14 dias é do Pro; o Max você assina quando precisar da equipe. Assinatura cobrada por cartão, pelo Stripe; na fatura aparece CRONYS.`,
-              `Max: 5 professionals who see clients, including you (you + 4); admins who don't see clients don't count. From the sixth on, ${brl(EXTRA_TEACHER.mensal)}/month each. The 14-day free trial is for Pro; subscribe to Max when you need a team. Billed by card via Stripe; your statement shows CRONYS.`)}
+            {L(`Cliente ativo é quem tem atendimento nos últimos ${ACTIVE_CLIENT_DAYS} dias ou algum marcado; cadastrar é livre. Profissional extra: ${money(itemPrice("extra", "month"))}/mês cada (Pro até ${PLAN_CFG.pro_solo.maxTeachers}; Max a partir do ${PLAN_CFG.pro.includedTeachers + 1}º). O teste grátis de ${TRIAL_DAYS} dias é do Pro. O anual é cobrado de uma vez. Assinatura por cartão, pelo Stripe; na fatura aparece CRONYS.`,
+              `An active client has an appointment in the last ${ACTIVE_CLIENT_DAYS} days or one booked; adding clients is free. Extra professional: ${money(itemPrice("extra", "month"))}/month each (Pro up to ${PLAN_CFG.pro_solo.maxTeachers}; Max from the ${PLAN_CFG.pro.includedTeachers + 1}th). The ${TRIAL_DAYS}-day free trial is for Pro. Yearly plans are billed upfront. Billed by card via Stripe; your statement shows CRONYS.`)}
           </p>
+          <div className="mt-8"><PlanComparison interval="month" /></div>
         </section>
 
         <section className="pb-14">
           <h2 className="text-2xl font-bold">{L("Perguntas rápidas", "Quick questions")}</h2>
           <dl className="mt-6 space-y-4 text-sm">
-            <div><dt className="font-semibold">{L("Preciso de cartão para testar?", "Do I need a card to try it?")}</dt><dd className="text-muted-foreground">{L("Não. A conta nasce com 14 dias do Pro; se não assinar, passa para o Essencial, que é gratuito.", "No. New accounts get 14 days of Pro; if you don't subscribe, you move to Essential, which is free.")}</dd></div>
-            <div><dt className="font-semibold">{L("E se eu cancelar?", "What if I cancel?")}</dt><dd className="text-muted-foreground">{L("Cancela quando quiser, sem multa. Nada do que você cadastrou é apagado: o que passar do limite do Essencial fica pausado até você escolher o que liberar.", "Cancel anytime, no fees. Nothing you saved is deleted: anything over the Essential limits is paused until you choose what to keep active.")}</dd></div>
+            <div><dt className="font-semibold">{L("Preciso de cartão para testar?", "Do I need a card to try it?")}</dt><dd className="text-muted-foreground">{L(`Não. A conta nasce com ${TRIAL_DAYS} dias do Pro; se não assinar, passa para o Essencial, que é gratuito.`, `No. New accounts get ${TRIAL_DAYS} days of Pro; if you don't subscribe, you move to Essential, which is free.`)}</dd></div>
+            <div><dt className="font-semibold">{L("E se eu cancelar?", "What if I cancel?")}</dt><dd className="text-muted-foreground">{L("Cancela quando quiser, sem multa. Nada do que você cadastrou é apagado: seus clientes continuam acessíveis; só não entram clientes novos acima do limite do plano, e você escolhe quais profissionais ficam ativos.", "Cancel anytime, no fees. Nothing you saved is deleted: your clients stay accessible; you just can't add new active clients over the plan limit, and you choose which professionals stay active.")}</dd></div>
             <div><dt className="font-semibold">{L("Meus clientes precisam pagar alguma coisa?", "Do my clients pay anything?")}</dt><dd className="text-muted-foreground">{L("Não. O portal do cliente é gratuito; quem assina é a empresa.", "No. The client portal is free; only the business subscribes.")}</dd></div>
             <div><dt className="font-semibold">{L("E os dados dos meus clientes?", "What about my clients' data?")}</dt><dd className="text-muted-foreground">{L("Cada empresa só enxerga os próprios dados - a regra está no banco de dados, não só na tela. Veja a", "Each business only sees its own data - the rule is enforced in the database, not just the screen. See the")} <Link to="/privacidade" className="underline">{L("política de privacidade", "privacy policy")}</Link>.</dd></div>
           </dl>

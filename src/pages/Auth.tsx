@@ -12,6 +12,7 @@ import { isValidUsername, usernameToEmail } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { Capacitor } from "@capacitor/core";
+import { TRIAL_DAYS } from "@shared/plans";
 
 
 import { L, getLocale, getCurrency, isEnglish, toggleLanguage } from "@/lib/i18n";
@@ -97,7 +98,7 @@ export default function Auth() {
     if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? L("Usuário ou senha incorretos.", "Wrong username or password.") : L("E-mail ou senha incorretos.", "Wrong email or password.")); return; }
     haptics.success();
     if (signup) toast.success(signupKind === "school"
-      ? L("Empresa criada! Você tem 14 dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre.", "Business created! You have 14 days of Cronys Pro to try it. If we ask you to confirm by email, confirm and sign in.")
+      ? L(`Empresa criada! Você tem ${TRIAL_DAYS} dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre.`, `Business created! You have ${TRIAL_DAYS} days of Cronys Pro to try it. If we ask you to confirm by email, confirm and sign in.`)
       : L("Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.", "Account created! Ask your provider to link your login to your profile."));
   };
 
@@ -188,7 +189,7 @@ export default function Auth() {
             ) : (
               <div className="space-y-1 text-center text-xs text-muted-foreground">
                 <p>{L("Cliente novo?", "New client?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>{L("Criar conta", "Create account")}</button></p>
-                <p>{L("Tem um negócio?", "Have a business?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L("Criar minha empresa - 14 dias de Pro grátis", "Create my business - 14 days of Pro free")}</button></p>
+                <p>{L("Tem um negócio?", "Have a business?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L(`Criar minha empresa - ${TRIAL_DAYS} dias de Pro grátis`, `Create my business - ${TRIAL_DAYS} days of Pro free`)}</button></p>
               </div>
             )}
             {signup && signupKind === "family" && (

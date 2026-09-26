@@ -35,7 +35,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
   if (!plan.whatsapp_link) {
     return (
       <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-        {L("Lembrete e aviso pelo WhatsApp com um toque: no Cronys Pro e no Max.", "One-tap WhatsApp reminders and notices: in Cronys Pro and Max.")}
+        {L("Lembrete e aviso pelo WhatsApp com um toque: a partir do Cronys Start.", "One-tap WhatsApp reminders and notices: from Cronys Start up.")}
       </p>
     );
   }

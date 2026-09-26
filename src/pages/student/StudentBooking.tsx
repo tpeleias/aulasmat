@@ -215,7 +215,11 @@ export default function StudentBooking() {
         ? noticeHours > 0
           ? L(`Pedidos precisam de pelo menos ${noticeHours}h de antecedência. Para algo mais em cima da hora, fale com ${st.o} ${st.l}.`, `Requests need at least ${noticeHours}h notice. For anything sooner, talk to the ${st.l}.`)
           : L(`Não foi possível enviar o pedido. Atualize a tela e tente de novo.`, `Could not send the request. Refresh the page and try again.`)
-        : lessonErrorMessage(error, w));
+        : (error.hint ?? "").startsWith("limite_clientes_ativos")
+          // Limite de clientes ativos do plano da empresa: assunto dela com a
+          // Cronys, não da família.
+          ? L(`A agenda não está aceitando pedidos novos agora. Fale com ${st.o} ${st.l}.`, `The schedule isn't taking new requests right now. Please contact the ${st.l}.`)
+          : lessonErrorMessage(error, w));
       load();
       return;
     }

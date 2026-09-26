@@ -74,7 +74,7 @@ export default function BlocksPage() {
 
         <TabsContent value="recurring" className="space-y-4">
           {!plan.recurring_blocks && (
-            <ProUpsell titulo={L("Bloqueio que se repete é do Cronys Pro", "Recurring time off is part of Cronys Pro")} compacto>
+            <ProUpsell titulo={L("Bloqueio que se repete é a partir do Cronys Start", "Recurring time off comes with Cronys Start and up")} compacto>
               {L("no Essencial dá para bloquear uma data específica, na aba ao lado.", "on Essential you can block a specific date, in the next tab.")}
               Aqui você diz uma vez &ldquo;toda terça à tarde&rdquo; e não repete mais.
             </ProUpsell>

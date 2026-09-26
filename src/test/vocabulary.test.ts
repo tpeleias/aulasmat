@@ -88,7 +88,11 @@ describe("textos que usam o vocabulário", () => {
   it("a recusa do banco vira frase com as palavras da empresa", () => {
     const err = { message: "texto neutro", hint: "limite_profissionais_cadastrar:1" };
     expect(dbErrorMessage(err, buildVocabulary("saude"))).toBe(
-      "O seu plano permite 1 médico ativo. Para ter mais, mude de plano.");
+      "O seu plano permite 1 médico ativo. Com o Cronys Pro por R$\u00a049,90/mês você tem mais.");
+    expect(dbErrorMessage({ message: "x", hint: "limite_clientes_ativos:10" }, buildVocabulary("saude")))
+      .toContain("10 pacientes ativos");
+    expect(dbErrorMessage({ message: "x", hint: "limite_clientes_ativos:10" }, buildVocabulary("saude")))
+      .toContain("Cronys Start por R$\u00a029,90/mês");
     expect(dbErrorMessage({ message: "x", hint: "limite_clientes_cadastrar:5" }, buildVocabulary("pet")))
       .toContain("5 pets liberados");
     expect(lessonErrorMessage({ message: "x", hint: "cliente_pausado" }, buildVocabulary("saude")))

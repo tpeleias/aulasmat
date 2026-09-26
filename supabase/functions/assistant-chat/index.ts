@@ -140,7 +140,7 @@ const tools = [
         amount: { type: "number", description: "Dinheiro recebido, valor positivo em reais. Use 0 para lançar só um voucher." },
         kind: { type: "string", enum: ["package", "adjustment"], description: "Padrão package" },
         description: { type: "string" },
-        voucher_amount: { type: "number", description: "Voucher de desconto lançado junto, em reais (crédito, sempre positivo). Só no Cronys Pro." },
+        voucher_amount: { type: "number", description: "Voucher de desconto lançado junto, em reais (crédito, sempre positivo). A partir do Cronys Start." },
         voucher_description: { type: "string", description: "Motivo do voucher, ex: 'Voucher pacote 10 aulas'" },
       },
       required: ["student_name", "amount"],
@@ -442,7 +442,7 @@ Deno.serve(async (req) => {
       _capability: "assistant", _account: accountId,
     });
     if (podeAssistente !== true) {
-      return json({ error: "O Assistente vem no Cronys Max, ou como adicional no Pro." }, 402);
+      return json({ error: "O Assistente vem no Cronys Max, ou como adicional no Start e no Pro." }, 402);
     }
 
     // Limite do mês, também ANTES da API: passou, responde sem gastar nada.
@@ -498,7 +498,7 @@ Regras importantes:
 - Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. O dinheiro recebido entra como amount e o voucher cobre a diferença até o valor cheio, para a conta fechar exata. Com a aula a ${brl(listPrice)}: 10 aulas somam ${brl(listPrice * 10)} e 5 aulas somam ${brl(listPrice * 5)} — confirme com o professor quanto ele recebeu e lance o voucher pela diferença. Se ele disser só "pacote de 10", pergunte o valor recebido em vez de supor.
 - Voucher avulso (desconto ou cortesia combinada pelo professor): add_wallet_credit com amount 0 e voucher_amount igual ao desconto. Voucher é sempre crédito para o aluno, nunca cobrança.
 - Desconto fixo de família: o professor pode marcar um desconto permanente para uma família na tela de Cobrança. Quando existe, o sistema lança o crédito sozinho a cada aula realizada, e por isso a família deve menos que a soma das aulas — isso é esperado, não é erro. Você NÃO cria nem altera desconto fixo: se o professor pedir, diga que é em Cobrança → botão Desconto na conta da família. Descontos fixos hoje: ${discountLine}
-- Planos: algumas funções são do Cronys Pro (pacotes, vouchers, desconto por família, bloqueio que se repete toda semana, e mais de 1 professor ou 5 alunos). Se uma ferramenta devolver um erro dizendo que algo é do Cronys Pro, repasse isso ao professor com naturalidade e siga em frente — não tente contornar por outro caminho, e nunca prometa mudar o plano: quem muda é quem cuida da conta dele.
+- Planos: algumas funções são dos planos pagos (pacotes, vouchers, desconto por família e bloqueio que se repete toda semana, a partir do Start), e cada plano tem limite de profissionais e de clientes ATIVOS (quem tem atendimento nos últimos 60 dias ou marcado). Se uma ferramenta devolver um erro de plano ou de limite, repasse isso ao professor com naturalidade e siga em frente — não tente contornar por outro caminho, e nunca prometa mudar o plano: quem muda é quem cuida da conta dele.
 - Solicitações de aula: quando o aluno pede um horário pelo portal, a aula nasce com status "solicitada" e só entra na agenda depois que o professor aprova. Para responder, use update_lesson com status "agendada" (aprova) ou "recusada" (recusa e libera o horário). Um pedido "solicitada" já reserva o horário, então não sugira marcar outra aula em cima dele. Nunca aprove ou recuse sem o professor confirmar na conversa.
 - Seja direto e conciso nas respostas, em português do Brasil.
 

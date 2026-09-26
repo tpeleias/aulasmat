@@ -1,3 +1,4 @@
+import { PLANS as PLAN_CFG, type PlanId } from "@shared/plans";
 import { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,7 +26,7 @@ type Row = {
   active: boolean;
   is_public_default: boolean;
   created_at: string;
-  plan: "essencial" | "pro_solo" | "pro";
+  plan: "essencial" | "start" | "pro_solo" | "pro";
   assistant: boolean;
   assistant_override: boolean | null;
   responsaveis: number;
@@ -54,10 +55,11 @@ type Row = {
 
 const PLANOS = [
   { slug: "essencial", rotulo: "Essencial" },
+  { slug: "start", rotulo: "Start" },
   { slug: "pro_solo", rotulo: "Pro" },
   { slug: "pro", rotulo: "Max" },
 ] as const;
-const nomePlano = (p: string) => p === "pro" ? "Cronys Max" : p === "pro_solo" ? "Cronys Pro" : "Cronys Essencial";
+const nomePlano = (p: string) => `Cronys ${(PLAN_CFG[p as PlanId] ?? PLAN_CFG.essencial).name.pt}`;
 
 const slugify = (raw: string) =>
   raw.normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -146,18 +148,12 @@ export default function PlatformPage() {
 
   const mudarPlano = async (r: Row, plano: Row["plan"]) => {
     if (plano === r.plan) return;
-    if (plano === "pro_solo" && r.professores > 1
-        && !confirm(`Passar "${r.name}" para o Pro?\n\nos ${r.professores} profissionais ativos ficam pausados (o dono reativa 1). Nada é apagado.`)) return;
-    // Rebaixar acima do limite pausa TODOS os alunos (ou professores) dela, e o
-    // dono escolhe quem liberar - não é mais só "trava o próximo cadastro".
-    // Os números 5 e 1 são os de plan_features('essencial').
-    if (plano === "essencial") {
-      const avisos = [
-        r.alunos > 5 && `os ${r.alunos} alunos ficam pausados (o dono libera até 5)`,
-        r.professores > 1 && `os ${r.professores} professores ativos ficam pausados (o dono reativa 1)`,
-      ].filter(Boolean);
-      if (avisos.length && !confirm(`Rebaixar "${r.name}" para o Essencial?\n\n${avisos.join("\n")}\n\nNada é apagado, e voltar para o Pro libera tudo.`)) return;
-    }
+    // Rebaixar acima do limite de profissionais pausa todos eles, e o dono
+    // escolhe quem volta. Clientes nunca são pausados: o limite é de clientes
+    // ATIVOS e só barra cliente novo (migration 20260926100000).
+    const maxT = PLAN_CFG[plano as PlanId].maxTeachers;
+    if (maxT !== null && r.professores > maxT
+        && !confirm(`Passar "${r.name}" para o ${PLAN_CFG[plano as PlanId].name.pt}?\n\nos ${r.professores} profissionais ativos ficam pausados (o dono reativa até ${maxT}). Nada é apagado.`)) return;
     setBusy(true);
     const { data, error } = await supabase.rpc("platform_set_account_plan", { _account: r.id, _plan: plano });
     setBusy(false);

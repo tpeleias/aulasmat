@@ -186,7 +186,9 @@ export default function SettingsPage() {
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{v.client.p}</span>
-              <strong>{plan.max_students ?? L("sem limite", "unlimited")}</strong>
+              <strong>{plan.max_active_clients != null
+                ? L(`${plan.active_clients ?? 0} de ${plan.max_active_clients} ativos`, `${plan.active_clients ?? 0} of ${plan.max_active_clients} active`)
+                : L("ativos sem limite", "unlimited active")}</strong>
             </li>
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{L("Pacotes, vouchers e desconto", "Packages, vouchers and discounts")}</span>
@@ -203,8 +205,9 @@ export default function SettingsPage() {
             <li className="flex justify-between gap-3">
               <span className="text-muted-foreground">{L("Assistente", "Assistant")}</span>
               <strong>
-                {plan.assistant ? L("sim", "yes")
-                  : plan.assistant_override === false ? L("sob liberação", "on request")
+                {plan.assistant
+                  ? L(`sim (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} mensagens/mês)`, `yes (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} messages/month)`)
+                  : plan.assistant_addon ? L("como adicional", "as an add-on")
                     : L("não", "no")}
               </strong>
             </li>

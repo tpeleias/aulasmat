@@ -606,8 +606,8 @@ export default function BillingPage() {
           {payFor && (
             <div className="space-y-4">
               {!plan.packages && (
-                <ProUpsell titulo={L("Pacotes e vouchers são do Cronys Pro", "Packages and vouchers are part of Cronys Pro")} compacto>
-                  {L("aqui você registra o que recebeu. Vender pacote com desconto e dar voucher ficam no Pro.", "here you record what you received. Selling discounted packages and giving vouchers are on Pro.")}
+                <ProUpsell titulo={L("Pacotes e vouchers são a partir do Cronys Start", "Packages and vouchers come with Cronys Start and up")} compacto>
+                  {L("aqui você registra o que recebeu. Vender pacote com desconto e dar voucher ficam nos planos pagos.", "here you record what you received. Selling discounted packages and giving vouchers are on paid plans.")}
                 </ProUpsell>
               )}
               <div className="grid grid-cols-2 gap-2">

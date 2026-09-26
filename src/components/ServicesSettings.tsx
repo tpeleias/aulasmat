@@ -92,7 +92,7 @@ export default function ServicesSettings() {
           <p className="text-xs text-muted-foreground mt-1">
             {L(`Cada um com duração e preço. Ao marcar, escolher ${tp.o} ${tp.l} já preenche os dois; no portal, ${w.client.o} ${w.client.l} escolhe ${tp.o} ${tp.l} e só vê quem ${tp.pick("o", "a")} faz.`,
                `Each with its own duration and price. When booking, picking the ${tp.l} fills in both; in the portal, the ${w.client.l} picks the ${tp.l} and only sees who offers it.`)}
-            {!multi && L(` No ${plan.nome} é ${tp.um} ${tp.l}; vários são do Cronys Pro.`, ` ${plan.nome} includes one ${tp.l}; multiple ${tp.lp} are part of Cronys Pro.`)}
+            {!multi && L(` No ${plan.nome} é ${tp.um} ${tp.l}; vários, a partir do Cronys Start.`, ` ${plan.nome} includes one ${tp.l}; multiple ${tp.lp} from Cronys Start up.`)}
           </p>
         </div>
         {!draft && podeNovo && (

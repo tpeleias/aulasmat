@@ -6,7 +6,7 @@ import { canSellHere } from "@/lib/subscription";
 
 import { L } from "@/lib/i18n";
 /**
- * O aviso de que algo é do Cronys Pro.
+ * O aviso de que algo é de um plano acima do atual.
  *
  * Deliberadamente NÃO tem botão de compra nem link de pagamento. O app está na
  * Google Play, e vender bem digital dentro dele obriga a usar a cobrança do
@@ -52,10 +52,7 @@ export function ProUpsell({
         </Link>
       ) : (
         <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
-          {L(<>Sua conta está no <strong className="text-foreground">Cronys Essencial</strong>.
-          Para mudar para o <strong className="text-foreground">Cronys Pro</strong>, fale
-          com quem cuida da sua conta.</>, <>Your account is on <strong className="text-foreground">Cronys Essential</strong>.
-          To move to <strong className="text-foreground">Cronys Pro</strong>, talk to whoever manages your account.</>)}
+          {L("Para mudar de plano, fale com quem cuida da sua conta.", "To change plans, talk to whoever manages your account.")}
         </p>
       )}
     </Card>

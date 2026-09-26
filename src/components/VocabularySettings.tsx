@@ -47,7 +47,7 @@ export default function VocabularySettings() {
     apply(data);
     toast.success(active
       ? L(`Agora o app fala como ${presetFor(m).nome.toLocaleLowerCase("pt-BR")}`, `The app now speaks like ${presetFor(m).nome.toLowerCase()}`)
-      : L("Tipo guardado. Os nomes dele passam a valer no Cronys Pro.", "Type saved. Its words apply on Cronys Pro."));
+      : L("Tipo guardado. Os nomes dele passam a valer quando o plano incluir.", "Type saved. Its words apply once your plan includes them."));
   };
 
   const setTerm = (k: TermKey, campo: "s" | "p" | "g", valor: string) =>
@@ -138,7 +138,7 @@ export default function VocabularySettings() {
           </div>
         ) : (
           <>
-            <ProUpsell titulo={L("Os nomes do seu negócio são do Cronys Pro", "Your business words are part of Cronys Pro")} compacto>
+            <ProUpsell titulo={L("Os nomes do seu negócio não estão no seu plano", "Your business words aren't on your plan")} compacto>
               {L("no Essencial o app usa nomes genéricos: Profissional, Atendimento e Cliente. O tipo escolhido acima fica guardado e passa a valer quando a conta for Pro.",
                  "on Essential the app uses generic words: Professional, Appointment and Client. The type chosen above is saved and applies once the account is Pro.")}
             </ProUpsell>
