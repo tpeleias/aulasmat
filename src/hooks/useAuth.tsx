@@ -12,15 +12,23 @@ type Ctx = {
   // linha de nenhuma empresa. Só o gestor responde para ele.
   isPlatformAdmin: boolean;
   role: Role;
+  /** A pergunta "quem é você?" não teve resposta (rede, ou o cliente do
+   *  Supabase travado). Não é o mesmo que "sem papel": a tela oferece tentar
+   *  de novo, em vez de dizer que a conta aguarda liberação. */
+  roleFailed: boolean;
   loading: boolean;
   signOut: () => Promise<void>;
 };
-const AuthContext = createContext<Ctx>({ session: null, user: null, isAdmin: false, isTeacher: false, isPlatformAdmin: false, role: null, loading: true, signOut: async () => {} });
+const AuthContext = createContext<Ctx>({ session: null, user: null, isAdmin: false, isTeacher: false, isPlatformAdmin: false, role: null, roleFailed: false, loading: true, signOut: async () => {} });
 
 // Uma consulta que não volta não pode prender o app: sem resposta em alguns
-// segundos, segue como se não houvesse papel - a pessoa vê a tela de "aguardando"
-// com o botão de sair, em vez de uma tela vazia sem saída.
-const LIMITE_MS = 8000;
+// segundos, desiste. Para o papel, tenta mais uma vez e, se ainda assim não
+// vier, a tela diz que não deu para carregar (com "tentar de novo" e "sair") -
+// antes dizia "aguardando liberação", o que enganava quem tem acesso (26/09:
+// login de professor, depois de sair e entrar na mesma aba, nenhuma consulta
+// chegou a sair do navegador).
+const LIMITE_MS = 6000;
+const FALHOU = Symbol("falhou");
 function comLimite<T>(p: Promise<T>, fallback: T): Promise<T> {
   return Promise.race([
     p.catch(() => fallback),
@@ -34,7 +42,8 @@ async function fetchPlatformAdmin(): Promise<boolean> {
 }
 
 async function fetchRole(userId: string): Promise<Role> {
-  const { data } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId);
+  if (error) throw error;
   const roles = ((data ?? []) as { role: string }[]).map(r => r.role);
   if (roles.includes("admin")) return "admin";
   // Professor da equipe (não admin): vê a própria agenda, sem financeiro.
@@ -49,6 +58,7 @@ async function fetchRole(userId: string): Promise<Role> {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<Role>(null);
+  const [roleFailed, setRoleFailed] = useState(false);
   const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   // Entre o login e a resposta de "quem é você", o app não sabe o papel. Antes,
@@ -68,14 +78,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const resolve = async (userId: string | null) => {
       if (userId === resolvedFor.current) return;
       resolvedFor.current = userId;
-      if (!userId) { setRole(null); setIsPlatformAdmin(false); setResolving(false); return; }
+      if (!userId) { setRole(null); setRoleFailed(false); setIsPlatformAdmin(false); setResolving(false); return; }
       setResolving(true);
-      const [r, p] = await Promise.all([
-        comLimite(fetchRole(userId), null),
-        comLimite(fetchPlatformAdmin(), false),
-      ]);
+      const pedirPapel = () => comLimite<Role | typeof FALHOU>(fetchRole(userId), FALHOU);
+      const [r1, p] = await Promise.all([pedirPapel(), comLimite(fetchPlatformAdmin(), false)]);
+      const r = r1 === FALHOU && alive && resolvedFor.current === userId ? await pedirPapel() : r1;
       if (!alive || resolvedFor.current !== userId) return;
-      setRole(r);
+      // O gestor da plataforma não tem papel: se ele respondeu, não é falha.
+      const failed = r === FALHOU && !p;
+      setRole(r === FALHOU ? null : r);
+      setRoleFailed(failed);
       setIsPlatformAdmin(p);
       setResolving(false);
     };
@@ -110,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isTeacher: role === "teacher",
       isPlatformAdmin,
       role,
+      roleFailed,
       loading: loading || resolving,
       signOut: async () => {
         // Sair tem que funcionar mesmo com o servidor fora: se a chamada falhar,

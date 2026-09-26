@@ -67,7 +67,10 @@ deixou as decisões comigo; ficou assim:
 - **`.aab` 1.12.0 (código 42)** enviado ao teste interno (run 42), com as
   novidades do Google Agenda. O run 41 tinha saído com o nome padrão "1.0.0"
   (código 41) - sempre preencher o nome da versão.
-- **Ainda não testado com um Google de verdade**. No primeiro
+- **`.aab` 1.12.1 (código 43)** enviado ao teste interno (run 43): corrige o
+  diálogo de aula que abria vazio para o admin (PR #59, bug vindo de 266427d).
+- Testado com o Google de verdade pelo Thiago em 26/09: conecta e sincroniza
+  nos dois sentidos. No primeiro
   teste, conferir: nomes de escopo aceitos na tela de consentimento, a agenda
   "Cronys" criada, o ocupado virando bloqueio e o evento sumindo ao cancelar.
 

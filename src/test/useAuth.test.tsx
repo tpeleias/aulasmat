@@ -26,9 +26,9 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 
 function Probe() {
-  const { loading, role, isPlatformAdmin, session } = useAuth();
-  // O que a tela de login decide: carregando, gestor, papel, ou "aguardando".
-  const tela = loading ? "carregando" : !session ? "login" : isPlatformAdmin ? "gestor" : role ?? "aguardando";
+  const { loading, role, roleFailed, isPlatformAdmin, session } = useAuth();
+  // O que a tela de login decide: carregando, gestor, papel, "não carregou" ou "aguardando".
+  const tela = loading ? "carregando" : !session ? "login" : isPlatformAdmin ? "gestor" : role ?? (roleFailed ? "falhou" : "aguardando");
   return <div data-testid="tela">{tela}</div>;
 }
 
@@ -69,14 +69,44 @@ describe("AuthProvider", () => {
     expect(getByTestId("tela").textContent).toBe("login");
   });
 
-  it("consulta de papel que nunca volta cai em 'aguardando' (que tem botão de sair)", async () => {
+  it("consulta de papel que nunca volta tenta de novo e cai em 'não carregou' (não em 'aguardando')", async () => {
     getSession = async () => ({ data: { session: sessao("u1") } });
-    rolesQuery = () => never();
+    let pedidos = 0;
+    rolesQuery = () => { pedidos++; return never(); };
     platformRpc = () => never();
     const { getByTestId } = render(<AuthProvider><Probe /></AuthProvider>);
     await flush(100);
     expect(getByTestId("tela").textContent).toBe("carregando");
-    await flush(9000);
+    await flush(7000);
+    expect(getByTestId("tela").textContent).toBe("carregando");
+    await flush(7000);
+    expect(pedidos).toBe(2);
+    expect(getByTestId("tela").textContent).toBe("falhou");
+  });
+
+  it("a segunda tentativa que responde entra normalmente", async () => {
+    getSession = async () => ({ data: { session: sessao("u1") } });
+    let pedidos = 0;
+    rolesQuery = () => (++pedidos === 1 ? never() : Promise.resolve({ data: [{ role: "teacher" }] }));
+    const { getByTestId } = render(<AuthProvider><Probe /></AuthProvider>);
+    await flush(7000);
+    await flush(10);
+    expect(getByTestId("tela").textContent).toBe("teacher");
+  });
+
+  it("erro do banco na consulta do papel não vira 'aguardando'", async () => {
+    getSession = async () => ({ data: { session: sessao("u1") } });
+    rolesQuery = async () => ({ data: null, error: { message: "falhou" } });
+    const { getByTestId } = render(<AuthProvider><Probe /></AuthProvider>);
+    await flush(10);
+    expect(getByTestId("tela").textContent).toBe("falhou");
+  });
+
+  it("sem papel de verdade continua em 'aguardando'", async () => {
+    getSession = async () => ({ data: { session: sessao("u1") } });
+    rolesQuery = async () => ({ data: [] });
+    const { getByTestId } = render(<AuthProvider><Probe /></AuthProvider>);
+    await flush(10);
     expect(getByTestId("tela").textContent).toBe("aguardando");
   });
 
