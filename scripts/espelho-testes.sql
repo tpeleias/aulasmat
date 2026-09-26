@@ -1131,6 +1131,8 @@ SELECT public.assert((SELECT plan = 'pro_solo' AND trial_ends_at > now() + inter
 SELECT public.assert((SELECT count(*) FROM public.settings WHERE account_id = current_setting('teste.a24')::uuid) = 1
                      AND (SELECT name FROM public.teachers WHERE account_id = current_setting('teste.a24')::uuid) = 'ana paula',
   'ja nasce com configuracoes e com o professor');
+SELECT public.assert((SELECT admin_user_id FROM public.teachers WHERE account_id = current_setting('teste.a24')::uuid) = current_setting('teste.u24')::uuid,
+  'o professor que nasce com a escola ja e o "sou eu" de quem criou (Google Agenda)');
 SELECT public.assert((SELECT public_account_id() <> current_setting('teste.a24')::uuid),
   'e NAO cai na empresa do endereco publico');
 
