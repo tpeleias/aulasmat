@@ -152,6 +152,14 @@ export default function CalendarPage() {
   }, [anchor, dayCount]);
 
   useEffect(() => { load(); }, [load]);
+  // Google Agenda: ao abrir a agenda, puxa o ocupado de lá (a função ignora quem
+  // sincronizou há menos de 2 minutos) e relê se algo veio.
+  useEffect(() => {
+    if (!plan.google_calendar) return;
+    supabase.functions.invoke("google-calendar", { body: { action: "sync" } })
+      .then(({ data }) => { if (data?.synced > 0) load(); })
+      .catch(() => {});
+  }, [plan.google_calendar]); // eslint-disable-line react-hooks/exhaustive-deps
   // Separado do load: os professores chegam depois, e a cor do widget depende
   // da ordem deles.
   useEffect(() => {
@@ -253,7 +261,10 @@ export default function CalendarPage() {
     const cellEnd = addMinutes(cellStart, 60);
 
     const oneOff = teacherBlocks.find(b => b.block_type === "one_off" && b.start_at && b.end_at && new Date(b.start_at) < cellEnd && new Date(b.end_at) > cellStart);
-    if (oneOff) return { label: oneOff.title, blockId: oneOff.id, recurring: false };
+    if (oneOff) return {
+      label: (oneOff as { source?: string }).source === "google" ? L("Ocupado (Google)", "Busy (Google)") : oneOff.title,
+      blockId: oneOff.id, recurring: false,
+    };
 
     const wd = getDay(day);
     const dateStr = format(day, "yyyy-MM-dd");

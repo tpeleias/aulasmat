@@ -48,6 +48,7 @@ const ChildDashboard = lazy(() => import("./pages/child/ChildDashboard"));
 const PlatformPage = lazy(() => import("./pages/platform/PlatformPage"));
 const Subscribe = lazy(() => import("./pages/Subscribe"));
 const Landing = lazy(() => import("./pages/Landing"));
+const GoogleCalendarReturn = lazy(() => import("./pages/GoogleCalendarReturn"));
 
 const queryClient = new QueryClient();
 
@@ -85,6 +86,7 @@ const App = () => (
             <Route path="/termos" element={<TermsOfUse />} />
             <Route path="/excluir-conta" element={<DeleteAccountInfo />} />
             <Route path="/minha-conta" element={<MyAccount />} />
+            <Route path="/google-agenda" element={<GoogleCalendarReturn />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>

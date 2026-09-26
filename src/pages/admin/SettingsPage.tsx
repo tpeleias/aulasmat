@@ -17,6 +17,7 @@ import VocabularySettings from "@/components/VocabularySettings";
 import LanguageSettings from "@/components/LanguageSettings";
 import PackagesSettings from "@/components/PackagesSettings";
 import ServicesSettings from "@/components/ServicesSettings";
+import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
 
@@ -429,6 +430,8 @@ export default function SettingsPage() {
         </div>
         <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">{L("Configurar mensagens", "Edit messages")}</Link></Button>
       </Card>
+
+      <GoogleCalendarSettings />
 
       <ServicesSettings />
 

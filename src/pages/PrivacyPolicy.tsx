@@ -8,7 +8,7 @@ import { PrivacyEn } from "@/pages/LegalEn";
 // The Play Console requires a public privacy policy URL, and it has to describe what the
 // app really does. This is a draft written from the app's actual behaviour: read it and
 // change anything that does not match how you work.
-const UPDATED_AT = "24 de setembro de 2026";
+const UPDATED_AT = "26 de setembro de 2026";
 
 export default function PrivacyPolicy() {
   // O e-mail de contato vem do banco, por empresa. Estava cravado aqui, e com
@@ -81,6 +81,26 @@ export default function PrivacyPolicy() {
                 política de privacidade dele.</li>
             </ul>
             <p>Fora isso, nada é compartilhado.</p>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="font-semibold text-base">Google Agenda (opcional)</h2>
+            <p>
+              O profissional pode conectar a própria conta Google. O Cronys passa a ler apenas os{" "}
+              <strong>horários ocupados</strong> da agenda principal dele (sem título, descrição ou
+              convidados), para bloquear esses horários no Cronys, e cria uma agenda separada chamada
+              "Cronys" na conta Google dele, onde inclui, altera e remove os atendimentos desse
+              profissional. O Cronys não lê nem altera nenhuma outra agenda ou evento.
+            </p>
+            <p>
+              O uso e a transferência de informações recebidas das APIs do Google seguem a{" "}
+              <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-primary underline">
+                Política de Dados do Usuário dos Serviços de API do Google</a>, incluindo os requisitos
+              de Uso Limitado. Esses dados não são usados para publicidade, não são vendidos e não são
+              usados para treinar modelos de IA. Desconectar pelo app apaga a agenda "Cronys", remove os
+              horários importados e revoga o acesso; o acesso também pode ser retirado a qualquer
+              momento em myaccount.google.com/permissions.
+            </p>
           </section>
 
           <section className="space-y-2">
