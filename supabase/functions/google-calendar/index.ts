@@ -101,11 +101,14 @@ class GoogleError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 
-// O endereço de volta cadastrado no Google Cloud. Fica no cronys.com.br (o
-// public/_redirects do Netlify repassa para cá) porque a verificação do app
-// pelo Google exige domínio nosso; supabase.co não é.
+// O endereço de volta cadastrado no Google Cloud. Por enquanto, direto na
+// função: o site no ar é o do Lovable, que não repassa endereço para fora, e o
+// Netlify (que repassa, ver public/_redirects) está parado sem crédito. Para a
+// verificação do app pelo Google vai precisar ser domínio nosso: com o Netlify
+// de volta, pôr o segredo GOOGLE_REDIRECT_URI =
+// https://cronys.com.br/google-agenda/callback (e cadastrar esse no Google).
 function redirectUri() {
-  return Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://cronys.com.br/google-agenda/callback";
+  return Deno.env.get("GOOGLE_REDIRECT_URI") ?? `${Deno.env.get("SUPABASE_URL")}/functions/v1/google-calendar/callback`;
 }
 
 async function tokenRequest(params: Record<string, string>) {

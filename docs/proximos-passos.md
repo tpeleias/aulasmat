@@ -60,7 +60,12 @@ deixou as decisões comigo; ficou assim:
   têm JWT; as ações da tela conferem o login). Espelho: bloco 46.
 - Conferido na produção: cron com segredo → 200 "not configured"; segredo
   errado → 403; retorno sem estado → volta para `/google-agenda?status=invalido`.
-- **Ainda não testado com um Google de verdade** (sem as chaves). No primeiro
+- Chaves do Google postas pelo Thiago no Supabase (26/09, conferido: o cron
+  deixou de responder "not configured"). PRs #55 e #56 mesclados.
+- **`.aab` 1.12.0 (código 42)** enviado ao teste interno (run 42), com as
+  novidades do Google Agenda. O run 41 tinha saído com o nome padrão "1.0.0"
+  (código 41) - sempre preencher o nome da versão.
+- **Ainda não testado com um Google de verdade**. No primeiro
   teste, conferir: nomes de escopo aceitos na tela de consentimento, a agenda
   "Cronys" criada, o ocupado virando bloqueio e o evento sumindo ao cancelar.
 

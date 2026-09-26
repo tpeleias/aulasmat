@@ -81,7 +81,10 @@ só na agenda que o próprio Cronys criou. Nada de ler ou editar as outras.
 - Tipo: **Aplicativo da Web**
 - Nome: `Cronys web`
 - URIs de redirecionamento autorizados → Adicionar URI:
-  `https://cronys.com.br/google-agenda/callback`
+  `https://dqfzuviwejlobrwebyum.supabase.co/functions/v1/google-calendar/callback`
+  (enquanto o Netlify estiver parado; para a verificação do Google, depois,
+  acrescentar também `https://cronys.com.br/google-agenda/callback` e pôr o
+  segredo `GOOGLE_REDIRECT_URI` no Supabase com esse endereço)
 - Criar. Aparecem o **ID do cliente** e a **Chave secreta do cliente**.
 
 (Não precisa de "Origens JavaScript autorizadas".)
