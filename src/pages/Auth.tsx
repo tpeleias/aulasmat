@@ -17,7 +17,7 @@ import { TRIAL_DAYS } from "@shared/plans";
 
 import { L, getLocale, getCurrency, isEnglish, toggleLanguage } from "@/lib/i18n";
 export default function Auth() {
-  const { session, role, isPlatformAdmin, loading } = useAuth();
+  const { session, role, roleFailed, isPlatformAdmin, loading } = useAuth();
   const [signup, setSignup] = useState(false);
   // "school": professor/escola criando a própria conta (vira admin de uma
   // escola nova, com teste do Pro). "family": responsável entrando numa escola
@@ -50,6 +50,7 @@ export default function Auth() {
     if (role === "admin" || role === "teacher") return <Navigate to="/admin" replace />;
     if (role === "student") return <Navigate to="/aluno" replace />;
     if (role === "child") return <Navigate to="/meu-painel" replace />;
+    if (roleFailed) return <LoadFailedScreen />;
     return <PendingScreen />;
   }
 
@@ -214,6 +215,28 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div className="space-y-1.5">
       <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
       {children}
+    </div>
+  );
+}
+
+// A conta existe, mas não deu para saber o que ela pode ver (a consulta não
+// voltou). Recarregar a página resolve quase sempre: começa um cliente novo.
+function LoadFailedScreen() {
+  const { signOut, user } = useAuth();
+  return (
+    <div className="flex flex-1 items-center justify-center bg-background p-6">
+      <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
+        <h2 className="text-xl font-semibold">{L("Não deu para carregar sua conta", "Couldn't load your account")}</h2>
+        <p className="text-sm text-muted-foreground">
+          {L(`Você entrou como ${user?.email}, mas a conexão não respondeu a tempo. Tente de novo.`,
+             `You're signed in as ${user?.email}, but the connection didn't respond in time. Please try again.`)}
+        </p>
+        <div className="flex justify-center gap-2">
+          <Button onClick={() => window.location.reload()} className="rounded-xl">{L("Tentar de novo", "Try again")}</Button>
+          <Button onClick={signOut} variant="outline" className="rounded-xl">{L("Sair", "Sign out")}</Button>
+        </div>
+      </div>
     </div>
   );
 }
