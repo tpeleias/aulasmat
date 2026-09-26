@@ -58,6 +58,8 @@ export type PlanFeatures = {
   services_multi: boolean;
   teacher_services: boolean;
   any_teacher: boolean;
+  /** Google Agenda: ocupado de lá bloqueia aqui, e os agendamentos vão para lá. */
+  google_calendar: boolean;
 };
 
 export type PlanDef = {
@@ -86,7 +88,7 @@ export type PlanDef = {
 const PAID_FEATURES: PlanFeatures = {
   packages: true, recurring_blocks: true, vocabulary: true, whatsapp_link: true,
   whatsapp_auto: false, arrival_location: false, services_multi: true,
-  teacher_services: false, any_teacher: false,
+  teacher_services: false, any_teacher: false, google_calendar: false,
 };
 
 export const PLANS: Record<PlanId, PlanDef> = {
@@ -98,7 +100,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     features: {
       packages: false, recurring_blocks: false, vocabulary: true, whatsapp_link: false,
       whatsapp_auto: false, arrival_location: false, services_multi: false,
-      teacher_services: false, any_teacher: false,
+      teacher_services: false, any_teacher: false, google_calendar: false,
     },
   },
   start: {
@@ -113,7 +115,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     maxTeachers: 3, includedTeachers: 1, extraTeachers: true, maxActiveClients: null,
     assistantMessages: 20, assistantCostCapUsd: 0.6, assistantNeedsPayment: false, assistantAddon: true,
     autoMessagesQuota: null,
-    features: PAID_FEATURES,
+    features: { ...PAID_FEATURES, google_calendar: true },
   },
   pro: {
     id: "pro", name: { pt: "Max", en: "Max" },
@@ -123,6 +125,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     features: {
       ...PAID_FEATURES,
       whatsapp_auto: true, arrival_location: true, teacher_services: true, any_teacher: true,
+      google_calendar: true,
     },
   },
 };

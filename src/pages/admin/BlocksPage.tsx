@@ -16,6 +16,7 @@ import { capitalize } from "@/lib/balance";
 
 import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
+import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import { useWords } from "@/hooks/useVocabulary";
 
 import { L } from "@/lib/i18n";
@@ -48,7 +49,9 @@ export default function BlocksPage() {
     setOneForm(f => ({ ...f, teacher: own }));
   }, [isTeacher, own]);
 
-  const load = async () => { const { data } = await supabase.from("blocks").select("*").order("created_at", { ascending: false }); setBlocks((data ?? []) as Block[]); };
+  // O ocupado importado do Google não entra na lista: é espelho, atualizado
+  // sozinho (aparece na agenda). Aqui ficam só os bloqueios feitos à mão.
+  const load = async () => { const { data } = await supabase.from("blocks").select("*").neq("source" as never, "google").order("created_at", { ascending: false }); setBlocks((data ?? []) as Block[]); };
   useEffect(() => { load(); }, []);
 
   const addRecurring = async () => {
@@ -68,6 +71,8 @@ export default function BlocksPage() {
   return (
     <div className="space-y-6">
       <div><h1 className="text-2xl font-bold">{L("Bloqueios de horário", "Time off")}</h1><p className="text-sm text-muted-foreground">{L("Marque períodos indisponíveis na sua agenda.", "Mark times you're not available on your calendar.")}</p></div>
+
+      <GoogleCalendarSettings />
 
       <Tabs defaultValue="recurring">
         <TabsList><TabsTrigger value="recurring">{L("Recorrentes", "Recurring")}</TabsTrigger><TabsTrigger value="oneoff">{L("Pontuais", "One-off")}</TabsTrigger></TabsList>

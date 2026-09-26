@@ -69,6 +69,8 @@ export type Plan = {
   teacher_services?: boolean;
   /** Max: a família pede "qualquer profissional", pela prioridade do admin. */
   any_teacher?: boolean;
+  /** Pro e Max: Google Agenda (ocupado de lá bloqueia aqui; agendamentos vão para lá). */
+  google_calendar?: boolean;
 };
 
 // O que uma empresa sem resposta do banco enxerga. Fecha, não abre: mostrar a

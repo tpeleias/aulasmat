@@ -2542,4 +2542,189 @@ COMMIT;
 SELECT public.assert(public.account_can('assistant', current_setting('teste.m45')::uuid),
   'religado: Max pago volta a ter o assistente');
 
+\echo ''
+\echo '--- 46. Google Agenda: conexao fechada, switches, fila e ocupado importado ---'
+
+DO $$
+DECLARE _g uuid; _adm uuid := gen_random_uuid(); _prof uuid := gen_random_uuid(); _sadm uuid := gen_random_uuid(); _s uuid;
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Agenda G', 'agenda-g', 'pro') RETURNING id INTO _g;
+  INSERT INTO public.settings (account_id, default_lesson_price) VALUES (_g, 100.00);
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Start G', 'start-g', 'start') RETURNING id INTO _s;
+  INSERT INTO public.settings (account_id, default_lesson_price) VALUES (_s, 100.00);
+  INSERT INTO auth.users (id, email) VALUES (_adm, 'adm-g@x'), (_prof, 'gabi-g@x'), (_sadm, 'adm-sg@x');
+  DELETE FROM public.user_roles WHERE user_id IN (_adm, _prof, _sadm);
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_adm, 'admin', _g), (_prof, 'teacher', _g), (_sadm, 'admin', _s);
+  INSERT INTO public.teachers (account_id, name, active, user_id) VALUES (_g, 'Gabi', true, _prof), (_g, 'Hugo', true, NULL), (_s, 'Solo', true, NULL);
+  PERFORM set_config('teste.g', _g::text, false);
+  PERFORM set_config('teste.gadm', _adm::text, false);
+  PERFORM set_config('teste.gprof', _prof::text, false);
+  PERFORM set_config('teste.sgadm', _sadm::text, false);
+  PERFORM set_config('teste.gabi', (SELECT id::text FROM public.teachers WHERE account_id = _g AND name = 'Gabi'), false);
+  PERFORM set_config('teste.hugo', (SELECT id::text FROM public.teachers WHERE account_id = _g AND name = 'Hugo'), false);
+  PERFORM set_config('teste.solo', (SELECT id::text FROM public.teachers WHERE account_id = _s AND name = 'Solo'), false);
+  -- O que a funcao faz no retorno do Google (chave de servico).
+  INSERT INTO public.google_calendar_connections (teacher_id, account_id, google_email, refresh_token)
+  VALUES (current_setting('teste.gabi')::uuid, _g, 'gabi@gmail.com', 'rt-secreto');
+  INSERT INTO public.google_calendar_connections (teacher_id, account_id, google_email, refresh_token, import_enabled, export_enabled)
+  VALUES (current_setting('teste.solo')::uuid, _s, 'solo@gmail.com', 'rt-solo', false, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+DO $$
+BEGIN
+  PERFORM refresh_token FROM public.google_calendar_connections;
+  RAISE EXCEPTION 'FALHOU: admin leu o refresh token';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - ninguem de fora le a tabela de conexoes (refresh token)';
+END $$;
+SELECT public.assert((SELECT count(*) FROM public.google_calendar_status()) = 2
+                     AND (SELECT connected AND import_enabled AND export_enabled AND google_email = 'gabi@gmail.com'
+                            FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
+                     AND (SELECT NOT connected FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
+  'o admin ve os dois profissionais: Gabi conectada, Hugo nao');
+COMMIT;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gprof'), true);
+SELECT public.assert((SELECT count(*) FROM public.google_calendar_status()) = 1
+                     AND (SELECT teacher_name FROM public.google_calendar_status()) = 'Gabi',
+  'a profissional ve so a propria linha');
+DO $$
+BEGIN
+  PERFORM public.google_calendar_set(current_setting('teste.hugo')::uuid, true, true);
+  RAISE EXCEPTION 'FALHOU: profissional mexeu no Google de outro';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - profissional nao mexe no Google de outro';
+END $$;
+COMMIT;
+
+-- Aula mexida entra na fila so de quem exporta.
+DELETE FROM public.google_sync_queue;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes) VALUES
+  ('Ivo', 'hugo', now() + interval '3 days', 60);
+COMMIT;
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.google_sync_queue), 'aula do Hugo (sem Google) nao entra na fila');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+INSERT INTO public.lessons (student_name, teacher, start_at, duration_minutes) VALUES
+  ('Juca', 'gabi', now() + interval '4 days', 60);
+COMMIT;
+SELECT public.assert(EXISTS (SELECT 1 FROM public.google_sync_queue WHERE teacher_id = current_setting('teste.gabi')::uuid),
+  'aula nova da Gabi entra na fila de exportacao');
+DELETE FROM public.google_sync_queue;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+UPDATE public.lessons SET teacher = 'hugo' WHERE student_name = 'Juca' AND account_id = current_setting('teste.g')::uuid;
+COMMIT;
+SELECT public.assert(EXISTS (SELECT 1 FROM public.google_sync_queue WHERE teacher_id = current_setting('teste.gabi')::uuid),
+  'aula que saiu da Gabi enfileira a Gabi (para sair do Google dela)');
+DELETE FROM public.google_sync_queue;
+UPDATE public.lessons SET teacher = 'gabi' WHERE student_name = 'Juca' AND account_id = current_setting('teste.g')::uuid;
+DELETE FROM public.google_sync_queue;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+DELETE FROM public.lessons WHERE student_name = 'Juca' AND account_id = current_setting('teste.g')::uuid;
+COMMIT;
+SELECT public.assert(EXISTS (SELECT 1 FROM public.google_sync_queue WHERE teacher_id = current_setting('teste.gabi')::uuid),
+  'aula apagada da Gabi enfileira a Gabi');
+
+-- Ocupado importado (o que a funcao grava) vira bloqueio da Gabi.
+SELECT public.assert(public.google_calendar_replace_busy(current_setting('teste.gabi')::uuid,
+  now(), now() + interval '60 days',
+  jsonb_build_array(jsonb_build_object('start', now() + interval '1 day', 'end', now() + interval '1 day 1 hour'),
+                    jsonb_build_object('start', now() + interval '2 days', 'end', now() + interval '2 days 30 minutes'))) = 2,
+  'dois intervalos ocupados do Google gravados');
+SELECT public.assert(public.google_calendar_replace_busy(current_setting('teste.gabi')::uuid,
+  now(), now() + interval '60 days',
+  jsonb_build_array(jsonb_build_object('start', now() + interval '1 day', 'end', now() + interval '1 day 1 hour'))) = 1,
+  'a passada seguinte regrava o que continua ocupado');
+SELECT public.assert((SELECT count(*) FROM public.blocks WHERE source = 'google' AND account_id = current_setting('teste.g')::uuid) = 1,
+  'e o compromisso apagado no Google sai daqui');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gadm'), true);
+SELECT public.assert(EXISTS (SELECT 1 FROM public.get_busy_ranges_by_teacher(now(), now() + interval '5 days', 'gabi')
+                              WHERE start_at = (SELECT start_at FROM public.blocks WHERE source = 'google' AND teacher = 'gabi')),
+  'o ocupado do Google aparece como horario ocupado da Gabi');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.get_busy_ranges_by_teacher(now(), now() + interval '5 days', 'hugo')
+                                  WHERE start_at = (SELECT start_at FROM public.blocks WHERE source = 'google' AND teacher = 'gabi')),
+  'e nao ocupa o Hugo');
+DO $$
+BEGIN
+  INSERT INTO public.blocks (title, block_type, start_at, end_at, teacher, source)
+  VALUES ('x', 'one_off', now(), now() + interval '1 hour', 'gabi', 'google');
+  RAISE EXCEPTION 'FALHOU: admin criou bloqueio do Google na mao';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - bloqueio do Google nao se cria pela tela';
+END $$;
+DO $$
+BEGIN
+  UPDATE public.blocks SET title = 'meu' WHERE source = 'google';
+  RAISE EXCEPTION 'FALHOU: admin editou bloqueio do Google';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - bloqueio do Google nao se edita pela tela';
+END $$;
+-- Renomear a profissional leva o ocupado junto.
+SELECT public.rename_teacher(current_setting('teste.gabi')::uuid, 'Gabriela', 'gabi', 'gabriela');
+SELECT public.assert((SELECT count(*) FROM public.blocks WHERE source = 'google' AND teacher = 'gabriela') = 1,
+  'renomear a profissional leva o ocupado importado junto');
+SELECT public.rename_teacher(current_setting('teste.gabi')::uuid, 'Gabi', 'gabriela', 'gabi');
+COMMIT;
+
+-- A propria profissional desliga a importacao: o ocupado some na hora.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.gprof'), true);
+SELECT public.google_calendar_set(current_setting('teste.gabi')::uuid, false, true);
+SELECT public.assert((SELECT NOT import_enabled AND export_enabled FROM public.google_calendar_status()),
+  'a profissional desliga so a importacao');
+COMMIT;
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.blocks WHERE source = 'google' AND account_id = current_setting('teste.g')::uuid),
+  'importacao desligada: o ocupado importado sai na hora');
+
+-- Start nao tem Google Agenda.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.sgadm'), true);
+DO $$
+DECLARE _h text;
+BEGIN
+  PERFORM public.google_calendar_set(current_setting('teste.solo')::uuid, true, false);
+  RAISE EXCEPTION 'FALHOU: Start ligou o Google Agenda';
+EXCEPTION WHEN check_violation THEN
+  GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
+  PERFORM public.assert(_h = 'plano:google_calendar', 'Start nao liga o Google Agenda (' || _h || ')');
+END $$;
+SELECT public.google_calendar_set(current_setting('teste.solo')::uuid, false, false);
+SELECT public.assert(true, 'Start pode deixar tudo desligado');
+COMMIT;
+
+-- Desconectar apaga conexao, fila e ocupado.
+SELECT public.google_calendar_replace_busy(current_setting('teste.gabi')::uuid, now(), now() + interval '60 days',
+  jsonb_build_array(jsonb_build_object('start', now() + interval '1 day', 'end', now() + interval '1 day 1 hour')));
+SELECT public.google_calendar_forget(current_setting('teste.gabi')::uuid);
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.google_calendar_connections WHERE teacher_id = current_setting('teste.gabi')::uuid)
+                     AND NOT EXISTS (SELECT 1 FROM public.blocks WHERE source = 'google' AND account_id = current_setting('teste.g')::uuid),
+  'desconectar apaga a conexao e o ocupado importado');
+
 \echo '=== FIM ==='

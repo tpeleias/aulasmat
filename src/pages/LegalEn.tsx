@@ -149,6 +149,23 @@ export function PrivacyEn({ contact }: { contact: string | null }) {
         </ul>
         <p>Nothing else is shared.</p>
       </Section>
+      <Section title="Google Calendar (optional)">
+        <p>
+          A professional can connect their own Google account. Cronys then reads only the{" "}
+          <strong>busy times</strong> of their main calendar (no titles, descriptions or guests) to block
+          those times in Cronys, and creates a separate calendar called "Cronys" in their Google
+          account, where it adds, changes and removes the professional's appointments. Cronys does
+          not read or change any other calendar or event.
+        </p>
+        <p>
+          Cronys's use and transfer of information received from Google APIs adheres to the{" "}
+          <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noreferrer" className="text-primary underline">
+            Google API Services User Data Policy</a>, including the Limited Use requirements. This data is
+          not used for advertising, is not sold and is not used to train AI models. Disconnecting in
+          the app deletes the "Cronys" calendar, removes the imported busy times and revokes access;
+          access can also be removed at any time at myaccount.google.com/permissions.
+        </p>
+      </Section>
       <Section title="Children's data">
         <p>
           A minor's record is created by the business from what the guardian provides, and the

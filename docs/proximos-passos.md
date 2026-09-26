@@ -19,7 +19,7 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    - Programa de indicação - ver "Indicação" abaixo (guardado, não começar).
    - Link de agendamento público para Instagram/WhatsApp, com "feito com Cronys".
    - Páginas por ramo (psicólogos, personal, salões...), em pt e en, para o Google.
-   - Exportar para o Google Agenda (ICS).
+   - ~~Exportar para o Google Agenda (ICS)~~ - virou a integração de verdade (item 7).
    - Depoimentos na página inicial (dos primeiros testadores).
    - Parcerias com associações e cursos de formação, com cupom.
    - Lembrete automático por WhatsApp (é o item 2).
@@ -27,7 +27,42 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    e-mails de login (Supabase Auth) em inglês, IVA/VAT (UE e Reino Unido) e
    cupons em moeda estrangeira.
 6. **Stripe no modo real** - ver "Planos novos" (sync_prices, portal, cupom).
-7. **Google Agenda** - sincronização, combinado para o fim da semana.
+7. **Google Agenda** - código FEITO e publicado (26/09). Falta ele: projeto no
+   Google Cloud + as duas chaves no Supabase, passo a passo em
+   `docs/google-agenda.md`; depois, a verificação do app pelo Google.
+
+## Google Agenda (26/09) - FEITO no código; falta o Thiago no Google Cloud
+
+Pedido: o ocupado do Google bloqueia a agenda do profissional, e os
+agendamentos do Cronys vão para o Google, com switch por profissional. Ele
+deixou as decisões comigo; ficou assim:
+- **Pro e Max** (`google_calendar` em `plans.ts`).
+- **Quem conecta:** o admin, para qualquer profissional (quem atende sozinho),
+  ou o profissional com login, para si. Dois switches por pessoa: importar e
+  exportar. Card em Bloqueios (todos) e em Configurações (admin).
+- **Importar = só o ocupado** (`calendar.freebusy`, sem título) da agenda
+  principal → `blocks` com `source = 'google'`, "Ocupado (Google)". Como é
+  bloqueio comum, agenda, vitrine e portal já respeitam. Não aparece na lista
+  de Bloqueios e não se cria/edita pela tela (trigger `blocks_google_mirror`).
+- **Exportar = agenda separada "Cronys"** (`calendar.app.created`): fica fora
+  da importação (sem laço) e desconectar apaga tudo de uma vez. Título
+  "Cliente · Serviço". Não vão: solicitada, cancelada, recusada. Id do evento
+  fixo por aula (`cr` + uuid), então repetir nunca duplica.
+- **Ritmo:** aula mexida → `google_sync_queue` (trigger em lessons) → pg_cron a
+  cada minuto chama a função pelo pg_net se a fila tiver algo; puxada completa
+  a cada 10 min e ao abrir a agenda. Segredo do cron e URL da função no Vault.
+- **Volta do Google:** `cronys.com.br/google-agenda/callback`, repassado pelo
+  Netlify (`public/_redirects`) à função - a verificação do Google exige
+  domínio nosso. Página `/google-agenda` mostra o resultado.
+- Política de privacidade (pt e en) com a seção do Google e o Uso Limitado.
+- Migration `20260926140000_google_calendar.sql` (aplicada), função
+  `google-calendar` v2 (verify_jwt desligado: o retorno do Google e o cron não
+  têm JWT; as ações da tela conferem o login). Espelho: bloco 46.
+- Conferido na produção: cron com segredo → 200 "not configured"; segredo
+  errado → 403; retorno sem estado → volta para `/google-agenda?status=invalido`.
+- **Ainda não testado com um Google de verdade** (sem as chaves). No primeiro
+  teste, conferir: nomes de escopo aceitos na tela de consentimento, a agenda
+  "Cronys" criada, o ocupado virando bloqueio e o evento sumindo ao cancelar.
 
 ### Indicação - GUARDADO, pensar depois (25/09)
 
