@@ -2586,6 +2586,16 @@ SELECT public.assert((SELECT count(*) FROM public.google_calendar_status()) = 2
                             FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
                      AND (SELECT NOT connected FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
   'o admin ve os dois profissionais: Gabi conectada, Hugo nao');
+SELECT public.assert((SELECT NOT can_manage AND has_login FROM public.google_calendar_status() WHERE teacher_name = 'Gabi')
+                     AND (SELECT can_manage AND NOT has_login FROM public.google_calendar_status() WHERE teacher_name = 'Hugo'),
+  'o admin so ve a Gabi (tem login); o Hugo (sem login) e ele quem conecta');
+DO $$
+BEGIN
+  PERFORM public.google_calendar_set(current_setting('teste.gabi')::uuid, false, false);
+  RAISE EXCEPTION 'FALHOU: admin mexeu no Google de quem tem login proprio';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - admin nao mexe no Google de quem tem login proprio';
+END $$;
 COMMIT;
 
 BEGIN;

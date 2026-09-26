@@ -10,6 +10,10 @@ minutos. Depois disso o botão "Conectar Google" funciona.
 - Pro e Max. Cada profissional conecta a própria conta Google. A conexão fica
   em **Bloqueios** (o profissional com login vê só a dele) e em
   **Configurações** (o admin vê todos).
+- **Quem conecta (26/09):** profissional com login próprio conecta, liga os
+  switches e desconecta a DELE - o admin só vê se está sincronizado (a agenda
+  do Google é pessoal). Profissional sem login (o dono que atende, ou alguém
+  sem acesso ao app) é o admin quem conecta.
 - **Importar ocupado** (switch): o que está ocupado na agenda principal do
   Google vira bloqueio "Ocupado (Google)" no Cronys - na agenda, na vitrine
   pública e no portal do cliente. Só o horário; título e convidados nunca são

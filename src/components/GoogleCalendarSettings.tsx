@@ -28,6 +28,9 @@ type Row = {
   last_error: string | null;
   last_import_at: string | null;
   last_export_at: string | null;
+  /** Quem tem login próprio conecta o próprio Google; o admin só vê o dele. */
+  can_manage: boolean;
+  has_login: boolean;
 };
 
 export default function GoogleCalendarSettings() {
@@ -124,7 +127,11 @@ export default function GoogleCalendarSettings() {
                 {r.connected && r.status === "revoked" && <Badge variant="destructive">{L("Sem acesso", "No access")}</Badge>}
                 {r.connected && r.status === "error" && <Badge variant="outline">{L("Com erro", "Error")}</Badge>}
                 {busy === r.teacher_id && <Loader2 className="w-4 h-4 animate-spin" />}
-                {!r.connected || r.status === "revoked" ? (
+                {!r.can_manage ? (
+                  r.connected && r.status === "ok" && (
+                    <Badge variant="outline">{r.import_enabled || r.export_enabled ? L("Sincronizado", "Synced") : L("Pausado", "Paused")}</Badge>
+                  )
+                ) : !r.connected || r.status === "revoked" ? (
                   <Button size="sm" disabled={busy !== null} onClick={() => connect(r)}>
                     {r.connected ? L("Reconectar", "Reconnect") : L("Conectar Google", "Connect Google")}
                   </Button>
@@ -135,7 +142,13 @@ export default function GoogleCalendarSettings() {
                 )}
               </div>
             </div>
-            {r.connected && r.status !== "revoked" && (
+            {!r.can_manage && (
+              <p className="text-xs text-muted-foreground">
+                {L(`Quem conecta é ${capitalize(r.teacher_name)}, pelo acesso próprio (a agenda do Google é pessoal).`,
+                   `${capitalize(r.teacher_name)} connects it from their own login (the Google calendar is personal).`)}
+              </p>
+            )}
+            {r.can_manage && r.connected && r.status !== "revoked" && (
               <div className="grid sm:grid-cols-2 gap-2">
                 <label className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
                   <span>{L("Importar ocupado do Google", "Import Google busy times")}</span>
@@ -147,7 +160,7 @@ export default function GoogleCalendarSettings() {
                 </label>
               </div>
             )}
-            {r.connected && r.last_error && (
+            {r.can_manage && r.connected && r.last_error && (
               <p className="text-xs text-destructive">{r.last_error}</p>
             )}
           </div>
