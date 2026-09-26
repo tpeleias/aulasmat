@@ -9,7 +9,9 @@ um chat inteiro. Atualize/apague itens conforme forem resolvidos.
 O Thiago pediu para ser lembrado destes itens até decidir/fazer:
 
 1. **Proteção contra senhas vazadas** (Supabase → Authentication → "Leaked
-   password protection"). Um clique, é ele quem faz.
+   password protection") - **ESPERANDO o Supabase Pro** (só existe no Pro; ele
+   não vê motivo para assinar agora, 26/09). NÃO cobrar a cada rodada: lembrar
+   só quando ele contar que assinou o Supabase Pro.
 2. **WhatsApp automático por empresa** - decidir entre API oficial da Meta
    (paga por mensagem, número verificado por empresa) e provedor
    intermediário. Ver a seção "WhatsApp automático (Max)" mais abaixo.
@@ -197,6 +199,16 @@ escrito neste arquivo — perguntar a ele qual é antes de seguir.
   e o manifest, referenciados em `index.html` junto com `theme-color`.
 
 ## Dois lugares publicados — Netlify e Lovable
+
+**ATUALIZADO 26/09: o `cronys.com.br` é servido pelo LOVABLE** (conferido: mesmo
+bundle de `cronys.lovable.app`, servidor Cloudflare, sem cabeçalho do Netlify).
+O Netlify só serve `cronys.netlify.app`, que ninguém usa, e está sem crédito -
+sugerido ao Thiago parar os builds de lá. **Publicar = `deploy_project` no
+Lovable** depois de mesclar. O texto abaixo é histórico.
+
+Google Agenda: segredo `GOOGLE_SITE=https://cronys.com.br` posto no Supabase
+(26/09); a tela de permissão do Google mostra cronys.com.br. Próximo: a
+verificação da marca pelo Google (docs/google-agenda.md, passo 5).
 
 Descoberto nesta sessão: o projeto nasceu no Lovable e continua existindo
 lá, sincronizado por GitHub com este mesmo repositório (mesmo `main`).
