@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -84,6 +84,12 @@ export default function PlatformPage() {
 
   const [excluir, setExcluir] = useState<Row | null>(null);
   const [confirmaNome, setConfirmaNome] = useState("");
+
+  // Redefinir senha de um login (platform-console, ação reset_password).
+  const [senhaOpen, setSenhaOpen] = useState(false);
+  const [senhaLogin, setSenhaLogin] = useState("");
+  const [senhaNova, setSenhaNova] = useState("");
+  const [senhaFeita, setSenhaFeita] = useState<{ login: string; password: string; account_name: string | null; role: string | null } | null>(null);
 
   const [renomear, setRenomear] = useState<Row | null>(null);
   const [nomeNovo, setNomeNovo] = useState("");
@@ -233,6 +239,26 @@ export default function PlatformPage() {
     load();
   };
 
+  const redefinirSenha = async () => {
+    if (!senhaLogin.trim()) { toast.error("Informe o login"); return; }
+    if (senhaNova && senhaNova.length < 8) { toast.error("A senha nova deve ter ao menos 8 caracteres"); return; }
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("platform-console", {
+      body: { action: "reset_password", login: senhaLogin.trim(), password: senhaNova },
+    });
+    setBusy(false);
+    let erro = (data as { error?: string })?.error;
+    if (!erro && error) {
+      // Resposta 4xx: a mensagem de verdade vem no corpo.
+      const ctx = (error as { context?: Response }).context;
+      erro = (await ctx?.json?.().catch(() => null))?.error ?? error.message;
+    }
+    if (erro) { toast.error(erro); return; }
+    setSenhaFeita(data as NonNullable<typeof senhaFeita>);
+  };
+
+  const fecharSenha = () => { setSenhaOpen(false); setSenhaLogin(""); setSenhaNova(""); setSenhaFeita(null); };
+
   const confirmarRenome = async () => {
     if (!renomear || !nomeNovo.trim()) return;
     setBusy(true);
@@ -294,9 +320,14 @@ export default function PlatformPage() {
               {total.responsaveis === 1 ? "l" : "is"} no total
             </p>
           </div>
-          <Button className="gap-1 rounded-xl" onClick={() => setNovaOpen(true)}>
-            <Plus className="h-4 w-4" /> Nova empresa
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="gap-1 rounded-xl" onClick={() => setSenhaOpen(true)}>
+              <KeyRound className="h-4 w-4" /> Redefinir senha
+            </Button>
+            <Button className="gap-1 rounded-xl" onClick={() => setNovaOpen(true)}>
+              <Plus className="h-4 w-4" /> Nova empresa
+            </Button>
+          </div>
         </div>
 
         <Card className="rounded-xl border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
@@ -499,6 +530,66 @@ export default function PlatformPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" className="rounded-xl" onClick={() => setNovaOpen(false)}>Cancelar</Button>
             <Button className="rounded-xl" onClick={criar} disabled={busy}>Criar empresa</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={senhaOpen} onOpenChange={v => !v && fecharSenha()}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Redefinir senha</DialogTitle>
+            <DialogDescription>
+              Para quem não consegue entrar: troca a senha de qualquer login (admin,
+              profissional ou cliente). A senha antiga deixa de valer na hora.
+            </DialogDescription>
+          </DialogHeader>
+          {senhaFeita ? (
+            <div className="space-y-3">
+              <div className="rounded-xl bg-muted/60 p-3 text-sm">
+                <p className="text-xs text-muted-foreground">
+                  {senhaFeita.login}{senhaFeita.account_name ? ` · ${senhaFeita.account_name}` : ""}{senhaFeita.role ? ` · ${senhaFeita.role}` : ""}
+                </p>
+                <p className="mt-1 font-mono text-lg">{senhaFeita.password}</p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                onClick={() => { navigator.clipboard?.writeText(senhaFeita.password); toast.success("Senha copiada"); }}
+              >
+                <Copy className="h-3 w-3" /> copiar a senha
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                Passe essa senha para a pessoa e peça que troque depois, em Minha conta.
+                Ela não aparece de novo.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label>Login</Label>
+                <Input
+                  className="h-11 rounded-xl" value={senhaLogin} autoCapitalize="none" autoCorrect="off" autoFocus
+                  onChange={e => setSenhaLogin(e.target.value)} placeholder="email@dela.com ou usuário"
+                />
+              </div>
+              <div>
+                <Label>Senha nova (opcional)</Label>
+                <Input
+                  type="text" className="h-11 rounded-xl font-mono" value={senhaNova}
+                  onChange={e => setSenhaNova(e.target.value)} placeholder="em branco = gerar uma"
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2">
+            {senhaFeita ? (
+              <Button className="rounded-xl" onClick={fecharSenha}>Pronto</Button>
+            ) : (
+              <>
+                <Button variant="outline" className="rounded-xl" onClick={fecharSenha}>Cancelar</Button>
+                <Button className="rounded-xl" onClick={redefinirSenha} disabled={busy || !senhaLogin.trim()}>Redefinir</Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

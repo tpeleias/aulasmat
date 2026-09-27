@@ -1,8 +1,8 @@
-// O gestor da plataforma: criar e excluir empresas.
+// O gestor da plataforma: criar e excluir empresas, e redefinir a senha de um login.
 //
-// Só existem aqui as duas operações que precisam da API de autenticação, que o
-// SQL não alcança: criar o login do primeiro admin e apagar os logins de uma
-// empresa excluída. Ler o painel e ligar/desligar empresa são RPCs chamadas
+// Só existem aqui as operações que precisam da API de autenticação, que o
+// SQL não alcança: criar o login do primeiro admin, apagar os logins de uma
+// empresa excluída e trocar a senha de um login. Ler o painel e ligar/desligar empresa são RPCs chamadas
 // direto pelo app.
 //
 // A autorização acontece DUAS vezes, de propósito:
@@ -28,6 +28,14 @@ const corsHeaders = {
 // login, guardado como endereço num domínio interno.
 const USERNAME_DOMAIN = "aluno.sistema.local";
 const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
+
+/** Senha provisória legível: sem 0/O, 1/l/I. */
+function genPassword(len = 10) {
+  const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const arr = new Uint32Array(len);
+  crypto.getRandomValues(arr);
+  return Array.from(arr, n => chars[n % chars.length]).join("");
+}
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "content-type": "application/json" } });
@@ -132,6 +140,31 @@ Deno.serve(async (req) => {
       }
 
       return json({ ok: true, ...(result as object), logins_removidos: ids.length - failed.length, logins_com_falha: failed });
+    }
+
+    // -----------------------------------------------------------------------
+    // Redefinir a senha de um login, para quem não consegue entrar. A senha
+    // nova volta na resposta: o gestor a repassa à pessoa.
+    if (action === "reset_password") {
+      const loginRaw = String(body?.login ?? "").trim().toLowerCase();
+      const typed = String(body?.password ?? "");
+      if (!loginRaw) return json({ error: "Informe o login." }, 400);
+      const email = loginRaw.includes("@") ? loginRaw : `${loginRaw}@${USERNAME_DOMAIN}`;
+      if (typed && typed.length < 8) return json({ error: "A senha nova deve ter ao menos 8 caracteres." }, 400);
+
+      const { data: found, error: fErr } = await userClient.rpc("platform_login_lookup", { _email: email });
+      if (fErr) return json({ error: fErr.message }, 400);
+      const target = (Array.isArray(found) ? found[0] : found) as
+        { user_id: string; account_name: string | null; role: string | null; is_operator: boolean } | undefined;
+      if (!target) return json({ error: "Nenhum login com esse e-mail ou usuário." }, 404);
+      // Senha de operador não se troca por aqui: quem roubasse uma sessão de
+      // gestor tomaria as outras.
+      if (target.is_operator) return json({ error: "Senha de gestor não se redefine por aqui." }, 403);
+
+      const password = typed || genPassword(10);
+      const { error: pErr } = await admin.auth.admin.updateUserById(target.user_id, { password });
+      if (pErr) return json({ error: pErr.message }, 400);
+      return json({ ok: true, login: email, password, account_name: target.account_name, role: target.role });
     }
 
     return json({ error: `ação desconhecida: ${action}` }, 400);
