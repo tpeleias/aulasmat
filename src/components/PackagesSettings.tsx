@@ -13,7 +13,7 @@ import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
 import { useServices } from "@/hooks/useServices";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 
 import { L, currencySymbol } from "@/lib/i18n";
 type Draft = { id?: string; name: string; lessons: string; price: string; service_id: string | null };
@@ -136,13 +136,11 @@ export default function PackagesSettings() {
           {services.length > 0 && (
             <div>
               <Label>{w.topic.s}</Label>
-              <Select value={draft.service_id ?? "none"} onValueChange={v => setDraft({ ...draft, service_id: v === "none" ? null : v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{L(`Qualquer ${w.topic.l} (pacote geral)`, `Any ${w.topic.l} (general package)`)}</SelectItem>
-                  {services.map(s => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <WheelSelect value={draft.service_id ?? "none"} onValueChange={v => setDraft({ ...draft, service_id: v === "none" ? null : v })}
+                label={w.topic.s} options={[
+                  { value: "none", label: L(`Qualquer ${w.topic.l} (pacote geral)`, `Any ${w.topic.l} (general package)`) },
+                  ...services.map(s => ({ value: s.id, label: s.name })),
+                ]} />
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">

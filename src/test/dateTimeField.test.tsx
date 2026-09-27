@@ -34,4 +34,15 @@ describe("DateTimeField", () => {
     fireEvent.change(container.querySelector('input[type="date"]')!, { target: { value: "2026-09-25" } });
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  it("hora e minuto são rodinhas: tocar numa linha escolhe", () => {
+    const onChange = vi.fn();
+    render(<DateTimeField value="2026-09-24T15:30" onChange={onChange} />);
+    const hora = screen.getByRole("listbox", { name: "Hora" });
+    expect(screen.getByRole("option", { name: "15h" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.keyDown(hora, { key: "ArrowDown" });
+    expect(onChange).toHaveBeenLastCalledWith("2026-09-24T16:30");
+    fireEvent.click(screen.getByRole("option", { name: ":45" }));
+    expect(onChange).toHaveBeenLastCalledWith("2026-09-24T16:45");
+  });
 });

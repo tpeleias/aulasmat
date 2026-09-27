@@ -5,7 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import { TrendingUp, BookOpen, GraduationCap, MessageSquarePlus, Pencil } from "lucide-react";
 import { format, isPast } from "date-fns";
 import { capitalize } from "@/lib/balance";
@@ -97,12 +97,9 @@ export default function EvolutionPage() {
         <p className="text-sm text-muted-foreground">{L(`Presença, resumo ${w.appointment.dos} ${w.appointment.lp} e devolutiva das tarefas, numa linha do tempo.`, `Attendance, ${w.appointment.l} notes and homework feedback, on a timeline.`)}</p>
       </div>
 
-      <Select value={studentId} onValueChange={v => setSearchParams({ aluno: v })}>
-        <SelectTrigger className="w-full max-w-sm h-10 rounded-xl"><SelectValue placeholder={L(`Escolha ${w.client.o} ${w.client.l}`, `Choose the ${w.client.l}`)} /></SelectTrigger>
-        <SelectContent>
-          {students.map(s => <SelectItem key={s.id} value={s.id}>{s.student_name}</SelectItem>)}
-        </SelectContent>
-      </Select>
+      <WheelSelect value={studentId} onValueChange={v => setSearchParams({ aluno: v })} className="w-full max-w-sm h-10 rounded-xl"
+        label={w.client.s} placeholder={L(`Escolha ${w.client.o} ${w.client.l}`, `Choose the ${w.client.l}`)}
+        options={students.map(s => ({ value: s.id, label: s.student_name }))} />
 
       {!student ? (
         <EmptyState icon={GraduationCap} title={L(`Escolha ${w.client.um} ${w.client.l}`, `Choose ${w.client.um} ${w.client.l}`)} description={L("A evolução é individual - escolha quem você quer acompanhar.", "Progress is individual - choose who you want to follow.")} />

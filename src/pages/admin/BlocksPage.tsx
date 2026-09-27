@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Trash2 } from "lucide-react";
@@ -35,6 +35,10 @@ export default function BlocksPage() {
   const own = useDefaultTeacher();
   const teachers = isTeacher ? allTeachers.filter(t => teacherSlug(t.name) === own) : allTeachers;
   const canRemove = (b: Block) => !isTeacher || b.teacher === own;
+  const teacherOptions = [
+    ...(isTeacher ? [] : [{ value: "both", label: L("Todos", "All") }]),
+    ...teachers.map(t => ({ value: teacherSlug(t.name), label: capitalize(t.name) })),
+  ];
   // "both" continua sendo o valor gravado para "vale para todos os professores".
   const teacherLabel = (slug: string) =>
     slug === "both"
@@ -89,21 +93,12 @@ export default function BlocksPage() {
             <div className="grid md:grid-cols-6 gap-3 items-end">
               <div className="md:col-span-2"><Label>{L("Título", "Title")}</Label><Input value={recForm.title} onChange={e => setRecForm({ ...recForm, title: e.target.value })} /></div>
               <div><Label>{w.staff.s}</Label>
-                <Select value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {!isTeacher && <SelectItem value="both">{L("Todos", "All")}</SelectItem>}
-                    {teachers.map(t => (
-                      <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WheelSelect value={recForm.teacher} onValueChange={v => setRecForm({ ...recForm, teacher: v })} label={w.staff.s}
+                  options={teacherOptions} />
               </div>
               <div><Label>{L("Dia", "Day")}</Label>
-                <Select value={String(recForm.weekday)} onValueChange={v => setRecForm({ ...recForm, weekday: Number(v) })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{WEEKDAYS.map((w, i) => <SelectItem key={i} value={String(i)}>{w}</SelectItem>)}</SelectContent>
-                </Select>
+                <WheelSelect value={String(recForm.weekday)} onValueChange={v => setRecForm({ ...recForm, weekday: Number(v) })} label={L("Dia", "Day")}
+                  options={WEEKDAYS.map((d, i) => ({ value: String(i), label: d }))} />
               </div>
               <div><Label>{L("Início", "Start")}</Label><Input type="time" value={recForm.start_time} onChange={e => setRecForm({ ...recForm, start_time: e.target.value })} /></div>
               <div><Label>{L("Fim", "End")}</Label><Input type="time" value={recForm.end_time} onChange={e => setRecForm({ ...recForm, end_time: e.target.value })} /></div>
@@ -130,15 +125,8 @@ export default function BlocksPage() {
             <div className="grid md:grid-cols-4 gap-3 items-end">
               <div><Label>{L("Título", "Title")}</Label><Input value={oneForm.title} onChange={e => setOneForm({ ...oneForm, title: e.target.value })} /></div>
               <div><Label>{w.staff.s}</Label>
-                <Select value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {!isTeacher && <SelectItem value="both">{L("Todos", "All")}</SelectItem>}
-                    {teachers.map(t => (
-                      <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <WheelSelect value={oneForm.teacher} onValueChange={v => setOneForm({ ...oneForm, teacher: v })} label={w.staff.s}
+                  options={teacherOptions} />
               </div>
               <div><Label>{L("Início", "Start")}</Label><Input type="datetime-local" value={oneForm.start_at} onChange={e => setOneForm({ ...oneForm, start_at: e.target.value })} /></div>
               <div><Label>{L("Fim", "End")}</Label><Input type="datetime-local" value={oneForm.end_at} onChange={e => setOneForm({ ...oneForm, end_at: e.target.value })} /></div>
