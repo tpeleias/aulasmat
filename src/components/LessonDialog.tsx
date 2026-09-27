@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,6 +101,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     teacherSlug(t.name) === form.teacher || teacherDoes(t, form.service_id, links, perTeacher));
   const [busy, setBusy] = useState(false);
   const [wheelOpen, setWheelOpen] = useState(false);
+  // Sem serviço escolhido, a duração é a "Duração padrão" das Configurações
+  // (settings.slot_minutes), não 60 fixo (Thiago, 27/09).
+  const [defaultDuration, setDefaultDuration] = useState(60);
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
   // Dias da repetição (0 = domingo). Vazio = o dia do início, como antes.
@@ -118,7 +121,13 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     });
     if (!isTeacher) {
       supabase.from("settings").select("*").maybeSingle().then(({ data }) => {
-        const d = data as { charge_absence?: boolean; absence_notice_hours?: number; absence_charge_percent?: number } | null;
+        const d = data as { charge_absence?: boolean; absence_notice_hours?: number; absence_charge_percent?: number; slot_minutes?: number } | null;
+        const slot = Number(d?.slot_minutes);
+        if (slot >= 5 && slot <= 480) {
+          setDefaultDuration(slot);
+          // O diálogo novo abriu antes de a configuração chegar: adota a dela.
+          setForm(f => (!lesson?.id && !f.service_id && f.duration_minutes === 60 ? { ...f, duration_minutes: slot } : f));
+        }
         setAbsence({ on: !!d?.charge_absence, hours: Number(d?.absence_notice_hours ?? 24), percent: Number(d?.absence_charge_percent ?? 100) });
       });
     }
@@ -138,7 +147,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         guardian_name: initialStudent?.guardian_name ?? "",
         subject: subjectOf(baseTeacher),
         start_at: slotStart ? format(slotStart, "yyyy-MM-dd'T'HH:mm") : "",
-        duration_minutes: 60, price: listPrice, package_type: "single", payment_status: "pendente", notes: "",
+        duration_minutes: defaultDuration, price: listPrice, package_type: "single", payment_status: "pendente", notes: "",
         teacher: baseTeacher,
         address: initialStudent?.address ?? "",
         is_online: false,
@@ -214,7 +223,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       ...f,
       service_id: null,
       subject: f.subject === sv.name ? subjectOf(f.teacher) : f.subject,
-      duration_minutes: f.duration_minutes === sv.duration_minutes ? 60 : f.duration_minutes,
+      duration_minutes: f.duration_minutes === sv.duration_minutes ? defaultDuration : f.duration_minutes,
       price: f.price === (hourlyPrice(sv) ?? listPrice) ? listPrice : f.price,
     };
   };
@@ -233,6 +242,24 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       is_online: sv.mode === "online" ? true : sv.mode === "presencial" ? false : f.is_online,
     }));
   };
+
+  // Atendimento novo: se a matéria que já veio preenchida é o nome de um
+  // serviço, ele entra escolhido, com a duração e o valor dele (Thiago, 27/09:
+  // quem não mexe em nada fica com a duração do serviço).
+  // Uma vez por abertura (e de novo se trocar o profissional): digitar a
+  // descrição depois não troca nada sozinho.
+  const autoPicked = useRef<string | null>(null);
+  useEffect(() => { if (!open) autoPicked.current = null; }, [open]);
+  useEffect(() => {
+    if (!open || lesson?.id || !services?.length || autoPicked.current === form.teacher) return;
+    const name = (form.subject ?? "").trim().toLowerCase();
+    if (!name) return;
+    autoPicked.current = form.teacher;
+    if (form.service_id) return;
+    const hit = services.filter(x => x.name.trim().toLowerCase() === name);
+    if (hit.length === 1) setService(hit[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lesson?.id, services, form.teacher, form.subject]);
 
   const setPackage = (pkg: string) => {
     setForm(f => ({ ...f, package_type: pkg }));
@@ -533,29 +560,6 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             <Label>{L("Dia e horário", "Date and time")}</Label>
             <DateTimeField key={open ? (lesson?.id ?? "nova") : "fechado"} value={form.start_at} onChange={v => setForm(f => ({ ...f, start_at: v }))} />
           </div>
-          <div>
-            <Label>{L("Duração", "Duration")}</Label>
-            {/* A duração à vista e, só se for mudar, a rodinha (Thiago, 27/09:
-                os atalhos de 30 min, 45 min, 1h… poluíam o diálogo). */}
-            <div className="flex items-center gap-3">
-              <span className="text-base font-semibold tabular-nums">{durationLabel(form.duration_minutes)}</span>
-              <Button type="button" size="sm" variant="outline" className="h-9 rounded-xl" aria-expanded={wheelOpen}
-                onClick={() => setWheelOpen(o => !o)}>
-                {wheelOpen ? L("Pronto", "Done") : L("Outra duração", "Other length")}
-              </Button>
-            </div>
-            {wheelOpen && (
-              <div className="mt-2">
-                <WheelPicker
-                  label={L("Duração", "Duration")}
-                  options={DURATIONS.includes(form.duration_minutes) ? DURATIONS : [...DURATIONS, form.duration_minutes].sort((x, y) => x - y)}
-                  value={form.duration_minutes}
-                  format={durationLabel}
-                  onChange={m => setForm(f => ({ ...f, duration_minutes: m }))}
-                />
-              </div>
-            )}
-          </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
             <div>
               <Label>{L(`Endereço ${v.client.do} ${v.client.l}`, `${v.client.s} address`)}</Label>
@@ -628,11 +632,34 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           <Collapsible key={isTeacher ? "prof" : "admin"} defaultOpen={isTeacher} className="rounded-md border border-border bg-muted/30">
             <CollapsibleTrigger asChild>
               <button className="group flex w-full items-center justify-between p-3 text-sm font-medium hover:bg-muted/50 transition-colors">
-                <span>{isTeacher ? L("Detalhes adicionais (status e observações)", "More details (status and notes)") : L("Detalhes adicionais (valor, status e observações)", "More details (price, status and notes)")}</span>
+                <span>{isTeacher ? L("Detalhes adicionais (duração, status e observações)", "More details (length, status and notes)") : L("Detalhes adicionais (duração, valor, status e observações)", "More details (length, price, status and notes)")}</span>
                 <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
               </button>
             </CollapsibleTrigger>
             <CollapsibleContent className="p-3 pt-0 space-y-3">
+            <div>
+              <Label>{L("Duração", "Duration")}</Label>
+              {/* A duração à vista e, só se for mudar, a rodinha (Thiago, 27/09:
+                  os atalhos de 30 min, 45 min, 1h… poluíam o diálogo). */}
+              <div className="flex items-center gap-3">
+                <span className="text-base font-semibold tabular-nums">{durationLabel(form.duration_minutes)}</span>
+                <Button type="button" size="sm" variant="outline" className="h-9 rounded-xl" aria-expanded={wheelOpen}
+                  onClick={() => setWheelOpen(o => !o)}>
+                  {wheelOpen ? L("Pronto", "Done") : L("Outra duração", "Other length")}
+                </Button>
+              </div>
+              {wheelOpen && (
+                <div className="mt-2">
+                  <WheelPicker
+                    label={L("Duração", "Duration")}
+                    options={DURATIONS.includes(form.duration_minutes) ? DURATIONS : [...DURATIONS, form.duration_minutes].sort((x, y) => x - y)}
+                    value={form.duration_minutes}
+                    format={durationLabel}
+                    onChange={m => setForm(f => ({ ...f, duration_minutes: m }))}
+                  />
+                </div>
+              )}
+            </div>
               {!isTeacher && <div>
                 <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
                 <NumberField step="0.01" inputMode="decimal" min={0} fallback={listPrice} value={form.price} onValueChange={n => setForm(f => ({ ...f, price: n }))} />
