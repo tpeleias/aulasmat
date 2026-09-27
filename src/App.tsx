@@ -11,6 +11,7 @@ import { VocabularyProvider } from "@/hooks/useVocabulary";
 import { ThemeProvider } from "@/hooks/useTheme";
 import Auth from "./pages/Auth";
 import AndroidBackButton from "./components/AndroidBackButton";
+import NativeLoginReturn from "./components/NativeLoginReturn";
 
 // Cada tela vira um arquivo à parte: a vitrine e o login não baixam o app
 // inteiro (antes, ~1,3 MB de uma vez). O login fica no pacote principal porque
@@ -74,6 +75,7 @@ const App = () => (
         <AuthProvider>
         <VocabularyProvider>
           <AndroidBackButton />
+          <NativeLoginReturn />
           <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Root />} />

@@ -2852,4 +2852,59 @@ VALUES (current_setting('teste.g')::uuid, 'Lia', 'Rosa', 'hugo', now() + interva
 SELECT public.assert((SELECT service_id IS NULL FROM public.lessons WHERE subject = 'Xadrez '),
   'dois serviços com o mesmo nome: não adivinha');
 
+\echo '--- 49. Entrar com o Google: sem papel, e cria o negócio na primeira entrada (28/09) ---'
+INSERT INTO auth.users (id, email, raw_app_meta_data, raw_user_meta_data) VALUES
+  ('49000000-0000-0000-0000-000000000001', 'dona@gmail.x', '{"provider":"google","providers":["google"]}', '{"full_name":"Carla Dias"}');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = '49000000-0000-0000-0000-000000000001'),
+  'quem chega pelo Google nao vira cliente sem vinculo');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '49000000-0000-0000-0000-000000000001', true);
+SELECT public.create_my_business('Studio Carla', 'Carla', 'pt-BR', 'BRL');
+COMMIT;
+SELECT public.assert((SELECT r.role::text = 'admin' AND a.name = 'Studio Carla' AND a.plan = 'pro_solo' AND a.trial_ends_at > now() + interval '13 days'
+                        FROM public.user_roles r JOIN public.accounts a ON a.id = r.account_id
+                       WHERE r.user_id = '49000000-0000-0000-0000-000000000001'),
+  'cria a empresa, vira admin, com os 14 dias do Pro');
+SELECT public.assert((SELECT s.contact_email = 'dona@gmail.x' AND t.name = 'carla' AND t.admin_user_id = '49000000-0000-0000-0000-000000000001'
+                        FROM public.user_roles r JOIN public.settings s ON s.account_id = r.account_id
+                        JOIN public.teachers t ON t.account_id = r.account_id
+                       WHERE r.user_id = '49000000-0000-0000-0000-000000000001'),
+  'com o e-mail do Google no contato e ela como profissional');
+
+DO $$
+BEGIN
+  SET LOCAL SESSION AUTHORIZATION authenticator;
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', '49000000-0000-0000-0000-000000000001', true);
+  PERFORM public.create_my_business('Outra', 'Carla');
+  RAISE EXCEPTION 'FALHOU: criou segunda empresa';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - quem ja tem empresa nao cria outra';
+END $$;
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+
+DO $$
+BEGIN
+  SET LOCAL SESSION AUTHORIZATION authenticator;
+  SET LOCAL ROLE authenticated;
+  PERFORM set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+  PERFORM public.create_my_business('Mais uma', 'Ana');
+  RAISE EXCEPTION 'FALHOU: admin criou outra empresa';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - admin de uma empresa nao cria outra por aqui';
+END $$;
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('49000000-0000-0000-0000-000000000002', 'mail@x', '{"signup_kind":"school","school_name":"Pelo Email","teacher_name":"Rui"}');
+SELECT public.assert((SELECT role::text FROM public.user_roles WHERE user_id = '49000000-0000-0000-0000-000000000002') = 'admin',
+  'cadastro com e-mail continua criando a empresa');
+
 \echo '=== FIM ==='
