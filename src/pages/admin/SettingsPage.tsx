@@ -18,10 +18,13 @@ import LanguageSettings from "@/components/LanguageSettings";
 import PackagesSettings from "@/components/PackagesSettings";
 import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { canSellHere } from "@/lib/subscription";
 import { NumberField } from "@/components/NumberField";
-import { Check, Loader2 } from "lucide-react";
+import { Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Sparkles, Users, Wallet } from "lucide-react";
+import type { Vocabulary } from "@/lib/vocabulary";
 
 import { intlLocale, L, currencySymbol, getCurrency } from "@/lib/i18n";
 // Um par de números por dia da semana, 0 = domingo.
@@ -34,6 +37,18 @@ const SCARCITY_PADRAO: Scarcity = {
   "3": { min: 1, max: 3 }, "4": { min: 1, max: 3 }, "5": { min: 1, max: 3 },
   "6": { min: 3, max: 7 },
 };
+
+// As seções (Thiago aprovou o desenho em 27/09): antes era uma tela só, com
+// 15 blocos empilhados e o botão Salvar no fim.
+type SectionId = "negocio" | "agenda" | "cobranca" | "clientes" | "integracoes" | "plano";
+const SECTIONS: { id: SectionId; icon: typeof Building2; label: () => string; hint: (v: Vocabulary) => string }[] = [
+  { id: "negocio", icon: Building2, label: () => L("Negócio", "Business"), hint: () => L("Tipo, palavras, idioma, contato", "Type, words, language, contact") },
+  { id: "agenda", icon: CalendarDays, label: () => L("Agenda", "Calendar"), hint: v => L(`Horário de trabalho, ${v.topic.lp}`, `Working hours, ${v.topic.lp}`) },
+  { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, pacotes, Pix, falta", "Price, packages, payment, no-shows") },
+  { id: "clientes", icon: Users, label: () => L("Clientes", "Clients"), hint: () => L("Portal, pedidos, mensagens", "Portal, requests, messages") },
+  { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => "Google Agenda" },
+  { id: "plano", icon: Sparkles, label: () => L("Plano", "Plan"), hint: () => L("Seu plano e assinatura", "Your plan and subscription") },
+];
 
 type Settings = {
   work_start: string; work_end: string; slot_minutes: number;
@@ -58,6 +73,23 @@ type Settings = {
 export default function SettingsPage() {
   const { plan, loading: planLoading } = usePlan();
   const v = useWords();
+  const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const section = params.get("secao");
+  // Abrir uma seção empilha no histórico: o voltar do Android traz à lista.
+  // No computador, trocar de seção não empilha (o menu está sempre à vista).
+  const openedHere = useRef(false);
+  const open = (id: SectionId, replace = false) => {
+    if (!replace) openedHere.current = true;
+    setParams({ secao: id }, { replace });
+  };
+  // Veio direto para uma seção (um link de outra tela): voltar leva à lista,
+  // não para fora das Configurações.
+  const backToList = () => {
+    if (openedHere.current) { openedHere.current = false; navigate(-1); }
+    else setParams({}, { replace: true });
+  };
   const [s, setS] = useState<Settings>({
     work_start: "08:00", work_end: "22:00", slot_minutes: 60,
     default_lesson_price: FALLBACK_LESSON_PRICE,
@@ -171,35 +203,64 @@ export default function SettingsPage() {
     if (lastSaved.current !== null && JSON.stringify(current.current) !== lastSaved.current) saveRef.current(current.current);
   }, []);
 
-  return (
-    <div className="space-y-6 max-w-xl">
-      <div>
-        <h1 className="text-2xl font-bold">{L("Configurações", "Settings")}</h1>
-        <p className="text-sm text-muted-foreground">{L("Tipo de negócio, janela de trabalho, pagamento e contato. O que você muda aqui é salvo sozinho.", "Business type, working hours, payment and contact. Changes here save automatically.")}</p>
-      </div>
+  // Link de pagamento: no Brasil fica recolhido sob o Pix (quase todo mundo
+  // usa só o Pix); fora, é a forma de pagamento e fica à vista.
+  const paymentLinkFields = (
+    <div className="space-y-4">
+        <div><Label>{L("Link de pagamento", "Payment link")}</Label><Input value={s.payment_link ?? ""} onChange={e => setS({ ...s, payment_link: e.target.value })} placeholder="https://..." /></div>
+        {hasPayColumns && (
+          <>
+            <div><Label>{L("Nome do link", "Link name")}</Label><Input value={(s as any).payment_link_label ?? ""} onChange={e => setS({ ...s, payment_link_label: e.target.value } as any)} placeholder={L("Ex.: InfinitePay, Mercado Pago", "E.g. Stripe, PayPal, Square")} /></div>
+            <div><Label>{L("Texto que acompanha o link", "Text shown with the link")}</Label><Input value={(s as any).payment_link_note ?? ""} onChange={e => setS({ ...s, payment_link_note: e.target.value } as any)} placeholder={L("Ex.: cartão em até 12x, boleto ou Pix", "E.g. credit card or bank transfer")} /></div>
+          </>
+        )}
+    </div>
+  );
 
-      {saveState !== "idle" && (
-        <div role="status" aria-live="polite"
-          className={`fixed bottom-24 right-4 z-40 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-md md:bottom-6 ${
-            saveState === "invalid" || saveState === "error" ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-background text-muted-foreground"}`}>
-          {saveState === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> {L("Salvando…", "Saving…")}</>}
-          {saveState === "saved" && <><Check className="h-3 w-3 text-success" /> {L("Tudo salvo", "All saved")}</>}
-          {saveState === "invalid" && L(`O valor ${v.appointment.do} ${v.appointment.l} precisa ser maior que zero`, `The ${v.appointment.l} price must be greater than zero`)}
-          {saveState === "error" && L("Não salvou. Tente mudar de novo.", "Not saved. Try changing it again.")}
-        </div>
-      )}
-
+  const sections: Record<SectionId, React.ReactNode> = {
+    negocio: <>
       <LanguageSettings />
 
       <VocabularySettings />
 
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Contato", "Contact")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {L("Aparece na página pública de privacidade, que a Play Store exige. Em branco, a página pede para quem lê falar direto com você, em vez de mostrar um e-mail que não é seu.",
+               "Shown on the public privacy page. If empty, the page asks readers to contact you directly instead of showing an email that isn't yours.")}
+          </p>
+        </div>
+        <div>
+          <Label>{L("E-mail de contato", "Contact email")}</Label>
+          <Input
+            type="email"
+            value={s.contact_email ?? ""}
+            onChange={e => setS({ ...s, contact_email: e.target.value })}
+            placeholder={L("seu@email.com", "you@email.com")}
+          />
+        </div>
+        {hasIssuerColumn && <div>
+          <Label>{L("CPF ou CNPJ", "Tax ID")}</Label>
+          <Input
+            value={s.issuer_document ?? ""}
+            onChange={e => setS({ ...s, issuer_document: e.target.value })}
+            placeholder={L("000.000.000-00", "")}
+          />
+          <p className="text-xs text-muted-foreground mt-1">
+            {L("Impresso nos recibos, em Relatórios. Em branco, o recibo sai com a linha vazia para preencher à mão.", "Printed on receipts (Reports). If empty, the receipt leaves the line blank to fill in by hand.")}
+          </p>
+        </div>}
+      </Card>
+    </>,
+    agenda: <>
       <Card className="p-5 space-y-4">
         <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Janela de trabalho", "Working hours")}</h2>
         <div className="grid grid-cols-2 gap-3">
           <div><Label>{L("Início do dia", "Day starts")}</Label><Input type="time" value={s.work_start.slice(0,5)} onChange={e => setS({ ...s, work_start: e.target.value })} /></div>
           <div><Label>{L("Fim do dia", "Day ends")}</Label><Input type="time" value={s.work_end.slice(0,5)} onChange={e => setS({ ...s, work_end: e.target.value })} /></div>
         </div>
-        <div><Label>{L("Duração do slot (min)", "Slot length (min)")}</Label><NumberField min={5} fallback={60} value={s.slot_minutes} onValueChange={n => setS(x => ({ ...x, slot_minutes: n }))} /></div>
+        <div><Label>{L("Duração padrão (min)", "Default length (min)")}</Label><NumberField min={5} fallback={60} value={s.slot_minutes} onValueChange={n => setS(x => ({ ...x, slot_minutes: n }))} /></div>
         {"buffer_minutes" in s && (
           <div>
             <Label>{L(`Intervalo entre ${v.appointment.lp} (min)`, `Buffer between ${v.appointment.lp} (min)`)}</Label>
@@ -213,6 +274,211 @@ export default function SettingsPage() {
         )}
       </Card>
 
+      <ServicesSettings />
+    </>,
+    cobranca: <>
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L(`Valor ${v.appointment.do} ${v.appointment.l}`, `${v.appointment.s} price`)}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {L(`Quanto custa uma hora de ${v.appointment.l}. É com este valor que ${v.appointment.pick("todo", "toda")} ${v.appointment.l} ${v.appointment.pick("novo", "nova")} nasce — na agenda, no portal e no assistente.`,
+               `How much one hour of ${v.appointment.l} costs. Every new ${v.appointment.l} starts with this price — in the calendar, the portal and the assistant.`)}
+          </p>
+        </div>
+        <div>
+          <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
+          <NumberField
+            step="0.01"
+            inputMode="decimal"
+            value={s.default_lesson_price}
+            fallback={0}
+            onValueChange={n => setS(x => ({ ...x, default_lesson_price: n }))}
+          />
+          <p className="text-[11px] text-muted-foreground mt-1">
+            {L(`${cap(v.appointment.um)} ${v.appointment.l} de 1 hora sai por `, `A 1-hour ${v.appointment.l} costs `)}
+            <strong className="text-foreground">{fmtMoney(Number(s.default_lesson_price) || 0)}</strong>;
+            {L(` ${v.appointment.um} de 90 min, por `, ` a 90-minute one, `)}
+            <strong className="text-foreground">{fmtMoney((Number(s.default_lesson_price) || 0) * 1.5)}</strong>.
+          </p>
+        </div>
+        <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+          {L(<>Mudar aqui vale para {v.appointment.os} <strong className="text-foreground">{v.appointment.pick("próximos", "próximas")}</strong> {v.appointment.lp}.
+          {" "}{cap(v.appointment.os)} que já estão na agenda ficam com o valor que tinham — para mudar {v.appointment.um}{" "}
+          {v.appointment.pick("deles", "delas")}, abra {v.appointment.o} {v.appointment.l} e edite o valor. Para cobrar menos de {v.guardian.um} {v.guardian.l}{" "}
+          sem mexer no valor {v.appointment.do} {v.appointment.l}, use <strong className="text-foreground">Desconto</strong> na
+          tela Financeiro.</>,
+          <>Changes here apply to <strong className="text-foreground">upcoming</strong> {v.appointment.lp}. {v.appointment.p} already on the calendar keep their price —
+          to change one, open it and edit the price. To charge a {v.guardian.l} less without changing the {v.appointment.l} price, use
+          <strong className="text-foreground"> Discount</strong> on the Billing page.</>)}
+        </p>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Pagamento", "Payment")}</h2>
+        {/* Pix só existe no Brasil, em reais. */}
+        {getCurrency() === "BRL" && <div>
+          <Label>Chave Pix</Label>
+          <Input value={s.pix_key ?? ""} onChange={e => setS({ ...s, pix_key: e.target.value })} placeholder="CPF, CNPJ, e-mail, +55 celular ou chave aleatória" />
+          <p className="text-xs text-muted-foreground mt-1">Celular com +55 na frente - sem ele, 11 números são lidos como CPF.</p>
+        </div>}
+        {hasPayColumns && getCurrency() === "BRL" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div><Label>Nome de quem recebe</Label><Input value={(s as any).pix_receiver_name ?? ""} onChange={e => setS({ ...s, pix_receiver_name: e.target.value } as any)} placeholder="Como está no banco" /></div>
+            <div><Label>Cidade</Label><Input value={(s as any).pix_city ?? ""} onChange={e => setS({ ...s, pix_city: e.target.value } as any)} placeholder="Ex.: São Paulo" /></div>
+            <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
+              Com nome e cidade, a cobrança e o portal levam o <strong>Pix copia e cola já com o valor</strong> - {v.guardian.o} {v.guardian.l} só cola no app do banco.
+            </p>
+          </div>
+        )}
+        {getCurrency() === "BRL" ? (
+          <Collapsible defaultOpen={!!s.payment_link}>
+            <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-medium text-primary">
+              {L("Link de pagamento (cartão, boleto)", "Payment link")}
+              <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-3 space-y-4">
+              {paymentLinkFields}
+            </CollapsibleContent>
+          </Collapsible>
+        ) : paymentLinkFields}
+      </Card>
+
+      {plan.packages && <PackagesSettings />}
+
+      {"charge_absence" in s && (
+        <Card className="p-5 space-y-4">
+          <div>
+            <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Falta e desmarcação em cima da hora", "No-shows and late cancellations")}</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              {L(`Ligado, ${v.appointment.o} ${v.appointment.l} que ${v.client.o} ${v.client.l} desmarcar com pouca antecedência (ou em que não aparecer) pode ser ${v.appointment.pick("cobrado", "cobrada")}: ao editar ${v.appointment.o} ${v.appointment.l}, aparece o botão "Cobrar como falta". Nada é cobrado sozinho - você decide em cada caso.`,
+                 `When on, a ${v.appointment.l} the ${v.client.l} cancels late (or doesn't show up for) can be charged: when editing the ${v.appointment.l}, a "Charge as no-show" button appears. Nothing is charged automatically - you decide each time.`)}
+            </p>
+          </div>
+          <div className="flex items-center justify-between rounded-md border border-border p-3">
+            <Label htmlFor="cobra-falta" className="cursor-pointer">{L("Cobrar falta", "Charge no-shows")}</Label>
+            <Switch id="cobra-falta" checked={!!s.charge_absence} onCheckedChange={on => setS({ ...s, charge_absence: on })} />
+          </div>
+          {s.charge_absence && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="falta-horas">{L("Desmarcou com menos de (horas)", "Canceled with less than (hours)")}</Label>
+                <NumberField id="falta-horas" min={0} max={168} value={s.absence_notice_hours ?? 24}
+                  onValueChange={n => setS(x => ({ ...x, absence_notice_hours: n }))} />
+              </div>
+              <div>
+                <Label htmlFor="falta-pct">{L("Cobra quanto do valor (%)", "Charge this much of the price (%)")}</Label>
+                <NumberField id="falta-pct" min={1} max={100} fallback={100} value={s.absence_charge_percent ?? 100}
+                  onValueChange={n => setS(x => ({ ...x, absence_charge_percent: n }))} />
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
+    </>,
+    clientes: <>
+      <Card className="p-5 space-y-3">
+        <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L(`Portal ${v.client.do} ${v.client.s}`, `${v.client.s} portal`)}</h2>
+        {plan.school_code && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div className="min-w-0">
+              <Label>{L(`Código ${v.business.do} ${v.business.l}`, `${v.business.s} code`)}</Label>
+              <p className="text-xs text-muted-foreground">
+                {L(`Quem baixar o app e criar a conta sozinho digita este código para entrar ${v.business.no} ${v.business.seu} ${v.business.l}. Depois você liga o cadastro ${v.client.ao} ${v.client.l} em Acessos.`,
+                   `Anyone who downloads the app and signs up on their own types this code to join your ${v.business.l}. Then you link them to the ${v.client.l} profile in Access.`)}
+              </p>
+            </div>
+            <Button type="button" variant="outline" size="sm" className="shrink-0 font-mono"
+              onClick={() => { navigator.clipboard.writeText(plan.school_code!); toast.success(L("Código copiado", "Code copied")); }}>
+              {plan.school_code}
+            </Button>
+          </div>
+        )}
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">{L(`Permitir que ${v.client.lp} agendem ${v.appointment.lp} diretamente`, `Let ${v.client.lp} request ${v.appointment.lp} directly`)}</Label>
+            <p className="text-xs text-muted-foreground">{L("Quando desligado, o portal fica apenas para visualização.", "When off, the portal is view-only.")}</p>
+          </div>
+          <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
+        </div>
+        {"min_request_notice_hours" in s && s.allow_student_booking && (
+          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
+            <div>
+              <Label htmlFor="antecedencia">{L("Antecedência mínima dos pedidos (horas)", "Minimum notice for requests (hours)")}</Label>
+              <p className="text-xs text-muted-foreground">
+                {L(`Vale para pedir horário e para pedir troca: com 24, ninguém pede para amanhã cedo nem troca ${v.appointment.o} ${v.appointment.l} de amanhã pelo portal - precisa falar com você. 0 = sem mínimo.`,
+                   `Applies to new requests and reschedules: with 24, nobody can request tomorrow morning or move tomorrow's ${v.appointment.l} through the portal - they have to talk to you. 0 = no minimum.`)}
+              </p>
+            </div>
+            <NumberField id="antecedencia" min={0} max={168} className="w-20 shrink-0"
+              value={s.min_request_notice_hours ?? 0}
+              onValueChange={n => setS(x => ({ ...x, min_request_notice_hours: n }))} />
+          </div>
+        )}
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">{L(`Exibir disponibilidade ${v.staff.dos} ${v.staff.lp} no portal`, `Show ${v.staff.lp}' availability in the portal`)}</Label>
+            <p className="text-xs text-muted-foreground">{L(`Mostra os links de agenda ${v.staff.dos} ${v.staff.lp} no portal.`, `Shows the ${v.staff.lp}' availability links in the portal.`)}</p>
+          </div>
+          <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
+        </div>
+        <div className="flex items-center justify-between rounded-md border border-border p-3">
+          <div>
+            <Label className="cursor-pointer">{L("Exibir dados de pagamento no portal", "Show payment details in the portal")}</Label>
+            <p className="text-xs text-muted-foreground">{L("Mostra PIX e link de pagamento no portal.", "Shows the payment link in the portal.")}</p>
+          </div>
+          <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
+        </div>
+      </Card>
+
+      <Card className="flex items-center justify-between gap-3 p-5">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Mensagens do WhatsApp", "WhatsApp messages")}</h2>
+          <p className="mt-1 text-xs text-muted-foreground">{L(`Lembrete, confirmação, "estou a caminho" e cobrança, com o seu jeito de falar.`, `Reminder, confirmation, "on my way" and payment request, in your own words.`)}</p>
+        </div>
+        <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">{L("Configurar mensagens", "Edit messages")}</Link></Button>
+      </Card>
+
+      <Collapsible className="rounded-lg border border-dashed border-border">
+        <CollapsibleTrigger className="group flex w-full items-center justify-between p-4 text-sm font-medium text-muted-foreground">
+          {L("Mais opções: página pública", "More options: public page")}
+          <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="p-3 pt-0">
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Escassez na página pública", "Scarcity on the public page")}</h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            {L("Quantos horários livres aparecem por dia. O app sorteia um número entre o mínimo e o máximo, então a página não mostra a agenda inteira.",
+               "How many free times show per day. The app picks a number between the minimum and maximum, so the page never shows your whole calendar.")}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
+            <span />
+            <Label className="text-xs text-muted-foreground text-center">{L("Mínimo", "Min")}</Label>
+            <Label className="text-xs text-muted-foreground text-center">{L("Máximo", "Max")}</Label>
+          </div>
+          {DIAS.map((nome, i) => {
+            const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
+            const set = (campo: "min" | "max", valor: number) =>
+              setS(x => ({ ...x, scarcity: { ...x.scarcity, [String(i)]: { ...(x.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)]), [campo]: valor } } }));
+            return (
+              <div key={i} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
+                <Label className="text-sm">{nome}</Label>
+                <NumberField min={1} max={12} value={d.min} onValueChange={n => set("min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
+                <NumberField min={1} max={12} value={d.max} onValueChange={n => set("max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+        </CollapsibleContent>
+      </Collapsible>
+    </>,
+    integracoes: <>
+      <GoogleCalendarSettings />
+    </>,
+    plano: <>
       {!planLoading && (
         <Card className="p-5 space-y-3">
           <div className="flex items-center justify-between gap-3">
@@ -290,226 +556,79 @@ export default function SettingsPage() {
           )}
         </Card>
       )}
+    </>,
+  };
 
-      <Card className="p-5 space-y-4">
-        <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L(`Valor ${v.appointment.do} ${v.appointment.l}`, `${v.appointment.s} price`)}</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {L(`Quanto custa uma hora de ${v.appointment.l}. É com este valor que ${v.appointment.pick("todo", "toda")} ${v.appointment.l} ${v.appointment.pick("novo", "nova")} nasce — na agenda, no portal e no assistente.`,
-               `How much one hour of ${v.appointment.l} costs. Every new ${v.appointment.l} starts with this price — in the calendar, the portal and the assistant.`)}
-          </p>
-        </div>
-        <div>
-          <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
-          <NumberField
-            step="0.01"
-            inputMode="decimal"
-            value={s.default_lesson_price}
-            fallback={0}
-            onValueChange={n => setS(x => ({ ...x, default_lesson_price: n }))}
-          />
-          <p className="text-[11px] text-muted-foreground mt-1">
-            {L(`${cap(v.appointment.um)} ${v.appointment.l} de 1 hora sai por `, `A 1-hour ${v.appointment.l} costs `)}
-            <strong className="text-foreground">{fmtMoney(Number(s.default_lesson_price) || 0)}</strong>;
-            {L(` ${v.appointment.um} de 90 min, por `, ` a 90-minute one, `)}
-            <strong className="text-foreground">{fmtMoney((Number(s.default_lesson_price) || 0) * 1.5)}</strong>.
-          </p>
-        </div>
-        <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-          {L(<>Mudar aqui vale para {v.appointment.os} <strong className="text-foreground">{v.appointment.pick("próximos", "próximas")}</strong> {v.appointment.lp}.
-          {" "}{cap(v.appointment.os)} que já estão na agenda ficam com o valor que tinham — para mudar {v.appointment.um}{" "}
-          {v.appointment.pick("deles", "delas")}, abra {v.appointment.o} {v.appointment.l} e edite o valor. Para cobrar menos de {v.guardian.um} {v.guardian.l}{" "}
-          sem mexer no valor {v.appointment.do} {v.appointment.l}, use <strong className="text-foreground">Desconto</strong> na
-          tela Financeiro.</>,
-          <>Changes here apply to <strong className="text-foreground">upcoming</strong> {v.appointment.lp}. {v.appointment.p} already on the calendar keep their price —
-          to change one, open it and edit the price. To charge a {v.guardian.l} less without changing the {v.appointment.l} price, use
-          <strong className="text-foreground"> Discount</strong> on the Billing page.</>)}
-        </p>
-      </Card>
+  const picked = SECTIONS.find(x => x.id === section) ?? null;
+  // No computador sempre há uma seção aberta; no celular, sem seção, a lista.
+  const shown = picked ?? (isMobile ? null : SECTIONS[0]);
 
-      <Card className="p-5 space-y-4">
-        <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Pagamento", "Payment")}</h2>
-        {/* Pix só existe no Brasil, em reais. */}
-        {getCurrency() === "BRL" && <div>
-          <Label>Chave Pix</Label>
-          <Input value={s.pix_key ?? ""} onChange={e => setS({ ...s, pix_key: e.target.value })} placeholder="CPF, CNPJ, e-mail, +55 celular ou chave aleatória" />
-          <p className="text-xs text-muted-foreground mt-1">Celular com +55 na frente - sem ele, 11 números são lidos como CPF.</p>
-        </div>}
-        {hasPayColumns && getCurrency() === "BRL" && (
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label>Nome de quem recebe</Label><Input value={(s as any).pix_receiver_name ?? ""} onChange={e => setS({ ...s, pix_receiver_name: e.target.value } as any)} placeholder="Como está no banco" /></div>
-            <div><Label>Cidade</Label><Input value={(s as any).pix_city ?? ""} onChange={e => setS({ ...s, pix_city: e.target.value } as any)} placeholder="Ex.: São Paulo" /></div>
-            <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
-              Com nome e cidade, a cobrança e o portal levam o <strong>Pix copia e cola já com o valor</strong> - {v.guardian.o} {v.guardian.l} só cola no app do banco.
-            </p>
-          </div>
-        )}
-        <div><Label>{L("Link de pagamento", "Payment link")}</Label><Input value={s.payment_link ?? ""} onChange={e => setS({ ...s, payment_link: e.target.value })} placeholder="https://..." /></div>
-        {hasPayColumns && (
-          <>
-            <div><Label>{L("Nome do link", "Link name")}</Label><Input value={(s as any).payment_link_label ?? ""} onChange={e => setS({ ...s, payment_link_label: e.target.value } as any)} placeholder={L("Ex.: InfinitePay, Mercado Pago", "E.g. Stripe, PayPal, Square")} /></div>
-            <div><Label>{L("Texto que acompanha o link", "Text shown with the link")}</Label><Input value={(s as any).payment_link_note ?? ""} onChange={e => setS({ ...s, payment_link_note: e.target.value } as any)} placeholder={L("Ex.: cartão em até 12x, boleto ou Pix", "E.g. credit card or bank transfer")} /></div>
-          </>
-        )}
-        <div className="flex items-center justify-between rounded-md border border-border p-3">
-          <div>
-            <Label className="cursor-pointer">{L("Exibir dados de pagamento no portal", "Show payment details in the portal")}</Label>
-            <p className="text-xs text-muted-foreground">{L("Mostra PIX e link de pagamento no portal.", "Shows the payment link in the portal.")}</p>
-          </div>
-          <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
+  return (
+    <div className="space-y-6 max-w-4xl">
+      {saveState !== "idle" && (
+        <div role="status" aria-live="polite"
+          className={`fixed bottom-24 right-4 z-40 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-md md:bottom-6 ${
+            saveState === "invalid" || saveState === "error" ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-background text-muted-foreground"}`}>
+          {saveState === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> {L("Salvando…", "Saving…")}</>}
+          {saveState === "saved" && <><Check className="h-3 w-3 text-success" /> {L("Tudo salvo", "All saved")}</>}
+          {saveState === "invalid" && L(`O valor ${v.appointment.do} ${v.appointment.l} precisa ser maior que zero`, `The ${v.appointment.l} price must be greater than zero`)}
+          {saveState === "error" && L("Não salvou. Tente mudar de novo.", "Not saved. Try changing it again.")}
         </div>
-      </Card>
-
-      <Card className="p-5 space-y-4">
-        <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Contato", "Contact")}</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {L("Aparece na página pública de privacidade, que a Play Store exige. Em branco, a página pede para quem lê falar direto com você, em vez de mostrar um e-mail que não é seu.",
-               "Shown on the public privacy page. If empty, the page asks readers to contact you directly instead of showing an email that isn't yours.")}
-          </p>
-        </div>
-        <div>
-          <Label>{L("E-mail de contato", "Contact email")}</Label>
-          <Input
-            type="email"
-            value={s.contact_email ?? ""}
-            onChange={e => setS({ ...s, contact_email: e.target.value })}
-            placeholder={L("seu@email.com", "you@email.com")}
-          />
-        </div>
-        {hasIssuerColumn && <div>
-          <Label>{L("CPF ou CNPJ", "Tax ID")}</Label>
-          <Input
-            value={s.issuer_document ?? ""}
-            onChange={e => setS({ ...s, issuer_document: e.target.value })}
-            placeholder={L("000.000.000-00", "")}
-          />
-          <p className="text-xs text-muted-foreground mt-1">
-            {L("Impresso nos recibos, em Relatórios. Em branco, o recibo sai com a linha vazia para preencher à mão.", "Printed on receipts (Reports). If empty, the receipt leaves the line blank to fill in by hand.")}
-          </p>
-        </div>}
-      </Card>
-
-      <Card className="p-5 space-y-3">
-        <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L(`Portal ${v.client.do} ${v.client.s}`, `${v.client.s} portal`)}</h2>
-        {plan.school_code && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-            <div className="min-w-0">
-              <Label>{L(`Código ${v.business.do} ${v.business.l}`, `${v.business.s} code`)}</Label>
-              <p className="text-xs text-muted-foreground">
-                {L(`Quem baixar o app e criar a conta sozinho digita este código para entrar ${v.business.no} ${v.business.seu} ${v.business.l}. Depois você liga o cadastro ${v.client.ao} ${v.client.l} em Acessos.`,
-                   `Anyone who downloads the app and signs up on their own types this code to join your ${v.business.l}. Then you link them to the ${v.client.l} profile in Access.`)}
-              </p>
-            </div>
-            <Button type="button" variant="outline" size="sm" className="shrink-0 font-mono"
-              onClick={() => { navigator.clipboard.writeText(plan.school_code!); toast.success(L("Código copiado", "Code copied")); }}>
-              {plan.school_code}
-            </Button>
-          </div>
-        )}
-        <div className="flex items-center justify-between rounded-md border border-border p-3">
-          <div>
-            <Label className="cursor-pointer">{L(`Permitir que ${v.client.lp} agendem ${v.appointment.lp} diretamente`, `Let ${v.client.lp} request ${v.appointment.lp} directly`)}</Label>
-            <p className="text-xs text-muted-foreground">{L("Quando desligado, o portal fica apenas para visualização.", "When off, the portal is view-only.")}</p>
-          </div>
-          <Switch checked={s.allow_student_booking} onCheckedChange={v => setS({ ...s, allow_student_booking: v })} />
-        </div>
-        {"min_request_notice_hours" in s && s.allow_student_booking && (
-          <div className="flex items-center justify-between gap-3 rounded-md border border-border p-3">
-            <div>
-              <Label htmlFor="antecedencia">{L("Antecedência mínima dos pedidos (horas)", "Minimum notice for requests (hours)")}</Label>
-              <p className="text-xs text-muted-foreground">
-                {L(`Vale para pedir horário e para pedir troca: com 24, ninguém pede para amanhã cedo nem troca ${v.appointment.o} ${v.appointment.l} de amanhã pelo portal - precisa falar com você. 0 = sem mínimo.`,
-                   `Applies to new requests and reschedules: with 24, nobody can request tomorrow morning or move tomorrow's ${v.appointment.l} through the portal - they have to talk to you. 0 = no minimum.`)}
-              </p>
-            </div>
-            <NumberField id="antecedencia" min={0} max={168} className="w-20 shrink-0"
-              value={s.min_request_notice_hours ?? 0}
-              onValueChange={n => setS(x => ({ ...x, min_request_notice_hours: n }))} />
-          </div>
-        )}
-        <div className="flex items-center justify-between rounded-md border border-border p-3">
-          <div>
-            <Label className="cursor-pointer">{L(`Exibir disponibilidade ${v.staff.dos} ${v.staff.lp} no portal`, `Show ${v.staff.lp}' availability in the portal`)}</Label>
-            <p className="text-xs text-muted-foreground">{L(`Mostra os links de agenda ${v.staff.dos} ${v.staff.lp} no portal.`, `Shows the ${v.staff.lp}' availability links in the portal.`)}</p>
-          </div>
-          <Switch checked={s.show_availability_to_students} onCheckedChange={v => setS({ ...s, show_availability_to_students: v })} />
-        </div>
-      </Card>
-
-      {"charge_absence" in s && (
-        <Card className="p-5 space-y-4">
-          <div>
-            <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Falta e desmarcação em cima da hora", "No-shows and late cancellations")}</h2>
-            <p className="text-xs text-muted-foreground mt-1">
-              {L(`Ligado, ${v.appointment.o} ${v.appointment.l} que ${v.client.o} ${v.client.l} desmarcar com pouca antecedência (ou em que não aparecer) pode ser ${v.appointment.pick("cobrado", "cobrada")}: ao editar ${v.appointment.o} ${v.appointment.l}, aparece o botão "Cobrar como falta". Nada é cobrado sozinho - você decide em cada caso.`,
-                 `When on, a ${v.appointment.l} the ${v.client.l} cancels late (or doesn't show up for) can be charged: when editing the ${v.appointment.l}, a "Charge as no-show" button appears. Nothing is charged automatically - you decide each time.`)}
-            </p>
-          </div>
-          <div className="flex items-center justify-between rounded-md border border-border p-3">
-            <Label htmlFor="cobra-falta" className="cursor-pointer">{L("Cobrar falta", "Charge no-shows")}</Label>
-            <Switch id="cobra-falta" checked={!!s.charge_absence} onCheckedChange={on => setS({ ...s, charge_absence: on })} />
-          </div>
-          {s.charge_absence && (
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="falta-horas">{L("Desmarcou com menos de (horas)", "Canceled with less than (hours)")}</Label>
-                <NumberField id="falta-horas" min={0} max={168} value={s.absence_notice_hours ?? 24}
-                  onValueChange={n => setS(x => ({ ...x, absence_notice_hours: n }))} />
-              </div>
-              <div>
-                <Label htmlFor="falta-pct">{L("Cobra quanto do valor (%)", "Charge this much of the price (%)")}</Label>
-                <NumberField id="falta-pct" min={1} max={100} fallback={100} value={s.absence_charge_percent ?? 100}
-                  onValueChange={n => setS(x => ({ ...x, absence_charge_percent: n }))} />
-              </div>
-            </div>
-          )}
-        </Card>
       )}
 
-      <Card className="flex items-center justify-between gap-3 p-5">
-        <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Mensagens do WhatsApp", "WhatsApp messages")}</h2>
-          <p className="mt-1 text-xs text-muted-foreground">{L(`Lembrete, confirmação, "estou a caminho" e cobrança, com o seu jeito de falar.`, `Reminder, confirmation, "on my way" and payment request, in your own words.`)}</p>
-        </div>
-        <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">{L("Configurar mensagens", "Edit messages")}</Link></Button>
-      </Card>
-
-      <GoogleCalendarSettings />
-
-      <ServicesSettings />
-
-      {plan.packages && <PackagesSettings />}
-
-      <Card className="p-5 space-y-4">
-        <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Escassez na página pública", "Scarcity on the public page")}</h2>
-          <p className="text-xs text-muted-foreground mt-1">
-            {L("Quantos horários livres aparecem por dia. O app sorteia um número entre o mínimo e o máximo, então a página não mostra a agenda inteira.",
-               "How many free times show per day. The app picks a number between the minimum and maximum, so the page never shows your whole calendar.")}
-          </p>
-        </div>
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
-            <span />
-            <Label className="text-xs text-muted-foreground text-center">{L("Mínimo", "Min")}</Label>
-            <Label className="text-xs text-muted-foreground text-center">{L("Máximo", "Max")}</Label>
+      {!shown ? (
+        <>
+          <div>
+            <h1 className="text-2xl font-bold">{L("Configurações", "Settings")}</h1>
+            <p className="text-sm text-muted-foreground">{L("O que você muda aqui é salvo sozinho.", "Changes here save automatically.")}</p>
           </div>
-          {DIAS.map((nome, i) => {
-            const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
-            const set = (campo: "min" | "max", valor: number) =>
-              setS(x => ({ ...x, scarcity: { ...x.scarcity, [String(i)]: { ...(x.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)]), [campo]: valor } } }));
-            return (
-              <div key={i} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
-                <Label className="text-sm">{nome}</Label>
-                <NumberField min={1} max={12} value={d.min} onValueChange={n => set("min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
-                <NumberField min={1} max={12} value={d.max} onValueChange={n => set("max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
-              </div>
-            );
-          })}
-        </div>
-      </Card>
-
+          <nav aria-label={L("Seções das configurações", "Settings sections")}>
+            <Card className="divide-y divide-border overflow-hidden p-0">
+              {SECTIONS.map(x => (
+                <button key={x.id} type="button" onClick={() => open(x.id)}
+                  className="flex min-h-16 w-full items-center gap-3 px-4 py-3 text-left hover:bg-muted/50">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><x.icon className="h-4 w-4" /></span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-semibold">{x.label()}</span>
+                    <span className="block text-xs text-muted-foreground">{x.hint(v)}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                </button>
+              ))}
+            </Card>
+          </nav>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center gap-2">
+            {isMobile && (
+              <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={backToList} aria-label={L("Voltar para Configurações", "Back to Settings")}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <div>
+              <h1 className="text-2xl font-bold">{isMobile ? shown.label() : L("Configurações", "Settings")}</h1>
+              {!isMobile && <p className="text-sm text-muted-foreground">{L("O que você muda aqui é salvo sozinho.", "Changes here save automatically.")}</p>}
+            </div>
+          </div>
+          <div className="md:flex md:items-start md:gap-6">
+            {!isMobile && (
+              <nav aria-label={L("Seções das configurações", "Settings sections")} className="sticky top-4 w-56 shrink-0 space-y-1">
+                {SECTIONS.map(x => (
+                  <button key={x.id} type="button" onClick={() => open(x.id, true)} aria-current={x.id === shown.id ? "page" : undefined}
+                    className={`block w-full rounded-xl px-3 py-2.5 text-left transition-colors ${x.id === shown.id ? "border border-border bg-card shadow-sm" : "hover:bg-muted/60"}`}>
+                    <span className={`block text-sm font-semibold ${x.id === shown.id ? "text-primary" : ""}`}>{x.label()}</span>
+                    <span className="block text-xs text-muted-foreground">{x.hint(v)}</span>
+                  </button>
+                ))}
+              </nav>
+            )}
+            <section aria-label={shown.label()} className="min-w-0 flex-1 space-y-6">
+              {sections[shown.id]}
+            </section>
+          </div>
+        </>
+      )}
     </div>
   );
 }

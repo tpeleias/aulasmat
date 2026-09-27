@@ -56,8 +56,11 @@ Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:
 - [x] **Configurações salvam sozinhas:** o botão Salvar no fim da tela saiu;
   grava 0,8 s depois da última mudança e ao sair da tela, com um aviso
   "Salvando… / Tudo salvo".
-- [ ] **Configurações confusas:** reorganizar a tela (seções ou abas, o que é
-  do dia a dia em cima). Conversar com o Thiago antes.
+- [x] **Configurações confusas:** 6 seções (Negócio, Agenda, Cobrança,
+  Clientes, Integrações, Plano), desenho aprovado pelo Thiago em 27/09. No
+  computador, menu à esquerda; no celular, lista e uma tela por seção
+  (`?secao=`). "Duração do slot" virou "Duração padrão"; escassez foi para
+  "Mais opções" em Clientes; o link de pagamento fica recolhido sob o Pix.
 - [x] **Campo numérico que não deixava apagar o valor:** "Nº de aulas" vinha
   com 1 e só dava para digitar "14", nunca "4". Novo `NumberField` na
   repetição, na duração, no valor e nos números das Configurações.

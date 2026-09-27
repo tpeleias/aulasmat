@@ -31,7 +31,7 @@ export function firstSteps(d: FirstStepsData, w: Vocabulary): FirstStep[] {
       key: "pagamento",
       title: L(`Valor ${w.appointment.do} ${w.appointment.l} e forma de pagamento`, `${w.appointment.s} price and payment method`),
       hint: L("Confira o valor e coloque a chave Pix: a cobrança já sai com o código para copiar e colar.", "Check the price and add your payment link: collection messages include it automatically."),
-      to: "/admin/configuracoes",
+      to: "/admin/configuracoes?secao=cobranca",
       done: d.hasPayment,
     },
     {
