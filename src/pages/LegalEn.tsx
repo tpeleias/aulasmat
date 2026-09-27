@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { CronysWordmark } from "@/components/brand";
+import { LegalHeader, legalHref } from "@/components/LegalLangSwitch";
 
 // As páginas legais em inglês, para empresas (e clientes delas) com o app em
 // inglês. Mesmo conteúdo das versões em português - mudou uma, muda a outra.
@@ -11,9 +11,7 @@ function Shell({ title, updated = true, children }: { title: string; updated?: b
   return (
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
-        <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <CronysWordmark tamanho="1.125rem" className="text-foreground" />
-        </Link>
+        <LegalHeader en />
         <h1 className="text-2xl font-bold">{title}</h1>
         {updated && <p className="mt-1 text-sm text-muted-foreground">Updated on {UPDATED_AT}.</p>}
         <div className="mt-8 space-y-6 text-sm leading-relaxed">{children}</div>
@@ -74,7 +72,7 @@ export function TermsEn({ contact }: { contact: string | null }) {
           Client and guardian data belongs to the business, which decides how it is used (data
           controller). Cronys stores and processes that data on the business's behalf, only to make
           the app work (data processor). Details are in the{" "}
-          <Link to="/privacidade" className="text-primary underline">privacy policy</Link>.
+          <Link to={legalHref("/privacidade", true)} className="text-primary underline">privacy policy</Link>.
         </p>
       </Section>
       <Section title="6. Acceptable use">
@@ -95,7 +93,7 @@ export function TermsEn({ contact }: { contact: string | null }) {
         <p>
           Anyone can delete their own access in the app, under <strong>My account → Delete my
           account</strong>, or by following the instructions at{" "}
-          <Link to="/excluir-conta" className="text-primary underline">/excluir-conta</Link>. The
+          <Link to={legalHref("/excluir-conta", true)} className="text-primary underline">/excluir-conta</Link>. The
           appointment and payment history stays with the business, which may need it for its
           financial records; requests to delete that data go to the business.
         </p>
@@ -183,7 +181,7 @@ export function PrivacyEn({ contact }: { contact: string | null }) {
         <p>
           For as long as the relationship with the business lasts, and afterwards for the time needed
           for financial records. You can delete your access at any time in the app, under My account →
-          Delete my account (see <Link to="/excluir-conta" className="text-primary underline">how to delete</Link>),
+          Delete my account (see <Link to={legalHref("/excluir-conta", true)} className="text-primary underline">how to delete</Link>),
           and ask the business you work with to delete the remaining data.
         </p>
       </Section>

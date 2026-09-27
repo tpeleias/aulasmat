@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
-import { isEnglish } from "@/lib/i18n";
+import { LegalHeader, legalHref, useLegalEnglish } from "@/components/LegalLangSwitch";
 import { PrivacyEn } from "@/pages/LegalEn";
 
 // The Play Console requires a public privacy policy URL, and it has to describe what the
@@ -21,15 +20,14 @@ export default function PrivacyPolicy() {
       .then(({ data }) => setContact(((data as any)?.contact_email ?? "").trim() || null));
   }, []);
 
-  useEffect(() => { document.title = isEnglish() ? "Privacy — Cronys" : "Privacidade — Cronys"; }, []);
-  if (isEnglish()) return <PrivacyEn contact={contact} />;
+  const en = useLegalEnglish();
+  useEffect(() => { document.title = en ? "Privacy — Cronys" : "Privacidade — Cronys"; }, [en]);
+  if (en) return <PrivacyEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
-        <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <CronysWordmark tamanho="1.125rem" className="text-foreground" />
-        </Link>
+        <LegalHeader en={false} />
 
         <h1 className="text-2xl font-bold">Política de privacidade</h1>
         <p className="mt-1 text-sm text-muted-foreground">Atualizada em {UPDATED_AT}.</p>
@@ -123,7 +121,7 @@ export default function PrivacyPolicy() {
             <p>
               Enquanto durar a relação com a empresa, e depois pelo tempo necessário para o controle
               financeiro. Você pode excluir o seu acesso a qualquer momento pelo app, em Minha
-              conta → Excluir minha conta (veja <Link to="/excluir-conta" className="text-primary underline">como excluir</Link>),
+              conta → Excluir minha conta (veja <Link to={legalHref("/excluir-conta", false)} className="text-primary underline">como excluir</Link>),
               e pedir a exclusão dos demais dados à empresa que te atende.
             </p>
           </section>
