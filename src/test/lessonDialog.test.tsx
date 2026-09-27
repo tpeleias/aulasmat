@@ -15,17 +15,18 @@ const chain: unknown = new Proxy(() => {}, {
 });
 
 let isTeacher = false;
+let services: unknown[] = [];
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => chain, rpc: () => chain } }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ isTeacher }) }));
 vi.mock("@/hooks/useTeachers", () => ({
-  useTeachers: () => ({ teachers: [{ id: "t1", name: "Thiago", active: true }] }),
+  useTeachers: () => ({ teachers: [{ id: "t1", name: "Thiago", active: true, subject: "Matemática" }] }),
   teacherSlug: (n: string) => n.toLowerCase(),
 }));
 vi.mock("@/hooks/useVocabulary", () => ({ useWords: () => DEFAULT_VOCABULARY }));
 vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: {} }) }));
 vi.mock("@/hooks/useMessageTemplates", () => ({ useMessageTemplates: () => ({ templates: {} }) }));
 vi.mock("@/hooks/useServices", () => ({
-  useServices: () => ({ services: [], links: [] }),
+  useServices: () => ({ services, links: [] }),
   teacherDoes: () => true,
   hourlyPrice: () => null,
 }));
@@ -55,5 +56,15 @@ describe("LessonDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "seg" }));
     expect(screen.getByRole("button", { name: "seg" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText(/toda seg e qui/)).toBeTruthy();
+  });
+
+  it("atendimento novo já vem com o serviço da matéria e a duração dele", () => {
+    isTeacher = false;
+    services = [{ id: "s1", name: "Matemática", duration_minutes: 90, price: null, mode: "ambos", color: null, active: true }];
+    render(
+      <LessonDialog open onOpenChange={() => {}} slotStart={new Date(2026, 9, 1, 14)} lesson={null} onSaved={() => {}} defaultTeacher="thiago" />,
+    );
+    expect(screen.getByText(/Matemática · 90 min/)).toBeTruthy();
+    services = [];
   });
 });
