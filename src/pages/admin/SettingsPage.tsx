@@ -23,7 +23,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { useIsMobile } from "@/hooks/use-mobile";
 import { canSellHere } from "@/lib/subscription";
 import { NumberField } from "@/components/NumberField";
-import { Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, Sparkles, Users, Wallet } from "lucide-react";
+import { Building2, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Loader2, Plug, UserRound, Users, Wallet } from "lucide-react";
+import AccountPanel from "@/components/AccountPanel";
 import type { Vocabulary } from "@/lib/vocabulary";
 
 import { intlLocale, L, currencySymbol, getCurrency } from "@/lib/i18n";
@@ -40,14 +41,16 @@ const SCARCITY_PADRAO: Scarcity = {
 
 // As seções (Thiago aprovou o desenho em 27/09): antes era uma tela só, com
 // 15 blocos empilhados e o botão Salvar no fim.
-type SectionId = "negocio" | "agenda" | "cobranca" | "clientes" | "integracoes" | "plano";
+type SectionId = "conta" | "negocio" | "agenda" | "cobranca" | "clientes" | "integracoes";
+// "Minha conta" veio para cá em 27/09 (antes era um item solto do menu), com
+// o plano junto - a antiga seção Plano.
 const SECTIONS: { id: SectionId; icon: typeof Building2; label: () => string; hint: (v: Vocabulary) => string }[] = [
+  { id: "conta", icon: UserRound, label: () => L("Minha conta", "My account"), hint: () => L("Plano, senha, rota, aparência", "Plan, password, maps, appearance") },
   { id: "negocio", icon: Building2, label: () => L("Negócio", "Business"), hint: () => L("Tipo, palavras, idioma, contato", "Type, words, language, contact") },
   { id: "agenda", icon: CalendarDays, label: () => L("Agenda", "Calendar"), hint: v => L(`Horário de trabalho, ${v.topic.lp}`, `Working hours, ${v.topic.lp}`) },
   { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, pacotes, Pix, falta", "Price, packages, payment, no-shows") },
   { id: "clientes", icon: Users, label: () => L("Clientes", "Clients"), hint: () => L("Portal, pedidos, mensagens", "Portal, requests, messages") },
   { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => "Google Agenda" },
-  { id: "plano", icon: Sparkles, label: () => L("Plano", "Plan"), hint: () => L("Seu plano e assinatura", "Your plan and subscription") },
 ];
 
 type Settings = {
@@ -218,6 +221,85 @@ export default function SettingsPage() {
   );
 
   const sections: Record<SectionId, React.ReactNode> = {
+    conta: <AccountPanel plan={<>
+      {!planLoading && (
+        <Card className="p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Seu plano", "Your plan")}</h2>
+            <Badge variant={plan.plano === "pro" ? "default" : "outline"}>{plan.nome}</Badge>
+          </div>
+          {plan.plano === "pro" && plan.trial_ends_at && (
+            <p className="rounded-md bg-primary/5 px-3 py-2 text-xs">
+              {L("Teste grátis até", "Free trial until")} <strong>{new Date(plan.trial_ends_at).toLocaleDateString(intlLocale())}</strong>.
+              {L(" Depois a conta passa para o Essencial, sem apagar nada.", " After that the account moves to Essential, without deleting anything.")}
+            </p>
+          )}
+          <ul className="space-y-1 text-sm">
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{v.staff.p}</span>
+              <strong>{plan.max_teachers ?? (plan.included_teachers ? L(`${plan.included_teachers} incluídos, e mais sob cobrança`, `${plan.included_teachers} included, more at extra cost`) : L("sem limite", "unlimited"))}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{v.client.p}</span>
+              <strong>{plan.max_active_clients != null
+                ? L(`${plan.active_clients ?? 0} de ${plan.max_active_clients} ativos`, `${plan.active_clients ?? 0} of ${plan.max_active_clients} active`)
+                : L("ativos sem limite", "unlimited active")}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{L("Pacotes, vouchers e desconto", "Packages, vouchers and discounts")}</span>
+              <strong>{plan.packages ? L("sim", "yes") : L("não", "no")}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{L("Bloqueio que se repete toda semana", "Weekly recurring time off")}</span>
+              <strong>{plan.recurring_blocks ? L("sim", "yes") : L("não", "no")}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{L("Nomes do seu tipo de negócio", "Words for your type of business")}</span>
+              <strong>{plan.vocabulary ? L("sim", "yes") : L("não (genéricos)", "no (generic)")}</strong>
+            </li>
+            <li className="flex justify-between gap-3">
+              <span className="text-muted-foreground">{L("Assistente", "Assistant")}</span>
+              <strong>
+                {plan.assistant
+                  ? L(`sim (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} mensagens/mês)`, `yes (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} messages/month)`)
+                  : plan.assistant_addon ? L("como adicional", "as an add-on")
+                    : L("não", "no")}
+              </strong>
+            </li>
+          </ul>
+          {plan.billing_status === "active" && plan.paid_until && (
+            <p className="text-xs text-muted-foreground">
+              {L(`Assinatura ${plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em ${new Date(plan.paid_until).toLocaleDateString(intlLocale())}.`,
+                 `${plan.billing_interval === "year" ? "Yearly" : "Monthly"} subscription active, renews on ${new Date(plan.paid_until).toLocaleDateString(intlLocale())}.`)}
+              {(plan.extra_teachers ?? 0) > 0 && L(` Inclui ${plan.extra_teachers} ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp} a mais.`, ` Includes ${plan.extra_teachers} extra ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp}.`)}
+            </p>
+          )}
+          {plan.billing_status === "past_due" && (
+            <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {L("O pagamento da assinatura não passou.", "The subscription payment failed.")}
+              {plan.grace_until && L(` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString(intlLocale())}, a conta passa para o Essencial (nada é apagado).`,
+                ` If it isn't sorted out by ${new Date(plan.grace_until).toLocaleDateString(intlLocale())}, the account moves to Essential (nothing is deleted).`)}
+            </p>
+          )}
+          {plan.plano !== "pro" && (
+            <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
+              {L("O que você já cadastrou continua aqui, sempre. Os limites valem só para cadastrar coisa nova.",
+                 "Everything you already added stays here, always. Limits only apply to adding new things.")}
+              {!canSellHere() && L(" Para mudar de plano, fale com quem cuida da sua conta.", " To change plans, contact whoever manages your account.")}
+            </p>
+          )}
+          {/* Só no site: no app a Google Play não deixa vender nem apontar para
+              onde se compra (ver lib/subscription.ts). */}
+          {canSellHere() && (
+            <Button asChild variant={plan.billing_status === "active" ? "outline" : "default"} className="w-full">
+              <Link to="/assinar">
+                {plan.billing_status === "active" || plan.billing_status === "past_due" ? L("Gerenciar assinatura", "Manage subscription") : L("Ver planos e assinar", "See plans and subscribe")}
+              </Link>
+            </Button>
+          )}
+        </Card>
+      )}
+    </>} />,
     negocio: <>
       <LanguageSettings />
 
@@ -477,85 +559,6 @@ export default function SettingsPage() {
     </>,
     integracoes: <>
       <GoogleCalendarSettings />
-    </>,
-    plano: <>
-      {!planLoading && (
-        <Card className="p-5 space-y-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Seu plano", "Your plan")}</h2>
-            <Badge variant={plan.plano === "pro" ? "default" : "outline"}>{plan.nome}</Badge>
-          </div>
-          {plan.plano === "pro" && plan.trial_ends_at && (
-            <p className="rounded-md bg-primary/5 px-3 py-2 text-xs">
-              {L("Teste grátis até", "Free trial until")} <strong>{new Date(plan.trial_ends_at).toLocaleDateString(intlLocale())}</strong>.
-              {L(" Depois a conta passa para o Essencial, sem apagar nada.", " After that the account moves to Essential, without deleting anything.")}
-            </p>
-          )}
-          <ul className="space-y-1 text-sm">
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{v.staff.p}</span>
-              <strong>{plan.max_teachers ?? (plan.included_teachers ? L(`${plan.included_teachers} incluídos, e mais sob cobrança`, `${plan.included_teachers} included, more at extra cost`) : L("sem limite", "unlimited"))}</strong>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{v.client.p}</span>
-              <strong>{plan.max_active_clients != null
-                ? L(`${plan.active_clients ?? 0} de ${plan.max_active_clients} ativos`, `${plan.active_clients ?? 0} of ${plan.max_active_clients} active`)
-                : L("ativos sem limite", "unlimited active")}</strong>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{L("Pacotes, vouchers e desconto", "Packages, vouchers and discounts")}</span>
-              <strong>{plan.packages ? L("sim", "yes") : L("não", "no")}</strong>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{L("Bloqueio que se repete toda semana", "Weekly recurring time off")}</span>
-              <strong>{plan.recurring_blocks ? L("sim", "yes") : L("não", "no")}</strong>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{L("Nomes do seu tipo de negócio", "Words for your type of business")}</span>
-              <strong>{plan.vocabulary ? L("sim", "yes") : L("não (genéricos)", "no (generic)")}</strong>
-            </li>
-            <li className="flex justify-between gap-3">
-              <span className="text-muted-foreground">{L("Assistente", "Assistant")}</span>
-              <strong>
-                {plan.assistant
-                  ? L(`sim (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} mensagens/mês)`, `yes (${plan.assistant_usage?.limit ?? plan.assistant_messages ?? 0} messages/month)`)
-                  : plan.assistant_addon ? L("como adicional", "as an add-on")
-                    : L("não", "no")}
-              </strong>
-            </li>
-          </ul>
-          {plan.billing_status === "active" && plan.paid_until && (
-            <p className="text-xs text-muted-foreground">
-              {L(`Assinatura ${plan.billing_interval === "year" ? "anual" : "mensal"} ativa, renova em ${new Date(plan.paid_until).toLocaleDateString(intlLocale())}.`,
-                 `${plan.billing_interval === "year" ? "Yearly" : "Monthly"} subscription active, renews on ${new Date(plan.paid_until).toLocaleDateString(intlLocale())}.`)}
-              {(plan.extra_teachers ?? 0) > 0 && L(` Inclui ${plan.extra_teachers} ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp} a mais.`, ` Includes ${plan.extra_teachers} extra ${plan.extra_teachers === 1 ? v.staff.l : v.staff.lp}.`)}
-            </p>
-          )}
-          {plan.billing_status === "past_due" && (
-            <p className="rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              {L("O pagamento da assinatura não passou.", "The subscription payment failed.")}
-              {plan.grace_until && L(` Se não for acertado até ${new Date(plan.grace_until).toLocaleDateString(intlLocale())}, a conta passa para o Essencial (nada é apagado).`,
-                ` If it isn't sorted out by ${new Date(plan.grace_until).toLocaleDateString(intlLocale())}, the account moves to Essential (nothing is deleted).`)}
-            </p>
-          )}
-          {plan.plano !== "pro" && (
-            <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
-              {L("O que você já cadastrou continua aqui, sempre. Os limites valem só para cadastrar coisa nova.",
-                 "Everything you already added stays here, always. Limits only apply to adding new things.")}
-              {!canSellHere() && L(" Para mudar de plano, fale com quem cuida da sua conta.", " To change plans, contact whoever manages your account.")}
-            </p>
-          )}
-          {/* Só no site: no app a Google Play não deixa vender nem apontar para
-              onde se compra (ver lib/subscription.ts). */}
-          {canSellHere() && (
-            <Button asChild variant={plan.billing_status === "active" ? "outline" : "default"} className="w-full">
-              <Link to="/assinar">
-                {plan.billing_status === "active" || plan.billing_status === "past_due" ? L("Gerenciar assinatura", "Manage subscription") : L("Ver planos e assinar", "See plans and subscribe")}
-              </Link>
-            </Button>
-          )}
-        </Card>
-      )}
     </>,
   };
 

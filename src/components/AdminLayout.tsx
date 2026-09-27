@@ -158,8 +158,10 @@ export default function AdminLayout() {
                 </Button>
               );
             })}
-            <ThemeToggle />
-            <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />{L("Minha conta", "My account")}</NavLink></Button>
+            {/* Admin: modo escuro e Minha conta ficam em Configurações (27/09).
+                O professor não tem Configurações, então segue com os dois aqui. */}
+            {isTeacher && <ThemeToggle />}
+            {isTeacher && <Button asChild variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><NavLink to="/minha-conta"><UserRound className="w-4 h-4" />{L("Minha conta", "My account")}</NavLink></Button>}
             <Button onClick={signOut} variant="ghost" size="sm" className="w-full justify-start gap-2 text-sidebar-foreground hover:bg-sidebar-accent"><LogOut className="w-4 h-4" />{L("Sair", "Sign out")}</Button>
           </div>
         </aside>
@@ -210,11 +212,13 @@ export default function AdminLayout() {
               })}
             </div>
             <div className="flex items-center justify-between border-t border-border pt-3">
-              <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
-                {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {theme === "dark" ? L("Modo claro", "Light mode") : L("Modo escuro", "Dark mode")}
-              </Button>
-              <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> {L("Minha conta", "My account")}</NavLink></Button>
+              {isTeacher && <>
+                <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                  {theme === "dark" ? L("Modo claro", "Light mode") : L("Modo escuro", "Dark mode")}
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="gap-2 rounded-xl"><NavLink to="/minha-conta"><UserRound className="h-4 w-4" /> {L("Minha conta", "My account")}</NavLink></Button>
+              </>}
               <Button variant="ghost" size="sm" className="gap-2 rounded-xl text-destructive hover:text-destructive" onClick={signOut}><LogOut className="h-4 w-4" /> {L("Sair", "Sign out")}</Button>
             </div>
           </div>

@@ -2826,4 +2826,30 @@ SELECT public.client_calendar_forget(current_setting('teste.resp')::uuid);
 SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.client_calendar_connections WHERE user_id = current_setting('teste.resp')::uuid),
   'desconectar o cliente apaga a conexao');
 
+
+\echo '--- 48. Aula sem serviço entra no serviço de mesmo nome (27/09) ---'
+DO $$
+DECLARE _g uuid := current_setting('teste.g')::uuid; _svc uuid;
+BEGIN
+  INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, subject, price)
+  VALUES (_g, 'Lia', 'Rosa', 'hugo', now() - interval '3 days', 60, 'realizada', ' xadrez ', 80);
+  INSERT INTO public.services (account_id, name, duration_minutes, price) VALUES (_g, 'Xadrez', 45, 90) RETURNING id INTO _svc;
+  PERFORM set_config('teste.svc', _svc::text, false);
+END $$;
+SELECT public.assert((SELECT service_id = current_setting('teste.svc')::uuid AND price = 80 AND duration_minutes = 60
+                        FROM public.lessons WHERE subject = ' xadrez '),
+  'serviço novo pega a aula solta de mesmo nome, sem mudar preço nem duração');
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions w JOIN public.lessons l ON l.id = w.lesson_id
+                       WHERE l.subject = ' xadrez ' AND w.kind = 'lesson' AND w.amount = -80) = 1,
+  'ligar ao serviço não mexe na cobrança da aula realizada');
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, subject)
+VALUES (current_setting('teste.g')::uuid, 'Lia', 'Rosa', 'hugo', now() + interval '9 days', 45, 'agendada', 'XADREZ');
+SELECT public.assert((SELECT service_id = current_setting('teste.svc')::uuid FROM public.lessons WHERE subject = 'XADREZ'),
+  'aula nova com a descrição do serviço já nasce nele');
+INSERT INTO public.services (account_id, name, duration_minutes) VALUES (current_setting('teste.g')::uuid, 'xadrez', 30);
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status, subject)
+VALUES (current_setting('teste.g')::uuid, 'Lia', 'Rosa', 'hugo', now() + interval '10 days', 45, 'agendada', 'Xadrez ');
+SELECT public.assert((SELECT service_id IS NULL FROM public.lessons WHERE subject = 'Xadrez '),
+  'dois serviços com o mesmo nome: não adivinha');
+
 \echo '=== FIM ==='
