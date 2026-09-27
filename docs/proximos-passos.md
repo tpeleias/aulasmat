@@ -38,6 +38,34 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    pelo Google (tira o aviso de "app não verificado" e o limite de 100 usuários).
    As mensagens traduzidas (PR #66) chegam ao Android no próximo `.aab` (1.12.3).
 
+## Feedback dos primeiros testes (27/09)
+
+Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:
+
+- [x] **Cadastro de cliente na tela de entrar:** saiu (PR #70). Só se cria
+  empresa por lá; os clientes são cadastrados pelo admin. A Kiki clicou duas
+  vezes em "criar conta de cliente" no app antigo e virou cliente sem empresa;
+  converti à mão para admin da Kika Sport.
+- [x] **Redefinir senha pelo gestor:** botão no `/gestor` (PR #71).
+- [ ] **"Esqueci a senha" pela própria pessoa:** falta o envio de e-mail
+  (servidor próprio: contato@cronys.com.br da GoDaddy ou Resend). Depois, o
+  botão na tela de entrar e a página de senha nova.
+- [x] **Modalidade (serviço) que não voltava ao padrão:** ao tirar o serviço
+  (ou apagar a descrição), a duração e o valor do serviço ficavam. Agora voltam
+  ao padrão, a não ser que tenham sido mudados à mão.
+- [x] **Configurações salvam sozinhas:** o botão Salvar no fim da tela saiu;
+  grava 0,8 s depois da última mudança e ao sair da tela, com um aviso
+  "Salvando… / Tudo salvo".
+- [ ] **Configurações confusas:** reorganizar a tela (seções ou abas, o que é
+  do dia a dia em cima). Conversar com o Thiago antes.
+- [x] **Campo numérico que não deixava apagar o valor:** "Nº de aulas" vinha
+  com 1 e só dava para digitar "14", nunca "4". Novo `NumberField` na
+  repetição, na duração, no valor e nos números das Configurações.
+- [x] **Repetição por dias da semana:** "toda segunda" ou "toda quarta e
+  sexta". O número é o total de atendimentos. Limite 104.
+- Versões: NÃO mandar para o teste interno nem para o fechado sem o Thiago
+  pedir (27/09). A tela de entrar nova já está na 1.12.3 (código 45).
+
 ## Google Agenda (26/09) - FEITO no código; falta o Thiago no Google Cloud
 
 Pedido: o ocupado do Google bloqueia a agenda do profissional, e os

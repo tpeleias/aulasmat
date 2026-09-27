@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,8 @@ import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import { Link } from "react-router-dom";
 import { canSellHere } from "@/lib/subscription";
+import { NumberField } from "@/components/NumberField";
+import { Check, Loader2 } from "lucide-react";
 
 import { intlLocale, L, currencySymbol, getCurrency } from "@/lib/i18n";
 // Um par de números por dia da semana, 0 = domingo.
@@ -89,14 +91,22 @@ export default function SettingsPage() {
 
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v || lo));
 
-  const save = async () => {
-    if (rowId === null) { toast.error(L("Configurações ainda carregando", "Settings are still loading")); return; }
-    // O banco recusa valor zerado ou negativo; avisar aqui evita a mensagem
-    // crua do Postgres, e a checagem de lá continua sendo a que vale.
-    if (!(Number(s.default_lesson_price) > 0)) {
-      toast.error(L(`O valor ${v.appointment.do} ${v.appointment.l} precisa ser maior que zero`, `The ${v.appointment.l} price must be greater than zero`));
-      return;
-    }
+  // Salva sozinho (Thiago, 27/09): o botão Salvar ficava no fim de uma tela
+  // comprida, e muita gente saía sem chegar nele. Cada mudança grava depois
+  // de uma pausa curta na digitação, e o que faltar grava ao sair da tela.
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "invalid" | "error">("idle");
+  const lastSaved = useRef<string | null>(null);
+  const current = useRef(s);
+  current.current = s;
+
+  const save = async (snap: Settings) => {
+    if (rowId === null) return;
+    const key = JSON.stringify(snap);
+    // O banco recusa valor zerado ou negativo; a tela avisa ao lado do campo
+    // e não grava, e a checagem de lá continua sendo a que vale.
+    if (!(Number(snap.default_lesson_price) > 0)) { setSaveState("invalid"); return; }
+    setSaveState("saving");
+    const s = snap;
     const { id: _id, account_id: _account, issuer_document: _doc, ...rest } = s as any;
     const payload = {
       ...rest,
@@ -127,22 +137,57 @@ export default function SettingsPage() {
       ) : {}),
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
-    if (error) toast.error(dbErrorMessage(error, v));
-    else {
-      setS({ ...s, ...payload } as any);
-      // As outras telas leem o valor de um cache; sem isto, o diálogo de nova
-      // aula continuaria abrindo com o preço antigo até recarregar a página.
-      primeLessonPrice(payload.default_lesson_price);
-      toast.success(L("Configurações salvas", "Settings saved"));
-    }
+    if (error) { setSaveState("error"); toast.error(dbErrorMessage(error, v)); return; }
+    lastSaved.current = key;
+    // Só marca "salvo" se nada mudou enquanto gravava.
+    if (JSON.stringify(current.current) === key) setSaveState("saved");
+    // As outras telas leem o valor de um cache; sem isto, o diálogo de nova
+    // aula continuaria abrindo com o preço antigo até recarregar a página.
+    primeLessonPrice(payload.default_lesson_price);
   };
+
+  useEffect(() => {
+    if (rowId === null) return;
+    const key = JSON.stringify(s);
+    // A primeira vez é o que veio do banco: nada a gravar.
+    if (lastSaved.current === null) { lastSaved.current = key; return; }
+    if (key === lastSaved.current) return;
+    setSaveState("saving");
+    const t = setTimeout(() => save(s), 800);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [s, rowId]);
+
+  useEffect(() => {
+    if (saveState !== "saved") return;
+    const t = setTimeout(() => setSaveState("idle"), 2500);
+    return () => clearTimeout(t);
+  }, [saveState]);
+
+  // Saiu da tela no meio da pausa: grava o que ficou.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => () => {
+    if (lastSaved.current !== null && JSON.stringify(current.current) !== lastSaved.current) saveRef.current(current.current);
+  }, []);
 
   return (
     <div className="space-y-6 max-w-xl">
       <div>
         <h1 className="text-2xl font-bold">{L("Configurações", "Settings")}</h1>
-        <p className="text-sm text-muted-foreground">{L("Tipo de negócio, janela de trabalho, pagamento e contato.", "Business type, working hours, payment and contact.")}</p>
+        <p className="text-sm text-muted-foreground">{L("Tipo de negócio, janela de trabalho, pagamento e contato. O que você muda aqui é salvo sozinho.", "Business type, working hours, payment and contact. Changes here save automatically.")}</p>
       </div>
+
+      {saveState !== "idle" && (
+        <div role="status" aria-live="polite"
+          className={`fixed bottom-24 right-4 z-40 flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs shadow-md md:bottom-6 ${
+            saveState === "invalid" || saveState === "error" ? "border-destructive/40 bg-destructive/10 text-destructive" : "border-border bg-background text-muted-foreground"}`}>
+          {saveState === "saving" && <><Loader2 className="h-3 w-3 animate-spin" /> {L("Salvando…", "Saving…")}</>}
+          {saveState === "saved" && <><Check className="h-3 w-3 text-success" /> {L("Tudo salvo", "All saved")}</>}
+          {saveState === "invalid" && L(`O valor ${v.appointment.do} ${v.appointment.l} precisa ser maior que zero`, `The ${v.appointment.l} price must be greater than zero`)}
+          {saveState === "error" && L("Não salvou. Tente mudar de novo.", "Not saved. Try changing it again.")}
+        </div>
+      )}
 
       <LanguageSettings />
 
@@ -154,12 +199,12 @@ export default function SettingsPage() {
           <div><Label>{L("Início do dia", "Day starts")}</Label><Input type="time" value={s.work_start.slice(0,5)} onChange={e => setS({ ...s, work_start: e.target.value })} /></div>
           <div><Label>{L("Fim do dia", "Day ends")}</Label><Input type="time" value={s.work_end.slice(0,5)} onChange={e => setS({ ...s, work_end: e.target.value })} /></div>
         </div>
-        <div><Label>{L("Duração do slot (min)", "Slot length (min)")}</Label><Input type="number" value={s.slot_minutes} onChange={e => setS({ ...s, slot_minutes: Number(e.target.value) })} /></div>
+        <div><Label>{L("Duração do slot (min)", "Slot length (min)")}</Label><NumberField min={5} fallback={60} value={s.slot_minutes} onValueChange={n => setS(x => ({ ...x, slot_minutes: n }))} /></div>
         {"buffer_minutes" in s && (
           <div>
             <Label>{L(`Intervalo entre ${v.appointment.lp} (min)`, `Buffer between ${v.appointment.lp} (min)`)}</Label>
-            <Input type="number" min={0} max={240} step={5} value={s.buffer_minutes ?? 0}
-              onChange={e => setS({ ...s, buffer_minutes: Number(e.target.value) })} />
+            <NumberField min={0} max={240} step={5} value={s.buffer_minutes ?? 0}
+              onValueChange={n => setS(x => ({ ...x, buffer_minutes: n }))} />
             <p className="mt-1 text-xs text-muted-foreground">
               {L(`Tempo livre antes e depois de cada ${v.appointment.l} (deslocamento, limpeza da sala). Os horários oferecidos no portal e na página pública respeitam esse intervalo. 0 = sem intervalo.`,
                  `Free time before and after each ${v.appointment.l} (travel, cleaning the room). Times offered in the portal and on the public page respect it. 0 = no buffer.`)}
@@ -256,13 +301,12 @@ export default function SettingsPage() {
         </div>
         <div>
           <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
-          <Input
-            type="number"
-            min={1}
+          <NumberField
             step="0.01"
             inputMode="decimal"
             value={s.default_lesson_price}
-            onChange={e => setS({ ...s, default_lesson_price: Number(e.target.value) })}
+            fallback={0}
+            onValueChange={n => setS(x => ({ ...x, default_lesson_price: n }))}
           />
           <p className="text-[11px] text-muted-foreground mt-1">
             {L(`${cap(v.appointment.um)} ${v.appointment.l} de 1 hora sai por `, `A 1-hour ${v.appointment.l} costs `)}
@@ -379,9 +423,9 @@ export default function SettingsPage() {
                    `Applies to new requests and reschedules: with 24, nobody can request tomorrow morning or move tomorrow's ${v.appointment.l} through the portal - they have to talk to you. 0 = no minimum.`)}
               </p>
             </div>
-            <Input id="antecedencia" type="number" min={0} max={168} className="w-20 shrink-0"
+            <NumberField id="antecedencia" min={0} max={168} className="w-20 shrink-0"
               value={s.min_request_notice_hours ?? 0}
-              onChange={e => setS({ ...s, min_request_notice_hours: Number(e.target.value) })} />
+              onValueChange={n => setS(x => ({ ...x, min_request_notice_hours: n }))} />
           </div>
         )}
         <div className="flex items-center justify-between rounded-md border border-border p-3">
@@ -410,13 +454,13 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="falta-horas">{L("Desmarcou com menos de (horas)", "Canceled with less than (hours)")}</Label>
-                <Input id="falta-horas" type="number" min={0} max={168} value={s.absence_notice_hours ?? 24}
-                  onChange={e => setS({ ...s, absence_notice_hours: Number(e.target.value) })} />
+                <NumberField id="falta-horas" min={0} max={168} value={s.absence_notice_hours ?? 24}
+                  onValueChange={n => setS(x => ({ ...x, absence_notice_hours: n }))} />
               </div>
               <div>
                 <Label htmlFor="falta-pct">{L("Cobra quanto do valor (%)", "Charge this much of the price (%)")}</Label>
-                <Input id="falta-pct" type="number" min={1} max={100} value={s.absence_charge_percent ?? 100}
-                  onChange={e => setS({ ...s, absence_charge_percent: Number(e.target.value) })} />
+                <NumberField id="falta-pct" min={1} max={100} fallback={100} value={s.absence_charge_percent ?? 100}
+                  onValueChange={n => setS(x => ({ ...x, absence_charge_percent: n }))} />
               </div>
             </div>
           )}
@@ -454,19 +498,18 @@ export default function SettingsPage() {
           {DIAS.map((nome, i) => {
             const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
             const set = (campo: "min" | "max", valor: number) =>
-              setS({ ...s, scarcity: { ...s.scarcity, [String(i)]: { ...d, [campo]: valor } } });
+              setS(x => ({ ...x, scarcity: { ...x.scarcity, [String(i)]: { ...(x.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)]), [campo]: valor } } }));
             return (
               <div key={i} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
                 <Label className="text-sm">{nome}</Label>
-                <Input type="number" min={1} max={12} value={d.min} onChange={e => set("min", Number(e.target.value))} />
-                <Input type="number" min={1} max={12} value={d.max} onChange={e => set("max", Number(e.target.value))} />
+                <NumberField min={1} max={12} value={d.min} onValueChange={n => set("min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
+                <NumberField min={1} max={12} value={d.max} onValueChange={n => set("max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
               </div>
             );
           })}
         </div>
       </Card>
 
-      <Button onClick={save}>{L("Salvar", "Save")}</Button>
     </div>
   );
 }
