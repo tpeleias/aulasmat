@@ -22,7 +22,9 @@ export default function Auth() {
   // "school": professor/escola criando a própria conta (vira admin de uma
   // escola nova, com teste do Pro). "family": responsável entrando numa escola
   // pelo código que o professor passou.
-  const [signupKind, setSignupKind] = useState<"family" | "school">("family");
+  // Por enquanto (Thiago, 27/09) só se cria empresa por aqui: os clientes são
+  // cadastrados pelo admin. O ramo "family" fica no código para quando voltar.
+  const [signupKind, setSignupKind] = useState<"family" | "school">("school");
   // /entrar?criar=empresa abre direto no cadastro de empresa (botão da página inicial).
   const [params] = useSearchParams();
   useEffect(() => {
@@ -188,10 +190,9 @@ export default function Auth() {
                 {L("Já tem conta?", "Already have an account?")} <button type="button" className="font-medium text-primary" onClick={() => setSignup(false)}>{L("Entrar", "Sign in")}</button>
               </p>
             ) : (
-              <div className="space-y-1 text-center text-xs text-muted-foreground">
-                <p>{L("Cliente novo?", "New client?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("family"); setSignup(true); }}>{L("Criar conta", "Create account")}</button></p>
-                <p>{L("Tem um negócio?", "Have a business?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L(`Criar minha empresa - ${TRIAL_DAYS} dias de Pro grátis`, `Create my business - ${TRIAL_DAYS} days of Pro free`)}</button></p>
-              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                {L("Não tem conta?", "No account yet?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L(`Criar conta - ${TRIAL_DAYS} dias de Pro grátis`, `Create account - ${TRIAL_DAYS} days of Pro free`)}</button>
+              </p>
             )}
             {signup && signupKind === "family" && (
               <p className="text-center text-xs text-muted-foreground">
@@ -200,10 +201,6 @@ export default function Auth() {
             )}
           </form>
 
-          <div className="mt-8 border-t border-border pt-4 text-center text-xs text-muted-foreground">
-            {L("Ainda não é cliente?", "Not a client yet?")}{" "}
-            <Link to="/inicio" className="font-medium text-primary">{L("Veja os horários disponíveis", "See available times")}</Link>
-          </div>
         </div>
       </div>
     </div>
