@@ -29,7 +29,7 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    - Depoimentos na página inicial (dos primeiros testadores).
    - Parcerias com associações e cursos de formação, com cupom.
    - Lembrete automático por WhatsApp (é o item 2).
-5. **Vender lá fora - o que falta**: ficha da loja Play em inglês (en-US),
+5. **Vender lá fora - o que falta**: ~~ficha da loja Play em inglês (en-US)~~ (feita 27/09: textos e fotos próprios),
    e-mails de login (Supabase Auth) em inglês, IVA/VAT (UE e Reino Unido) e
    cupons em moeda estrangeira.
 6. **Stripe no modo real** - ver "Planos novos" (sync_prices, portal, cupom).
