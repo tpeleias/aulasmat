@@ -29,8 +29,13 @@ import { useServices, teacherDoes, hourlyPrice } from "@/hooks/useServices";
 
 import { L, currencySymbol, isEnglish, durationLabel } from "@/lib/i18n";
 import { NumberField } from "@/components/NumberField";
+import { WheelPicker } from "@/components/WheelPicker";
+
 import { navAppName, routeUrl, useNavApp } from "@/lib/navigation";
 import { buildOccurrences, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
+
+// A rodinha de duração: de 5 em 5 minutos, até 4 horas.
+const DURATIONS = Array.from({ length: 48 }, (_, i) => (i + 1) * 5);
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
@@ -95,6 +100,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const teachers = teachersAll.filter(t =>
     teacherSlug(t.name) === form.teacher || teacherDoes(t, form.service_id, links, perTeacher));
   const [busy, setBusy] = useState(false);
+  const [wheelOpen, setWheelOpen] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
   // Dias da repetição (0 = domingo). Vazio = o dia do início, como antes.
@@ -142,6 +148,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       setRecurring(false);
       setRepeatCount(1);
       setRepeatDays([]);
+      setWheelOpen(false);
       setConflictMsg(null);
     }
   }, [lesson, slotStart, open, baseTeacher, initialStudent]);
@@ -528,17 +535,26 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <div>
             <Label>{L("Duração", "Duration")}</Label>
-            <div className="flex flex-wrap items-center gap-1.5">
-              {[30, 45, 60, 90, 120].map(m => (
-                <Button key={m} type="button" size="sm" variant={form.duration_minutes === m ? "default" : "outline"}
-                  className="h-8 rounded-full px-3" onClick={() => setForm(f => ({ ...f, duration_minutes: m }))}>
-                  {durationLabel(m)}
-                </Button>
-              ))}
-              <NumberField inputMode="numeric" className="h-8 w-20" min={5} fallback={60} value={form.duration_minutes}
-                onValueChange={n => setForm(f => ({ ...f, duration_minutes: n }))} aria-label={L("Duração em minutos", "Duration in minutes")} />
-              <span className="text-xs text-muted-foreground">min</span>
+            {/* A duração à vista e, só se for mudar, a rodinha (Thiago, 27/09:
+                os atalhos de 30 min, 45 min, 1h… poluíam o diálogo). */}
+            <div className="flex items-center gap-3">
+              <span className="text-base font-semibold tabular-nums">{durationLabel(form.duration_minutes)}</span>
+              <Button type="button" size="sm" variant="outline" className="h-9 rounded-xl" aria-expanded={wheelOpen}
+                onClick={() => setWheelOpen(o => !o)}>
+                {wheelOpen ? L("Pronto", "Done") : L("Outra duração", "Other length")}
+              </Button>
             </div>
+            {wheelOpen && (
+              <div className="mt-2">
+                <WheelPicker
+                  label={L("Duração", "Duration")}
+                  options={DURATIONS.includes(form.duration_minutes) ? DURATIONS : [...DURATIONS, form.duration_minutes].sort((x, y) => x - y)}
+                  value={form.duration_minutes}
+                  format={durationLabel}
+                  onChange={m => setForm(f => ({ ...f, duration_minutes: m }))}
+                />
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-[1fr_auto] gap-3 items-end">
             <div>
