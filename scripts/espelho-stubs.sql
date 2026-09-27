@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS auth.users (
   email text UNIQUE,
   encrypted_password text,
   raw_user_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  raw_app_meta_data jsonb NOT NULL DEFAULT '{}'::jsonb,
   confirmation_token text NOT NULL DEFAULT '',
   recovery_token text NOT NULL DEFAULT '',
   email_change text NOT NULL DEFAULT '',

@@ -22,6 +22,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Volta do login do Google (src/lib/googleLogin.ts): o navegador
+                 do celular abre com.aulasmat.app://login e cai aqui. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="com.aulasmat.app" android:host="login" />
+            </intent-filter>
+
         </activity>
 
         <receiver

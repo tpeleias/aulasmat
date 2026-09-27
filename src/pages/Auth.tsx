@@ -13,11 +13,13 @@ import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { Capacitor } from "@capacitor/core";
 import { TRIAL_DAYS } from "@shared/plans";
+import { googleLoginEnabled, isExternalLogin, signInWithGoogle } from "@/lib/googleLogin";
+import { dbErrorMessage } from "@/lib/dbErrors";
 
 
 import { L, getLocale, getCurrency, isEnglish, toggleLanguage } from "@/lib/i18n";
 export default function Auth() {
-  const { session, role, roleFailed, isPlatformAdmin, loading } = useAuth();
+  const { session, user, role, roleFailed, isPlatformAdmin, loading } = useAuth();
   const [signup, setSignup] = useState(false);
   // "school": professor/escola criando a própria conta (vira admin de uma
   // escola nova, com teste do Pro). "family": responsável entrando numa escola
@@ -40,6 +42,9 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [google, setGoogle] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
+  useEffect(() => { let on = true; googleLoginEnabled().then(v => { if (on) setGoogle(v); }); return () => { on = false; }; }, []);
 
   useEffect(() => { document.title = L("Acesso — Cronys", "Sign in — Cronys"); }, []);
 
@@ -53,6 +58,9 @@ export default function Auth() {
     if (role === "student") return <Navigate to="/aluno" replace />;
     if (role === "child") return <Navigate to="/meu-painel" replace />;
     if (roleFailed) return <LoadFailedScreen />;
+    // Primeira entrada pelo Google: ainda não tem empresa. Pergunta o nome
+    // do negócio em vez de mandar esperar liberação (migration 20260928010000).
+    if (isExternalLogin(user)) return <WelcomeBusinessScreen />;
     return <PendingScreen />;
   }
 
@@ -105,6 +113,15 @@ export default function Auth() {
       : L("Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.", "Account created! Ask your provider to link your login to your profile."));
   };
 
+  const continueWithGoogle = async () => {
+    setGoogleBusy(true);
+    const { error } = await signInWithGoogle();
+    // No site a página sai para o Google; no app o navegador abre por cima.
+    // Nos dois casos, o botão volta ao normal se a pessoa desistir.
+    setGoogleBusy(false);
+    if (error) { haptics.warning(); toast.error(L("Não deu para entrar com o Google. Tente de novo.", "Couldn't sign in with Google. Please try again.")); }
+  };
+
   return (
     <div className="flex-1 bg-background md:flex md:items-center md:justify-center md:bg-sidebar">
       <div className="mx-auto w-full md:max-w-md md:overflow-hidden md:rounded-[2rem] md:bg-background md:shadow-[0_24px_80px_-24px_rgba(0,0,0,0.6)]">
@@ -139,6 +156,19 @@ export default function Auth() {
           <h2 className="mb-5 text-lg font-semibold">
             {signup ? (signupKind === "school" ? L("Criar sua empresa", "Create your business") : L("Criar conta", "Create account")) : L("Entrar", "Sign in")}
           </h2>
+
+          {google && (
+            <div className="mb-5 space-y-5">
+              <Button type="button" variant="outline" disabled={googleBusy} onClick={continueWithGoogle}
+                className="h-12 w-full gap-3 rounded-xl border-border bg-white text-base font-medium text-[#1f1f1f] hover:bg-neutral-50 hover:text-[#1f1f1f]">
+                {googleBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleG />}
+                {L("Continuar com o Google", "Continue with Google")}
+              </Button>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                <span className="h-px flex-1 bg-border" />{L("ou com e-mail", "or with email")}<span className="h-px flex-1 bg-border" />
+              </div>
+            </div>
+          )}
 
           <form onSubmit={submitAccount} className="space-y-4">
             {signup && signupKind === "school" && (
@@ -207,10 +237,90 @@ export default function Auth() {
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+// O "G" colorido do Google, como o guia de marca dele pede no botão.
+function GoogleG() {
+  return (
+    <svg aria-hidden viewBox="0 0 48 48" className="h-5 w-5">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+// Quem entrou pelo Google e ainda não tem empresa (Thiago, 27/09): só o nome
+// do negócio e o seu, e pronto. Os clientes não passam por aqui - eles entram
+// com o usuário que a empresa cria.
+function WelcomeBusinessScreen() {
+  const { signOut, user } = useAuth();
+  const meta = (user?.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const [school, setSchool] = useState("");
+  const [name, setName] = useState((meta.full_name ?? meta.name ?? "").split(" ")[0] ?? "");
+  const [accept, setAccept] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!school.trim() || !name.trim()) {
+      toast.error(L("Informe o nome do negócio e o seu nome.", "Enter the business name and your name."));
+      return;
+    }
+    if (!accept) {
+      toast.error(L("Para começar, aceite os termos de uso e a política de privacidade.", "To start, accept the terms of use and the privacy policy."));
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.rpc("create_my_business" as never, {
+      _school: school.trim(), _teacher: name.trim(), _locale: getLocale(), _currency: getCurrency(),
+    } as never);
+    if (error) {
+      setBusy(false);
+      haptics.warning();
+      toast.error(dbErrorMessage(error, undefined, L("Não deu para criar a empresa. Tente de novo.", "Couldn't create the business. Please try again.")));
+      return;
+    }
+    haptics.success();
+    // O papel de admin acabou de nascer: recarregar faz o app perguntar de novo
+    // quem é a pessoa e abrir o painel.
+    window.location.replace("/admin");
+  };
+
+  return (
+    <div className="flex flex-1 items-center justify-center bg-background p-6">
+      <form onSubmit={submit} className="w-full max-w-md space-y-4 rounded-3xl border border-border bg-card p-8">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><CronysMark className="h-7 w-7" /></div>
+        <div className="text-center">
+          <h2 className="text-xl font-semibold">{L("Bem-vindo ao Cronys!", "Welcome to Cronys!")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{user?.email}</p>
+        </div>
+        <Field htmlFor="welcome-school" label={L("Qual o nome do seu negócio?", "What's your business called?")}>
+          <Input id="welcome-school" value={school} onChange={e => setSchool(e.target.value)} className="h-12 rounded-xl" maxLength={120} autoFocus
+            placeholder={L("ou o seu nome, se trabalha sozinho", "or your name, if you work alone")} />
+        </Field>
+        <Field htmlFor="welcome-name" label={L("Como você quer ser chamado?", "What should we call you?")}>
+          <Input id="welcome-name" value={name} onChange={e => setName(e.target.value)} className="h-12 rounded-xl" maxLength={60} autoComplete="given-name" />
+        </Field>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+          <input type="checkbox" checked={accept} onChange={e => setAccept(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
+          <span>{L("Li e aceito os", "I have read and accept the")} <Link to="/termos" className="text-primary underline">{L("termos de uso", "terms of use")}</Link> {L("e a", "and the")} <Link to="/privacidade" className="text-primary underline">{L("política de privacidade", "privacy policy")}</Link>.</span>
+        </label>
+        <Button type="submit" disabled={busy} className="h-12 w-full gap-2 rounded-xl text-base">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+          {L(`Começar - ${TRIAL_DAYS} dias de Pro grátis`, `Start - ${TRIAL_DAYS} days of Pro free`)}
+        </Button>
+        <p className="text-center text-xs text-muted-foreground">
+          {L("Conta errada?", "Wrong account?")} <button type="button" className="font-medium text-primary" onClick={signOut}>{L("Sair", "Sign out")}</button>
+        </p>
+      </form>
+    </div>
+  );
+}
+
+function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Label htmlFor={htmlFor} className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
       {children}
     </div>
   );
