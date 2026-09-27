@@ -111,7 +111,3 @@ export function openExternal(url: string): boolean {
   return window.open(url, "_blank", "noopener,noreferrer") !== null;
 }
 
-/** Waze com a rota até o endereço. */
-export function wazeLink(address: string): string {
-  return `https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`;
-}

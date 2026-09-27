@@ -9,10 +9,11 @@ import type { Vocabulary } from "@/lib/vocabulary";
 import type { MessageTemplates } from "@/lib/messageTemplates";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import {
-  currentPosition, onMyWayMessage, openExternal, reminderMessage, wazeLink, whatsAppLink,
+  currentPosition, onMyWayMessage, openExternal, reminderMessage, whatsAppLink,
 } from "@/lib/whatsapp";
 
 import { L } from "@/lib/i18n";
+import { navAppName, openRoute, useNavApp } from "@/lib/navigation";
 export type QuickLesson = {
   id: string;
   student_name: string;
@@ -62,6 +63,7 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
   const w = useWords();
   const { templates } = useMessageTemplates();
   const [locating, setLocating] = useState(false);
+  const navApp = useNavApp();
   const hoursAway = (new Date(lesson.start_at).getTime() - Date.now()) / 3_600_000;
   const presencial = !lesson.is_online && !!lesson.address;
   const canLocate = plan.arrival_location && !lesson.is_online && hoursAway <= 24 && hoursAway >= -2;
@@ -88,8 +90,8 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
         </Button>
       )}
       {presencial && (
-        <Button size="icon" variant="ghost" className={`${btn} text-primary`} title={L("Abrir rota", "Open route")}
-          onClick={() => { haptics.tap(); openExternal(wazeLink(lesson.address!)); }}>
+        <Button size="icon" variant="ghost" className={`${btn} text-primary`} title={L(`Abrir rota no ${navAppName(navApp)}`, `Open route in ${navAppName(navApp)}`)}
+          onClick={() => { haptics.tap(); openRoute(lesson.address!, navApp); }}>
           <Navigation className="h-4 w-4" fill="currentColor" />
         </Button>
       )}

@@ -29,6 +29,7 @@ import { useServices, teacherDoes, hourlyPrice } from "@/hooks/useServices";
 
 import { L, currencySymbol, isEnglish } from "@/lib/i18n";
 import { NumberField } from "@/components/NumberField";
+import { navAppName, routeUrl, useNavApp } from "@/lib/navigation";
 import { buildOccurrences, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
@@ -69,6 +70,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   // Login de professor marca só as próprias aulas e não mexe em valor nem
   // apaga (o banco também não deixa - migration 20260924040000).
   const { isTeacher } = useAuth();
+  const navApp = useNavApp();
   const { plan } = usePlan();
   const { templates } = useMessageTemplates();
   const { services, links } = useServices(true);
@@ -549,11 +551,11 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               />
               {form.address && !form.is_online && (
                 <a
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(form.address)}`}
+                  href={routeUrl(form.address, navApp)}
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
                 >
-                  <ExternalLink className="w-3 h-3" /> {L("Abrir rota no Google Maps", "Open route in Google Maps")}
+                  <ExternalLink className="w-3 h-3" /> {L(`Abrir rota no ${navAppName(navApp)}`, `Open route in ${navAppName(navApp)}`)}
                 </a>
               )}
             </div>
