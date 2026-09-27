@@ -7,9 +7,10 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, KeyRound, Trash2 } from "lucide-react";
+import { ArrowLeft, KeyRound, Navigation, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { USERNAME_DOMAIN } from "@/lib/username";
+import { saveNavApp, useNavApp, type NavApp } from "@/lib/navigation";
 
 import { L } from "@/lib/i18n";
 // Qualquer papel chega aqui (admin, professor, responsável, aluno). Excluir a
@@ -24,6 +25,9 @@ export default function MyAccount() {
   const [busy, setBusy] = useState(false);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
+  const navApp = useNavApp();
+  // A escolha aparece na hora; a conta confirma em seguida.
+  const [navPick, setNavPick] = useState<NavApp | null>(null);
 
   if (loading) return null;
   if (!session) return <Navigate to="/entrar" replace />;
@@ -39,6 +43,13 @@ export default function MyAccount() {
     if (error) { toast.error(error.message); return; }
     toast.success(L("Senha trocada", "Password changed"));
     setPw(""); setPw2("");
+  };
+
+  const pickNav = async (app: NavApp) => {
+    setNavPick(app);
+    const { error } = await saveNavApp(app);
+    if (error) { setNavPick(null); toast.error(error.message); return; }
+    toast.success(app === "maps" ? L("As rotas abrem no Google Maps", "Routes open in Google Maps") : L("As rotas abrem no Waze", "Routes open in Waze"));
   };
 
   const remove = async () => {
@@ -72,6 +83,26 @@ export default function MyAccount() {
           <Input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder={L("Repita a nova senha", "Repeat the new password")} autoComplete="new-password" />
           <Button variant="outline" className="rounded-xl" disabled={busy || pw.length < 6 || pw !== pw2} onClick={changePassword}>{L("Salvar nova senha", "Save new password")}</Button>
         </Card>
+
+        {(role === "admin" || role === "teacher") && (
+          <Card className="space-y-3 rounded-2xl p-4">
+            <div>
+              <h2 className="flex items-center gap-2 font-semibold"><Navigation className="h-4 w-4" /> {L("App de rota", "Navigation app")}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{L("Onde abre a rota até o endereço do atendimento.", "Where the route to the appointment address opens.")}</p>
+            </div>
+            <div className="flex gap-2" role="radiogroup" aria-label={L("App de rota", "Navigation app")}>
+              {(["waze", "maps"] as const).map(app => {
+                const on = (navPick ?? navApp) === app;
+                return (
+                  <Button key={app} type="button" role="radio" aria-checked={on} variant={on ? "default" : "outline"}
+                    className="flex-1 rounded-xl" onClick={() => { if (!on) pickNav(app); }}>
+                    {app === "maps" ? "Google Maps" : "Waze"}
+                  </Button>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         <Card className="space-y-3 rounded-2xl border-destructive/40 p-4">
           <div>

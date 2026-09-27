@@ -10,16 +10,13 @@ import { daysOpen, isOverdue } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { openRoute, useNavApp } from "@/lib/navigation";
 export type SheetStudent = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
 export type SheetLesson = {
   id: string; start_at: string; duration_minutes: number; subject: string | null; teacher: string; status: string;
 };
-
-function openWaze(address: string) {
-  window.open(`https://waze.com/ul?q=${encodeURIComponent(address)}&navigate=yes`, "_blank", "noopener,noreferrer");
-}
 
 export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, manageLabel = "Gerenciar", onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
   student: SheetStudent | null;
@@ -42,6 +39,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
   onPause?: () => void;
 }) {
   const w = useWords();
+  const navApp = useNavApp();
   if (!student) return null;
 
   const done = lessons.filter(l => l.status === "realizada");
@@ -68,7 +66,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
           {student.user_id && <Badge variant="outline" className="gap-1 text-[10px]"><Link2 className="h-3 w-3" /> {L("conta", "account")}</Badge>}
         </SheetDescription>
         {student.address && (
-          <button onClick={() => openWaze(student.address!)} className="mt-1 flex items-center gap-1.5 text-left text-sm text-primary">
+          <button onClick={() => openRoute(student.address!, navApp)} className="mt-1 flex items-center gap-1.5 text-left text-sm text-primary">
             <MapPin className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{student.address}</span>
           </button>
         )}
