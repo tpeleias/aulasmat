@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
-import { isEnglish } from "@/lib/i18n";
+import { LegalHeader, legalHref, useLegalEnglish } from "@/components/LegalLangSwitch";
 import { TermsEn } from "@/pages/LegalEn";
 
 // Rascunho escrito a partir do que o app faz de verdade - NÃO é texto revisado
@@ -19,15 +18,14 @@ export default function TermsOfUse() {
       .then(({ data }) => setContact(((data as { contact_email?: string } | null)?.contact_email ?? "").trim() || null));
   }, []);
 
-  useEffect(() => { document.title = isEnglish() ? "Terms of use — Cronys" : "Termos de uso — Cronys"; }, []);
-  if (isEnglish()) return <TermsEn contact={contact} />;
+  const en = useLegalEnglish();
+  useEffect(() => { document.title = en ? "Terms of use — Cronys" : "Termos de uso — Cronys"; }, [en]);
+  if (en) return <TermsEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
-        <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <CronysWordmark tamanho="1.125rem" className="text-foreground" />
-        </Link>
+        <LegalHeader en={false} />
 
         <h1 className="text-2xl font-bold">Termos de uso</h1>
         <p className="mt-1 text-sm text-muted-foreground">Atualizados em {UPDATED_AT}.</p>
@@ -83,7 +81,7 @@ export default function TermsOfUse() {
               Os dados de clientes e responsáveis pertencem à empresa, que decide como usá-los
               (controladora, nos termos da LGPD). O Cronys guarda e processa esses dados em nome da
               empresa, só para fazer o app funcionar (operador). Os detalhes estão na{" "}
-              <Link to="/privacidade" className="text-primary underline">política de privacidade</Link>.
+              <Link to={legalHref("/privacidade", false)} className="text-primary underline">política de privacidade</Link>.
             </p>
           </section>
 
@@ -111,7 +109,7 @@ export default function TermsOfUse() {
             <p>
               Qualquer pessoa pode excluir o próprio acesso pelo app, em <strong>Minha conta →
               Excluir minha conta</strong>, ou seguindo as instruções em{" "}
-              <Link to="/excluir-conta" className="text-primary underline">/excluir-conta</Link>. O
+              <Link to={legalHref("/excluir-conta", false)} className="text-primary underline">/excluir-conta</Link>. O
               histórico de atendimentos e pagamentos continua com a empresa, que pode precisar dele para
               controle financeiro; pedidos de exclusão desses dados vão para a empresa.
             </p>

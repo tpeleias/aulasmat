@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { CronysWordmark } from "@/components/brand";
 import { supabase } from "@/integrations/supabase/client";
-import { isEnglish } from "@/lib/i18n";
+import { LegalHeader, legalHref, useLegalEnglish } from "@/components/LegalLangSwitch";
 import { DeleteAccountEn } from "@/pages/LegalEn";
 
 // Página pública que a Google Play pede ("link da web para solicitar a
@@ -14,15 +12,14 @@ export default function DeleteAccountInfo() {
     supabase.from("settings").select("contact_email").maybeSingle()
       .then(({ data }) => setContact(((data as { contact_email?: string } | null)?.contact_email ?? "").trim() || null));
   }, []);
-  useEffect(() => { document.title = isEnglish() ? "Delete account — Cronys" : "Excluir conta — Cronys"; }, []);
-  if (isEnglish()) return <DeleteAccountEn contact={contact} />;
+  const en = useLegalEnglish();
+  useEffect(() => { document.title = en ? "Delete account — Cronys" : "Excluir conta — Cronys"; }, [en]);
+  if (en) return <DeleteAccountEn contact={contact} />;
 
   return (
     <div className="flex-1 bg-background">
       <div className="mx-auto w-full max-w-2xl px-5 py-10">
-        <Link to="/" className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
-          <CronysWordmark tamanho="1.125rem" className="text-foreground" />
-        </Link>
+        <LegalHeader en={false} />
         <h1 className="text-2xl font-bold">Como excluir sua conta do Cronys</h1>
         <div className="mt-6 space-y-6 text-sm leading-relaxed">
           <section className="space-y-2">
