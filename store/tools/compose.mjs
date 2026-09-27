@@ -2,8 +2,10 @@
 import { chromium } from "playwright-core";
 import { readFileSync, mkdirSync } from "node:fs";
 
-const RAW = "/tmp/claude-0/shots/raw";
-const OUT = process.argv[2] ?? "/tmp/claude-0/shots/store";
+// STORE_LANG=en: frases em inglês, sobre as fotos de capture.mjs em inglês.
+const EN = process.env.STORE_LANG === "en";
+const RAW = EN ? "/tmp/claude-0/shots/raw-en" : "/tmp/claude-0/shots/raw";
+const OUT = process.argv[2] ?? (EN ? "/tmp/claude-0/shots/store-en" : "/tmp/claude-0/shots/store");
 mkdirSync(OUT, { recursive: true });
 const FONTS = "/home/user/aulasmat/public/fonts";
 const font = f => `data:font/woff2;base64,${readFileSync(`${FONTS}/${f}`).toString("base64")}`;
@@ -21,7 +23,7 @@ body { background: #151823; }
 .phone img { display: block; width: 100%; border-radius: 50px; }
 `;
 
-const screens = [
+const screensPt = [
   ["inicio", "Seu dia inteiro <span class=gold>numa tela</span>", "Aulas de hoje, pedidos das famílias e o financeiro do mês."],
   ["aula", "Avise pelo WhatsApp <span class=gold>com um toque</span>", "Lembrete da aula e “estou a caminho” com a localização."],
   ["agenda", "A agenda da <span class=gold>equipe toda</span>", "Cada profissional com a sua; você enxerga todas."],
@@ -30,6 +32,16 @@ const screens = [
   ["assistente", "Marque <span class=gold>conversando</span>", "O assistente agenda, remarca e consulta o financeiro."],
   ["financeiro", "O mês fechado <span class=gold>em números</span>", "Recebido, a receber e aulas por profissional."],
 ];
+const screensEn = [
+  ["inicio", "Your whole day <span class=gold>on one screen</span>", "Today’s lessons, client requests and this month’s billing."],
+  ["aula", "Remind on WhatsApp <span class=gold>in one tap</span>", "Lesson reminders and “on my way” with your location."],
+  ["agenda", "Your whole <span class=gold>team’s calendar</span>", "Each professional sees their own; you see them all."],
+  ["clientes", "Know who is <span class=gold>up to date</span>", "Clients, parents and what is still to receive."],
+  ["cobranca", "Billing <span class=gold>without spreadsheets</span>", "Record a payment and the app settles the lessons."],
+  ["assistente", "Book by <span class=gold>chatting</span>", "The assistant books, reschedules and checks billing."],
+  ["financeiro", "Your month <span class=gold>in numbers</span>", "Received, outstanding and lessons per professional."],
+];
+const screens = EN ? screensEn : screensPt;
 
 const shot = (name, title, sub) => `<!doctype html><html><head><style>${css}
 body { width: 1080px; height: 1920px; overflow: hidden; position: relative;
@@ -58,8 +70,8 @@ p { position: absolute; left: 68px; top: 385px; width: 450px; font-family: Work;
 .p2 { left: 770px; top: 40px; transform: rotate(5deg); }
 </style></head><body>
 <div class="brand">${mark}<span>Cronys</span></div>
-<h1>Agenda, clientes e cobrança <span class=gold>num só lugar</span></h1>
-<p>Para aulas particulares, clínicas, estúdios e quem atende com hora marcada.</p>
+<h1>${EN ? "Scheduling, clients and billing <span class=gold>in one place</span>" : "Agenda, clientes e cobrança <span class=gold>num só lugar</span>"}</h1>
+<p>${EN ? "For tutors, clinics, studios and anyone who works by appointment." : "Para aulas particulares, clínicas, estúdios e quem atende com hora marcada."}</p>
 <div class="phone p1"><img src="${img("inicio")}"></div>
 <div class="phone p2"><img src="${img("aula")}"></div>
 </body></html>`;

@@ -3,6 +3,8 @@ name: Update Google Play listing
 # Atualiza a ficha da loja a partir do repositório:
 #   store/listing/title.txt, short-description.txt, full-description.txt
 #   store/pt-BR/phoneScreenshots/*.png (em ordem de nome) e featureGraphic.png
+# Um idioma com pasta própria usa a dela: store/listing/<idioma>/*.txt e
+# store/<idioma>/ (ex.: en-US). Os demais usam os de cima (pt-BR).
 # Com apply = false só mostra o que está na loja hoje (nada muda).
 on:
   workflow_dispatch:
@@ -80,13 +82,16 @@ jobs:
                   sys.exit(0)
 
               current = listings.get(details.get("defaultLanguage")) or next(iter(listings.values()), {})
-              title = read("store/listing/title.txt") or current.get("title")
-              short = read("store/listing/short-description.txt") or current.get("shortDescription")
-              full = read("store/listing/full-description.txt") or current.get("fullDescription")
-              shots = sorted(glob.glob("store/pt-BR/phoneScreenshots/*.png"))
-              fg = "store/pt-BR/featureGraphic.png"
 
               for lang in langs:
+                  txt = f"store/listing/{lang}" if os.path.isdir(f"store/listing/{lang}") else "store/listing"
+                  img = f"store/{lang}" if os.path.isdir(f"store/{lang}/phoneScreenshots") else "store/pt-BR"
+                  print(f"[{lang}] textos de {txt}, imagens de {img}")
+                  title = read(f"{txt}/title.txt") or current.get("title")
+                  short = read(f"{txt}/short-description.txt") or current.get("shortDescription")
+                  full = read(f"{txt}/full-description.txt") or current.get("fullDescription")
+                  shots = sorted(glob.glob(f"{img}/phoneScreenshots/*.png"))
+                  fg = f"{img}/featureGraphic.png"
                   body = {"language": lang, "title": title, "shortDescription": short, "fullDescription": full}
                   if listings.get(lang, {}).get("video"):
                       body["video"] = listings[lang]["video"]

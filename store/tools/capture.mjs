@@ -1,9 +1,9 @@
 // Abre o app de verdade com a empresa-modelo e fotografa as telas.
 import { chromium } from "playwright-core";
-import { tables, rpcs, session } from "./mock.mjs";
+import { tables, rpcs, session, EN, FIRST_STUDENT } from "./mock.mjs";
 
 const APP = "http://127.0.0.1:5174";
-const OUT = process.argv[2] ?? "/tmp/claude-0/shots/raw";
+const OUT = process.argv[2] ?? (EN ? "/tmp/claude-0/shots/raw-en" : "/tmp/claude-0/shots/raw");
 const only = process.argv[3];
 
 function applyFilters(rows, params) {
@@ -93,23 +93,33 @@ const shots = [
   { name: "aula", path: "/admin/agenda", action: "openLesson" },
 ];
 
-const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: ["--lang=pt-BR"] });
+const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromium-1194/chrome-linux/chrome", args: [EN ? "--lang=en-US" : "--lang=pt-BR"] });
 const context = await browser.newContext({
-  viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, locale: "pt-BR", timezoneId: "America/Sao_Paulo",
+  viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, locale: EN ? "en-US" : "pt-BR", timezoneId: EN ? "America/New_York" : "America/Sao_Paulo",
   isMobile: true, hasTouch: true, colorScheme: "light",
 });
-await context.addInitScript(({ s }) => {
-  localStorage.setItem("sb-dqfzuviwejlobrwebyum-auth-token", JSON.stringify(s));
-  sessionStorage.setItem("assistant_chat_messages", JSON.stringify([
+const chatPt = [
     { role: "user", content: [{ type: "text", text: "Marca uma aula do Lucas quinta às 15h" }] },
     { role: "assistant", content: [{ type: "text", text: "Encontrei o **Lucas Almeida** (resp.: Carla Almeida). Vou marcar:\n\n- **Quinta, 01/10, às 15:00**\n- Matemática com a Ana · 60 min\n- R$ 150,00\n- Rua das Acácias, 120 - Pinheiros\n\nPosso confirmar?" }] },
     { role: "user", content: [{ type: "text", text: "Pode" }] },
     { role: "assistant", content: [{ type: "text", text: "Pronto! Aula do Lucas marcada para **quinta, 01/10, às 15:00**. ✅" }] },
     { role: "user", content: [{ type: "text", text: "Quem ainda não pagou este mês?" }] },
     { role: "assistant", content: [{ type: "text", text: "Estão em aberto:\n\n- **Renata Souza** (Beatriz): R$ 150,00\n- **Paula Rocha** (Gabriel): R$ 150,00\n- **Tatiana Ribeiro** (Laura): R$ 150,00\n- **Ricardo Lima** (Sofia): R$ 150,00\n\nTotal: **R$ 600,00**." }] },
-  ]));
+];
+const chatEn = [
+    { role: "user", content: [{ type: "text", text: "Book Lucas on Thursday at 3pm" }] },
+    { role: "assistant", content: [{ type: "text", text: "Found **Lucas Miller** (parent: Karen Miller). I'll book:\n\n- **Thursday, Oct 1, at 3:00 PM**\n- Math with Anna · 60 min\n- $60.00\n- 120 Maple Ave, Brooklyn\n\nShall I confirm?" }] },
+    { role: "user", content: [{ type: "text", text: "Yes" }] },
+    { role: "assistant", content: [{ type: "text", text: "Done! Lucas is booked for **Thursday, Oct 1, at 3:00 PM**. ✅" }] },
+    { role: "user", content: [{ type: "text", text: "Who hasn't paid this month?" }] },
+    { role: "assistant", content: [{ type: "text", text: "Still open:\n\n- **Rachel Johnson** (Emily): $60.00\n- **Paula Davis** (Ethan): $60.00\n- **Tina Taylor** (Ava): $60.00\n- **Richard Wilson** (Sophia): $60.00\n\nTotal: **$240.00**." }] },
+];
+await context.addInitScript(({ s, chat, en }) => {
+  localStorage.setItem("sb-dqfzuviwejlobrwebyum-auth-token", JSON.stringify(s));
+  localStorage.setItem("cronys.locale", JSON.stringify(en ? { locale: "en", currency: "USD" } : { locale: "pt-BR", currency: "BRL" }));
+  sessionStorage.setItem("assistant_chat_messages", JSON.stringify(chat));
   localStorage.setItem("cronys.vocabulary", JSON.stringify({ business_model: "aulas", custom: null, custom_saved: true }));
-}, { s: session });
+}, { s: session, chat: EN ? chatEn : chatPt, en: EN });
 await mockBackend(context);
 
 const page = await context.newPage();
@@ -119,7 +129,7 @@ for (const s of shots) {
   await page.goto(APP + s.path, { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   if (s.action === "openLesson") {
-    const el = page.getByText("Lucas Almeida").first();
+    const el = page.getByText(FIRST_STUDENT).first();
     await el.scrollIntoViewIfNeeded();
     await page.waitForTimeout(800);
     const box = await el.boundingBox();
