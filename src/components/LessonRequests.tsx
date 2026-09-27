@@ -132,7 +132,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     {past && <Badge variant="destructive" className="h-5 px-2 text-[10px]">{L("horário já passou", "time has passed")}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {format(start, L("EEE, dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })} · {r.duration_minutes} min · {capitalize(r.teacher)}
+                    {format(start, L("EEE, dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })} · {r.duration_minutes} min · {capitalize(r.teacher)}
                     {r.subject ? ` · ${r.subject}` : ""}
                   </div>
                   {r.reschedule_of && (() => {
@@ -141,7 +141,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     return (
                       <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
                         <Repeat className="h-3 w-3 shrink-0" />
-                        {L(`Troca ${w.appointment.do} ${w.appointment.l} de`, `Reschedule of the ${w.appointment.l} on`)} {format(new Date(o.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}
+                        {L(`Troca ${w.appointment.do} ${w.appointment.l} de`, `Reschedule of the ${w.appointment.l} on`)} {format(new Date(o.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}
                         {o.status === "agendada"
                           ? L(" - aprovar desmarca essa", " - approving cancels that one")
                           : L(` (essa já está ${o.status}; aprovar não mexe nela)`, ` (that one is already ${o.status}; approving won't change it)`)}
@@ -188,7 +188,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                   <p className="text-foreground font-medium">
                     {refusing.student_name}
                     <br />
-                    {format(new Date(refusing.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
+                    {format(new Date(refusing.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}
                     {refusing.subject ? <><br />{refusing.subject}</> : null}
                   </p>
                 )}

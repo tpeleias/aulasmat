@@ -258,7 +258,7 @@ export default function StudentBooking() {
       {trocaId && original && (
         <Card className="flex flex-wrap items-center justify-between gap-2 border-primary/40 p-4 text-sm">
           <div>
-            {L(`Trocando ${ap.o} ${ap.l} de `, `Rescheduling the ${ap.l} on `)}<b>{format(new Date(original.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</b>.
+            {L(`Trocando ${ap.o} ${ap.l} de `, `Rescheduling the ${ap.l} on `)}<b>{format(new Date(original.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</b>.
             <p className="text-xs text-muted-foreground">
               {L(`Ela continua ${ap.pick("marcado", "marcada")} até ${st.o} ${st.l} aprovar o horário novo; se recusar, nada muda.`, `It stays booked until the ${st.l} approves the new time; if declined, nothing changes.`)}
             </p>

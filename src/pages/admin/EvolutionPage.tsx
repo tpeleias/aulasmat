@@ -137,7 +137,7 @@ export default function EvolutionPage() {
                         <>
                           <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
-                            <span className="font-medium capitalize">{format(new Date(e.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
+                            <span className="font-medium capitalize">{format(new Date(e.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
                             <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
                           </div>
                           {e.summary ? (

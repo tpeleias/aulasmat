@@ -27,7 +27,7 @@ import { confirmMessage, whatsAppLink } from "@/lib/whatsapp";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { useServices, teacherDoes, hourlyPrice } from "@/hooks/useServices";
 
-import { L, currencySymbol, isEnglish } from "@/lib/i18n";
+import { L, currencySymbol, isEnglish, durationLabel } from "@/lib/i18n";
 import { NumberField } from "@/components/NumberField";
 import { navAppName, routeUrl, useNavApp } from "@/lib/navigation";
 import { buildOccurrences, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
@@ -356,7 +356,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       const hit = (busyRanges ?? []).some((r: any) =>
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
-      if (hit) conflicts.push(format(occ, L("dd/MM HH:mm", "MMM d, HH:mm")));
+      if (hit) conflicts.push(format(occ, L("dd/MM HH:mm", "MMM d, h:mm a")));
       else { const { id: _i, payment_status: _ps, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
     }
 
@@ -532,7 +532,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {[30, 45, 60, 90, 120].map(m => (
                 <Button key={m} type="button" size="sm" variant={form.duration_minutes === m ? "default" : "outline"}
                   className="h-8 rounded-full px-3" onClick={() => setForm(f => ({ ...f, duration_minutes: m }))}>
-                  {m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`}
+                  {durationLabel(m)}
                 </Button>
               ))}
               <NumberField inputMode="numeric" className="h-8 w-20" min={5} fallback={60} value={form.duration_minutes}

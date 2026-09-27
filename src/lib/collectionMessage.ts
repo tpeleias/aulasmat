@@ -5,7 +5,7 @@ import { buildPixPayload } from "@/lib/pix";
 import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
-import { dateLocale, L, isEnglish } from "@/lib/i18n";
+import { dateLocale, L, isEnglish, timeFmt } from "@/lib/i18n";
 // Tudo por empresa (settings): antes "InfinitePay ... 12x" era texto fixo e
 // saía na cobrança de qualquer escola.
 export type PaymentInfo = {
@@ -74,7 +74,7 @@ export function buildCollectionMessage(items: OpenItem[], payment: PaymentInfo, 
     discounts += disc;
     paid += Math.max(alreadyPaid, 0);
 
-    const when = `📅 *${dayLabel(i.date)}* ${L("às", "at")} ${format(new Date(i.date), "HH:mm")}`;
+    const when = `📅 *${dayLabel(i.date)}* ${L("às", "at")} ${format(new Date(i.date), timeFmt())}`;
     const what = single ? detailLabel(i.detail) : `${detailLabel(i.detail)} · ${i.student}`;
     const lines = [when, what];
 

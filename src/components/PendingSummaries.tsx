@@ -70,7 +70,7 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
             <div className="min-w-0 flex-1">
               <div className="truncate text-sm font-medium">{l.student_name}</div>
               <div className="truncate text-xs text-muted-foreground">
-                <span className="capitalize">{format(new Date(l.start_at), L("EEE dd/MM HH:mm", "EEE, MMM d, HH:mm"), { locale: dateLocale() })}</span>
+                <span className="capitalize">{format(new Date(l.start_at), L("EEE dd/MM HH:mm", "EEE, MMM d, h:mm a"), { locale: dateLocale() })}</span>
                 {l.subject ? ` · ${l.subject}` : ""} · {capitalize(l.teacher)}
               </div>
             </div>

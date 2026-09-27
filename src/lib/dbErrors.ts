@@ -55,6 +55,7 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
     case "plano":
       if (arg === "google_calendar") return L("O Google Agenda faz parte do Cronys Pro e do Max.", "Google Calendar is part of Cronys Pro and Max.");
       break;
+    case "simbolo_moeda": return L("Símbolo inválido: use até 6 caracteres, sem números.", "Invalid symbol: use up to 6 characters, no digits.");
     case "google_sem_permissao":
       return L("Você só pode mexer no seu próprio Google Agenda.", "You can only change your own Google Calendar.");
     case "google_conecte_primeiro":

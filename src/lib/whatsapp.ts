@@ -8,7 +8,7 @@ import type { Vocabulary } from "@/lib/vocabulary";
 import { cap } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
-import { dateLocale, getCurrency, L } from "@/lib/i18n";
+import { dateLocale, getCurrency, L, timeFmt } from "@/lib/i18n";
 /**
  * Número como o banco guarda (students.whatsapp): só dígitos, com o 55.
  * Aceita o que a pessoa digita - "(11) 98765-4321", "+55 11 98765 4321".
@@ -54,7 +54,7 @@ export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string>
     de_aluno: toGuardian ? L(` de ${aluno}`, ` for ${aluno}`) : "",
     responsavel: cap(firstName(l.guardian_name)),
     dia: format(d, L("EEEE, dd/MM", "EEEE, MMM d"), { locale: dateLocale() }),
-    hora: format(d, "HH:mm"),
+    hora: format(d, timeFmt()),
     endereco: l.is_online ? L("on-line", "online") : address,
     local: l.is_online ? L(` (${w.appointment.s.toLowerCase()} on-line)`, ` (online ${w.appointment.l})`) : address ? L(` em ${address}`, ` at ${address}`) : "",
   };

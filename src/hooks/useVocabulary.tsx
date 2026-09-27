@@ -5,7 +5,7 @@ import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary }
 import { isCurrency, isLocale, setLocale, type Currency, type Locale } from "@/lib/i18n";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
@@ -63,6 +63,7 @@ function parse(raw: unknown): Raw | null {
     // Língua e moeda da empresa (migration 20260925170000).
     locale: isLocale(r.locale) ? r.locale : undefined,
     currency: isCurrency(r.currency) ? r.currency : undefined,
+    currency_symbol: typeof r.currency_symbol === "string" && r.currency_symbol ? r.currency_symbol : null,
   };
 }
 
@@ -109,9 +110,9 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   // de todo texto passar pela língua nova.
   useEffect(() => {
     if (!user || !raw?.locale) return;
-    const changed = setLocale(raw.locale, raw.currency ?? (raw.locale === "en" ? "USD" : "BRL"));
+    const changed = setLocale(raw.locale, raw.currency ?? (raw.locale === "en" ? "USD" : "BRL"), raw.currency_symbol ?? null);
     if (changed && painted) window.location.reload();
-  }, [user, raw?.locale, raw?.currency]);
+  }, [user, raw?.locale, raw?.currency, raw?.currency_symbol]);
 
   const apply = useCallback((data: unknown) => {
     const parsed = parse(data);

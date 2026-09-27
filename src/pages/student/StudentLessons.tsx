@@ -78,11 +78,11 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
         <Card key={l.id} className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <div className="font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+              <div className="font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{l.teacher}</div>
               {l.reschedule_of && isRequest(l.status) && byId.get(l.reschedule_of) && (
                 <div className="mt-0.5 flex items-center gap-1 text-xs text-primary">
-                  <Repeat className="h-3 w-3" /> {L(`Troca ${ap.do} ${ap.l} de`, `Moving the ${ap.l} from`)} {format(new Date(byId.get(l.reschedule_of).start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"))}
+                  <Repeat className="h-3 w-3" /> {L(`Troca ${ap.do} ${ap.l} de`, `Moving the ${ap.l} from`)} {format(new Date(byId.get(l.reschedule_of).start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' h:mm a"))}
                 </div>
               )}
               {openSwapFor.has(l.id) && l.status === "agendada" && (

@@ -117,7 +117,7 @@ export default function StudentDashboard() {
           {requests.map(l => (
             <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
               <div>
-                <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+                <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
                 <div className="text-xs text-muted-foreground">{l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
               </div>
               <div className="flex items-center gap-1">
@@ -138,7 +138,7 @@ export default function StudentDashboard() {
         {upcoming.slice(0, 5).map(l => (
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
-              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
               <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
             </div>
             <WhatsAppButton teacher={l.teacher} message={L(`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`, `Hi! About the ${ap.l} on ${format(new Date(l.start_at), "MMM d, HH:mm")}`)} />
@@ -154,7 +154,7 @@ export default function StudentDashboard() {
           </div>
           {openItems.slice(0, 6).map(i => (
             <div key={i.id} className="flex items-center justify-between gap-2 text-sm border-t border-border pt-2 first:border-0 first:pt-0">
-              <span>{format(new Date(i.date), L("dd/MM HH:mm", "MMM d, HH:mm"))}<span className="text-muted-foreground"> · {i.detail}</span></span>
+              <span>{format(new Date(i.date), L("dd/MM HH:mm", "MMM d, h:mm a"))}<span className="text-muted-foreground"> · {i.detail}</span></span>
               <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
             </div>
           ))}
@@ -179,7 +179,7 @@ export default function StudentDashboard() {
         {past.slice(0, 5).map(l => (
           <div key={l.id} className="border-t border-border pt-2 first:border-0 first:pt-0">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">{format(new Date(l.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' HH:mm"), { locale: dateLocale() })}</div>
+              <div className="text-sm font-medium">{format(new Date(l.start_at), L("dd/MM 'às' HH:mm", "MMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
               <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
             </div>
             {l.class_summary && (

@@ -332,7 +332,7 @@ function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
             <FileText className="w-4 h-4 text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{m.title}</div>
-              <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
+              <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
             </div>
             <Button size="icon" variant="ghost" onClick={() => download(m.file_path)}><Download className="w-4 h-4" /></Button>
             {(!perms.ownerId || m.uploaded_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(m)}><Trash2 className="w-4 h-4" /></Button>}
@@ -410,7 +410,7 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-sm">{h.title}</div>
                 {h.description && <div className="text-xs text-muted-foreground">{h.description}</div>}
-                <div className="text-xs text-muted-foreground mt-1">{L("Prazo", "Due")}: {format(new Date(h.deadline), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
+                <div className="text-xs text-muted-foreground mt-1">{L("Prazo", "Due")}: {format(new Date(h.deadline), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant={h.status === "entregue" ? "default" : "secondary"}>{L(h.status, ({ entregue: "submitted", pendente: "pending", atrasada: "late" } as Record<string, string>)[h.status] ?? h.status)}</Badge>
@@ -420,7 +420,7 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
             {(subs[h.id] ?? []).map(s => (
               <div key={s.id} className="text-xs border-t border-border pt-2 flex items-center justify-between">
                 <div>
-                  <div>{L("Entrega em", "Submitted on")} {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
+                  <div>{L("Entrega em", "Submitted on")} {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, h:mm a"))}</div>
                   {s.teacher_feedback && <div className="text-primary">{L("Feedback", "Feedback")}: {s.teacher_feedback}</div>}
                 </div>
                 <div className="flex gap-1">
