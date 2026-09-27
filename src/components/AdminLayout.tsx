@@ -5,20 +5,19 @@ import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Calendar, Ban, Wallet, LogOut, UserRound, Settings as SettingsIcon, Link as LinkIcon, Users, Plus, UserCog, Bot, Home, Moon, Sun, ShieldCheck, FileText, TrendingUp, MessageSquareText } from "lucide-react";
-import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
+import AvailabilityLinksDialog from "@/components/AvailabilityLinksDialog";
+import { copyAvailabilityLink } from "@/lib/availabilityLinks";
 import ThemeToggle from "@/components/ThemeToggle";
 import UpdateBanner from "@/components/UpdateBanner";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
-import { capitalize } from "@/lib/balance";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
 import { haptics } from "@/lib/haptics";
 import { CronysWordmark } from "@/components/brand";
 import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
-import { publicSiteUrl } from "@/lib/publicUrl";
 import { useVocabulary } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 import BusinessOnboarding from "@/components/BusinessOnboarding";
@@ -60,6 +59,7 @@ export default function AdminLayout() {
   const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   useNativeRoute();
 
@@ -113,11 +113,14 @@ export default function AdminLayout() {
   // Quem tem login de profissional só divulga o próprio link de disponibilidade.
   const linkTeachers = isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
 
-  const copyLink = (path: string, label: string) => {
-    navigator.clipboard.writeText(publicSiteUrl() + path);
-    haptics.success();
-    toast.success(L(`Link ${label} copiado!`, `Link ${label} copied!`));
+  // Os links de disponibilidade juntos numa janela (27/09): um botão por
+  // profissional no menu não cabe numa empresa grande. O professor só tem o
+  // dele: o botão já copia.
+  const openLinks = () => {
+    if (linkTeachers.length === 1 && isTeacher) copyAvailabilityLink(linkTeachers[0]);
+    else setLinksOpen(true);
   };
+  const linksLabel = isTeacher ? L("Copiar meu link", "Copy my link") : L("Links de disponibilidade", "Availability links");
 
   const sidebarLink = (it: NavItem) => (
     <NavLink key={it.to} to={it.to} end={it.end}
@@ -149,15 +152,11 @@ export default function AdminLayout() {
             {secondaryNav.map(sidebarLink)}
           </nav>
           <div className="p-3 border-t border-sidebar-border space-y-2">
-            <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">{L("Links públicos", "Public links")}</div>
-            {linkTeachers.map(t => {
-              const slug = teacherSlug(t.name);
-              return (
-                <Button key={t.id} onClick={() => copyLink(`/disponibilidade/${slug}`, L(`de ${capitalize(t.name)}`, `for ${capitalize(t.name)}`))} variant="secondary" size="sm" className="w-full justify-start gap-2">
-                  <LinkIcon className="w-4 h-4" />{L("Link", "Link")} - {capitalize(t.name)}
-                </Button>
-              );
-            })}
+            {linkTeachers.length > 0 && (
+              <Button onClick={openLinks} variant="secondary" size="sm" className="w-full justify-start gap-2">
+                <LinkIcon className="w-4 h-4" />{linksLabel}
+              </Button>
+            )}
             {/* Admin: modo escuro e Minha conta ficam em Configurações (27/09).
                 O professor não tem Configurações, então segue com os dois aqui. */}
             {isTeacher && <ThemeToggle />}
@@ -201,16 +200,11 @@ export default function AdminLayout() {
                 </NavLink>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              {linkTeachers.map(t => {
-                const slug = teacherSlug(t.name);
-                return (
-                  <Button key={t.id} variant="outline" className="h-11 justify-start gap-2 rounded-2xl" onClick={() => { copyLink(`/disponibilidade/${slug}`, L(`de ${capitalize(t.name)}`, `for ${capitalize(t.name)}`)); close(); }}>
-                    <LinkIcon className="h-4 w-4" /> Link {capitalize(t.name)}
-                  </Button>
-                );
-              })}
-            </div>
+            {linkTeachers.length > 0 && (
+              <Button variant="outline" className="h-11 w-full justify-start gap-2 rounded-2xl" onClick={() => { close(); openLinks(); }}>
+                <LinkIcon className="h-4 w-4" /> {linksLabel}
+              </Button>
+            )}
             <div className="flex items-center justify-between border-t border-border pt-3">
               {isTeacher && <>
                 <Button variant="ghost" size="sm" className="gap-2 rounded-xl" onClick={toggleTheme}>
@@ -224,6 +218,8 @@ export default function AdminLayout() {
           </div>
         )}
       />
+
+      <AvailabilityLinksDialog open={linksOpen} onOpenChange={setLinksOpen} teachers={linkTeachers} />
 
       <LessonDialog
         open={quickOpen}
