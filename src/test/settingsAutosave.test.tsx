@@ -22,6 +22,8 @@ vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: {}, loading: true })
 vi.mock("@/hooks/useVocabulary", () => ({ useWords: () => DEFAULT_VOCABULARY }));
 vi.mock("@/hooks/useLessonPrice", () => ({ FALLBACK_LESSON_PRICE: 100, primeLessonPrice: () => {} }));
 let mobile = false;
+vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { email: "ana@x.com", user_metadata: {} }, role: "admin", signOut: async () => {} }) }));
+vi.mock("@/hooks/useTheme", () => ({ useTheme: () => ({ theme: "light", setTheme: () => {}, toggleTheme: () => {} }) }));
 vi.mock("@/hooks/use-mobile", () => ({ useIsMobile: () => mobile }));
 vi.mock("@/components/VocabularySettings", () => ({ default: () => null }));
 vi.mock("@/components/LanguageSettings", () => ({ default: () => null }));
@@ -56,12 +58,20 @@ describe("SettingsPage", () => {
     mobile = true;
     render(<MemoryRouter initialEntries={["/admin/configuracoes"]}><SettingsPage /></MemoryRouter>);
     await act(async () => { await Promise.resolve(); });
-    for (const nome of ["Negócio", "Agenda", "Cobrança", "Clientes", "Integrações", "Plano"]) {
+    for (const nome of ["Minha conta", "Negócio", "Agenda", "Cobrança", "Clientes", "Integrações"]) {
       expect(screen.getByRole("button", { name: new RegExp("^" + nome) })).toBeTruthy();
     }
     fireEvent.click(screen.getByRole("button", { name: /^Cobrança/ }));
     expect(screen.getByRole("heading", { level: 1, name: "Cobrança" })).toBeTruthy();
     expect(screen.getByText("Valor por hora", { exact: false })).toBeTruthy();
     mobile = false;
+  });
+
+  it("Minha conta mora nas Configurações: rota e aparência", async () => {
+    render(<MemoryRouter initialEntries={["/admin/configuracoes?secao=conta"]}><SettingsPage /></MemoryRouter>);
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByText("App de rota")).toBeTruthy();
+    expect(screen.getByRole("radio", { name: /Escuro/ })).toBeTruthy();
+    expect(screen.getByText("ana@x.com")).toBeTruthy();
   });
 });

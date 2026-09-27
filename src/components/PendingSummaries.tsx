@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { format, subDays } from "date-fns";
-import { MessageSquarePlus, NotebookPen } from "lucide-react";
+import { ChevronDown, MessageSquarePlus, NotebookPen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { useWords } from "@/hooks/useVocabulary";
@@ -11,6 +11,8 @@ import { dateLocale, L } from "@/lib/i18n";
 type Row = SummaryLesson & { teacher: string };
 
 const DAYS = 10;
+const COLLAPSED_KEY = "cronys.pendingSummaries.collapsed";
+const readCollapsed = () => { try { return localStorage.getItem(COLLAPSED_KEY) === "1"; } catch { return false; } };
 const MAX = 5;
 
 /**
@@ -23,6 +25,12 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
   const ap = w.appointment;
   const [rows, setRows] = useState<Row[]>([]);
   const [open, setOpen] = useState<Row | null>(null);
+  // Recolhido fica lembrado neste aparelho.
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const toggle = () => setCollapsed(c => {
+    try { localStorage.setItem(COLLAPSED_KEY, c ? "0" : "1"); } catch { /* sem armazenamento: vale até recarregar */ }
+    return !c;
+  });
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("lessons").select("*")
@@ -41,13 +49,17 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
 
   return (
     <section className="rounded-2xl border border-primary/30 bg-primary/5 p-4">
-      <div className="mb-2 flex items-center gap-2">
+      <button type="button" onClick={toggle} aria-expanded={!collapsed}
+        className={`flex w-full items-center gap-2 text-left ${collapsed ? "" : "mb-2"}`}>
         <NotebookPen className="h-4 w-4 text-primary" />
         <h2 className="font-semibold">{L("Como foi?", "How did it go?")}</h2>
         <span className="text-xs text-muted-foreground">
           {rows.length} {rows.length === 1 ? ap.l : ap.lp} {L("sem resumo", "without notes")}
         </span>
-      </div>
+        <ChevronDown className={`ml-auto h-4 w-4 text-muted-foreground transition-transform ${collapsed ? "" : "rotate-180"}`} aria-hidden />
+        <span className="sr-only">{collapsed ? L("Mostrar", "Show") : L("Esconder", "Hide")}</span>
+      </button>
+      {!collapsed && <>
       <p className="mb-3 text-xs text-muted-foreground">
         {L(`Conte em poucas linhas o que foi feito. ${cap(w.client.o)} ${w.client.l} vê em "Minhas ${ap.lp}", e fica na Evolução.`,
            `Write a few lines about what was done. The ${w.client.l} sees it in "My ${ap.lp}", and it stays in Progress.`)}
@@ -71,6 +83,7 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
       {rows.length > MAX && (
         <p className="mt-2 text-xs text-muted-foreground">{L(`E mais ${rows.length - MAX}. Os outros aparecem aqui conforme você registra.`, `And ${rows.length - MAX} more. They show up here as you write.`)}</p>
       )}
+      </>}
       <LessonSummaryDialog
         lesson={open}
         onClose={() => setOpen(null)}

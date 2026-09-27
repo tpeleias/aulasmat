@@ -195,8 +195,6 @@ export default function HomePage() {
           )}
         </section>
 
-        <PendingSummaries refreshKey={reloads} />
-
         {!isTeacher && <section>
           <SectionTitle icon={Wallet} title={L("Financeiro", "Billing")} action={<Link to="/admin/financeiro" className="text-sm text-primary">{L("Abrir", "Open")}</Link>} />
           {loading ? (
@@ -226,6 +224,9 @@ export default function HomePage() {
           {!isTeacher && <Button onClick={() => { haptics.tap(); setDlgOpen(true); }} className="h-12 justify-start gap-2 rounded-2xl"><CalendarPlus className="h-4 w-4" /> {ap.novo} {ap.l}</Button>}
           <Button asChild variant="secondary" className="h-12 justify-start gap-2 rounded-2xl"><Link to="/admin/bloqueios"><Ban className="h-4 w-4" /> {L("Bloquear horário", "Block time")}</Link></Button>
         </section>
+
+        {/* Por último e recolhível (Thiago, 27/09): é lembrete, não o assunto do dia. */}
+        <PendingSummaries refreshKey={reloads} />
 
         <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} defaultTeacher={teacher} onSaved={load} />
       </div>

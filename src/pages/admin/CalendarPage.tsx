@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, addMinutes, format, getDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
@@ -332,13 +332,17 @@ export default function CalendarPage() {
         onPointerDown={lessonTap(lesson).onPointerDown}
         onClick={(e) => { e.stopPropagation(); lessonTap(lesson).onClick(e); }}
         style={{ top, height, left: `calc(${leftPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` }}
-        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : isPending ? "bg-muted/60 border border-dashed" : lesson.payment_status === "pago" ? "bg-success/20" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
+        className={`absolute z-10 p-1.5 text-left text-xs rounded-sm overflow-hidden hover:opacity-90 hover:z-20 border-l-2 shadow-sm ${isCancelled ? "bg-destructive/15" : isPending ? "bg-muted/60 border border-dashed" : color.bg} ${isCancelled ? "border-l-destructive" : color.border}`}
       >
         <div className={`font-semibold truncate leading-tight ${isCancelled ? "text-destructive line-through" : color.text}`}>{lesson.student_name}</div>
-        <div className="text-[10px] text-muted-foreground truncate leading-tight">
-          {isPending ? `${format(ls, "HH:mm")} · pedido`
+        {/* A cor é sempre a do profissional (Thiago, 27/09: o verde de "pago"
+            escondia a cor nova nos atendimentos antigos); pago vira um check. */}
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate leading-tight">
+          {serviceColor(lesson) && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${serviceColor(lesson)!.dot}`} />}
+          {lesson.payment_status === "pago" && !isCancelled && <Check className="h-3 w-3 shrink-0 text-success" aria-label={L("pago", "paid")} />}
+          <span className="truncate">{isPending ? `${format(ls, "HH:mm")} · pedido`
             : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, "HH:mm")} · ${L("falta cobrada", "no-show charged")}`
-            : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}
+            : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}</span>
         </div>
         {lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={L(`${ap.s} on-line`, `Online ${ap.l}`)}><Wifi className="w-3 h-3" /></span>
@@ -604,7 +608,7 @@ export default function CalendarPage() {
             </span>
           );
         })}
-        <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-success/20 border border-success/30"></span>{L(`${ap.s} ${ap.pick("pago", "paga")}`, `Paid ${ap.l}`)}</span>
+        <span className="flex items-center gap-2"><Check className="w-3 h-3 text-success" />{L(`${ap.s} ${ap.pick("pago", "paga")}`, `Paid ${ap.l}`)}</span>
         <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-muted border border-border"></span>{L("Bloqueio", "Time off")}</span>
       </div>
 

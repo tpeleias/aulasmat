@@ -66,6 +66,16 @@ Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:
   repetição, na duração, no valor e nos números das Configurações.
 - [x] **Repetição por dias da semana:** "toda segunda" ou "toda quarta e
   sexta". O número é o total de atendimentos. Limite 104.
+- [x] **"Como foi?" por último na tela Hoje, recolhível** (lembrado no aparelho).
+- [x] **Cores antigas não mudavam:** as aulas marcadas antes do serviço existir
+  ficaram sem `service_id`. Migration `20260927020000`: aula sem serviço com a
+  descrição igual ao nome de um serviço (único) entra nele - na hora de salvar,
+  quando o serviço é criado/renomeado, e as antigas de uma vez. A carteira não
+  recalcula quando só o serviço muda. Na agenda, a cor é sempre a do
+  profissional (o verde de "pago" virou um check).
+- [x] **Minha conta dentro das Configurações** (admin), com plano, senha, app de
+  rota e aparência (claro/escuro). O professor segue com Minha conta e o modo
+  escuro no menu, porque não tem Configurações.
 - Versões: NÃO mandar para o teste interno nem para o fechado sem o Thiago
   pedir (27/09). A tela de entrar nova já está na 1.12.3 (código 45).
 
