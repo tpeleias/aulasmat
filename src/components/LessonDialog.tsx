@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format, addWeeks } from "date-fns";
+import { format } from "date-fns";
 import { ExternalLink, ChevronDown } from "lucide-react";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize, fmtMoney } from "@/lib/balance";
@@ -27,7 +27,9 @@ import { confirmMessage, whatsAppLink } from "@/lib/whatsapp";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { useServices, teacherDoes, hourlyPrice } from "@/hooks/useServices";
 
-import { L, currencySymbol } from "@/lib/i18n";
+import { L, currencySymbol, isEnglish } from "@/lib/i18n";
+import { NumberField } from "@/components/NumberField";
+import { buildOccurrences, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
 type Lesson = {
   id?: string; student_name: string; guardian_name?: string | null; subject?: string | null;
   start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes?: string | null;
@@ -93,6 +95,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [busy, setBusy] = useState(false);
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
+  // Dias da repetição (0 = domingo). Vazio = o dia do início, como antes.
+  const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
   const [students, setStudents] = useState<Array<{ id: string; student_name: string; guardian_name: string | null; address: string | null; whatsapp?: string | null }>>([]);
 
@@ -135,6 +139,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       });
       setRecurring(false);
       setRepeatCount(1);
+      setRepeatDays([]);
       setConflictMsg(null);
     }
   }, [lesson, slotStart, open, baseTeacher, initialStudent]);
@@ -190,9 +195,24 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       : f.subject,
   }));
 
+  // Sem serviço, volta ao padrão o que ainda é o que o serviço tinha posto
+  // (Thiago, 27/09: antes ficavam a duração e o valor do serviço anterior).
+  // O que a pessoa mudou à mão depois de escolher o serviço fica.
+  const clearService = (f: Lesson): Lesson => {
+    const sv = services?.find(x => x.id === f.service_id);
+    if (!sv) return { ...f, service_id: null };
+    return {
+      ...f,
+      service_id: null,
+      subject: f.subject === sv.name ? subjectOf(f.teacher) : f.subject,
+      duration_minutes: f.duration_minutes === sv.duration_minutes ? 60 : f.duration_minutes,
+      price: f.price === (hourlyPrice(sv) ?? listPrice) ? listPrice : f.price,
+    };
+  };
+
   // O serviço preenche o assunto, a duração, o preço e se é on-line.
   const setService = (id: string) => {
-    if (id === "none") { setForm(f => ({ ...f, service_id: null })); return; }
+    if (id === "none") { setForm(clearService); return; }
     const sv = services?.find(x => x.id === id);
     if (!sv) return;
     setForm(f => ({
@@ -212,14 +232,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       // Pacote de um serviço: {a.o} {a.l} já vem com o serviço dele.
       if (p?.service_id && services?.some(s => s.id === p.service_id)) setService(p.service_id);
       const n = p ? p.lessons : pkg === "pack5" ? 5 : pkg === "pack10" ? 10 : 1;
-      if (n > 1) { setRecurring(true); setRepeatCount(Math.min(52, n)); }
+      if (n > 1) { setRecurring(true); setRepeatCount(Math.min(MAX_OCCURRENCES, n)); }
       else { setRecurring(false); setRepeatCount(1); }
     }
-  };
-
-  const buildOccurrences = (baseISO: string, count: number) => {
-    const base = new Date(baseISO);
-    return Array.from({ length: count }, (_, i) => addWeeks(base, i));
   };
 
   const ensureStudent = async () => {
@@ -313,7 +328,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       return;
     }
 
-    if (!recurring || repeatCount <= 1) {
+    // Com dias escolhidos, até um atendimento só pode cair noutro dia que não o do início.
+    if (!recurring || (repeatCount <= 1 && repeatDays.length === 0)) {
       // payment_status is derived from the wallet by the database; never send it back.
       const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
@@ -323,7 +339,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       return;
     }
 
-    const occurrences = buildOccurrences(form.start_at, repeatCount);
+    const occurrences = buildOccurrences(new Date(form.start_at), repeatCount, repeatDays);
     const minStart = occurrences[0].toISOString();
     const lastEnd = new Date(occurrences[occurrences.length - 1].getTime() + form.duration_minutes * 60000).toISOString();
 
@@ -497,7 +513,12 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.guardian.s}</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
-            <div><Label>{services?.length ? L("Descrição", "Description") : v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => setForm({ ...form, subject: e.target.value })} /></div>
+            <div><Label>{services?.length ? L("Descrição", "Description") : v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => {
+              const subject = e.target.value;
+              // Apagou o nome do serviço: deixa de ser aquele serviço, e a
+              // duração e o valor dele voltam ao padrão (Thiago, 27/09).
+              setForm(f => (f.service_id && !subject.trim() ? { ...clearService(f), subject } : { ...f, subject }));
+            }} /></div>
           </div>
           <div>
             <Label>{L("Dia e horário", "Date and time")}</Label>
@@ -512,8 +533,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                   {m < 60 ? `${m} min` : m % 60 === 0 ? `${m / 60}h` : `${Math.floor(m / 60)}h${m % 60}`}
                 </Button>
               ))}
-              <Input type="number" inputMode="numeric" className="h-8 w-20" value={form.duration_minutes}
-                onChange={e => setForm(f => ({ ...f, duration_minutes: Number(e.target.value) }))} aria-label={L("Duração em minutos", "Duration in minutes")} />
+              <NumberField inputMode="numeric" className="h-8 w-20" min={5} fallback={60} value={form.duration_minutes}
+                onValueChange={n => setForm(f => ({ ...f, duration_minutes: n }))} aria-label={L("Duração em minutos", "Duration in minutes")} />
               <span className="text-xs text-muted-foreground">min</span>
             </div>
           </div>
@@ -596,7 +617,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             <CollapsibleContent className="p-3 pt-0 space-y-3">
               {!isTeacher && <div>
                 <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
-                <Input type="number" step="0.01" value={form.price} onChange={e => setForm({ ...form, price: Number(e.target.value) })} />
+                <NumberField step="0.01" inputMode="decimal" min={0} fallback={listPrice} value={form.price} onValueChange={n => setForm(f => ({ ...f, price: n }))} />
                 <p className="text-[11px] text-muted-foreground mt-1">
                   {L("Pagamento é marcado na página Financeiro (isso mantém a carteira correta).", "Payments are recorded on the Billing page (that keeps balances correct).")}
                 </p>
@@ -630,19 +651,51 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           {!lesson?.id && (
             <div className="rounded-md border border-border p-3 space-y-2 bg-muted/30">
               <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                <Checkbox checked={recurring} onCheckedChange={v => setRecurring(!!v)} />
-                {L("Repetir semanalmente (mesmo dia e horário)", "Repeat weekly (same day and time)")}
+                <Checkbox checked={recurring} onCheckedChange={v => {
+                  setRecurring(!!v);
+                  if (v && repeatCount < 2) setRepeatCount(4);
+                }} />
+                {L("Repetir toda semana", "Repeat every week")}
               </label>
-              {recurring && (
-                <div className="grid grid-cols-[auto_100px_1fr] items-center gap-2">
-                  <Label className="text-xs text-muted-foreground">{L(`Nº de ${a.lp}`, `No. of ${a.lp}`)}</Label>
-                  <Input type="number" min={2} max={52} value={repeatCount}
-                    onChange={e => setRepeatCount(Math.max(1, Number(e.target.value) || 1))} />
-                  <span className="text-xs text-muted-foreground">
-                    {L(`Cria ${repeatCount} ${a.lp}, ${a.um} por semana, a partir do início informado.`, `Creates ${repeatCount} ${a.lp}, one per week, from the start date.`)}
-                  </span>
-                </div>
-              )}
+              {recurring && (() => {
+                const startDay = form.start_at ? new Date(form.start_at).getDay() : null;
+                const days = repeatDays.length ? repeatDays : startDay !== null ? [startDay] : [];
+                const en = isEnglish();
+                const names = en ? WEEKDAY_SHORT.en : WEEKDAY_SHORT.pt;
+                const toggle = (d: number) => {
+                  const next = days.includes(d) ? days.filter(x => x !== d) : [...days, d];
+                  setRepeatDays(next.length ? next : days);
+                };
+                return (
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-1.5" role="group" aria-label={L("Dias da semana", "Weekdays")}>
+                      {[1, 2, 3, 4, 5, 6, 0].map(d => (
+                        <Button key={d} type="button" size="sm" variant={days.includes(d) ? "default" : "outline"}
+                          aria-pressed={days.includes(d)} className="h-8 w-11 rounded-full px-0 capitalize" onClick={() => toggle(d)}>
+                          {names[d]}
+                        </Button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-[auto_90px_1fr] items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">{L(`Nº de ${a.lp}`, `No. of ${a.lp}`)}</Label>
+                      <NumberField inputMode="numeric" min={1} max={MAX_OCCURRENCES} fallback={1} value={repeatCount}
+                        onValueChange={n => setRepeatCount(Math.round(n))} />
+                      <span className="text-xs text-muted-foreground">
+                        {days.length
+                          ? L(`${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, toda ${weekdaysLabel(days, false)}, a partir do início.`,
+                              `${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, every ${weekdaysLabel(days, true)}, from the start date.`)
+                          : L("Escolha o dia e o horário primeiro.", "Pick the date and time first.")}
+                      </span>
+                    </div>
+                    {repeatDays.length > 0 && startDay !== null && !repeatDays.includes(startDay) && (
+                      <p className="text-[11px] text-muted-foreground">
+                        {L(`O início (${names[startDay]}) não está entre os dias: ${a.o} ${a.pick("primeiro", "primeira")} fica no próximo dia escolhido.`,
+                           `The start date (${names[startDay]}) is not one of the days: the first ${a.l} goes on the next chosen day.`)}
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               {conflictMsg && <div className="text-xs text-destructive">{conflictMsg}</div>}
             </div>
           )}

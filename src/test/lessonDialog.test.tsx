@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { DEFAULT_VOCABULARY } from "@/lib/vocabulary";
 
 // O diálogo de aula chegou a abrir vazio para o admin (26/09): o bloco "Como
@@ -42,5 +42,18 @@ describe("LessonDialog", () => {
     const nome = document.querySelector('input[list="students-list"]');
     expect(nome).not.toBeNull();
     expect(screen.getByRole("button", { name: "Salvar" })).toBeTruthy();
+  });
+
+  it("repetição: escolhe os dias da semana, começando pelo dia do início", () => {
+    isTeacher = false;
+    render(
+      <LessonDialog open onOpenChange={() => {}} slotStart={new Date(2026, 9, 1, 14)} lesson={null} onSaved={() => {}} defaultTeacher="thiago" />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /Repetir toda semana/ }));
+    // 01/10/2026 é quinta.
+    expect(screen.getByRole("button", { name: "qui" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "seg" }));
+    expect(screen.getByRole("button", { name: "seg" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText(/toda seg e qui/)).toBeTruthy();
   });
 });
