@@ -27,7 +27,7 @@ import FirstSteps from "@/components/FirstSteps";
 import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, timeFmt } from "@/lib/i18n";
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
   start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean;
@@ -161,7 +161,7 @@ export default function HomePage() {
               icon={CalendarDays}
               title={L(`${ap.nenhum} ${ap.l} hoje`, `${ap.nenhum} ${ap.lp} today`)}
               description={next
-                ? `${L("Próxima", "Next")}: ${format(new Date(next.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })} · ${next.student_name}`
+                ? `${L("Próxima", "Next")}: ${format(new Date(next.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })} · ${next.student_name}`
                 : L("Nada agendado nos próximos dias.", "Nothing scheduled for the next few days.")}
               action={isTeacher ? undefined : <Button size="sm" variant="secondary" className="rounded-xl" onClick={() => setDlgOpen(true)}><CalendarPlus className="mr-1.5 h-4 w-4" /> {ap.novo} {ap.l}</Button>}
             />
@@ -174,7 +174,7 @@ export default function HomePage() {
                 return (
                   <li key={l.id} className={`flex items-center gap-3 px-4 py-3 ${isNext ? "bg-primary/5" : ""} ${past ? "opacity-60" : ""}`}>
                     <div className="w-12 shrink-0 text-center">
-                      <div className="text-base font-semibold tabular-nums leading-tight">{format(start, "HH:mm")}</div>
+                      <div className="text-base font-semibold tabular-nums leading-tight">{format(start, timeFmt())}</div>
                       <div className="text-[10px] text-muted-foreground">{l.duration_minutes} min</div>
                     </div>
                     <div className="min-w-0 flex-1">

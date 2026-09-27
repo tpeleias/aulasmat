@@ -8,7 +8,7 @@ import { teacherSlug } from "@/hooks/useTeachers";
 import { loadMessageTemplates } from "@/hooks/useMessageTemplates";
 import type { Vocabulary } from "@/lib/vocabulary";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/balance";
 const LESSONS_KEY = "upcoming_lessons_widget";
 const BILLING_KEY = "billing_widget";
@@ -63,7 +63,7 @@ export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], te
     .map((l) => ({
       id: l.id,
       day: format(new Date(l.start_at), L("EEE dd/MM", "EEE, MMM d"), { locale: dateLocale() }),
-      time: format(new Date(l.start_at), "HH:mm"),
+      time: format(new Date(l.start_at), timeFmt()),
       student: l.student_name,
       subject: l.subject ?? "",
       address: l.address ?? "",

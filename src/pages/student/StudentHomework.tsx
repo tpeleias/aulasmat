@@ -85,7 +85,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" /> {L(`Faltam ${days} ${days === 1 ? "dia" : "dias"}`, `${days} ${days === 1 ? "day" : "days"} left`)}</Badge>
         )}
       </div>
-      <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))}</div>
+      <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
 
       {subs.length > 0 && (
         <div className="space-y-2">
@@ -93,7 +93,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           {subs.map((s: any) => (
             <div key={s.id} className="flex items-center justify-between border border-border rounded p-2">
               <div className="text-sm">
-                <div>{L("Enviado em", "Sent on")} {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
+                <div>{L("Enviado em", "Sent on")} {format(new Date(s.submitted_at), L("dd/MM HH:mm", "MMM d, h:mm a"))}</div>
                 {s.teacher_feedback && <div className="text-xs text-primary mt-1">{L("Retorno", "Feedback")}: {s.teacher_feedback}</div>}
               </div>
               <Button size="sm" variant="outline" onClick={() => download(s.file_path)}><Download className="w-4 h-4" /></Button>

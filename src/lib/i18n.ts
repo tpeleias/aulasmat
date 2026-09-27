@@ -35,11 +35,17 @@ export function isCurrency(x: unknown): x is Currency { return x === "BRL" || x 
  * Antes de saber a empresa (tela de entrada, cadastro, site): a última usada
  * neste aparelho ou, sem ela, a língua do aparelho.
  */
-function initial(): { locale: Locale; currency: Currency } {
+type Current = { locale: Locale; currency: Currency; symbol?: string | null };
+
+function initial(): Current {
   try {
-    const saved = JSON.parse(localStorage.getItem(CACHE_KEY) || "null") as { locale?: unknown; currency?: unknown } | null;
+    const saved = JSON.parse(localStorage.getItem(CACHE_KEY) || "null") as { locale?: unknown; currency?: unknown; symbol?: unknown } | null;
     if (saved && isLocale(saved.locale)) {
-      return { locale: saved.locale, currency: isCurrency(saved.currency) ? saved.currency : saved.locale === "en" ? "USD" : "BRL" };
+      return {
+        locale: saved.locale,
+        currency: isCurrency(saved.currency) ? saved.currency : saved.locale === "en" ? "USD" : "BRL",
+        symbol: typeof saved.symbol === "string" && saved.symbol ? saved.symbol : null,
+      };
     }
   } catch { /* sem armazenamento */ }
   // Nos testes o jsdom diz "en-US"; o app nasceu em português.
@@ -49,16 +55,18 @@ function initial(): { locale: Locale; currency: Currency } {
   return { locale: en ? "en" : "pt-BR", currency: en ? "USD" : "BRL" };
 }
 
-let current = initial();
+let current: Current = initial();
 
 export function getLocale(): Locale { return current.locale; }
 export function getCurrency(): Currency { return current.currency; }
 export function isEnglish(): boolean { return current.locale === "en"; }
+/** Símbolo livre escolhido pela empresa (accounts.currency_symbol), ou nulo. */
+export function getCustomSymbol(): string | null { return current.symbol ?? null; }
 
 /** Chamado por quem lê a empresa. Devolve true se mudou algo. */
-export function setLocale(locale: Locale, currency: Currency): boolean {
-  const changed = locale !== current.locale || currency !== current.currency;
-  current = { locale, currency };
+export function setLocale(locale: Locale, currency: Currency, symbol: string | null = current.symbol ?? null): boolean {
+  const changed = locale !== current.locale || currency !== current.currency || (symbol ?? null) !== (current.symbol ?? null);
+  current = { locale, currency, symbol: symbol || null };
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(current)); } catch { /* ok */ }
   if (typeof document !== "undefined") document.documentElement.lang = locale === "en" ? "en" : "pt-BR";
   return changed;
@@ -82,16 +90,43 @@ export function L<T>(pt: T, en: T): T { return current.locale === "en" ? en : pt
 /** O locale do date-fns: `format(d, "EEEE", { locale: dateLocale() })`. */
 export function dateLocale(): DateLocale { return current.locale === "en" ? enUS : ptBR; }
 
+/** Hora no jeito da língua: "15:30" ou "3:30 PM" (date-fns). */
+export function timeFmt(): string { return current.locale === "en" ? "h:mm a" : "HH:mm"; }
+
+/** Hora cheia para listas e eixos: "15h" ou "3 PM". */
+export function hourLabel(h: number): string {
+  if (current.locale !== "en") return `${String(h).padStart(2, "0")}h`;
+  return `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** Duração: "1h30" ou "1h 30m". */
+export function durationLabel(min: number): string {
+  if (min < 60) return `${min} min`;
+  const h = Math.floor(min / 60), m = min % 60;
+  if (!m) return `${h}h`;
+  return current.locale === "en" ? `${h}h ${m}m` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
 /** Para Intl/toLocaleString. */
 export function intlLocale(): string { return current.locale === "en" ? "en-US" : "pt-BR"; }
 
-/** Dinheiro na moeda da empresa. */
-export function fmtCurrency(v: number, currency: Currency = current.currency): string {
-  return v.toLocaleString(intlLocale(), { style: "currency", currency });
+/**
+ * Dinheiro na moeda da empresa. Com símbolo livre (ex.: "S/", "MT"), o número
+ * sai no formato da língua e o símbolo na frente. Com a moeda dada à mão
+ * (preço da assinatura, que é cobrada numa das quatro), vale sempre a moeda.
+ */
+export function fmtCurrency(v: number, currency?: Currency): string {
+  if (!currency && current.symbol) {
+    const n = v.toLocaleString(intlLocale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n.startsWith("-") ? `-${current.symbol}\u00a0${n.slice(1)}` : `${current.symbol}\u00a0${n}`;
+  }
+  return v.toLocaleString(intlLocale(), { style: "currency", currency: currency ?? current.currency });
 }
 
 /** Símbolo da moeda (R$, US$...) para rótulos de campo. */
-export function currencySymbol(currency: Currency = current.currency): string {
+export function currencySymbol(currency?: Currency): string {
+  if (!currency && current.symbol) return current.symbol;
+  currency = currency ?? current.currency;
   const parts = (0).toLocaleString(intlLocale(), { style: "currency", currency }).replace(/[\d.,\s]/g, "");
   return parts || currency;
 }

@@ -17,7 +17,7 @@ import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import { useWords } from "@/hooks/useVocabulary";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, durationLabel } from "@/lib/i18n";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SettingsRow = { contact_email: string | null; issuer_document: string | null };
 
@@ -209,7 +209,7 @@ export default function ReportsPage() {
                       <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${c ? c.dot : "border border-border"}`} />
                       <span className="truncate">{r.name}</span>
                       <span className="shrink-0 text-xs text-muted-foreground">
-                        {r.count}× · {r.minutes % 60 === 0 ? `${r.minutes / 60}h` : `${Math.floor(r.minutes / 60)}h${String(r.minutes % 60).padStart(2, "0")}`}
+                        {r.count}× · {durationLabel(r.minutes)}
                       </span>
                     </span>
                     <span className="shrink-0 font-medium tabular-nums">{fmtMoney(r.total)}</span>

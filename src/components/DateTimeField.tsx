@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, hourLabel, isEnglish } from "@/lib/i18n";
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
 export const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
@@ -39,9 +39,9 @@ export function DateTimeField({ value, onChange }: { value: string; onChange: (v
       <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
         <Input type="date" value={date} onChange={e => set(e.target.value, hour, minute)} className="min-w-0" />
         <Select value={hour} onValueChange={h => set(date, h, minute || "00")}>
-          <SelectTrigger className="w-[4.5rem]"><SelectValue placeholder="Hora" /></SelectTrigger>
+          <SelectTrigger className={isEnglish() ? "w-[5.25rem]" : "w-[4.5rem]"}><SelectValue placeholder={L("Hora", "Hour")} /></SelectTrigger>
           <SelectContent className="max-h-64">
-            {HOURS.map(h => <SelectItem key={h} value={h}>{h}h</SelectItem>)}
+            {HOURS.map(h => <SelectItem key={h} value={h}>{hourLabel(Number(h))}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={minute} onValueChange={mi => set(date, hour, mi)}>
@@ -53,7 +53,7 @@ export function DateTimeField({ value, onChange }: { value: string; onChange: (v
       </div>
       {complete && (
         <p className="text-xs text-muted-foreground first-letter:uppercase">
-          {format(new Date(`${date}T${hour}:${minute}`), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
+          {format(new Date(`${date}T${hour}:${minute}`), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}
         </p>
       )}
     </div>

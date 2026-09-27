@@ -512,7 +512,7 @@ export default function BillingPage() {
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
-                          {L(`${v.appointment.proximo} ${v.appointment.l}`, `Next ${v.appointment.l}`)}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
+                          {L(`${v.appointment.proximo} ${v.appointment.l}`, `Next ${v.appointment.l}`)}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
                           · {a.nextLesson.subject ?? v.appointment.s} ({capitalize(a.nextLesson.teacher)})
                         </div>
                       )}
@@ -526,7 +526,7 @@ export default function BillingPage() {
                             {a.items.map(i => (
                               <li key={i.id} className="flex items-start justify-between gap-2 px-3 py-2 text-sm">
                                 <span className="min-w-0 truncate">
-                                  <span className="capitalize">{format(new Date(i.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
+                                  <span className="capitalize">{format(new Date(i.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
                                   <span className="text-muted-foreground"> · {i.detail}</span>
                                   {i.discount && (
                                     <div className="text-[10px] text-muted-foreground truncate">{i.discount.label}</div>
@@ -752,7 +752,7 @@ export default function BillingPage() {
                   >
                     {discountFor.items.map(i => (
                       <option key={i.id} value={i.id}>
-                        {format(new Date(i.date), L("dd/MM HH:mm", "MMM d, HH:mm"), { locale: dateLocale() })} · {i.detail} · {fmtMoney(i.amount)}
+                        {format(new Date(i.date), L("dd/MM HH:mm", "MMM d, h:mm a"), { locale: dateLocale() })} · {i.detail} · {fmtMoney(i.amount)}
                       </option>
                     ))}
                   </select>

@@ -151,7 +151,7 @@ export default function BlocksPage() {
               <Card key={b.id} className="p-4 flex items-center justify-between">
                 <div>
                   <div className="font-medium flex items-center gap-2">{b.title}<span className="text-[10px] uppercase tracking-wide bg-muted px-2 py-0.5 rounded">{teacherLabel(b.teacher)}</span></div>
-                  <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy HH:mm"))} – {b.end_at && format(new Date(b.end_at), L("dd/MM HH:mm", "MMM d, HH:mm"))}</div>
+                  <div className="text-sm text-muted-foreground">{b.start_at && format(new Date(b.start_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))} – {b.end_at && format(new Date(b.end_at), L("dd/MM HH:mm", "MMM d, h:mm a"))}</div>
                 </div>
                 {canRemove(b) && <Button variant="ghost" size="icon" onClick={() => remove(b.id)}><Trash2 className="w-4 h-4" /></Button>}
               </Card>

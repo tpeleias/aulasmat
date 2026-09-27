@@ -67,7 +67,7 @@ export function WithdrawRequestButton({
             <AlertDialogDescription asChild>
               <div className="space-y-2">
                 <p className="text-foreground font-medium">
-                  {format(new Date(startAt), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' HH:mm"), { locale: dateLocale() })}
+                  {format(new Date(startAt), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}
                 </p>
                 <p>
                   {L("O horário volta a ficar livre e o pedido sai da lista de pedidos. Você pode pedir outro horário depois.", "The time becomes free again and the request leaves the list. You can request another time later.")}

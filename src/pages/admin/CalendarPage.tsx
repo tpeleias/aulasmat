@@ -23,7 +23,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/hooks/useAuth";
 
-import { dateLocale, L } from "@/lib/i18n";
+import { dateLocale, L, timeFmt, hourLabel } from "@/lib/i18n";
 import { navAppName, openRoute, routeUrl, useNavApp } from "@/lib/navigation";
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
@@ -340,9 +340,9 @@ export default function CalendarPage() {
         <div className="flex items-center gap-1 text-[10px] text-muted-foreground truncate leading-tight">
           {serviceColor(lesson) && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${serviceColor(lesson)!.dot}`} />}
           {lesson.payment_status === "pago" && !isCancelled && <Check className="h-3 w-3 shrink-0 text-success" aria-label={L("pago", "paid")} />}
-          <span className="truncate">{isPending ? `${format(ls, "HH:mm")} · pedido`
-            : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, "HH:mm")} · ${L("falta cobrada", "no-show charged")}`
-            : `${format(ls, "HH:mm")} · ${lesson.subject ?? ap.s}`}</span>
+          <span className="truncate">{isPending ? `${format(ls, timeFmt())} · pedido`
+            : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, timeFmt())} · ${L("falta cobrada", "no-show charged")}`
+            : `${format(ls, timeFmt())} · ${lesson.subject ?? ap.s}`}</span>
         </div>
         {lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={L(`${ap.s} on-line`, `Online ${ap.l}`)}><Wifi className="w-3 h-3" /></span>
@@ -364,7 +364,7 @@ export default function CalendarPage() {
       <div style={{ height: HEADER_H }} className="border-b border-r border-border" />
       {hours.map(h => (
         <div key={h} style={{ height: CELL_H }} className="border-b border-r border-border text-[10px] md:text-[11px] text-muted-foreground text-right pr-1 md:pr-2 pt-1">
-          {String(h).padStart(2, "0")}:00
+          {hourLabel(h)}
         </div>
       ))}
     </div>
@@ -554,7 +554,7 @@ export default function CalendarPage() {
                               <div className="shrink-0 w-20">
                                 <div className="text-[10px] uppercase text-muted-foreground leading-tight">{format(ls, "EEE", { locale: dateLocale() })}</div>
                                 <div className="text-sm font-semibold leading-tight">{format(ls, L("dd/MM", "MMM d"))}</div>
-                                <div className="text-xs text-muted-foreground leading-tight">{format(ls, "HH:mm")}</div>
+                                <div className="text-xs text-muted-foreground leading-tight">{format(ls, timeFmt())}</div>
                               </div>
                               <div className="min-w-0 flex-1">
                                 <div className="font-medium truncate">{l.student_name}</div>

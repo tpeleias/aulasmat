@@ -58,7 +58,7 @@ export function LessonSummaryDialog({ lesson, onClose, onSaved }: {
           <DialogTitle>{L(`Como foi ${ap.o} ${ap.l}?`, `How did the ${ap.l} go?`)}</DialogTitle>
           {lesson && (
             <DialogDescription>
-              {lesson.student_name} · <span className="capitalize">{format(new Date(lesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' HH:mm"), { locale: dateLocale() })}</span>
+              {lesson.student_name} · <span className="capitalize">{format(new Date(lesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
               {lesson.subject ? ` · ${lesson.subject}` : ""}
             </DialogDescription>
           )}
