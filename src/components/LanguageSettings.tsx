@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import { useVocabulary } from "@/hooks/useVocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { dbErrorMessage } from "@/lib/dbErrors";
@@ -91,21 +91,15 @@ export default function LanguageSettings() {
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>{L("Língua", "Language")}</Label>
-          <Select value={locale} disabled={busy}
-            onValueChange={v => save({ locale: v as Locale, currency: v === "en" && currency === "BRL" && !locked ? "USD" : undefined })}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>{LOCALES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
-          </Select>
+          <WheelSelect value={locale} disabled={busy} label={L("Língua", "Language")} options={LOCALES}
+            onValueChange={v => save({ locale: v as Locale, currency: v === "en" && currency === "BRL" && !locked ? "USD" : undefined })} />
         </div>
         <div>
           <Label>{L("Moeda", "Currency")}</Label>
-          <Select value={other ? "other" : currency} disabled={busy} onValueChange={pickCurrency}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {CURRENCIES.map(c => <SelectItem key={c.value} value={c.value} disabled={locked && c.value !== currency}>{c.label}</SelectItem>)}
-              <SelectItem value="other">{L("Outra (escrever o símbolo)", "Other (type the symbol)")}</SelectItem>
-            </SelectContent>
-          </Select>
+          <WheelSelect value={other ? "other" : currency} disabled={busy} onValueChange={pickCurrency} label={L("Moeda", "Currency")} options={[
+            ...CURRENCIES.map(c => ({ value: c.value, label: c.label, disabled: locked && c.value !== currency })),
+            { value: "other", label: L("Outra (escrever o símbolo)", "Other (type the symbol)") },
+          ]} />
         </div>
       </div>
       {other && (

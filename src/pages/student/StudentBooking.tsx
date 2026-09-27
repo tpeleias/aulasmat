@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -275,17 +275,12 @@ export default function StudentBooking() {
       {offered.length > 1 && (
         <div className="max-w-xs">
           <label className="text-xs text-muted-foreground">{w.topic.s}</label>
-          <Select value={serviceId} onValueChange={setServiceId}>
-            <SelectTrigger><SelectValue placeholder={L(`Escolha ${w.topic.o} ${w.topic.l}`, `Choose the ${w.topic.l}`)} /></SelectTrigger>
-            <SelectContent>
-              {offered.map(sv => (
-                <SelectItem key={sv.id} value={sv.id}>
-                  {sv.name} · {sv.duration_minutes} min
-                  {sv.price != null && settings?.show_payment_info_to_students ? ` · ${fmtMoney(Number(sv.price))}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <WheelSelect value={serviceId} onValueChange={setServiceId} label={w.topic.s}
+            placeholder={L(`Escolha ${w.topic.o} ${w.topic.l}`, `Choose the ${w.topic.l}`)}
+            options={offered.map(sv => ({
+              value: sv.id,
+              label: `${sv.name} · ${sv.duration_minutes} min${sv.price != null && settings?.show_payment_info_to_students ? ` · ${fmtMoney(Number(sv.price))}` : ""}`,
+            }))} />
         </div>
       )}
 
@@ -295,13 +290,10 @@ export default function StudentBooking() {
         <>
           <div className="max-w-xs">
             <label className="text-xs text-muted-foreground">{st.s}</label>
-            <Select value={teacher} onValueChange={setTeacher}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {anyAllowed && <SelectItem value={ANY}>{L(`Qualquer ${st.l} disponível`, `Any available ${st.l}`)}</SelectItem>}
-                {teachers.map(t => <SelectItem key={t.id} value={t.name}>{capitalize(t.name)}</SelectItem>)}
-              </SelectContent>
-            </Select>
+            <WheelSelect value={teacher} onValueChange={setTeacher} label={st.s} options={[
+              ...(anyAllowed ? [{ value: ANY, label: L(`Qualquer ${st.l} disponível`, `Any available ${st.l}`) }] : []),
+              ...teachers.map(t => ({ value: t.name, label: capitalize(t.name) })),
+            ]} />
           </div>
 
           {loading && <p className="text-sm text-muted-foreground">{L("Carregando…", "Loading…")}</p>}

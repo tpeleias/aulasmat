@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { DEFAULT_VOCABULARY } from "@/lib/vocabulary";
 
 // O diálogo de aula chegou a abrir vazio para o admin (26/09): o bloco "Como
@@ -8,15 +8,21 @@ import { DEFAULT_VOCABULARY } from "@/lib/vocabulary";
 // branco" sem ter onde escrever o nome.
 
 // Qualquer consulta ao banco devolve lista vazia.
-const vazio = { data: [], error: null };
-const chain: unknown = new Proxy(() => {}, {
-  get: (_t, prop) => (prop === "then" ? (ok: (v: unknown) => void) => ok(vazio) : chain),
-  apply: () => chain,
-});
+// A tabela de clientes devolve o que o teste puser em `clientes`.
+let clientes: unknown[] = [];
+const makeChain = (rows: () => unknown[]): unknown => {
+  const c: unknown = new Proxy(() => {}, {
+    get: (_t, prop) => (prop === "then" ? (ok: (v: unknown) => void) => ok({ data: rows(), error: null }) : c),
+    apply: () => c,
+  });
+  return c;
+};
+const chain = makeChain(() => []);
+const clientesChain = makeChain(() => clientes);
 
 let isTeacher = false;
 let services: unknown[] = [];
-vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: () => chain, rpc: () => chain } }));
+vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: (t: string) => (t === "students" ? clientesChain : chain), rpc: () => chain } }));
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ isTeacher }) }));
 vi.mock("@/hooks/useTeachers", () => ({
   useTeachers: () => ({ teachers: [{ id: "t1", name: "Thiago", active: true, subject: "Matemática" }] }),
@@ -40,8 +46,7 @@ describe("LessonDialog", () => {
     render(
       <LessonDialog open onOpenChange={() => {}} slotStart={new Date(2026, 9, 1, 14)} lesson={null} onSaved={() => {}} defaultTeacher="thiago" />,
     );
-    const nome = document.querySelector('input[list="students-list"]');
-    expect(nome).not.toBeNull();
+    expect(screen.getByRole("combobox", { name: "Aluno" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Salvar" })).toBeTruthy();
   });
 
@@ -66,5 +71,25 @@ describe("LessonDialog", () => {
     );
     expect(screen.getByText(/Matemática · 90 min/)).toBeTruthy();
     services = [];
+  });
+
+  it("cliente: sugere no máximo 5 nomes enquanto digita, e não a lista toda", async () => {
+    isTeacher = false;
+    clientes = ["Ana", "Anabela", "Mariana", "Juliana", "Luana", "Adriana", "Bruno"].map((n, i) => ({ id: `c${i}`, student_name: n, guardian_name: null, address: null }));
+    render(
+      <LessonDialog open onOpenChange={() => {}} slotStart={new Date(2026, 9, 1, 14)} lesson={null} onSaved={() => {}} defaultTeacher="thiago" />,
+    );
+    const campo = screen.getByRole("combobox", { name: "Aluno" });
+    fireEvent.focus(campo);
+    expect(screen.queryByRole("listbox", { name: "Sugestões" })).toBeNull();
+    await waitFor(() => {
+      fireEvent.change(campo, { target: { value: "ana" } });
+      expect(within(screen.getByRole("listbox", { name: "Sugestões" })).getAllByRole("option").length).toBe(5);
+    });
+    fireEvent.change(campo, { target: { value: "bru" } });
+    fireEvent.mouseDown(within(screen.getByRole("listbox", { name: "Sugestões" })).getByRole("option", { name: "Bruno" }));
+    expect((campo as HTMLInputElement).value).toBe("Bruno");
+    expect(screen.queryByRole("listbox", { name: "Sugestões" })).toBeNull();
+    clientes = [];
   });
 });

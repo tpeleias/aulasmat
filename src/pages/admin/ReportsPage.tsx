@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import { Download, Share2, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -62,6 +62,8 @@ export default function ReportsPage() {
 
   const now = new Date();
   const years = useMemo(() => yearsWithData(txs), [txs]);
+  const yearOptions = years.map(y => ({ value: String(y), label: String(y) }));
+  const monthOptions = MESES.map((m, i) => ({ value: String(i), label: m }));
 
   // ---- Resumo / IR ----
   const [year, setYear] = useState(now.getFullYear());
@@ -152,17 +154,11 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
-            <SelectTrigger className="w-28 h-9 rounded-xl"><SelectValue /></SelectTrigger>
-            <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={month === null ? TODO_ANO : String(month)} onValueChange={v => setMonth(v === TODO_ANO ? null : Number(v))}>
-            <SelectTrigger className="w-40 h-9 rounded-xl"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value={TODO_ANO}>{L("Ano inteiro", "Whole year")}</SelectItem>
-              {MESES.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}
-            </SelectContent>
-          </Select>
+          <WheelSelect value={String(year)} onValueChange={v => setYear(Number(v))} className="w-28 h-9 rounded-xl"
+            label={L("Ano", "Year")} options={yearOptions} />
+          <WheelSelect value={month === null ? TODO_ANO : String(month)} onValueChange={v => setMonth(v === TODO_ANO ? null : Number(v))}
+            className="w-40 h-9 rounded-xl" label={L("Mês", "Month")}
+            options={[{ value: TODO_ANO, label: L("Ano inteiro", "Whole year") }, ...monthOptions]} />
           <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-xl ml-auto" onClick={exportCsv} disabled={summary.rows.length === 0}>
             <Download className="w-3.5 h-3.5" /> {L("Exportar CSV", "Export CSV")}
           </Button>
@@ -232,18 +228,13 @@ export default function ReportsPage() {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Select value={receiptAccount} onValueChange={setReceiptAccount}>
-            <SelectTrigger className="w-56 h-9 rounded-xl"><SelectValue placeholder={L("Escolha a família", "Choose the client")} /></SelectTrigger>
-            <SelectContent>{accounts.map(a => <SelectItem key={a.key} value={a.key}>{a.label}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={String(receiptYear)} onValueChange={v => setReceiptYear(Number(v))}>
-            <SelectTrigger className="w-28 h-9 rounded-xl"><SelectValue /></SelectTrigger>
-            <SelectContent>{years.map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={String(receiptMonth)} onValueChange={v => setReceiptMonth(Number(v))}>
-            <SelectTrigger className="w-40 h-9 rounded-xl"><SelectValue /></SelectTrigger>
-            <SelectContent>{MESES.map((m, i) => <SelectItem key={i} value={String(i)}>{m}</SelectItem>)}</SelectContent>
-          </Select>
+          <WheelSelect value={receiptAccount} onValueChange={setReceiptAccount} className="w-56 h-9 rounded-xl"
+            label={L("Família", "Client")} placeholder={L("Escolha a família", "Choose the client")}
+            options={accounts.map(a => ({ value: a.key, label: a.label }))} />
+          <WheelSelect value={String(receiptYear)} onValueChange={v => setReceiptYear(Number(v))} className="w-28 h-9 rounded-xl"
+            label={L("Ano", "Year")} options={yearOptions} />
+          <WheelSelect value={String(receiptMonth)} onValueChange={v => setReceiptMonth(Number(v))} className="w-40 h-9 rounded-xl"
+            label={L("Mês", "Month")} options={monthOptions} />
         </div>
 
         {!receiptAccount ? (

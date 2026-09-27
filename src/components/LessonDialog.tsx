@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelSelect } from "@/components/WheelSelect";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -178,6 +178,17 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     if (dupes.length <= 1) return s.student_name;
     return `${s.student_name} (${s.guardian_name || `sem ${v.guardian.l}`})`;
   };
+
+  const [studentFocus, setStudentFocus] = useState(false);
+  const studentMatches = (() => {
+    const norm = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const q = norm(form.student_name);
+    if (!q) return [];
+    const hits = students.filter(s => norm(studentOptionLabel(s)).includes(q));
+    // Já escolheu exatamente um: não fica oferecendo ele mesmo.
+    if (hits.length === 1 && norm(studentOptionLabel(hits[0])) === q) return [];
+    return hits.slice(0, 5);
+  })();
 
   const pickStudent = (name: string) => {
     const trimmed = name.trim().toLowerCase();
@@ -508,43 +519,53 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           {services && services.length > 0 && (
             <div>
               <Label>{v.topic.s}</Label>
-              <Select value={form.service_id ?? "none"} onValueChange={setService}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{L(`Sem ${v.topic.l} da lista`, `No ${v.topic.l} from the list`)}</SelectItem>
-                  {services.map(sv => (
-                    <SelectItem key={sv.id} value={sv.id}>
-                      {sv.name} · {sv.duration_minutes} min{sv.price != null && !isTeacher ? ` · ${fmtMoney(Number(sv.price))}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <WheelSelect value={form.service_id ?? "none"} onValueChange={setService} label={v.topic.s} options={[
+                { value: "none", label: L(`Sem ${v.topic.l} da lista`, `No ${v.topic.l} from the list`) },
+                ...services.map(sv => ({
+                  value: sv.id,
+                  label: `${sv.name} · ${sv.duration_minutes} min${sv.price != null && !isTeacher ? ` · ${fmtMoney(Number(sv.price))}` : ""}`,
+                })),
+              ]} />
             </div>
           )}
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{v.staff.s}</Label>
               {/* O valor é o apelido (teacherSlug), o mesmo que o banco compara
                   na trava de plano e nas permissões do professor. */}
-              <Select value={form.teacher} onValueChange={setTeacher} disabled={isTeacher}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {teachers.map(t => <SelectItem key={t.id} value={teacherSlug(t.name)}>{capitalize(t.name)}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <WheelSelect value={form.teacher} onValueChange={setTeacher} disabled={isTeacher} label={v.staff.s}
+                options={teachers.map(t => ({ value: teacherSlug(t.name), label: capitalize(t.name) }))} />
             </div>
             <div>
               <Label>{v.client.s}</Label>
-              <Input
-                list="students-list"
-                value={form.student_name}
-                onChange={e => pickStudent(e.target.value)}
-                placeholder={L("Digite ou selecione", "Type or select")}
-              />
-              <datalist id="students-list">
-                {students.map(s => (
-                  <option key={s.id} value={studentOptionLabel(s)} />
-                ))}
-              </datalist>
+              {/* Sugestões curtas enquanto digita, no lugar do datalist: no
+                  celular ele abria a lista inteira de clientes, maior que a
+                  tela (Thiago, 27/09). */}
+              <div className="relative">
+                <Input
+                  value={form.student_name}
+                  onChange={e => { pickStudent(e.target.value); setStudentFocus(true); }}
+                  onFocus={() => setStudentFocus(true)}
+                  onBlur={() => setStudentFocus(false)}
+                  placeholder={L("Digite o nome", "Type the name")}
+                  autoComplete="off"
+                  role="combobox"
+                  aria-expanded={studentFocus && studentMatches.length > 0}
+                  aria-controls="students-suggestions"
+                  aria-label={v.client.s}
+                />
+                {studentFocus && studentMatches.length > 0 && (
+                  <ul id="students-suggestions" role="listbox" aria-label={L("Sugestões", "Suggestions")}
+                    className="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-md border border-border bg-popover shadow-md">
+                    {studentMatches.map(s => (
+                      <li key={s.id} role="option" aria-selected={false}
+                        onMouseDown={e => { e.preventDefault(); pickStudent(studentOptionLabel(s)); setStudentFocus(false); }}
+                        className="cursor-pointer truncate px-3 py-2.5 text-sm hover:bg-accent">
+                        {studentOptionLabel(s)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -587,18 +608,14 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
           {!isTeacher && <>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{L("Pacote", "Package")}</Label>
-              <Select value={form.package_type} onValueChange={setPackage}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="single">{PACKAGE_LABEL.single}</SelectItem>
-                  {packages.map(p => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
-                  {/* Aula antiga com pacote que não existe mais na lista: mostra o
-                      nome que ela tem, em vez de um campo vazio. */}
-                  {form.package_type !== "single" && !packages.some(p => p.name === form.package_type) && (
-                    <SelectItem value={form.package_type}>{PACKAGE_LABEL[form.package_type] ?? form.package_type}</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+              {/* Aula antiga com pacote que não existe mais na lista: mostra o
+                  nome que ela tem, em vez de um campo vazio. */}
+              <WheelSelect value={form.package_type} onValueChange={setPackage} label={L("Pacote", "Package")} options={[
+                { value: "single", label: PACKAGE_LABEL.single },
+                ...packages.map(p => ({ value: p.name, label: p.name })),
+                ...(form.package_type !== "single" && !packages.some(p => p.name === form.package_type)
+                  ? [{ value: form.package_type, label: PACKAGE_LABEL[form.package_type] ?? form.package_type }] : []),
+              ]} />
             </div>
             <div className="flex items-end">
               <span className="text-xs text-muted-foreground">
@@ -641,7 +658,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               <Label>{L("Duração", "Duration")}</Label>
               {/* A duração à vista e, só se for mudar, a rodinha (Thiago, 27/09:
                   os atalhos de 30 min, 45 min, 1h… poluíam o diálogo). */}
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <span className="text-base font-semibold tabular-nums">{durationLabel(form.duration_minutes)}</span>
                 <Button type="button" size="sm" variant="outline" className="h-9 rounded-xl" aria-expanded={wheelOpen}
                   onClick={() => setWheelOpen(o => !o)}>
@@ -651,6 +668,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {wheelOpen && (
                 <div className="mt-2">
                   <WheelPicker
+                    rows={5}
+                    className="mx-auto max-w-xs"
                     label={L("Duração", "Duration")}
                     options={DURATIONS.includes(form.duration_minutes) ? DURATIONS : [...DURATIONS, form.duration_minutes].sort((x, y) => x - y)}
                     value={form.duration_minutes}
@@ -668,18 +687,14 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                 </p>
               </div>}
               <div><Label>{L(`Situação ${a.do} ${a.l}`, `${a.s} status`)}</Label>
-                <Select value={form.status ?? "agendada"} onValueChange={v => setForm({ ...form, status: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {/* "Solicitada" fica na lista para o professor poder responder o
-                        pedido aqui também, e não só pela tela Hoje - ele chega neste
-                        diálogo clicando no pedido na agenda. */}
-                    <SelectItem value="solicitada">{L("Solicitada (aguardando você)", "Requested (waiting for you)")}</SelectItem>
-                    {(["agendada", "realizada", "recusada", "cancelada"] as const).map(st => (
-                      <SelectItem key={st} value={st}>{cap(statusLabel(st, v))}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* "Solicitada" fica na lista para o professor poder responder o
+                    pedido aqui também, e não só pela tela Hoje - ele chega neste
+                    diálogo clicando no pedido na agenda. */}
+                <WheelSelect value={form.status ?? "agendada"} onValueChange={st => setForm(f => ({ ...f, status: st }))}
+                  label={L(`Situação ${a.do} ${a.l}`, `${a.s} status`)} options={[
+                    { value: "solicitada", label: L("Solicitada (aguardando você)", "Requested (waiting for you)") },
+                    ...(["agendada", "realizada", "recusada", "cancelada"] as const).map(st => ({ value: st, label: cap(statusLabel(st, v)) })),
+                  ]} />
               </div>
               {lateCancel && (
                 <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs">

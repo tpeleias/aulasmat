@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { WheelPicker } from "@/components/WheelPicker";
 
-import { dateLocale, L, hourLabel, isEnglish } from "@/lib/i18n";
+import { dateLocale, L, hourLabel } from "@/lib/i18n";
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0"));
 export const MINUTE_OPTIONS = Array.from({ length: 12 }, (_, i) => String(i * 5).padStart(2, "0"));
 
-// Dia num calendário e hora/minuto (de 5 em 5) em duas listas curtas, no lugar do
-// datetime-local: no celular aquele abre um relógio de ponteiro, e acertar
-// 15:30 arrastando ponteiro era a queixa.
+// Dia num calendário e hora/minuto (de 5 em 5) em duas rodinhas, lado a lado,
+// no lugar do datetime-local: no celular aquele abre um relógio de ponteiro, e
+// acertar 15:30 arrastando ponteiro era a queixa. As rodinhas no lugar das
+// listas: Thiago, 27/09.
 //
 // value/onChange no formato "yyyy-MM-ddTHH:mm", hora local - o mesmo que o
 // datetime-local usava, então o resto do diálogo não muda. Só emite quando os
@@ -36,20 +37,13 @@ export function DateTimeField({ value, onChange }: { value: string; onChange: (v
 
   return (
     <div className="space-y-1">
-      <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
-        <Input type="date" value={date} onChange={e => set(e.target.value, hour, minute)} className="min-w-0" />
-        <Select value={hour} onValueChange={h => set(date, h, minute || "00")}>
-          <SelectTrigger className={isEnglish() ? "w-[5.25rem]" : "w-[4.5rem]"}><SelectValue placeholder={L("Hora", "Hour")} /></SelectTrigger>
-          <SelectContent className="max-h-64">
-            {HOURS.map(h => <SelectItem key={h} value={h}>{hourLabel(Number(h))}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={minute} onValueChange={mi => set(date, hour, mi)}>
-          <SelectTrigger className="w-[4.5rem]"><SelectValue placeholder="Min" /></SelectTrigger>
-          <SelectContent>
-            {minutes.map(mi => <SelectItem key={mi} value={mi}>:{mi}</SelectItem>)}
-          </SelectContent>
-        </Select>
+      <Input type="date" value={date} onChange={e => set(e.target.value, hour, minute)} className="min-w-0" />
+      <div className="flex items-center justify-center gap-2 pt-1">
+        <WheelPicker className="w-28" label={L("Hora", "Hour")} options={HOURS} value={hour} format={h => hourLabel(Number(h))}
+          onChange={h => set(date, h, minute || "00")} />
+        <span aria-hidden className="text-lg font-semibold text-muted-foreground">:</span>
+        <WheelPicker className="w-24" label={L("Minuto", "Minute")} options={minutes} value={minute} format={mi => `:${mi}`}
+          onChange={mi => set(date, hour || "00", mi)} />
       </div>
       {complete && (
         <p className="text-xs text-muted-foreground first-letter:uppercase">
