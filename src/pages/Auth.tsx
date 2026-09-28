@@ -232,6 +232,12 @@ export default function Auth() {
                 {L("Não tem conta?", "No account yet?")} <button type="button" className="font-medium text-primary" onClick={() => { setSignupKind("school"); setSignup(true); }}>{L(`Criar conta - ${TRIAL_DAYS} dias de Pro grátis`, `Create account - ${TRIAL_DAYS} days of Pro free`)}</button>
               </p>
             )}
+            {!signup && (
+              // Para o cliente de uma empresa não criar conta por engano (Thiago, 28/09).
+              <p className="text-center text-xs text-muted-foreground/80">
+                {L("É cliente? Entre com o usuário que a empresa te passou.", "A client? Sign in with the username your provider gave you.")}
+              </p>
+            )}
             {signup && signupKind === "family" && (
               <p className="text-center text-xs text-muted-foreground">
                 {L("Depois de criar, quem te atende vincula sua conta ao seu cadastro.", "After you create it, your provider links your account to your profile.")}

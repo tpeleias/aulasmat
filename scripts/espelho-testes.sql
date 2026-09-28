@@ -2935,4 +2935,31 @@ SELECT public.assert((SELECT encrypted_password FROM auth.users WHERE id = '5000
 UPDATE auth.users SET encrypted_password = 'x' WHERE email = 'admin-a@x';
 SELECT public.assert(true, 'conta comum troca a senha normalmente');
 
+\echo '--- 51. Configuração guiada: empresa nova começa sem, e o admin conclui (28/09) ---'
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('51000000-0000-0000-0000-000000000001', 'guia@x', '{"signup_kind":"school","school_name":"Studio Guia","teacher_name":"Lia"}');
+SELECT public.assert((SELECT setup_done_at IS NULL FROM public.accounts a JOIN public.user_roles r ON r.account_id = a.id
+                       WHERE r.user_id = '51000000-0000-0000-0000-000000000001'),
+  'empresa nova nasce sem a configuração guiada feita');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '51000000-0000-0000-0000-000000000001', true);
+SELECT public.assert((public.my_vocabulary() ->> 'setup_done')::boolean = false, 'my_vocabulary avisa que falta o guia');
+SELECT public.assert((public.complete_account_setup() ->> 'setup_done')::boolean, 'concluir marca como feita e devolve o vocabulário');
+COMMIT;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.complete_account_setup();
+  RAISE EXCEPTION 'FALHOU: cliente concluiu o guia da empresa';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - cliente nao conclui o guia da empresa';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='
