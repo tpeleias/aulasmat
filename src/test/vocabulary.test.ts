@@ -9,12 +9,12 @@ import { accountLabel } from "@/lib/balance";
 describe("vocabulário por ramo", () => {
   it("os 7 ramos pedidos têm as palavras combinadas", () => {
     const esperado: Record<string, [string, string]> = {
-      saude: ["Médico", "Consulta"],
+      saude: ["Profissional", "Consulta"],
       psicologia: ["Terapeuta", "Sessão"],
       beleza: ["Profissional", "Atendimento"],
-      pet: ["Veterinário", "Consulta Pet"],
+      pet: ["Profissional", "Atendimento"],
       esportes: ["Treinador", "Treino"],
-      oficina: ["Mecânico", "Revisão"],
+      oficina: ["Técnico", "Atendimento"],
       aulas: ["Professor", "Aula"],
     };
     for (const [m, [staff, service]] of Object.entries(esperado)) {
@@ -36,11 +36,11 @@ describe("vocabulário por ramo", () => {
   });
 
   it("plural irregular não vira 's' no fim", () => {
-    expect(buildVocabulary("oficina").appointment.p).toBe("Revisões");
+    expect(buildVocabulary("psicologia").appointment.p).toBe("Sessões");
     expect(buildVocabulary("beleza").staff.p).toBe("Profissionais");
     expect(buildVocabulary("esportes").staff.p).toBe("Treinadores");
     expect(buildVocabulary("psicologia").appointment.p).toBe("Sessões");
-    expect(buildVocabulary("pet").appointment.p).toBe("Consultas Pet");
+    expect(buildVocabulary("pet").business.p).toBe("Pet shops");
   });
 
   it("concorda em gênero", () => {
@@ -53,8 +53,8 @@ describe("vocabulário por ramo", () => {
   });
 
   it("minúscula no meio da frase, inclusive com duas palavras", () => {
-    expect(buildVocabulary("pet").appointment.l).toBe("consulta pet");
-    expect(buildVocabulary("pet").appointment.lp).toBe("consultas pet");
+    expect(buildVocabulary("pet").business.l).toBe("pet shop");
+    expect(buildVocabulary("pet").business.lp).toBe("pet shops");
   });
 
   it("sem ramo escolhido, usa as palavras genéricas", () => {
@@ -88,7 +88,7 @@ describe("textos que usam o vocabulário", () => {
   it("a recusa do banco vira frase com as palavras da empresa", () => {
     const err = { message: "texto neutro", hint: "limite_profissionais_cadastrar:1" };
     expect(dbErrorMessage(err, buildVocabulary("saude"))).toBe(
-      "O seu plano permite 1 médico ativo. Com o Cronys Pro por R$\u00a049,90/mês você tem mais.");
+      "O seu plano permite 1 profissional ativo. Com o Cronys Pro por R$\u00a049,90/mês você tem mais.");
     expect(dbErrorMessage({ message: "x", hint: "limite_clientes_ativos:10" }, buildVocabulary("saude")))
       .toContain("10 pacientes ativos");
     expect(dbErrorMessage({ message: "x", hint: "limite_clientes_ativos:10" }, buildVocabulary("saude")))
@@ -106,7 +106,7 @@ describe("textos que usam o vocabulário", () => {
 
   it("conflito de horário fala do profissional da empresa", () => {
     expect(lessonErrorMessage({ code: "23P01" }, buildVocabulary("oficina")))
-      .toBe("Esse horário já está ocupado para este mecânico.");
+      .toBe("Esse horário já está ocupado para este técnico.");
   });
 
   it("a cobrança do WhatsApp usa a palavra da empresa", () => {
@@ -115,7 +115,7 @@ describe("textos que usam o vocabulário", () => {
       { pixKey: null, paymentLink: null },
       buildVocabulary("pet"),
     );
-    expect(msg).toContain("fechar as consultas pet de *Rex*");
+    expect(msg).toContain("fechar os atendimentos de *Rex*");
     expect(msg).not.toMatch(/aula/i);
   });
 
