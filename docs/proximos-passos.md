@@ -21,6 +21,8 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    trilha só pelo Play Console (a API recusa: "alpha track has been upgraded to
    use open or closed testing"). Teste fechado atualizado para 1.12.2 (44) pelo
    `play-promote.yml` - antes estava no código 33.
+   Registro das mudanças e do feedback do período, para o pedido de
+   produção: `docs/teste-fechado.md`.
 4. **Ideias para trazer clientes** (fazer depois, na ordem que ele escolher):
    - Programa de indicação - ver "Indicação" abaixo (guardado, não começar).
    - Link de agendamento público para Instagram/WhatsApp, com "feito com Cronys".
