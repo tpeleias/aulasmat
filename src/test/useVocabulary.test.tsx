@@ -46,4 +46,10 @@ describe("VocabularyProvider", () => {
     const { getByTestId } = renderProbe();
     await waitFor(() => expect(getByTestId("out").textContent).toBe("app|Aula"));
   });
+
+  it("empresa com ramo mas sem terminar a configuração guiada volta para o guia", async () => {
+    rpcResult = { data: { business_model: "saude", active: true, custom: null, custom_saved: false, setup_done: false }, error: null };
+    const { getByTestId } = renderProbe();
+    await waitFor(() => expect(getByTestId("out").textContent).toBe("boas-vindas|Consulta"));
+  });
 });

@@ -5,7 +5,7 @@ import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary }
 import { isCurrency, isLocale, setLocale, type Currency, type Locale } from "@/lib/i18n";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null; setup_done?: boolean };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
@@ -18,8 +18,9 @@ type Ctx = {
    */
   active: boolean;
   /**
-   * O banco respondeu, e a empresa ainda não escolheu o ramo. Só isto abre a
-   * tela de boas-vindas - `model` nulo sozinho também acontece com erro de rede.
+   * O banco respondeu, e a empresa ainda não escolheu o ramo ou não terminou a
+   * configuração guiada. Só isto abre o guia - `model` nulo sozinho também
+   * acontece com erro de rede.
    */
   needsOnboarding: boolean;
   /** As palavras editadas que valem agora (só no Pro). */
@@ -64,6 +65,9 @@ function parse(raw: unknown): Raw | null {
     locale: isLocale(r.locale) ? r.locale : undefined,
     currency: isCurrency(r.currency) ? r.currency : undefined,
     currency_symbol: typeof r.currency_symbol === "string" && r.currency_symbol ? r.currency_symbol : null,
+    // Configuração guiada (migration 20260928030000). Sem a chave (banco
+    // antes da migration), conta como feita: nunca prende quem já usa o app.
+    setup_done: r.setup_done !== false,
   };
 }
 
@@ -130,7 +134,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       v: buildVocabulary(shown, active ? raw?.custom : null),
       model,
       active,
-      needsOnboarding: answered && raw !== null && model === null,
+      needsOnboarding: answered && raw !== null && (model === null || raw.setup_done === false),
       custom: raw?.custom ?? null,
       customSaved: raw?.custom_saved === true,
       loading,

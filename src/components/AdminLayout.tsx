@@ -20,7 +20,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
 import { useVocabulary } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
-import BusinessOnboarding from "@/components/BusinessOnboarding";
+import SetupWizard from "@/components/SetupWizard";
 import { refreshLessonsWidget } from "@/lib/widgetSync";
 
 import { L } from "@/lib/i18n";
@@ -103,9 +103,10 @@ export default function AdminLayout() {
     </div>
   );
 
-  // Empresa nova: o dono escolhe o ramo antes de tudo. Só com a resposta do
-  // banco na mão - ver needsOnboarding em useVocabulary.
-  if (isAdmin && needsOnboarding) return <BusinessOnboarding />;
+  // Empresa nova: o admin passa pela configuração guiada antes de tudo (ramo,
+  // agenda, serviços...). Só com a resposta do banco na mão - ver
+  // needsOnboarding em useVocabulary. Profissional e cliente não passam.
+  if (isAdmin && needsOnboarding) return <SetupWizard />;
 
   const secondary = secondaryFor(v);
   const primaryNav = isTeacher ? primary.filter(it => teacherCan(it.to)) : primary;
