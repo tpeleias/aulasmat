@@ -50,7 +50,7 @@ export const PRESETS_EN: Record<BusinessModel, { nome: string; exemplo: string; 
     client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Specialty", "Specialties") } },
   psicologia: { nome: "Psychology and therapy", exemplo: "Psychologists, therapists, speech therapy", terms: {
     business: e("Practice", "Practices"), staff: e("Therapist", "Therapists"), appointment: e("Session", "Sessions"),
-    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Approach", "Approaches") } },
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
   beleza: { nome: "Beauty salons and aesthetics", exemplo: "Hairdressers, nail salons, barbershops, aesthetics", terms: {
     business: e("Salon", "Salons"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
     client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
@@ -102,7 +102,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       appointment: t("Sessão", "Sessões", "f"),
       client: t("Paciente", "Pacientes", "m"),
       guardian: responsavel,
-      topic: t("Abordagem", "Abordagens", "f"),
+      topic: t("Serviço", "Serviços", "m"),
     },
   },
   beleza: {
