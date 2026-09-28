@@ -80,7 +80,7 @@ export default function ReportsPage() {
 
   const exportCsv = () => {
     const csv = toCsv(
-      L(["Data", "Família", "Descrição", "Valor"], ["Date", "Client", "Description", "Amount"]),
+      L(["Data", w.payer.s, "Descrição", "Valor"], ["Date", w.payer.s, "Description", "Amount"]),
       summary.rows.map(r => [format(new Date(r.date), L("dd/MM/yyyy", "MMM d, yyyy")), r.accountLabel, r.description, r.amount.toFixed(2).replace(".", ",")]),
     );
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
@@ -142,7 +142,7 @@ export default function ReportsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{L("Relatórios", "Reports")}</h1>
-        <p className="text-sm text-muted-foreground">{L("Resumo do que entrou, pra imposto de renda, e recibo pra família.", "Summary of income for taxes, and receipts for clients.")}</p>
+        <p className="text-sm text-muted-foreground">{L(`Resumo do que entrou, pra imposto de renda, e recibo para ${w.payer.o} ${w.payer.l}.`, `Summary of income for taxes, and receipts for ${w.payer.lp}.`)}</p>
       </div>
 
       <Card className="rounded-2xl p-4 md:p-5 space-y-4">
@@ -188,8 +188,8 @@ export default function ReportsPage() {
         <div>
           <h2 className="font-semibold">{L(`Por ${w.topic.l}`, `By ${w.topic.l}`)}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {L(`${w.appointment.pick("Realizados", "Realizadas")} em ${month === null ? year : `${MESES[month].toLowerCase()} de ${year}`} (o mesmo período acima), pelo preço cheio - sem os descontos por família.`,
-               `Completed in ${month === null ? year : `${MESES[month]} ${year}`} (the same period as above), at full price - before client discounts.`)}
+            {L(`${w.appointment.pick("Realizados", "Realizadas")} em ${month === null ? year : `${MESES[month].toLowerCase()} de ${year}`} (o mesmo período acima), pelo preço cheio - sem os descontos por ${w.payer.l}.`,
+               `Completed in ${month === null ? year : `${MESES[month]} ${year}`} (the same period as above), at full price - before ${w.payer.l} discounts.`)}
           </p>
         </div>
         {byService.rows.length === 0 ? (
@@ -224,12 +224,12 @@ export default function ReportsPage() {
       <Card className="rounded-2xl p-4 md:p-5 space-y-4">
         <div>
           <h2 className="font-semibold">{L("Recibo", "Receipt")}</h2>
-          <p className="text-xs text-muted-foreground mt-1">{L("Escolha a família e o período; o recibo soma o que ela pagou nele.", "Choose the client and the period; the receipt adds up what they paid in it.")}</p>
+          <p className="text-xs text-muted-foreground mt-1">{L(`Escolha ${w.payer.o} ${w.payer.l} e o período; o recibo soma o que foi pago nele.`, `Choose the ${w.payer.l} and the period; the receipt adds up what was paid in it.`)}</p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <WheelSelect value={receiptAccount} onValueChange={setReceiptAccount} className="w-56 h-9 rounded-xl"
-            label={L("Família", "Client")} placeholder={L("Escolha a família", "Choose the client")}
+            label={w.payer.s} placeholder={L(`Escolha ${w.payer.o} ${w.payer.l}`, `Choose the ${w.payer.l}`)}
             options={accounts.map(a => ({ value: a.key, label: a.label }))} />
           <WheelSelect value={String(receiptYear)} onValueChange={v => setReceiptYear(Number(v))} className="w-28 h-9 rounded-xl"
             label={L("Ano", "Year")} options={yearOptions} />
@@ -238,7 +238,7 @@ export default function ReportsPage() {
         </div>
 
         {!receiptAccount ? (
-          <p className="text-sm text-muted-foreground">{L("Escolha uma família para montar o recibo.", "Choose a client to build the receipt.")}</p>
+          <p className="text-sm text-muted-foreground">{L(`Escolha ${w.payer.um} ${w.payer.l} para montar o recibo.`, `Choose a ${w.payer.l} to build the receipt.`)}</p>
         ) : receiptRows.length === 0 ? (
           <p className="text-sm text-muted-foreground">{L(`${receiptLabel} não pagou nada em ${MESES[receiptMonth]} de ${receiptYear}.`, `${receiptLabel} paid nothing in ${MESES[receiptMonth]} ${receiptYear}.`)}</p>
         ) : (

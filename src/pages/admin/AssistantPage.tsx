@@ -170,8 +170,8 @@ export default function AssistantPage() {
             {emBreve ? L("O Assistente chega em breve", "The Assistant is coming soon") : L("O Assistente vem no Cronys Max", "The Assistant comes with Cronys Max")}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {L(`Em vez de abrir a agenda e preencher formulário, você escreve “marca com o Miguel quinta às 15h” e ele marca. Também registra pagamento, responde quanto ${w.guardian.um} ${w.guardian.l} deve e remarca ${w.appointment.l}.`,
-               `Instead of opening the calendar and filling in a form, you write “book Mike on Thursday at 3pm” and it books. It also records payments, tells you how much a ${w.guardian.l} owes and reschedules ${w.appointment.lp}.`)}
+            {L(`Em vez de abrir a agenda e preencher formulário, você escreve “marca com o Miguel quinta às 15h” e ele marca. Também registra pagamento, responde quanto ${w.payer.um} ${w.payer.l} deve e remarca ${w.appointment.l}.`,
+               `Instead of opening the calendar and filling in a form, you write “book Mike on Thursday at 3pm” and it books. It also records payments, tells you how much a ${w.payer.l} owes and reschedules ${w.appointment.lp}.`)}
           </p>
           <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
             {emBreve

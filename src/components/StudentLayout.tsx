@@ -43,7 +43,7 @@ export default function StudentLayout() {
     <div className="flex flex-1 flex-col md:flex-row bg-background">
       <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
         <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
-          <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">{w.guardian.s}</div></div>
+          <div><CronysWordmark tamanho="1.25rem" /><div className="text-xs text-sidebar-foreground/60 mt-1">{w.payer.s}</div></div>
         </div>
         <nav className="flex flex-col gap-1 p-3 flex-1">
           {items.map(it => (

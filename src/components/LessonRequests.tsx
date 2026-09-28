@@ -103,7 +103,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
           <Badge variant="outline">{requests.length}</Badge>
         </div>
         <p className="text-xs text-muted-foreground">
-          {L("Pedidos feitos pelas famílias. O horário fica reservado até você responder.", "Requests from your clients. The time slot stays on hold until you answer.")}
+          {L(`Pedidos ${w.payer.dos} ${w.payer.lp}. O horário fica reservado até você responder.`, `Requests from your ${w.payer.lp}. The time slot stays on hold until you answer.`)}
         </p>
 
         <ul className="divide-y divide-border">
@@ -195,7 +195,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                 {refusing?.notes && (
                   <p className="rounded bg-muted/50 px-2 py-1 text-sm italic">“{refusing.notes}”</p>
                 )}
-                <p>{L("O horário volta a aparecer como livre e a família vê a recusa no portal.", "The time slot shows as free again and the client sees the decline in the portal.")}</p>
+                <p>{L(`O horário volta a aparecer como livre e ${w.payer.o} ${w.payer.l} vê a recusa no portal.`, `The time slot shows as free again and the ${w.payer.l} sees the decline in the portal.`)}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -89,7 +89,7 @@ export default function BillingPage() {
   const { plan } = usePlan();
   const v = useWords();
   const ap = v.appointment;
-  const g = v.guardian;
+  const g = v.payer;
   const [packages, setPackages] = useState<LessonPackage[]>([]);
   useEffect(() => {
     // Sem a tabela (front antes da migration 20260925040000) fica sem pacotes.

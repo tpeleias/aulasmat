@@ -63,7 +63,7 @@ function itens(tier: Tier): string[] {
       return [L("1 profissional (você)", "1 professional (you)"), clientes(p.maxActiveClients),
         L("Tudo do Essencial", "Everything in Essential"),
         L("Lembrete e confirmação pelo WhatsApp com um toque", "One-tap WhatsApp reminders and confirmations"),
-        L("Pacotes, vouchers e desconto por família", "Packages, vouchers and family discounts"),
+        L("Pacotes, vouchers e desconto por cliente", "Packages, vouchers and client discounts"),
         L("Bloqueio que se repete toda semana", "Weekly recurring blocks"),
         L(`IA como adicional (+${money(ia)}/mês, ${ASSISTANT_ADDON.messages} mensagens)`, `AI add-on (+${money(ia)}/month, ${ASSISTANT_ADDON.messages} messages)`)];
     case "pro_solo":
@@ -128,7 +128,7 @@ export function comparisonRows(interval: Interval): CompareRow[] {
     row(L("Agenda, cobrança e portal do cliente", "Schedule, billing and client portal"), () => yes),
     row(L("Palavras do seu ramo", "Your industry's words"), t => CFG[t].features.vocabulary),
     row(L("WhatsApp com um toque", "One-tap WhatsApp"), t => CFG[t].features.whatsapp_link),
-    row(L("Pacotes, vouchers e desconto por família", "Packages, vouchers and family discounts"), t => CFG[t].features.packages),
+    row(L("Pacotes, vouchers e desconto por cliente", "Packages, vouchers and client discounts"), t => CFG[t].features.packages),
     row(L("Bloqueio semanal", "Weekly blocks"), t => CFG[t].features.recurring_blocks),
     row(L("Google Agenda nos dois sentidos", "Two-way Google Calendar"), t => CFG[t].features.google_calendar),
     row(L("Assistente com IA", "AI assistant"), t => {

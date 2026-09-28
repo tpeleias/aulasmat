@@ -386,11 +386,11 @@ export default function SettingsPage() {
         <p className="rounded-md bg-muted/40 px-3 py-2 text-[11px] text-muted-foreground">
           {L(<>Mudar aqui vale para {v.appointment.os} <strong className="text-foreground">{v.appointment.pick("próximos", "próximas")}</strong> {v.appointment.lp}.
           {" "}{cap(v.appointment.os)} que já estão na agenda ficam com o valor que tinham — para mudar {v.appointment.um}{" "}
-          {v.appointment.pick("deles", "delas")}, abra {v.appointment.o} {v.appointment.l} e edite o valor. Para cobrar menos de {v.guardian.um} {v.guardian.l}{" "}
+          {v.appointment.pick("deles", "delas")}, abra {v.appointment.o} {v.appointment.l} e edite o valor. Para cobrar menos de {v.payer.um} {v.payer.l}{" "}
           sem mexer no valor {v.appointment.do} {v.appointment.l}, use <strong className="text-foreground">Desconto</strong> na
           tela Financeiro.</>,
           <>Changes here apply to <strong className="text-foreground">upcoming</strong> {v.appointment.lp}. {v.appointment.p} already on the calendar keep their price —
-          to change one, open it and edit the price. To charge a {v.guardian.l} less without changing the {v.appointment.l} price, use
+          to change one, open it and edit the price. To charge a {v.payer.l} less without changing the {v.appointment.l} price, use
           <strong className="text-foreground"> Discount</strong> on the Billing page.</>)}
         </p>
       </Card>
@@ -408,7 +408,7 @@ export default function SettingsPage() {
             <div><Label>Nome de quem recebe</Label><Input value={(s as any).pix_receiver_name ?? ""} onChange={e => setS({ ...s, pix_receiver_name: e.target.value } as any)} placeholder="Como está no banco" /></div>
             <div><Label>Cidade</Label><Input value={(s as any).pix_city ?? ""} onChange={e => setS({ ...s, pix_city: e.target.value } as any)} placeholder="Ex.: São Paulo" /></div>
             <p className="col-span-2 -mt-1 text-xs text-muted-foreground">
-              Com nome e cidade, a cobrança e o portal levam o <strong>Pix copia e cola já com o valor</strong> - {v.guardian.o} {v.guardian.l} só cola no app do banco.
+              Com nome e cidade, a cobrança e o portal levam o <strong>Pix copia e cola já com o valor</strong> - {v.payer.o} {v.payer.l} só cola no app do banco.
             </p>
           </div>
         )}
