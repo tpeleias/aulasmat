@@ -37,6 +37,10 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
   const email = user?.email ?? "";
   const login = email.endsWith(`@${USERNAME_DOMAIN}`) ? email.slice(0, -USERNAME_DOMAIN.length - 1) : email;
   const staff = role === "admin" || role === "teacher";
+  // Conta de teste (o login do Hive): senha e exclusão travadas, também no
+  // banco (migration 20260928020000). Aqui só troca o formulário pelo aviso.
+  const demo = (user?.app_metadata as { demo_account?: boolean } | undefined)?.demo_account === true;
+  const demoNote = L("Conta de teste: não é permitido mudar a senha nem excluir a conta.", "Test account: changing the password or deleting the account isn't allowed.");
 
   const changePassword = async () => {
     setBusy(true);
@@ -76,9 +80,11 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
 
         <Card className="space-y-3 rounded-2xl p-4">
           <h2 className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" /> {L("Trocar senha", "Change password")}</h2>
+          {demo ? <p className="text-sm text-muted-foreground">{demoNote}</p> : <>
           <Input type="password" value={pw} onChange={e => setPw(e.target.value)} placeholder={L("Nova senha (mínimo 6)", "New password (min. 6)")} autoComplete="new-password" />
           <Input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder={L("Repita a nova senha", "Repeat the new password")} autoComplete="new-password" />
           <Button variant="outline" className="rounded-xl" disabled={busy || pw.length < 6 || pw !== pw2} onClick={changePassword}>{L("Salvar nova senha", "Save new password")}</Button>
+          </>}
         </Card>
 
         {staff && (
@@ -122,9 +128,10 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
                 "Deletes your access: you won't be able to sign in with this login anymore. The appointment and payment history stays with the company, which may need it for its records - to request deletion of that data, contact the company.")}
             </p>
           </div>
-          <Button variant="destructive" className="gap-2 rounded-xl" onClick={() => { setTyped(""); setOpen(true); }}>
+          <Button variant="destructive" className="gap-2 rounded-xl" disabled={demo} onClick={() => { setTyped(""); setOpen(true); }}>
             <Trash2 className="h-4 w-4" /> {L("Excluir minha conta", "Delete my account")}
           </Button>
+          {demo && <p className="text-xs text-muted-foreground">{demoNote}</p>}
         </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>

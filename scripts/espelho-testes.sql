@@ -2907,4 +2907,32 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
 SELECT public.assert((SELECT role::text FROM public.user_roles WHERE user_id = '49000000-0000-0000-0000-000000000002') = 'admin',
   'cadastro com e-mail continua criando a empresa');
 
+\echo '--- 50. Conta de teste travada: sem trocar senha, e-mail nem excluir (28/09) ---'
+INSERT INTO auth.users (id, email, encrypted_password, raw_app_meta_data) VALUES
+  ('50000000-0000-0000-0000-000000000001', 'demo@aluno.x', 'senha-velha', '{"provider":"email","demo_account":true}');
+DO $$
+BEGIN
+  UPDATE auth.users SET encrypted_password = 'outra' WHERE id = '50000000-0000-0000-0000-000000000001';
+  RAISE EXCEPTION 'FALHOU: trocou a senha da conta de teste';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - senha da conta de teste nao muda';
+END $$;
+DO $$
+BEGIN
+  DELETE FROM auth.users WHERE id = '50000000-0000-0000-0000-000000000001';
+  RAISE EXCEPTION 'FALHOU: excluiu a conta de teste';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU:%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - conta de teste nao e excluida';
+END $$;
+UPDATE auth.users SET created_at = created_at WHERE id = '50000000-0000-0000-0000-000000000001';
+SELECT public.assert(true, 'entrar (atualizar outros campos) continua funcionando');
+UPDATE auth.users SET raw_app_meta_data = raw_app_meta_data - 'demo_account' WHERE id = '50000000-0000-0000-0000-000000000001';
+UPDATE auth.users SET encrypted_password = 'nova' WHERE id = '50000000-0000-0000-0000-000000000001';
+SELECT public.assert((SELECT encrypted_password FROM auth.users WHERE id = '50000000-0000-0000-0000-000000000001') = 'nova',
+  'sem a marca, a senha volta a poder mudar');
+UPDATE auth.users SET encrypted_password = 'x' WHERE email = 'admin-a@x';
+SELECT public.assert(true, 'conta comum troca a senha normalmente');
+
 \echo '=== FIM ==='
