@@ -46,8 +46,8 @@ export const PRESETS_EN: Record<BusinessModel, { nome: string; exemplo: string; 
     business: e("School", "Schools"), staff: e("Teacher", "Teachers"), appointment: e("Lesson", "Lessons"),
     client: e("Student", "Students"), guardian: e("Parent", "Parents"), topic: e("Subject", "Subjects") } },
   saude: { nome: "Health and medical clinics", exemplo: "Doctors' offices, clinics, physiotherapy, nutrition", terms: {
-    business: e("Clinic", "Clinics"), staff: e("Doctor", "Doctors"), appointment: e("Appointment", "Appointments"),
-    client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Specialty", "Specialties") } },
+    business: e("Clinic", "Clinics"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
+    client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
   psicologia: { nome: "Psychology and therapy", exemplo: "Psychologists, therapists, speech therapy", terms: {
     business: e("Practice", "Practices"), staff: e("Therapist", "Therapists"), appointment: e("Session", "Sessions"),
     client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
@@ -55,14 +55,14 @@ export const PRESETS_EN: Record<BusinessModel, { nome: string; exemplo: string; 
     business: e("Salon", "Salons"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
     client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
   pet: { nome: "Pets and veterinary", exemplo: "Vets, grooming, dog training", terms: {
-    business: e("Vet clinic", "Vet clinics"), staff: e("Vet", "Vets"), appointment: e("Appointment", "Appointments"),
+    business: e("Pet business", "Pet businesses"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
     client: e("Pet", "Pets"), guardian: e("Owner", "Owners"), topic: e("Service", "Services") } },
   esportes: { nome: "Sports and fitness", exemplo: "Personal trainers, gyms, sports schools", terms: {
     business: e("Gym", "Gyms"), staff: e("Coach", "Coaches"), appointment: e("Session", "Sessions"),
-    client: e("Athlete", "Athletes"), guardian: e("Guardian", "Guardians"), topic: e("Activity", "Activities") } },
+    client: e("Member", "Members"), guardian: e("Guardian", "Guardians"), topic: e("Activity", "Activities") } },
   oficina: { nome: "Repair shops and maintenance", exemplo: "Car repair, tech support, repairs", terms: {
-    business: e("Shop", "Shops"), staff: e("Technician", "Technicians"), appointment: e("Service visit", "Service visits"),
-    client: e("Customer", "Customers"), guardian: e("Owner", "Owners"), topic: e("Service", "Services") } },
+    business: e("Shop", "Shops"), staff: e("Technician", "Technicians"), appointment: e("Appointment", "Appointments"),
+    client: e("Customer", "Customers"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
   outro: { nome: "Other business", exemplo: "Any appointment-based service", terms: {
     business: e("Business", "Businesses"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
     client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
@@ -86,11 +86,11 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
     exemplo: "Consultórios, clínicas, fisioterapia, nutrição",
     terms: {
       business: t("Clínica", "Clínicas", "f"),
-      staff: t("Médico", "Médicos", "m"),
+      staff: t("Profissional", "Profissionais", "m"),
       appointment: t("Consulta", "Consultas", "f"),
       client: t("Paciente", "Pacientes", "m"),
       guardian: responsavel,
-      topic: t("Especialidade", "Especialidades", "f"),
+      topic: t("Serviço", "Serviços", "m"),
     },
   },
   psicologia: {
@@ -121,9 +121,9 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
     nome: "Mundo pet e veterinária",
     exemplo: "Veterinários, banho e tosa, adestramento",
     terms: {
-      business: t("Clínica veterinária", "Clínicas veterinárias", "f"),
-      staff: t("Veterinário", "Veterinários", "m"),
-      appointment: t("Consulta Pet", "Consultas Pet", "f"),
+      business: t("Pet shop", "Pet shops", "m"),
+      staff: t("Profissional", "Profissionais", "m"),
+      appointment: t("Atendimento", "Atendimentos", "m"),
       // Quem é atendido é o pet; quem entra no portal e paga é o tutor.
       client: t("Pet", "Pets", "m"),
       guardian: t("Tutor", "Tutores", "m"),
@@ -147,8 +147,8 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
     exemplo: "Oficinas mecânicas, assistência técnica, reparos",
     terms: {
       business: t("Oficina", "Oficinas", "f"),
-      staff: t("Mecânico", "Mecânicos", "m"),
-      appointment: t("Revisão", "Revisões", "f"),
+      staff: t("Técnico", "Técnicos", "m"),
+      appointment: t("Atendimento", "Atendimentos", "m"),
       client: t("Cliente", "Clientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
