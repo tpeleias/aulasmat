@@ -227,7 +227,13 @@ export class Word {
   get proximos() { return this.x(this.pick("Próximos", "Próximas"), "Next"); }
 }
 
-export type Vocabulary = { model: BusinessModel | null } & Record<TermKey, Word>;
+/**
+ * `payer`: quem entra no portal e paga (Thiago, 28/09). Em aulas e pet é o
+ * responsável (os pais, o tutor do animal); nos outros ramos é o próprio
+ * cliente - num salão, "Guardians" no lugar de clientes não fazia sentido.
+ * `guardian` fica para o responsável de verdade (o campo "Menor de 18 anos").
+ */
+export type Vocabulary = { model: BusinessModel | null; payer: Word } & Record<TermKey, Word>;
 
 function isTermSpec(x: unknown): x is TermSpec {
   if (!x || typeof x !== "object") return false;
@@ -250,7 +256,7 @@ export function buildVocabulary(model: BusinessModel | null, custom?: unknown, l
   for (const k of TERM_KEYS) {
     words[k] = new Word(isTermSpec(extra[k]) ? extra[k] as TermSpec : base[k], en);
   }
-  return { model, ...words };
+  return { model, ...words, payer: guardianAlwaysShown(model) ? words.guardian : words.client };
 }
 
 /**

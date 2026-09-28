@@ -18,7 +18,7 @@ import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { usePlan } from "@/hooks/usePlan";
 import { useWords } from "@/hooks/useVocabulary";
-import { cap, type Vocabulary } from "@/lib/vocabulary";
+import { cap, guardianAlwaysShown, type Vocabulary } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
 type Student = {
@@ -42,7 +42,7 @@ const FILTERS = [
 type Filter = typeof FILTERS[number]["key"];
 
 const toggles = (w: Vocabulary): { key: keyof Visibility; label: string; hint: string }[] => [
-  { key: "allow_student_booking", label: L(`Deixar marcar ${w.appointment.l}`, `Allow booking ${w.appointment.lp}`), hint: L(`${cap(w.guardian.o)} ${w.guardian.l} escolhe um horário livre e agenda sozinho.`, `The ${w.guardian.l} picks a free time and books on their own.`) },
+  { key: "allow_student_booking", label: L(`Deixar marcar ${w.appointment.l}`, `Allow booking ${w.appointment.lp}`), hint: L(`${cap(w.payer.o)} ${w.payer.l} escolhe um horário livre e agenda sozinho.`, `The ${w.payer.l} picks a free time and books on their own.`) },
   { key: "show_availability_to_students", label: L("Mostrar disponibilidade", "Show availability"), hint: L(`Link com os horários livres de cada ${w.staff.l}.`, `Link with each ${w.staff.l}'s free times.`) },
   { key: "show_payment_info_to_students", label: L("Mostrar como pagar", "Show how to pay"), hint: L("Chave Pix e link de pagamento no portal.", "Payment link in the portal.") },
 ];
@@ -139,12 +139,12 @@ export default function AccessPage() {
         </div>
 
         <Card className="rounded-2xl p-4 md:p-5">
-          <div className="text-xs uppercase text-muted-foreground">{L(`${w.guardian.p} com acesso`, `${w.guardian.p} with access`)}</div>
+          <div className="text-xs uppercase text-muted-foreground">{L(`${w.payer.p} com acesso`, `${w.payer.p} with access`)}</div>
           <div className="mt-1 text-3xl font-bold tabular-nums">{withAccess}<span className="text-base font-normal text-muted-foreground"> {L("de", "of")} {students.length}</span></div>
         </Card>
 
         <Card className="rounded-2xl p-4 md:p-5 space-y-4">
-          <div className="text-sm font-semibold">{L(`O que ${w.guardian.o} ${w.guardian.l} pode fazer`, `What the ${w.guardian.l} can do`)}</div>
+          <div className="text-sm font-semibold">{L(`O que ${w.payer.o} ${w.payer.l} pode fazer`, `What the ${w.payer.l} can do`)}</div>
           {TOGGLES.map(t => (
             <div key={t.key} className="flex items-start justify-between gap-4">
               <div className="min-w-0">
@@ -183,19 +183,21 @@ export default function AccessPage() {
                 <div>
                   <div className="font-medium">{s.student_name}</div>
                   <div className="text-xs text-muted-foreground">
-                    {s.guardian_name ? `${w.guardian.s}: ${s.guardian_name}` : L(`Sem ${w.guardian.l} ${w.guardian.pick("cadastrado", "cadastrada")}`, `No ${w.guardian.l} on file`)}
+                    {s.guardian_name ? `${w.guardian.s}: ${s.guardian_name}` : guardianAlwaysShown(w.model) ? L(`Sem ${w.guardian.l} ${w.guardian.pick("cadastrado", "cadastrada")}`, `No ${w.guardian.l} on file`) : null}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-1.5">
                   <Badge variant={s.user_id ? "default" : "outline"} className="rounded-full text-[10px]">
                     {s.guardian_username
-                      ? `${w.guardian.s}: ${s.guardian_username}`
-                      : s.user_id ? L(`${w.guardian.s} por e-mail`, `${w.guardian.s} by email`) : L(`${w.guardian.s} sem acesso`, `${w.guardian.s} without access`)}
+                      ? `${w.payer.s}: ${s.guardian_username}`
+                      : s.user_id ? L(`${w.payer.s} por e-mail`, `${w.payer.s} by email`) : L(`${w.payer.s} sem acesso`, `${w.payer.s} without access`)}
                   </Badge>
-                  <Badge variant={s.child_user_id ? "default" : "outline"} className="rounded-full text-[10px]">
-                    {s.child_username ? `${w.client.s}: ${s.child_username}` : L(`${w.client.s} sem acesso`, `${w.client.s} without access`)}
-                  </Badge>
+                  {(w.model === "aulas" || !!s.guardian_name?.trim() || !!s.child_user_id) && w.model !== "pet" && (
+                    <Badge variant={s.child_user_id ? "default" : "outline"} className="rounded-full text-[10px]">
+                      {s.child_username ? `${w.client.s}: ${s.child_username}` : L(`${w.client.s} sem acesso`, `${w.client.s} without access`)}
+                    </Badge>
+                  )}
                 </div>
 
                 <div className="flex flex-wrap gap-2">

@@ -128,3 +128,15 @@ describe("textos que usam o vocabulário", () => {
     expect(DEFAULT_VOCABULARY.appointment.s).toBe("Aula");
   });
 });
+
+describe("quem acessa o portal e paga (payer)", () => {
+  it("aulas e pet: o responsável; nos outros ramos, o próprio cliente", async () => {
+    const { buildVocabulary } = await import("@/lib/vocabulary");
+    expect(buildVocabulary("aulas", null, "pt-BR").payer.s).toBe("Responsável");
+    expect(buildVocabulary("aulas", null, "en").payer.s).toBe("Parent");
+    expect(buildVocabulary("pet", null, "pt-BR").payer.s).toBe("Tutor");
+    expect(buildVocabulary("beleza", null, "en").payer.lp).toBe("clients");
+    expect(buildVocabulary("beleza", null, "pt-BR").payer.s).toBe("Cliente");
+    expect(buildVocabulary("saude", null, "pt-BR").payer.s).toBe("Paciente");
+  });
+});

@@ -222,7 +222,7 @@ export default function StudentsPage() {
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={L(`Buscar ${c.l} ou ${w.guardian.l}`, `Search ${c.l} or ${w.guardian.l}`)} className="h-11 rounded-xl pl-9" />
+            <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={guardianAlwaysShown(w.model) ? L(`Buscar ${c.l} ou ${w.guardian.l}`, `Search ${c.l} or ${w.guardian.l}`) : L(`Buscar ${c.l}`, `Search ${c.lp}`)} className="h-11 rounded-xl pl-9" />
           </div>
           <SortMenu value={sort} options={isTeacher ? SORTS.filter(o => o.key !== "owed") : SORTS} onChange={setSort} className="h-11" />
         </div>

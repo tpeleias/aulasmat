@@ -50,7 +50,7 @@ export function firstSteps(d: FirstStepsData, w: Vocabulary): FirstStep[] {
     },
     {
       key: "portal",
-      title: L(`Convide ${w.guardian.os} ${w.guardian.lp} para o portal`, `Invite ${w.guardian.lp} to the portal`),
+      title: L(`Convide ${w.payer.os} ${w.payer.lp} para o portal`, `Invite ${w.payer.lp} to the portal`),
       hint: L(`No portal dá para ver ${w.appointment.os} ${w.appointment.lp}, o que falta pagar e pedir horário.`, `In the portal they can see ${w.appointment.lp}, what is still owed, and request times.`),
       to: "/admin/acessos",
       done: d.portalLogins > 0,

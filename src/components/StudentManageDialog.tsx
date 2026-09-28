@@ -17,7 +17,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
-type Student = { id: string; student_name: string; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
+type Student = { id: string; student_name: string; guardian_name?: string | null; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
 
 // teacherMode: o login de professor (funcionário) só vê Materiais e Tarefas, só
 // põe para quem já teve aula com ele e só apaga o que ele mesmo pôs - o banco
@@ -105,7 +105,7 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
   };
 
   const resetPassword = async () => {
-    if (!confirm(L(`Gerar uma nova senha provisória? ${cap(w.guardian.o)} ${w.guardian.l} deverá trocá-la no próximo acesso.`, `Generate a new temporary password? The ${w.guardian.l} will have to change it on next sign-in.`))) return;
+    if (!confirm(L(`Gerar uma nova senha provisória? ${cap(w.payer.o)} ${w.payer.l} deverá trocá-la no próximo acesso.`, `Generate a new temporary password? The ${w.payer.l} will have to change it on next sign-in.`))) return;
     setBusy(true); setNewPw(null);
     const { data, error } = await supabase.functions.invoke("admin-reset-student-password", {
       body: { student_id: student.id },
@@ -130,8 +130,8 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
           </div>
           <div className="border-t border-border pt-3 space-y-2">
             <p className="text-xs text-muted-foreground">
-              {L(`Por segurança, senhas são armazenadas com hash e não podem ser visualizadas. Em vez disso, gere uma nova senha provisória — ${w.guardian.o} ${w.guardian.l} ${w.guardian.pick("será forçado", "será forçada")} a trocá-la no próximo login.`,
-                 `For security, passwords are hashed and can't be viewed. Instead, generate a new temporary password — the ${w.guardian.l} will have to change it on next sign-in.`)}
+              {L(`Por segurança, senhas são armazenadas com hash e não podem ser visualizadas. Em vez disso, gere uma nova senha provisória — ${w.payer.o} ${w.payer.l} ${w.payer.pick("será forçado", "será forçada")} a trocá-la no próximo login.`,
+                 `For security, passwords are hashed and can't be viewed. Instead, generate a new temporary password — the ${w.payer.l} will have to change it on next sign-in.`)}
             </p>
             <Button onClick={resetPassword} disabled={busy} variant="outline" size="sm">{L("Resetar senha", "Reset password")}</Button>
             {newPw && (
@@ -148,9 +148,9 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
       ) : (
         <Card className="p-4 space-y-3">
           <div>
-            <div className="text-sm font-medium mb-1">{L("Criar acesso do responsável", `Create ${w.guardian.l} login`)}</div>
+            <div className="text-sm font-medium mb-1">{L(`Criar acesso ${w.payer.do} ${w.payer.l}`, `Create ${w.payer.l} login`)}</div>
             <p className="text-xs text-muted-foreground">
-              {L("Por e-mail, se a família usa um. Por nome de usuário, quando não usa: funciona igual, só não serve para recuperar senha sozinho.", "By email, if they use one. By username when they don't: it works the same, but they can't recover the password on their own.")}
+              {L("Por e-mail, se a pessoa usa um. Por nome de usuário, quando não usa: funciona igual, só não serve para recuperar senha sozinho.", "By email, if they use one. By username when they don't: it works the same, but they can't recover the password on their own.")}
             </p>
           </div>
 
@@ -178,7 +178,10 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
       )}
 
       {/* Pet não entra no app; o login é do tutor. */}
-      {w.model !== "pet" && <ChildAccessSection student={student} onChanged={onChanged} />}
+      {/* Login próprio do menor: em aulas sempre; nos ramos em que quem paga
+          é o próprio cliente, só se ele tem responsável (menor de 18). */}
+      {w.model !== "pet" && (w.model === "aulas" || !!student.guardian_name?.trim() || !!student.child_user_id)
+        && <ChildAccessSection student={student} onChanged={onChanged} />}
     </div>
   );
 }
