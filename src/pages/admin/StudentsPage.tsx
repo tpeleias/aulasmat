@@ -25,7 +25,8 @@ import { ProUpsell } from "@/components/ProUpsell";
 import { nextPlanForClients, upgradeOffer } from "@/lib/subscription";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
-import { DEFAULT_VOCABULARY, type Vocabulary } from "@/lib/vocabulary";
+import { DEFAULT_VOCABULARY, guardianAlwaysShown, type Vocabulary } from "@/lib/vocabulary";
+import { GuardianField } from "@/components/GuardianField";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
 
 import { L } from "@/lib/i18n";
@@ -260,7 +261,7 @@ export default function StudentsPage() {
                         {st.plan_locked && <span className="shrink-0 rounded-full bg-warning/15 px-1.5 text-[10px] font-medium text-warning">{L("pausado", "paused")}</span>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {st.guardian_name ? `${L("Resp.", w.guardian.s)}: ${st.guardian_name}` : L("Sem responsável", `No ${w.guardian.l}`)}
+                        {st.guardian_name ? `${L("Resp.", w.guardian.s)}: ${st.guardian_name}` : guardianAlwaysShown(w.model) ? L("Sem responsável", `No ${w.guardian.l}`) : ""}
                       </div>
                     </div>
                     {!isTeacher && <div className="shrink-0 text-right">
@@ -304,9 +305,8 @@ export default function StudentsPage() {
             <div><Label>{L(`Nome ${c.do} ${c.l}`, `${c.s} name`)}</Label>
               <Input className="h-11 rounded-xl" value={editing?.student_name ?? ""} onChange={e => setEditing(p => ({ ...p!, student_name: e.target.value }))} />
             </div>
-            <div><Label>{w.guardian.s}</Label>
-              <Input className="h-11 rounded-xl" value={editing?.guardian_name ?? ""} onChange={e => setEditing(p => ({ ...p!, guardian_name: e.target.value }))} />
-            </div>
+            <GuardianField key={editing?.id ?? "novo"} w={w} inputClassName="h-11 rounded-xl" value={editing?.guardian_name ?? ""}
+              onChange={v => setEditing(p => ({ ...p!, guardian_name: v }))} />
             <div><Label>{L("Endereço", "Address")}</Label>
               <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder={L("Rua, número, bairro, cidade", "Street, number, city")} />
             </div>

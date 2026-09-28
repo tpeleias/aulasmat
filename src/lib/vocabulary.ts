@@ -264,3 +264,12 @@ export const GENERIC_VOCABULARY = buildVocabulary(null, null, "pt-BR");
 export function vocabularySummary(v: Vocabulary): string {
   return [v.staff.p, v.appointment.p, v.client.p].join(" · ");
 }
+
+/**
+ * O campo do responsável fica sempre aberto só onde quase todo atendido tem
+ * um (Thiago, 28/09): aluno (pais) e pet (tutor). Nos outros ramos ele fica
+ * atrás da caixinha "Menor de 18 anos".
+ */
+export function guardianAlwaysShown(model: BusinessModel | null): boolean {
+  return model === "aulas" || model === "pet";
+}

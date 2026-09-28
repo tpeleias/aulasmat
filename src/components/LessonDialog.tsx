@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { WheelSelect } from "@/components/WheelSelect";
+import { GuardianField } from "@/components/GuardianField";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -569,7 +570,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label>{v.guardian.s}</Label><Input value={form.guardian_name ?? ""} onChange={e => setForm({ ...form, guardian_name: e.target.value })} /></div>
+            <GuardianField key={open ? (lesson?.id ?? "nova") : "fechado"} w={v} value={form.guardian_name ?? ""}
+              onChange={g => setForm(f => ({ ...f, guardian_name: g }))} />
             <div><Label>{services?.length ? L("Descrição", "Description") : v.topic.s}</Label><Input value={form.subject ?? ""} onChange={e => {
               const subject = e.target.value;
               // Apagou o nome do serviço: deixa de ser aquele serviço, e a
