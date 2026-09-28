@@ -12,7 +12,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 let auth: Record<string, unknown> = {};
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => auth }));
 
-import { finishNativeLogin, isExternalLogin, NATIVE_LOGIN_RETURN } from "@/lib/googleLogin";
+import { finishNativeLogin, isExternalLogin, makeNonce, NATIVE_LOGIN_RETURN } from "@/lib/googleLogin";
 import Auth from "@/pages/Auth";
 
 describe("volta do Google no app", () => {
@@ -32,6 +32,13 @@ describe("volta do Google no app", () => {
 
   it("outro endereço não é com ele", async () => {
     expect(await finishNativeLogin("https://cronys.com.br/admin")).toBeNull();
+  });
+
+  it("nonce: o Google recebe o sha-256 do que vai para o Supabase", async () => {
+    const { raw, hashed } = await makeNonce();
+    expect(raw).toMatch(/^[0-9a-f]{48}$/);
+    const { createHash } = await import("node:crypto");
+    expect(hashed).toBe(createHash("sha256").update(raw).digest("hex"));
   });
 
   it("sabe quem veio de fora", () => {

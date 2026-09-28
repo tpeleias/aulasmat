@@ -13,6 +13,13 @@ const config: CapacitorConfig = {
       // não renomeia nada visível, só faz o app perder o que já guardou.
       group: 'AulasMatPrefs',
     },
+    // Login com o Google nativo do Android (src/lib/googleLogin.ts). Só o
+    // Google: o Facebook traria o SDK dele e a permissão de ID de publicidade,
+    // que a ficha da Play Store declara que o app não usa.
+    SocialLogin: {
+      providers: { google: true, facebook: false, apple: false, twitter: false },
+      logLevel: 1,
+    },
   },
 };
 

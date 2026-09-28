@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,7 +13,8 @@ import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { Capacitor } from "@capacitor/core";
 import { TRIAL_DAYS } from "@shared/plans";
-import { googleLoginEnabled, isExternalLogin, signInWithGoogle } from "@/lib/googleLogin";
+import { GOOGLE_WEB_CLIENT_ID, googleLoginEnabled, isExternalLogin, signInWithGoogle } from "@/lib/googleLogin";
+import GoogleWebButton from "@/components/GoogleWebButton";
 import { dbErrorMessage } from "@/lib/dbErrors";
 
 
@@ -44,6 +45,11 @@ export default function Auth() {
   const [busy, setBusy] = useState(false);
   const [google, setGoogle] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
+  // No site, o botão oficial do Google (mostra cronys.com.br); se ele não
+  // carregar, o nosso, que passa pelo Supabase.
+  const [officialFailed, setOfficialFailed] = useState(false);
+  const onOfficialUnavailable = useCallback(() => setOfficialFailed(true), []);
+  const useOfficial = !Capacitor.isNativePlatform() && !!GOOGLE_WEB_CLIENT_ID && !officialFailed;
   useEffect(() => { let on = true; googleLoginEnabled().then(v => { if (on) setGoogle(v); }); return () => { on = false; }; }, []);
 
   useEffect(() => { document.title = L("Acesso — Cronys", "Sign in — Cronys"); }, []);
@@ -159,11 +165,13 @@ export default function Auth() {
 
           {google && (
             <div className="mb-5 space-y-5">
-              <Button type="button" variant="outline" disabled={googleBusy} onClick={continueWithGoogle}
-                className="h-12 w-full gap-3 rounded-xl border-border bg-white text-base font-medium text-[#1f1f1f] hover:bg-neutral-50 hover:text-[#1f1f1f]">
-                {googleBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleG />}
-                {L("Continuar com o Google", "Continue with Google")}
-              </Button>
+              {useOfficial ? <GoogleWebButton onUnavailable={onOfficialUnavailable} /> : (
+                <Button type="button" variant="outline" disabled={googleBusy} onClick={continueWithGoogle}
+                  className="h-12 w-full gap-3 rounded-xl border-border bg-white text-base font-medium text-[#1f1f1f] hover:bg-neutral-50 hover:text-[#1f1f1f]">
+                  {googleBusy ? <Loader2 className="h-5 w-5 animate-spin" /> : <GoogleG />}
+                  {L("Continuar com o Google", "Continue with Google")}
+                </Button>
+              )}
               <div className="flex items-center gap-3 text-xs text-muted-foreground">
                 <span className="h-px flex-1 bg-border" />{L("ou com e-mail", "or with email")}<span className="h-px flex-1 bg-border" />
               </div>
