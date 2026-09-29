@@ -52,4 +52,13 @@ describe("VocabularyProvider", () => {
     const { getByTestId } = renderProbe();
     await waitFor(() => expect(getByTestId("out").textContent).toBe("boas-vindas|Consulta"));
   });
+
+  it("logado sem empresa não pega a língua da empresa do endereço público", async () => {
+    const { getLocale } = await import("@/lib/i18n");
+    const antes = getLocale();
+    rpcResult = { data: { business_model: "aulas", active: true, custom: null, locale: antes === "en" ? "pt-BR" : "en", currency: "USD", member: false, setup_done: true }, error: null };
+    const { getByTestId } = renderProbe();
+    await waitFor(() => expect(getByTestId("out").textContent).toMatch(/^app\|/));
+    expect(getLocale()).toBe(antes);
+  });
 });

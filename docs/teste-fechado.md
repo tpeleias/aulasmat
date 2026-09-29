@@ -43,6 +43,8 @@ necessário), canal e o que foi feito.
 |---|---|---|---|
 | 27/09 | Kika Sport (empresa em uso), relatado ao Thiago | Criou a conta pelo cadastro de cliente, duas vezes, e ficou "sem vínculo" em vez de admin | Tela de entrar só com "criar conta" da empresa; todo cadastro novo vira admin; gestor ganhou "redefinir senha" (1.12.4) |
 | 27-28/09 | Testadores do Hive (internacionais) | Precisavam do app em inglês | Ficha da loja em inglês, páginas legais em inglês, moeda e hora no formato americano, empresa de teste em inglês e dólar |
+| 29/09 | Testador internacional, relatado ao Thiago | Ao entrar pela primeira vez, a tela "Bem-vindo ao Cronys" veio em português | Causa: sem empresa ainda, o app usava a língua da empresa pública (português). Agora fica na língua do aparelho; as duas empresas criadas assim foram passadas para inglês e dólar |
+| 29/09 | Usuário, relatado ao Thiago | Não encontrou onde mudar a moeda (estava travada pela assinatura ativa) | "Mudar a moeda" ao lado do valor por hora; "moeda" nas descrições das seções; aviso de moeda travada com cadeado e o caminho para trocar |
 
 ## Mudanças no período
 
@@ -83,3 +85,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Configuração guiada no primeiro acesso da empresa nova | T |
 | Aviso no login: "É cliente? Entre com o usuário que a empresa te passou" | K |
 | Palavras dos ramos revisadas em português e inglês | T |
+
+### 29/09 - site (entra no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Primeira entrada sem empresa fica na língua do aparelho | Testador (feedback de 29/09) |
+| Moeda mais fácil de achar e aviso claro quando travada pela assinatura | Usuário (feedback de 29/09) |

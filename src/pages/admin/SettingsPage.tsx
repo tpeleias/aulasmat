@@ -46,9 +46,9 @@ type SectionId = "conta" | "negocio" | "agenda" | "cobranca" | "clientes" | "int
 // o plano junto - a antiga seção Plano.
 const SECTIONS: { id: SectionId; icon: typeof Building2; label: () => string; hint: (v: Vocabulary) => string }[] = [
   { id: "conta", icon: UserRound, label: () => L("Minha conta", "My account"), hint: () => L("Plano, senha, rota, aparência", "Plan, password, maps, appearance") },
-  { id: "negocio", icon: Building2, label: () => L("Negócio", "Business"), hint: () => L("Tipo, palavras, idioma, contato", "Type, words, language, contact") },
+  { id: "negocio", icon: Building2, label: () => L("Negócio", "Business"), hint: () => L("Tipo, palavras, idioma e moeda, contato", "Type, words, language and currency, contact") },
   { id: "agenda", icon: CalendarDays, label: () => L("Agenda", "Calendar"), hint: v => L(`Horário de trabalho, ${v.topic.lp}`, `Working hours, ${v.topic.lp}`) },
-  { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, pacotes, Pix, falta", "Price, packages, payment, no-shows") },
+  { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, moeda, pacotes, Pix, falta", "Price, currency, packages, payment, no-shows") },
   { id: "clientes", icon: Users, label: () => L("Clientes", "Clients"), hint: () => L("Portal, pedidos, mensagens", "Portal, requests, messages") },
   { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => "Google Agenda" },
 ];
@@ -368,7 +368,13 @@ export default function SettingsPage() {
           </p>
         </div>
         <div>
-          <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
+          <div className="flex items-baseline justify-between gap-2">
+            <Label>{L("Valor por hora", "Hourly rate")} ({currencySymbol()}/h)</Label>
+            {/* Quem procura a moeda aqui (testador, 29/09) acha o caminho. */}
+            <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => open("negocio")}>
+              {L("Mudar a moeda", "Change currency")}
+            </button>
+          </div>
           <NumberField
             step="0.01"
             inputMode="decimal"

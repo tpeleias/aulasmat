@@ -2962,4 +2962,16 @@ EXCEPTION WHEN raise_exception THEN
 END $$;
 COMMIT;
 
+\echo '--- 52. Logado sem empresa: my_vocabulary avisa que não é membro (29/09) ---'
+INSERT INTO auth.users (id, email, raw_app_meta_data) VALUES
+  ('52000000-0000-0000-0000-000000000001', 'novo@gmail.x', '{"provider":"google"}');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '52000000-0000-0000-0000-000000000001', true);
+SELECT public.assert((public.my_vocabulary() ->> 'member')::boolean = false, 'sem empresa: member falso (a lingua da empresa publica nao vale)');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((public.my_vocabulary() ->> 'member')::boolean, 'admin de empresa: member verdadeiro');
+COMMIT;
+
 \echo '=== FIM ==='
