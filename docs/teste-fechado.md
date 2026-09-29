@@ -87,7 +87,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Aviso no login: "É cliente? Entre com o usuário que a empresa te passou" | K |
 | Palavras dos ramos revisadas em português e inglês | T |
 
-### 29/09 - site (entra no próximo `.aab`)
+### 29/09 - versão 1.13.3
 
 | Mudança | Origem |
 |---|---|
