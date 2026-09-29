@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
-import { Globe } from "lucide-react";
+import { Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -95,7 +95,7 @@ export default function LanguageSettings() {
             onValueChange={v => save({ locale: v as Locale, currency: v === "en" && currency === "BRL" && !locked ? "USD" : undefined })} />
         </div>
         <div>
-          <Label>{L("Moeda", "Currency")}</Label>
+          <Label className="flex items-center gap-1">{L("Moeda", "Currency")}{locked && <Lock aria-label={L("travada", "locked")} className="h-3 w-3 text-muted-foreground" />}</Label>
           <WheelSelect value={other ? "other" : currency} disabled={busy} onValueChange={pickCurrency} label={L("Moeda", "Currency")} options={[
             ...CURRENCIES.map(c => ({ value: c.value, label: c.label, disabled: locked && c.value !== currency })),
             { value: "other", label: L("Outra (escrever o símbolo)", "Other (type the symbol)") },
@@ -116,13 +116,25 @@ export default function LanguageSettings() {
           </p>
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        {locked
-          ? L("A moeda fica travada enquanto a assinatura do Cronys estiver ativa, porque ela é cobrada nessa moeda.",
-              "The currency is locked while your Cronys subscription is active, since it's billed in that currency.")
-          : L("A assinatura do Cronys é cobrada nesta moeda.",
-              "Your Cronys subscription is billed in this currency.")}
-      </p>
+      {locked ? (
+        // Mais à vista (testador, 29/09): parecia que a troca de moeda não existia.
+        <div className="flex gap-2 rounded-xl border border-warning/40 bg-warning/10 px-3 py-2.5 text-xs">
+          <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="font-medium text-foreground">
+              {L(`Moeda travada em ${currency} enquanto a assinatura do Cronys estiver ativa.`, `Currency locked to ${currency} while your Cronys subscription is active.`)}
+            </p>
+            <p className="text-muted-foreground">
+              {L("A assinatura é cobrada nessa moeda. Para usar outra, cancele a assinatura em Minha conta, troque a moeda aqui e assine de novo. Só o símbolo mostrado dá para mudar agora, em \"Outra\".",
+                 "The subscription is billed in it. To use another one, cancel the subscription under My account, change the currency here and subscribe again. You can change just the symbol shown now, under \"Other\".")}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {L("A assinatura do Cronys é cobrada nesta moeda.", "Your Cronys subscription is billed in this currency.")}
+        </p>
+      )}
     </Card>
   );
 }

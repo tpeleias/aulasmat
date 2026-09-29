@@ -5,7 +5,7 @@ import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary }
 import { isCurrency, isLocale, setLocale, type Currency, type Locale } from "@/lib/i18n";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null; setup_done?: boolean };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null; setup_done?: boolean; member?: boolean };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
@@ -68,6 +68,10 @@ function parse(raw: unknown): Raw | null {
     // Configuração guiada (migration 20260928030000). Sem a chave (banco
     // antes da migration), conta como feita: nunca prende quem já usa o app.
     setup_done: r.setup_done !== false,
+    // Logado mas sem empresa (primeira entrada pelo Google): a resposta é a da
+    // empresa do endereço público, e a língua dela não vale para a pessoa
+    // (migration 20260929010000). Sem a chave, banco antigo: conta como membro.
+    member: r.member !== false,
   };
 }
 
@@ -113,7 +117,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
   // Mudou depois de desenhar: recarrega a tela inteira, que é o jeito simples
   // de todo texto passar pela língua nova.
   useEffect(() => {
-    if (!user || !raw?.locale) return;
+    if (!user || !raw?.locale || raw.member === false) return;
     const changed = setLocale(raw.locale, raw.currency ?? (raw.locale === "en" ? "USD" : "BRL"), raw.currency_symbol ?? null);
     if (changed && painted) window.location.reload();
   }, [user, raw?.locale, raw?.currency, raw?.currency_symbol]);
