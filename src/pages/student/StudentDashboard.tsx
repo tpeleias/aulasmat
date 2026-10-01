@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import UpdateBanner from "@/components/UpdateBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
@@ -91,6 +92,7 @@ export default function StudentDashboard() {
 
   return (
     <div className="space-y-6">
+      <UpdateBanner />
       <div>
         <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
         <p className="text-sm text-muted-foreground">{L(`Aqui está um resumo ${ap.pick("dos seus", "das suas")} ${ap.lp} e tarefas.`, `Here's a summary of your ${ap.lp} and tasks.`)}</p>

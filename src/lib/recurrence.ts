@@ -22,6 +22,24 @@ export function buildOccurrences(base: Date, count: number, weekdays: number[] =
   return out;
 }
 
+/**
+ * Quantos atendimentos a repetição tem de `base` até o dia `until` (inclusive,
+ * pela data local), nos dias da semana escolhidos. Para o "repetir até tal
+ * data" (Thiago, 01/10): a conta vira o `count` de buildOccurrences. Pode
+ * passar de MAX_OCCURRENCES - quem chama avisa e corta.
+ */
+export function countUntil(base: Date, until: Date, weekdays: number[] = []): number {
+  const days = new Set(weekdays.length ? weekdays : [base.getDay()]);
+  const last = new Date(until.getFullYear(), until.getMonth(), until.getDate(), 23, 59, 59);
+  let n = 0;
+  for (let i = 0; i < 3 * 366; i++) {
+    const d = addDays(base, i);
+    if (d > last) break;
+    if (days.has(d.getDay())) n++;
+  }
+  return n;
+}
+
 const SHORT_PT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 const SHORT_EN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 

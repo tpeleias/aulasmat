@@ -24,6 +24,7 @@ import type { SummaryLesson } from "@/lib/periodSummary";
 import { useAuth } from "@/hooks/useAuth";
 import TrialBanner from "@/components/TrialBanner";
 import FirstSteps from "@/components/FirstSteps";
+import UpdateBanner from "@/components/UpdateBanner";
 import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
@@ -145,6 +146,8 @@ export default function HomePage() {
           <p className="text-sm text-muted-foreground capitalize">{format(now, L("EEEE, d 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}</p>
           <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {capitalize(teacher)}</h1>
         </header>
+
+        <UpdateBanner />
 
         {!isTeacher && <TrialBanner />}
 

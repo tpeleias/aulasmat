@@ -93,3 +93,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Primeira entrada sem empresa fica na língua do aparelho | Testador (feedback de 29/09) |
 | Moeda mais fácil de achar e aviso claro quando travada pela assinatura | Usuário (feedback de 29/09) |
+
+### 01/10 - site (o aviso de atualização só no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Aviso de versão nova do app na tela inicial (Play In-App Updates) | T |
+| Repetir atendimento "até uma data", além de por quantidade | T |
