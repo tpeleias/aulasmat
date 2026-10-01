@@ -63,6 +63,18 @@ describe("LessonDialog", () => {
     expect(screen.getByText(/toda seg e qui/)).toBeTruthy();
   });
 
+  it("repetição até uma data: conta quantos cabem até lá", () => {
+    isTeacher = false;
+    render(
+      <LessonDialog open onOpenChange={() => {}} slotStart={new Date(2026, 9, 1, 14)} lesson={null} onSaved={() => {}} defaultTeacher="thiago" />,
+    );
+    fireEvent.click(screen.getByRole("checkbox", { name: /Repetir toda semana/ }));
+    fireEvent.click(screen.getByRole("radio", { name: "Até uma data" }));
+    // qui 01/10 até qui 22/10: 01, 08, 15, 22.
+    fireEvent.change(screen.getByLabelText("Até"), { target: { value: "2026-10-22" } });
+    expect(screen.getByText(/4 aulas, toda qui, até 22\/10\/2026/)).toBeTruthy();
+  });
+
   it("atendimento novo já vem com o serviço da matéria e a duração dele", () => {
     isTeacher = false;
     services = [{ id: "s1", name: "Matemática", duration_minutes: 90, price: null, mode: "ambos", color: null, active: true }];

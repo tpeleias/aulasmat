@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildOccurrences, weekdaysLabel } from "@/lib/recurrence";
+import { buildOccurrences, countUntil, weekdaysLabel } from "@/lib/recurrence";
 
 const d = (s: string) => new Date(s);
 const fmt = (xs: Date[]) => xs.map(x => `${x.getDay()} ${x.getDate()} ${x.getHours()}:${String(x.getMinutes()).padStart(2, "0")}`);
@@ -28,5 +28,24 @@ describe("weekdaysLabel", () => {
     expect(weekdaysLabel([5, 1, 3], false)).toBe("seg, qua e sex");
     expect(weekdaysLabel([0, 6], true)).toBe("Sat and Sun");
     expect(weekdaysLabel([2], false)).toBe("ter");
+  });
+});
+
+// "Repetir até tal data" (Thiago, 01/10).
+describe("countUntil", () => {
+  it("conta os dias escolhidos do início até a data, inclusive", () => {
+    // qua 30/09 até qua 14/10: qua e sex -> 30/09, 02/10, 07/10, 09/10, 14/10.
+    expect(countUntil(d("2026-09-30T18:00"), d("2026-10-14T12:00"), [3, 5])).toBe(5);
+  });
+  it("sem dias escolhidos vale o dia do início", () => {
+    expect(countUntil(d("2026-09-30T18:00"), d("2026-10-28T12:00"))).toBe(5);
+  });
+  it("data antes do início dá zero", () => {
+    expect(countUntil(d("2026-09-30T18:00"), d("2026-09-29T12:00"))).toBe(0);
+  });
+  it("a quantidade vira as datas de buildOccurrences", () => {
+    const base = d("2026-09-30T18:00");
+    const n = countUntil(base, d("2026-10-14T12:00"), [3, 5]);
+    expect(fmt(buildOccurrences(base, n, [3, 5])).at(-1)).toBe("3 14 18:00");
   });
 });

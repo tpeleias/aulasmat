@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { ExternalLink, ChevronDown } from "lucide-react";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize, fmtMoney } from "@/lib/balance";
@@ -33,7 +33,7 @@ import { NumberField } from "@/components/NumberField";
 import { WheelPicker } from "@/components/WheelPicker";
 
 import { navAppName, routeUrl, useNavApp } from "@/lib/navigation";
-import { buildOccurrences, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
+import { buildOccurrences, countUntil, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
 
 // A rodinha de duração: de 5 em 5 minutos, até 4 horas.
 const DURATIONS = Array.from({ length: 48 }, (_, i) => (i + 1) * 5);
@@ -107,6 +107,9 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
   const [defaultDuration, setDefaultDuration] = useState(60);
   const [recurring, setRecurring] = useState(false);
   const [repeatCount, setRepeatCount] = useState(5);
+  // Repetir por quantidade ou até uma data (Thiago, 01/10).
+  const [repeatMode, setRepeatMode] = useState<"count" | "until">("count");
+  const [repeatUntil, setRepeatUntil] = useState("");
   // Dias da repetição (0 = domingo). Vazio = o dia do início, como antes.
   const [repeatDays, setRepeatDays] = useState<number[]>([]);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
@@ -377,7 +380,16 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     }
 
     // Com dias escolhidos, até um atendimento só pode cair noutro dia que não o do início.
-    if (!recurring || (repeatCount <= 1 && repeatDays.length === 0)) {
+    // "Até tal data" vira a quantidade de atendimentos até lá.
+    const totalCount = repeatMode === "until"
+      ? Math.min(MAX_OCCURRENCES, repeatUntil ? countUntil(new Date(form.start_at), new Date(`${repeatUntil}T12:00`), repeatDays) : 0)
+      : repeatCount;
+    if (recurring && repeatMode === "until" && totalCount < 1) {
+      setBusy(false);
+      toast.error(L("Escolha até que dia repetir (depois do início).", "Pick the end date (after the start)."));
+      return;
+    }
+    if (!recurring || (totalCount <= 1 && repeatDays.length === 0)) {
       // payment_status is derived from the wallet by the database; never send it back.
       const { id: _ignore, payment_status: _ps, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
@@ -387,7 +399,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       return;
     }
 
-    const occurrences = buildOccurrences(new Date(form.start_at), repeatCount, repeatDays);
+    const occurrences = buildOccurrences(new Date(form.start_at), totalCount, repeatDays);
     const minStart = occurrences[0].toISOString();
     const lastEnd = new Date(occurrences[occurrences.length - 1].getTime() + form.duration_minutes * 60000).toISOString();
 
@@ -738,17 +750,50 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
                         </Button>
                       ))}
                     </div>
-                    <div className="grid grid-cols-[auto_90px_1fr] items-center gap-2">
-                      <Label className="text-xs text-muted-foreground">{L(`Nº de ${a.lp}`, `No. of ${a.lp}`)}</Label>
-                      <NumberField inputMode="numeric" min={1} max={MAX_OCCURRENCES} fallback={1} value={repeatCount}
-                        onValueChange={n => setRepeatCount(Math.round(n))} />
-                      <span className="text-xs text-muted-foreground">
-                        {days.length
-                          ? L(`${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, toda ${weekdaysLabel(days, false)}, a partir do início.`,
-                              `${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, every ${weekdaysLabel(days, true)}, from the start date.`)
-                          : L("Escolha o dia e o horário primeiro.", "Pick the date and time first.")}
-                      </span>
+                    <div className="inline-flex rounded-full border border-border p-0.5" role="radiogroup" aria-label={L("Repetir por", "Repeat by")}>
+                      {([["count", L("Quantidade", "Number")], ["until", L("Até uma data", "Until a date")]] as const).map(([m, label]) => (
+                        <button key={m} type="button" role="radio" aria-checked={repeatMode === m}
+                          onClick={() => {
+                            setRepeatMode(m);
+                            // Sem data ainda: sugere 2 meses depois do início.
+                            if (m === "until" && !repeatUntil && form.start_at) setRepeatUntil(format(addDays(new Date(form.start_at), 56), "yyyy-MM-dd"));
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${repeatMode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}>
+                          {label}
+                        </button>
+                      ))}
                     </div>
+                    {repeatMode === "count" ? (
+                      <div className="grid grid-cols-[auto_90px_1fr] items-center gap-2">
+                        <Label className="text-xs text-muted-foreground">{L(`Nº de ${a.lp}`, `No. of ${a.lp}`)}</Label>
+                        <NumberField inputMode="numeric" min={1} max={MAX_OCCURRENCES} fallback={1} value={repeatCount}
+                          onValueChange={n => setRepeatCount(Math.round(n))} />
+                        <span className="text-xs text-muted-foreground">
+                          {days.length
+                            ? L(`${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, toda ${weekdaysLabel(days, false)}, a partir do início.`,
+                                `${repeatCount} ${repeatCount === 1 ? a.l : a.lp}, every ${weekdaysLabel(days, true)}, from the start date.`)
+                            : L("Escolha o dia e o horário primeiro.", "Pick the date and time first.")}
+                        </span>
+                      </div>
+                    ) : (() => {
+                      const startDate = form.start_at ? form.start_at.slice(0, 10) : undefined;
+                      const n = form.start_at && repeatUntil ? countUntil(new Date(form.start_at), new Date(`${repeatUntil}T12:00`), repeatDays) : 0;
+                      return (
+                        <div className="grid grid-cols-[auto_150px_1fr] items-center gap-2">
+                          <Label htmlFor="repetir-ate" className="text-xs text-muted-foreground">{L("Até", "Until")}</Label>
+                          <Input id="repetir-ate" type="date" value={repeatUntil} min={startDate} onChange={e => setRepeatUntil(e.target.value)} />
+                          <span className="text-xs text-muted-foreground">
+                            {!days.length ? L("Escolha o dia e o horário primeiro.", "Pick the date and time first.")
+                              : n < 1 ? L("Escolha uma data depois do início.", "Pick a date after the start.")
+                              : n > MAX_OCCURRENCES
+                                ? L(`Dá ${n} ${a.lp}; o máximo de uma vez é ${MAX_OCCURRENCES}. Serão ${a.pick("criados", "criadas")} só ${a.os} ${MAX_OCCURRENCES} ${a.pick("primeiros", "primeiras")}.`,
+                                    `That's ${n} ${a.lp}; the most at once is ${MAX_OCCURRENCES}. Only the first ${MAX_OCCURRENCES} will be created.`)
+                                : L(`${n} ${n === 1 ? a.l : a.lp}, toda ${weekdaysLabel(days, false)}, até ${format(new Date(`${repeatUntil}T12:00`), "dd/MM/yyyy")}.`,
+                                    `${n} ${n === 1 ? a.l : a.lp}, every ${weekdaysLabel(days, true)}, until ${format(new Date(`${repeatUntil}T12:00`), "MMM d, yyyy")}.`)}
+                          </span>
+                        </div>
+                      );
+                    })()}
                     {repeatDays.length > 0 && startDay !== null && !repeatDays.includes(startDay) && (
                       <p className="text-[11px] text-muted-foreground">
                         {L(`O início (${names[startDay]}) não está entre os dias: ${a.o} ${a.pick("primeiro", "primeira")} fica no próximo dia escolhido.`,
