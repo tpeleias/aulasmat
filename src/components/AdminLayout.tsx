@@ -140,7 +140,7 @@ export default function AdminLayout() {
     <div className="flex flex-1 flex-col bg-background">
       {/* O aviso de versão nova fica só na tela Hoje (HomePage). Aqui ele
           sobrou do aviso antigo do APK e, desde a 1.13.4, aparecia em cima do
-          menu em todas as telas - reclamação de testador (02/10). */}
+          menu em todas as telas (revisão de 02/10). */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
