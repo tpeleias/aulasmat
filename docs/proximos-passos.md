@@ -68,6 +68,12 @@ O admin não percebia: logado, ele vê a própria empresa.
   empresa `cronys.com.br/horarios/<código-da-empresa>/<profissional>`, com a
   função `public_agenda`. O código da empresa é o `accounts.slug`, o mesmo que
   o cliente usa para criar conta - quem tiver o link passa a saber o código.
+  **Ordem para publicar:** 1) aplicar a migration `20261002010000_public_agenda`
+  no Supabase; 2) só então mesclar e publicar o site. Ao contrário, a página
+  inteira (inclusive `/disponibilidade`) fica sem dados até a migration entrar.
+  O `/disponibilidade` antigo continua funcionando (empresa do login ou a
+  pública). No app Android, os links novos só chegam no próximo `.aab`; os
+  antigos seguem abrindo a empresa do Thiago.
 
 ## Feedback dos primeiros testes (27/09)
 

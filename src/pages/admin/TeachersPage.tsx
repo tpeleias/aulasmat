@@ -403,8 +403,8 @@ export default function TeachersPage() {
             {slugTaken && <p className="text-xs text-destructive">{L(`Já existe ${st.um} ${st.l} com esse nome.`, `There is already a ${st.l} with that name.`)}</p>}
             {renaming && newSlug && newSlug !== oldSlug && (
               <p className="text-xs text-muted-foreground">
-                {L("O link público de horários muda de", "The public schedule link changes from")} <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{oldSlug}</span> {L("para", "to")}{" "}
-                <span className="font-mono break-all">{publicSiteUrl()}/disponibilidade/{newSlug}</span>. {L("Quem tiver o link antigo vai precisar do novo.", "Anyone with the old link will need the new one.")}
+                {L("O link público de horários muda de", "The public schedule link changes from")} <span className="font-mono break-all">{publicSiteUrl()}/horarios/{plan.school_code}/{oldSlug}</span> {L("para", "to")}{" "}
+                <span className="font-mono break-all">{publicSiteUrl()}/horarios/{plan.school_code}/{newSlug}</span>. {L("Quem tiver o link antigo vai precisar do novo.", "Anyone with the old link will need the new one.")}
               </p>
             )}
           </div>

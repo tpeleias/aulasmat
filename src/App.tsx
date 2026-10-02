@@ -94,6 +94,8 @@ const App = () => (
             <Route path="/para/:ramo" element={<RamoPage />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
+            <Route path="/horarios/:empresa" element={<PublicAvailability />} />
+            <Route path="/horarios/:empresa/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<HomePage />} />
               <Route path="agenda" element={<CalendarPage />} />

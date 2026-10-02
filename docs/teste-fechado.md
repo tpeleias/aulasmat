@@ -111,3 +111,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Avisos de ação (marcado, salvo...) acima do menu de baixo e mais curtos | Testador (feedback de 02/10) |
 | Aviso de versão nova só na tela Hoje e no início do portal, não mais em cima do menu (no próximo `.aab`) | R |
 | Correção: o botão "Links de disponibilidade" só aparece na empresa do endereço público (nas outras, o link abria a agenda errada); páginas por ramo sem prometer esse link | R |
+| Página de horários por empresa: `cronys.com.br/horarios/<código>/<profissional>`, criada sozinha para toda empresa; o botão de links volta para todas, com o endereço novo | R |

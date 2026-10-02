@@ -11,6 +11,8 @@ import { capitalize } from "@/lib/balance";
 import { UserRound, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
 import { CronysWordmark } from "@/components/brand";
 import { useWords } from "@/hooks/useVocabulary";
+import { usePlan } from "@/hooks/usePlan";
+import { availabilityPath } from "@/lib/availabilityLinks";
 
 import { L } from "@/lib/i18n";
 export default function StudentLayout() {
@@ -20,6 +22,10 @@ export default function StudentLayout() {
   const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
   const w = useWords();
+  // A página de horários é a da empresa do cliente (antes /disponibilidade, que
+  // sem login era a do endereço público).
+  const { plan } = usePlan();
+  const agendaOf = (t: { name: string }) => plan.school_code ? availabilityPath(plan.school_code, t) : `/disponibilidade/${teacherSlug(t.name)}`;
 
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/entrar" replace />;
@@ -62,7 +68,7 @@ export default function StudentLayout() {
               <div className="text-[11px] uppercase tracking-wide text-sidebar-foreground/50 px-1">{L("Disponibilidade", "Availability")}</div>
               {teachers.map(t => (
                 <Button key={t.id} asChild variant="secondary" size="sm" className="w-full justify-start gap-2">
-                  <Link to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank"><CalendarSearch className="w-4 h-4" />{L("Agenda", "Schedule")} - {capitalize(t.name)}</Link>
+                  <Link to={agendaOf(t)} target="_blank"><CalendarSearch className="w-4 h-4" />{L("Agenda", "Schedule")} - {capitalize(t.name)}</Link>
                 </Button>
               ))}
             </>
@@ -93,7 +99,7 @@ export default function StudentLayout() {
               {settings?.show_availability_to_students && (
                 <>
                   {teachers.map(t => (
-                    <Link key={t.id} to={`/disponibilidade/${teacherSlug(t.name)}`} target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />{L("Agenda", "Schedule")} {capitalize(t.name)}</Link>
+                    <Link key={t.id} to={agendaOf(t)} target="_blank" onClick={close} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3 text-sm font-medium"><CalendarSearch className="h-4 w-4" />{L("Agenda", "Schedule")} {capitalize(t.name)}</Link>
                   ))}
                 </>
               )}

@@ -2974,4 +2974,64 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert((public.my_vocabulary() ->> 'member')::boolean, 'admin de empresa: member verdadeiro');
 COMMIT;
 
+\echo '--- 53. Pagina de horarios por empresa: public_agenda (02/10) ---'
+DO $$
+DECLARE
+  _h uuid;
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Horarios H', 'horarios-h', 'pro') RETURNING id INTO _h;
+  INSERT INTO public.settings (account_id) VALUES (_h);
+  INSERT INTO public.teachers (account_id, name, subject, active) VALUES (_h, 'Helena', 'Pilates', true), (_h, 'Ivo', null, false);
+  INSERT INTO public.services (account_id, name, duration_minutes, price) VALUES (_h, 'Aula H', 50, 90);
+  INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status)
+  VALUES (_h, 'Cliente Secreto', 'Resp Secreto', 'helena', now() + interval '1 day', 50, 'agendada'),
+         (_h, 'Cliente Cancelou', null, 'helena', now() + interval '2 day', 50, 'cancelada');
+  PERFORM set_config('teste.h', _h::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert(public.public_agenda('horarios-h', now(), now() + interval '5 days') -> 'account' ->> 'name' = 'Horarios H',
+  'visitante abre a agenda da empresa pelo codigo');
+SELECT public.assert(public.public_agenda('HORARIOS-H ', now(), now() + interval '5 days') IS NOT NULL, 'codigo sem diferenca de maiuscula e espaco');
+SELECT public.assert(jsonb_array_length(public.public_agenda('horarios-h', now(), now() + interval '5 days') -> 'lessons') = 1,
+  'so o atendimento ativo ocupa (o cancelado nao)');
+SELECT public.assert(public.public_agenda('horarios-h', now(), now() + interval '5 days')::text NOT LIKE '%Secreto%',
+  'nome de cliente e de responsavel nao sai na agenda publica');
+SELECT public.assert((SELECT string_agg(x ->> 'slug', ',') FROM jsonb_array_elements(public.public_agenda('horarios-h', now(), now() + interval '5 days') -> 'teachers') x) = 'helena',
+  'so quem esta ativo aparece');
+SELECT public.assert((public.public_agenda('horarios-h', now(), now() + interval '5 days') -> 'services' -> 0 -> 'price') = 'null'::jsonb,
+  'preco escondido quando a empresa nao mostra valores');
+SELECT public.assert(public.public_agenda('nao-existe', now(), now() + interval '5 days') IS NULL, 'codigo desconhecido devolve nulo');
+SELECT public.assert(public.public_agenda(NULL, now(), now() + interval '5 days') -> 'account' ->> 'slug' = 'portaldeaulas',
+  'sem codigo: a empresa do endereco publico, como /disponibilidade');
+SELECT public.assert(public.public_agenda('horarios-h', now(), now() + interval '5 days')::text NOT LIKE '%Reforco publico%',
+  'nada de outra empresa na agenda da H');
+DO $$
+BEGIN
+  PERFORM public.public_agenda('horarios-h', now(), now() + interval '60 days');
+  RAISE EXCEPTION 'FALHOU: aceitou intervalo de 60 dias';
+EXCEPTION WHEN invalid_parameter_value THEN RAISE NOTICE '  ok - intervalo longo recusado';
+END $$;
+COMMIT;
+
+UPDATE public.accounts SET active = false WHERE id = current_setting('teste.h')::uuid;
+BEGIN;
+SET LOCAL ROLE anon;
+SELECT public.assert(public.public_agenda('horarios-h', now(), now() + interval '5 days') IS NULL, 'empresa desativada some da pagina');
+COMMIT;
+UPDATE public.accounts SET active = true WHERE id = current_setting('teste.h')::uuid;
+
+-- O codigo fica publico com o link. Quem cria conta com ele vira cliente sem
+-- cadastro vinculado: nao pode enxergar atendimento nem cliente da empresa.
+INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
+  ('53000000-0000-0000-0000-000000000001', 'curioso@x', '{"school_code":"horarios-h"}');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', '53000000-0000-0000-0000-000000000001', true);
+SELECT public.assert((SELECT count(*) FROM public.lessons) = 0, 'login criado com o codigo nao ve atendimentos');
+SELECT public.assert((SELECT count(*) FROM public.students) = 0, 'nem clientes');
+COMMIT;
+
 \echo '=== FIM ==='

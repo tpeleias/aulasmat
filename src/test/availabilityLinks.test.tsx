@@ -13,10 +13,12 @@ const teachers = Array.from({ length: 8 }, (_, i) => ({ id: String(i), name: i =
 
 describe("AvailabilityLinksDialog", () => {
   it("lista todos e filtra pelo nome, sem acento", () => {
-    render(<AvailabilityLinksDialog open onOpenChange={() => {}} teachers={teachers} />);
-    expect(screen.getAllByRole("button", { name: /Copiar/ })).toHaveLength(8);
+    render(<AvailabilityLinksDialog open onOpenChange={() => {}} teachers={teachers} account="kika-sport" />);
+    // Um por profissional, mais o da agenda toda.
+    expect(screen.getAllByRole("button", { name: /Copiar/ })).toHaveLength(9);
+    expect(screen.getByText("/horarios/kika-sport")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Buscar pelo nome"), { target: { value: "joao" } });
     expect(screen.getAllByRole("button", { name: /Copiar/ })).toHaveLength(1);
-    expect(screen.getByText("/disponibilidade/joao-silva")).toBeTruthy();
+    expect(screen.getByText("/horarios/kika-sport/joao-silva")).toBeTruthy();
   });
 });

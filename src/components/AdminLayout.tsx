@@ -10,7 +10,6 @@ import AvailabilityLinksDialog from "@/components/AvailabilityLinksDialog";
 import { copyAvailabilityLink } from "@/lib/availabilityLinks";
 import ThemeToggle from "@/components/ThemeToggle";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
-import { useHasPublicPage } from "@/hooks/usePublicPage";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
@@ -60,7 +59,6 @@ export default function AdminLayout() {
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
-  const hasPublicPage = useHasPublicPage(!!session);
   const [searchParams, setSearchParams] = useSearchParams();
   useNativeRoute();
 
@@ -113,15 +111,16 @@ export default function AdminLayout() {
   const primaryNav = isTeacher ? primary.filter(it => teacherCan(it.to)) : primary;
   const secondaryNav = isTeacher ? secondary.filter(it => teacherCan(it.to)) : secondary;
   // Quem tem login de profissional só divulga o próprio link de disponibilidade.
-  // Sem página pública própria (toda empresa que não é a do endereço público),
-  // não há link para copiar: ele abriria a agenda de outra empresa.
-  const linkTeachers = !hasPublicPage ? [] : isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
+  // O link leva o código da empresa (/horarios/<empresa>/...); sem ele ainda
+  // carregado, não há o que copiar.
+  const account = plan.school_code ?? "";
+  const linkTeachers = !account ? [] : isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
 
   // Os links de disponibilidade juntos numa janela (27/09): um botão por
   // profissional no menu não cabe numa empresa grande. O professor só tem o
   // dele: o botão já copia.
   const openLinks = () => {
-    if (linkTeachers.length === 1 && isTeacher) copyAvailabilityLink(linkTeachers[0]);
+    if (linkTeachers.length === 1 && isTeacher) copyAvailabilityLink(account, linkTeachers[0]);
     else setLinksOpen(true);
   };
   const linksLabel = isTeacher ? L("Copiar meu link", "Copy my link") : L("Links de disponibilidade", "Availability links");
@@ -225,7 +224,7 @@ export default function AdminLayout() {
         )}
       />
 
-      <AvailabilityLinksDialog open={linksOpen} onOpenChange={setLinksOpen} teachers={linkTeachers} />
+      <AvailabilityLinksDialog open={linksOpen} onOpenChange={setLinksOpen} teachers={linkTeachers} account={account} />
 
       <LessonDialog
         open={quickOpen}
