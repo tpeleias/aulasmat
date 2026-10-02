@@ -102,7 +102,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Aviso de versão nova do app na tela inicial (Play In-App Updates) | T |
 | Repetir atendimento "até uma data", além de por quantidade | T |
 
-### 02/10 - site e próximo `.aab`
+### 02/10 - versão 1.14.0
 
 | Mudança | Origem |
 |---|---|
