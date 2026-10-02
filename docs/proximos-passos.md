@@ -40,6 +40,20 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
    pelo Google (tira o aviso de "app não verificado" e o limite de 100 usuários).
    As mensagens traduzidas (PR #66) chegam ao Android no próximo `.aab` (1.12.3).
 
+## Rodapé "gerenciada pelo Cronys" e páginas por ramo (02/10) - no código, falta mesclar e publicar
+
+- `/disponibilidade` ganhou o rodapé "Agenda gerenciada pelo Cronys" (símbolo +
+  link para `cronys.com.br/?ref=disponibilidade`, pt e en).
+- Páginas `/para/<ramo>`: professores, clinicas, psicologos, saloes, pet-shops,
+  personal-trainers, oficinas. Texto em `src/lib/ramoPages.ts`, tela em
+  `src/pages/RamoPage.tsx`; a Landing liga os cartões de "Para quem". Só afirma
+  o que o app faz hoje (nada de lembrete automático por WhatsApp).
+- `public/sitemap.xml` e linha `Sitemap:` no `robots.txt`.
+- Depois de mesclar: `deploy_project` no Lovable e registrar em
+  `docs/teste-fechado.md` (origem: T).
+- Netlify (02/10): projeto `cronys` (plano nf_team_dev) segue com o último
+  deploy de 20/09 (`8ed1aa7`); não serve o `cronys.com.br`.
+
 ## Feedback dos primeiros testes (27/09)
 
 Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:

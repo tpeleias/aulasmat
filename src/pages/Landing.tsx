@@ -11,6 +11,7 @@ import { PlanComparison } from "@/components/PlanComparison";
 import { ANNUAL_MONTHS_CHARGED, PLANS as PLAN_CFG } from "@shared/plans";
 import { isEnglish, toggleLanguage, L } from "@/lib/i18n";
 import { CurrencyPicker } from "@/components/CurrencyPicker";
+import { slugOfModel } from "@/lib/ramoPages";
 
 const RECURSOS_EN = [
   { icon: CalendarDays, titulo: "A calendar that prevents double-booking", texto: "Taken times are refused instantly, even when two requests arrive together. One-off and weekly blocks." },
@@ -86,6 +87,7 @@ export default function Landing() {
               <Card key={m} className="p-4">
                 <div className="font-medium">{presetFor(m).nome}</div>
                 <p className="mt-1 text-xs text-muted-foreground">{presetFor(m).exemplo}</p>
+                {slugOfModel(m) && <Link to={`/para/${slugOfModel(m)}`} className="mt-2 inline-block text-xs text-primary underline">{L("Saiba mais", "Learn more")}</Link>}
               </Card>
             ))}
           </div>
