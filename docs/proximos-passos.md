@@ -54,6 +54,21 @@ O Thiago pediu para ser lembrado destes itens até decidir/fazer:
 - Netlify (02/10): projeto `cronys` (plano nf_team_dev) segue com o último
   deploy de 20/09 (`8ed1aa7`); não serve o `cronys.com.br`.
 
+## Página de horários por empresa (02/10)
+
+**Achado:** `/disponibilidade` sem login serve só a empresa `is_public_default`
+(a do Thiago). O botão "Links de disponibilidade" aparecia para toda empresa, e
+o link copiado mostrava ao cliente os horários e serviços da empresa do Thiago.
+O admin não percebia: logado, ele vê a própria empresa.
+
+- **Feito (PR "links só na empresa pública"):** botão escondido fora da empresa
+  pública (`useHasPublicPage`), e as páginas por ramo deixaram de prometer o
+  link de horários.
+- **Preparado (PR separado, migration ainda NÃO aplicada):** endereço por
+  empresa `cronys.com.br/horarios/<código-da-empresa>/<profissional>`, com a
+  função `public_agenda`. O código da empresa é o `accounts.slug`, o mesmo que
+  o cliente usa para criar conta - quem tiver o link passa a saber o código.
+
 ## Feedback dos primeiros testes (27/09)
 
 Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:

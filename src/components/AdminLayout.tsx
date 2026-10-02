@@ -11,6 +11,7 @@ import { copyAvailabilityLink } from "@/lib/availabilityLinks";
 import ThemeToggle from "@/components/ThemeToggle";
 import UpdateBanner from "@/components/UpdateBanner";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
+import { useHasPublicPage } from "@/hooks/usePublicPage";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { useTheme } from "@/hooks/useTheme";
 import { useNativeRoute } from "@/lib/nativeRoute";
@@ -60,6 +61,7 @@ export default function AdminLayout() {
   const { theme, toggleTheme } = useTheme();
   const [quickOpen, setQuickOpen] = useState(false);
   const [linksOpen, setLinksOpen] = useState(false);
+  const hasPublicPage = useHasPublicPage(!!session);
   const [searchParams, setSearchParams] = useSearchParams();
   useNativeRoute();
 
@@ -112,7 +114,9 @@ export default function AdminLayout() {
   const primaryNav = isTeacher ? primary.filter(it => teacherCan(it.to)) : primary;
   const secondaryNav = isTeacher ? secondary.filter(it => teacherCan(it.to)) : secondary;
   // Quem tem login de profissional só divulga o próprio link de disponibilidade.
-  const linkTeachers = isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
+  // Sem página pública própria (toda empresa que não é a do endereço público),
+  // não há link para copiar: ele abriria a agenda de outra empresa.
+  const linkTeachers = !hasPublicPage ? [] : isTeacher ? teachers.filter(t => teacherSlug(t.name) === defaultTeacher) : teachers;
 
   // Os links de disponibilidade juntos numa janela (27/09): um botão por
   // profissional no menu não cabe numa empresa grande. O professor só tem o

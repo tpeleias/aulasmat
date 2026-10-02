@@ -100,3 +100,11 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Aviso de versão nova do app na tela inicial (Play In-App Updates) | T |
 | Repetir atendimento "até uma data", além de por quantidade | T |
+
+### 02/10 - site (sem versão nova do app)
+
+| Mudança | Origem |
+|---|---|
+| Rodapé "Agenda gerenciada pelo Cronys" na página pública de horários livres | T |
+| Sete páginas por ramo em `/para/<ramo>` (professores, clínicas, psicólogos, salões, pet shops, personal trainers, oficinas), com sitemap | T |
+| Correção: o botão "Links de disponibilidade" só aparece na empresa do endereço público (nas outras, o link abria a agenda errada); páginas por ramo sem prometer esse link | R |

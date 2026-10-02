@@ -6,9 +6,10 @@ import type { BusinessModel } from "@/lib/vocabulary";
  * para o Google e para o Thiago mandar o link certo a quem tem aquele ramo.
  *
  * Só entra aqui o que o app faz hoje (agenda sem choque, portal em que o
- * cliente pede horário, cobrança com Pix, pacotes, equipe, Google Agenda,
- * link público de horários). Nada de promessa de lembrete automático por
- * WhatsApp: ele ainda não existe.
+ * cliente pede horário, cobrança com Pix, pacotes, equipe, Google Agenda).
+ * Nada de promessa de lembrete automático por WhatsApp, que ainda não existe,
+ * nem do link público de horários: hoje ele só serve a empresa do endereço
+ * público (ver "Página de horários por empresa" em docs/proximos-passos.md).
  */
 export type RamoPage = {
   slug: string;
@@ -61,9 +62,9 @@ export function ramoPages(): RamoPage[] {
         { titulo: L("Retornos que se repetem", "Recurring follow-ups"),
           texto: L("Sessões semanais ou quinzenais em poucos toques, sempre sem marcar em cima de outro paciente.",
             "Weekly or biweekly sessions in a few taps, never on top of another patient.") },
-        { titulo: L("Link de horários livres", "A link with free times"),
-          texto: L("Um endereço para pôr no Instagram ou mandar no WhatsApp: o paciente vê o que está livre, sem ver quem ocupa o resto.",
-            "One address for Instagram or WhatsApp: patients see what's free, without seeing who fills the rest.") },
+        { titulo: L("O paciente pede, a recepção aprova", "Patients request, the front desk approves"),
+          texto: L("No portal, o paciente vê os horários livres e pede consulta ou troca, sem ver quem ocupa o resto da agenda.",
+            "In the portal, patients see the free times and request an appointment or a change, without seeing who fills the rest.") },
       ],
       dia: [
         L("Manhã: três profissionais, três agendas, nenhum conflito.", "Morning: three professionals, three calendars, no conflicts."),
@@ -75,8 +76,8 @@ export function ramoPages(): RamoPage[] {
       slug: "psicologos", model: "psicologia",
       quem: L("psicólogos e terapeutas", "psychologists and therapists"),
       titulo: L("Agenda para psicólogos e terapeutas", "Scheduling for psychologists and therapists"),
-      resumo: L("Sessões semanais com horário fixo, cobrança por sessão ou por mês e um link de horários livres para novos pacientes.",
-        "Weekly sessions at a fixed time, per-session or monthly billing and a free-times link for new clients."),
+      resumo: L("Sessões semanais com horário fixo, cobrança por sessão ou por mês e o Google Agenda sem choque com a clínica.",
+        "Weekly sessions at a fixed time, per-session or monthly billing and Google Calendar without clashes."),
       dores: [
         { titulo: L("Horário fixo, toda semana", "A fixed slot, every week"),
           texto: L("\"Toda terça às 18h\" vira uma série. Férias e feriados entram como bloqueio e a agenda respeita.",
@@ -90,7 +91,7 @@ export function ramoPages(): RamoPage[] {
       ],
       dia: [
         L("Segunda: sessões nos horários fixos de cada paciente.", "Monday: sessions at each client's fixed time."),
-        L("Quinta: um paciente novo vê seus horários livres pelo link e te chama.", "Thursday: a new client sees your free times through the link and contacts you."),
+        L("Quinta: um paciente pede para trocar a sessão pelo portal. Você aprova.", "Thursday: a client asks to move a session through the portal. You approve."),
         L("Dia 30: a cobrança de cada paciente já está calculada.", "The 30th: each client's charge is already calculated."),
       ],
     },
@@ -105,15 +106,15 @@ export function ramoPages(): RamoPage[] {
           texto: L("Corte, coloração, manicure: cada um com a sua duração, o seu valor e a sua cor na agenda.",
             "Haircut, color, manicure: each with its own duration, price and colour on the calendar.") },
         { titulo: L("Quem faz o quê", "Who does what"),
-          texto: L("Defina quais serviços cada profissional faz. O link de horários mostra só quem pode atender aquele serviço.",
-            "Choose which services each professional does. The free-times link shows only who can take that service.") },
+          texto: L("Defina quais serviços cada profissional faz, e a agenda de cada um fica com o que é dele.",
+            "Choose which services each professional does, and each calendar keeps what belongs to it.") },
         { titulo: L("Intervalo entre clientes", "Time between clients"),
           texto: L("Configure uma folga entre um atendimento e outro para limpar e preparar a cadeira.",
             "Set a gap between appointments to clean up and get the chair ready.") },
       ],
       dia: [
         L("Sábado cheio: três profissionais, cada um com a sua agenda.", "Busy Saturday: three professionals, each with their own calendar."),
-        L("A cliente abre o link da bio do Instagram e vê o que está livre.", "A client opens the link in your Instagram bio and sees what's free."),
+        L("A cliente pede o próximo horário pelo portal, e você aprova.", "A client requests her next slot through the portal, and you approve."),
         L("No fim do dia: o que foi atendido e o que foi pago.", "End of the day: what was done and what was paid."),
       ],
     },
@@ -176,13 +177,13 @@ export function ramoPages(): RamoPage[] {
         { titulo: L("Cada técnico, uma agenda", "One calendar per technician"),
           texto: L("Veja o dia de cada técnico e quem está livre para o próximo serviço.",
             "See each technician's day and who is free for the next job.") },
-        { titulo: L("Cliente vê o que está livre", "Customers see what's free"),
-          texto: L("Um link com os horários livres para o cliente escolher, sem telefonema.",
-            "A link with free times for customers to pick from, no phone call.") },
+        { titulo: L("Cliente pede pelo portal", "Customers request in the portal"),
+          texto: L("O cliente vê os horários livres e pede o serviço, sem telefonema. Você confirma.",
+            "Customers see the free times and request a job, no phone call. You confirm.") },
       ],
       dia: [
         L("Manhã: três serviços, três técnicos, nada em cima.", "Morning: three jobs, three technicians, no overlaps."),
-        L("O cliente pede o horário pelo link e você confirma.", "A customer requests a slot through the link and you confirm."),
+        L("O cliente pede o horário pelo portal e você confirma.", "A customer requests a slot through the portal and you confirm."),
         L("No fim da semana: serviços feitos e valores a receber.", "End of the week: jobs done and amounts to collect."),
       ],
     },
