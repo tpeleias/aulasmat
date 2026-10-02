@@ -20,6 +20,8 @@ import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ScarcityEditor } from "@/components/ScarcityEditor";
+import { scarcityOff } from "@/lib/availability";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { canSellHere } from "@/lib/subscription";
 import { NumberField } from "@/components/NumberField";
@@ -30,7 +32,7 @@ import type { Vocabulary } from "@/lib/vocabulary";
 import { intlLocale, L, currencySymbol, getCurrency } from "@/lib/i18n";
 // Um par de números por dia da semana, 0 = domingo.
 type ScarcityDay = { min: number; max: number };
-type Scarcity = Record<string, ScarcityDay>;
+type Scarcity = Record<string, ScarcityDay> & { off?: boolean };
 
 const DIAS = L(["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
 const SCARCITY_PADRAO: Scarcity = {
@@ -146,11 +148,16 @@ export default function SettingsPage() {
     const payload = {
       ...rest,
       default_lesson_price: Number(s.default_lesson_price),
-      scarcity: Object.fromEntries(DIAS.map((_, i) => {
-        const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
-        const min = clamp(d.min, 1, 12);
-        return [String(i), { min, max: clamp(Math.max(d.max, min), 1, 12) }];
-      })),
+      scarcity: {
+        ...Object.fromEntries(DIAS.map((_, i) => {
+          const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
+          const min = clamp(d.min, 1, 12);
+          return [String(i), { min, max: clamp(Math.max(d.max, min), 1, 12) }];
+        })),
+        // "Todos os horários livres" (02/10): os números ficam guardados para
+        // quando voltar a "só alguns".
+        ...(scarcityOff(s.scarcity) ? { off: true } : {}),
+      },
       pix_key: (s.pix_key || "").trim() || null,
       payment_link: (s.payment_link || "").trim() || null,
       contact_email: (s.contact_email || "").trim() || null,
@@ -526,42 +533,16 @@ export default function SettingsPage() {
         <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">{L("Configurar mensagens", "Edit messages")}</Link></Button>
       </Card>
 
-      <Collapsible className="rounded-lg border border-dashed border-border">
-        <CollapsibleTrigger className="group flex w-full items-center justify-between p-4 text-sm font-medium text-muted-foreground">
-          {L("Mais opções: página pública", "More options: public page")}
-          <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="p-3 pt-0">
       <Card className="p-5 space-y-4">
         <div>
-          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Escassez na página pública", "Scarcity on the public page")}</h2>
+          <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Horários que o cliente vê", "Times clients see")}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {L("Quantos horários livres aparecem por dia. O app sorteia um número entre o mínimo e o máximo, então a página não mostra a agenda inteira.",
-               "How many free times show per day. The app picks a number between the minimum and maximum, so the page never shows your whole calendar.")}
+            {L("Na página de horários e no portal: todos os livres, ou só alguns por dia. Cada profissional pode ter a própria escolha, na tela de profissionais.",
+               "On the schedule page and in the portal: every free time, or only a few per day. Each professional can have their own choice, on the professionals screen.")}
           </p>
         </div>
-        <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
-            <span />
-            <Label className="text-xs text-muted-foreground text-center">{L("Mínimo", "Min")}</Label>
-            <Label className="text-xs text-muted-foreground text-center">{L("Máximo", "Max")}</Label>
-          </div>
-          {DIAS.map((nome, i) => {
-            const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
-            const set = (campo: "min" | "max", valor: number) =>
-              setS(x => ({ ...x, scarcity: { ...x.scarcity, [String(i)]: { ...(x.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)]), [campo]: valor } } }));
-            return (
-              <div key={i} className="grid grid-cols-[1fr_5rem_5rem] gap-2 items-center">
-                <Label className="text-sm">{nome}</Label>
-                <NumberField min={1} max={12} value={d.min} onValueChange={n => set("min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
-                <NumberField min={1} max={12} value={d.max} onValueChange={n => set("max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
-              </div>
-            );
-          })}
-        </div>
+        <ScarcityEditor value={s.scarcity} onChange={next => setS(x => ({ ...x, scarcity: next as Scarcity }))} />
       </Card>
-        </CollapsibleContent>
-      </Collapsible>
     </>,
     integracoes: <>
       <GoogleCalendarSettings />

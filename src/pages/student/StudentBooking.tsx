@@ -3,7 +3,7 @@ import { addDays, startOfDay, format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { useTeachers } from "@/hooks/useTeachers";
-import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
+import { computeFreeSlots, padRanges, fmtTime, visibleStarts, scarcityFor, SCARCITY_DEFAULT } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -135,8 +135,7 @@ export default function StudentBooking() {
       const sameDay = (d: Date) => d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
       const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
       const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
-      const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, allTeachers.find(t => t.name === name)?.scarcity);
-      const picked = pickScarcityCandidates(day, dayCandidates, name, minN, maxN);
+      const picked = visibleStarts(day, dayCandidates, name, scarcityFor(day, s.scarcity, allTeachers.find(t => t.name === name)?.scarcity));
       const visible = picked
         .filter(start => freeStartTimes.has(start.getTime()) && start >= earliest)
         .map(start => ({ start, end: new Date(start.getTime() + slotMinutes * 60000), teacher: name }));

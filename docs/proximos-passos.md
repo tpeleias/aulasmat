@@ -75,6 +75,18 @@ O admin não percebia: logado, ele vê a própria empresa.
   pública). No app Android, os links novos só chegam no próximo `.aab`; os
   antigos seguem abrindo a empresa do Thiago.
 
+## Escassez que dá para desligar (02/10) - versão 1.15.0
+
+Pedido do Thiago: interruptor na empresa e por profissional, e a escassez mais
+fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
+- Empresa (Configurações → Clientes): "Todos os horários livres" ou "Só alguns
+  por dia". Profissional: também "Igual à empresa" (grava nulo).
+- Guardado no mesmo jsonb `scarcity`: `off: true` = todos; os números ficam
+  guardados para quando voltar. Sem migration.
+- `scarcityFor` devolve nulo para "todos"; `visibleStarts` mostra todos ou
+  sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
+  `/inicio`.
+
 ## Feedback dos primeiros testes (27/09)
 
 Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:
