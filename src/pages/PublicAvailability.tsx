@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { addDays, startOfDay, format } from "date-fns";
-import { computeFreeSlots, padRanges, fmtTime, pickScarcityCandidates, scarcityFor, SCARCITY_DEFAULT, type RecurringBlock } from "@/lib/availability";
+import { computeFreeSlots, padRanges, fmtTime, visibleStarts, scarcityFor, SCARCITY_DEFAULT, type RecurringBlock } from "@/lib/availability";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { GraduationCap, Info, Clock, Flame } from "lucide-react";
@@ -49,8 +49,7 @@ function slotsFor(agenda: Agenda, who: string | null, minutes: number, from: Dat
     const sameDay = (d: Date) => d.getFullYear() === day.getFullYear() && d.getMonth() === day.getMonth() && d.getDate() === day.getDate();
     const dayCandidates = candidatesPool.filter(f => sameDay(f.start) && f.end > now).map(f => f.start);
     const freeStartTimes = new Set(free.filter(f => sameDay(f.start) && f.end > now).map(f => f.start.getTime()));
-    const { min: minN, max: maxN } = scarcityFor(day, s.scarcity, teacherScarcity);
-    const picked = pickScarcityCandidates(day, dayCandidates, who ?? "all", minN, maxN);
+    const picked = visibleStarts(day, dayCandidates, who ?? "all", scarcityFor(day, s.scarcity, teacherScarcity));
     // Horário sorteado que foi marcado some, sem outro no lugar.
     const slots = picked
       .filter(start => freeStartTimes.has(start.getTime()))

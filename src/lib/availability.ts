@@ -95,13 +95,41 @@ export const SCARCITY_DEFAULT: Record<string, ScarcityDay> = {
   "6": { min: 3, max: 7 },
 };
 
-// A do professor ganha da empresa, e a da empresa ganha do padrão. Professor
-// sem escassez própria (o caso normal) simplesmente herda a da empresa.
-export function scarcityFor(day: Date, accountScarcity: unknown, teacherScarcity?: unknown): ScarcityDay {
+/**
+ * A escassez guardada (settings.scarcity e teachers.scarcity, jsonb): os
+ * números de cada dia da semana e, desde 02/10, `off: true` para "mostrar
+ * todos os horários livres". No profissional, nulo = segue a empresa.
+ */
+export type ScarcitySetting = { off?: boolean } & Record<string, ScarcityDay | boolean | undefined>;
+
+/** Desligada = mostrar todos os horários livres. */
+export function scarcityOff(x: unknown): boolean {
+  return !!x && typeof x === "object" && (x as ScarcitySetting).off === true;
+}
+
+/**
+ * Quantos horários mostrar no dia, ou nulo para mostrar todos.
+ *
+ * O profissional com escolha própria ganha da empresa (números próprios ou
+ * "todos"), e a empresa ganha do padrão. Profissional sem escolha própria (o
+ * caso normal) simplesmente herda a da empresa.
+ */
+export function scarcityFor(day: Date, accountScarcity: unknown, teacherScarcity?: unknown): ScarcityDay | null {
   const chave = String(day.getDay());
-  const doProfessor = (teacherScarcity ?? {}) as Record<string, ScarcityDay | undefined>;
-  const daEmpresa = (accountScarcity ?? {}) as Record<string, ScarcityDay | undefined>;
-  return doProfessor[chave] ?? daEmpresa[chave] ?? SCARCITY_DEFAULT[chave];
+  if (teacherScarcity) {
+    if (scarcityOff(teacherScarcity)) return null;
+    const d = (teacherScarcity as ScarcitySetting)[chave];
+    if (d && typeof d === "object") return d;
+  }
+  if (scarcityOff(accountScarcity)) return null;
+  const d = ((accountScarcity ?? {}) as ScarcitySetting)[chave];
+  return d && typeof d === "object" ? d : SCARCITY_DEFAULT[chave];
+}
+
+/** Os horários que aparecem no dia: todos, ou os sorteados pela escassez. */
+export function visibleStarts(day: Date, candidateStarts: Date[], key: string, scarcity: ScarcityDay | null): Date[] {
+  if (!scarcity) return [...candidateStarts].sort((a, b) => a.getTime() - b.getTime());
+  return pickScarcityCandidates(day, candidateStarts, key, scarcity.min, scarcity.max);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeachers, teacherSlug, type Teacher } from "@/hooks/useTeachers";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -15,7 +15,8 @@ import { ColorPicker } from "@/components/ColorPicker";
 import { teacherColor } from "@/lib/teacherColors";
 import { useServices } from "@/hooks/useServices";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { SCARCITY_DEFAULT, type ScarcityDay } from "@/lib/availability";
+import { scarcityOff, type ScarcitySetting } from "@/lib/availability";
+import { ScarcityEditor } from "@/components/ScarcityEditor";
 import { toast } from "sonner";
 import { capitalize } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
@@ -27,7 +28,6 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
-const DIAS = L(["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"], ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]);
 
 export default function TeachersPage() {
   const { plan } = usePlan();
@@ -40,7 +40,7 @@ export default function TeachersPage() {
   const [name, setName] = useState("");
   // A escassez da empresa: serve de ponto de partida quando um professor passa
   // a ter a própria, para ele não começar com números vindos do nada.
-  const [accountScarcity, setAccountScarcity] = useState<Record<string, ScarcityDay> | null>(null);
+  const [accountScarcity, setAccountScarcity] = useState<unknown>(null);
   useEffect(() => {
     supabase.from("settings").select("scarcity").maybeSingle()
       .then(({ data }) => setAccountScarcity(((data as any)?.scarcity ?? null)));
@@ -160,11 +160,19 @@ export default function TeachersPage() {
     if (error) toast.error(error.message); else reload();
   };
 
-  // Nulo significa "usa a escassez da empresa". Ligar copia a da empresa como
-  // ponto de partida, para o professor não começar com números do nada.
-  const setScarcity = async (id: string, scarcity: Record<string, ScarcityDay> | null) => {
-    const { error } = await supabase.from("teachers" as any).update({ scarcity }).eq("id", id);
-    if (error) toast.error(error.message); else reload();
+  // Nulo significa "igual à empresa"; `off: true`, "todos os horários livres"
+  // (02/10). A tela muda na hora e grava meio segundo depois da última
+  // mudança, para não gravar a cada dígito do mínimo e do máximo.
+  const [scarcityDraft, setScarcityDraft] = useState<Record<string, ScarcitySetting | null>>({});
+  const scarcityTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const scarcityOf = (t: { id: string; scarcity?: unknown }) => (t.id in scarcityDraft ? scarcityDraft[t.id] : (t.scarcity ?? null));
+  const setScarcity = (id: string, scarcity: ScarcitySetting | null) => {
+    setScarcityDraft(x => ({ ...x, [id]: scarcity }));
+    clearTimeout(scarcityTimers.current[id]);
+    scarcityTimers.current[id] = setTimeout(async () => {
+      const { error } = await supabase.from("teachers" as any).update({ scarcity }).eq("id", id);
+      if (error) toast.error(error.message);
+    }, 500);
   };
 
   const setColor = async (id: string, color: string | null) => {
@@ -340,52 +348,18 @@ export default function TeachersPage() {
               <CollapsibleTrigger asChild>
                 <button className="group flex w-full items-center justify-between p-3 text-left text-sm">
                   <span>
-                    {L("Escassez na página pública", "Scarcity on the public page")}
+                    {L("Horários que o cliente vê", "Times clients see")}
                     <span className="ml-2 text-xs text-muted-foreground">
-                      {t.scarcity ? L("personalizada", "custom") : L("igual à da empresa", "same as the business")}
+                      {!scarcityOf(t) ? L("igual à empresa", "same as the business")
+                        : scarcityOff(scarcityOf(t)) ? L("todos os livres", "all free times") : L("só alguns, números próprios", "a few, own numbers")}
                     </span>
                   </span>
                   <ChevronDown className="h-4 w-4 transition-transform group-data-[state=open]:rotate-180" />
                 </button>
               </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-2 p-3 pt-0">
-                <label className="flex items-center gap-2 text-xs cursor-pointer select-none pb-1">
-                  <Switch
-                    checked={!!t.scarcity}
-                    onCheckedChange={v => setScarcity(t.id, v ? (accountScarcity ?? SCARCITY_DEFAULT) : null)}
-                  />
-                  <span className="text-muted-foreground">
-                    {t.scarcity
-                      ? L(`Números próprios de ${capitalize(t.name)}`, `${capitalize(t.name)}'s own numbers`)
-                      : L("Seguindo a configuração da empresa", "Following the business setting")}
-                  </span>
-                </label>
-
-                {t.scarcity && (
-                  <>
-                    <div className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-2 items-center">
-                      <span />
-                      <span className="text-[11px] text-muted-foreground text-center">{L("Mínimo", "Min")}</span>
-                      <span className="text-[11px] text-muted-foreground text-center">{L("Máximo", "Max")}</span>
-                    </div>
-                    {DIAS.map((nome, i) => {
-                      const d = t.scarcity?.[String(i)] ?? SCARCITY_DEFAULT[String(i)];
-                      const salvar = (campo: "min" | "max", valor: number) => {
-                        const proximo = { ...(t.scarcity ?? {}), [String(i)]: { ...d, [campo]: Math.max(1, Math.min(12, valor || 1)) } };
-                        setScarcity(t.id, proximo);
-                      };
-                      return (
-                        <div key={i} className="grid grid-cols-[1fr_4.5rem_4.5rem] gap-2 items-center">
-                          <span className="text-sm">{nome}</span>
-                          <Input type="number" min={1} max={12} defaultValue={d.min}
-                            onBlur={e => Number(e.target.value) !== d.min && salvar("min", Number(e.target.value))} />
-                          <Input type="number" min={1} max={12} defaultValue={d.max}
-                            onBlur={e => Number(e.target.value) !== d.max && salvar("max", Number(e.target.value))} />
-                        </div>
-                      );
-                    })}
-                  </>
-                )}
+              <CollapsibleContent className="p-3 pt-0">
+                <ScarcityEditor value={scarcityOf(t)} inheritFrom={accountScarcity} who={capitalize(t.name)}
+                  onChange={next => setScarcity(t.id, next)} />
               </CollapsibleContent>
             </Collapsible>
           </Card>
