@@ -3,9 +3,9 @@ import { Copy, Search, Share2 } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { teacherSlug, type Teacher } from "@/hooks/useTeachers";
+import { type Teacher } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
-import { availabilityUrl, copyAvailabilityLink } from "@/lib/availabilityLinks";
+import { availabilityPath, availabilityUrl, copyAvailabilityLink } from "@/lib/availabilityLinks";
 import { L } from "@/lib/i18n";
 
 /**
@@ -13,10 +13,12 @@ import { L } from "@/lib/i18n";
  * janela (Thiago, 27/09): antes cada um era um botão no menu, e uma empresa
  * com 30 profissionais teria 30 botões lá. Com muitos, aparece a busca.
  */
-export default function AvailabilityLinksDialog({ open, onOpenChange, teachers }: {
+export default function AvailabilityLinksDialog({ open, onOpenChange, teachers, account }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   teachers: Teacher[];
+  /** O código da empresa (`school_code`), que entra no endereço. */
+  account: string;
 }) {
   const [q, setQ] = useState("");
   const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -41,19 +43,30 @@ export default function AvailabilityLinksDialog({ open, onOpenChange, teachers }
           </div>
         )}
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
+          {!q.trim() && teachers.length > 1 && (
+            <li className="flex items-center gap-2 bg-muted/40 px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{L("Todos juntos", "Everyone")}</div>
+                <div className="truncate text-xs text-muted-foreground">{availabilityPath(account)}</div>
+              </div>
+              <Button size="sm" variant="secondary" className="h-10 shrink-0 gap-1.5 rounded-xl" onClick={() => copyAvailabilityLink(account)}>
+                <Copy className="h-3.5 w-3.5" /> {L("Copiar", "Copy")}
+              </Button>
+            </li>
+          )}
           {shown.map(t => (
             <li key={t.id} className="flex items-center gap-2 px-3 py-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium">{capitalize(t.name)}</div>
-                <div className="truncate text-xs text-muted-foreground">/disponibilidade/{teacherSlug(t.name)}</div>
+                <div className="truncate text-xs text-muted-foreground">{availabilityPath(account, t)}</div>
               </div>
               {canShare && (
                 <Button size="icon" variant="ghost" className="h-10 w-10 shrink-0" aria-label={L(`Compartilhar o link de ${capitalize(t.name)}`, `Share ${capitalize(t.name)}'s link`)}
-                  onClick={() => { navigator.share({ url: availabilityUrl(t), title: capitalize(t.name) }).catch(() => {}); }}>
+                  onClick={() => { navigator.share({ url: availabilityUrl(account, t), title: capitalize(t.name) }).catch(() => {}); }}>
                   <Share2 className="h-4 w-4" />
                 </Button>
               )}
-              <Button size="sm" variant="secondary" className="h-10 shrink-0 gap-1.5 rounded-xl" onClick={() => copyAvailabilityLink(t)}>
+              <Button size="sm" variant="secondary" className="h-10 shrink-0 gap-1.5 rounded-xl" onClick={() => copyAvailabilityLink(account, t)}>
                 <Copy className="h-3.5 w-3.5" /> {L("Copiar", "Copy")}
               </Button>
             </li>
