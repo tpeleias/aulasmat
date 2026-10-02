@@ -46,6 +46,7 @@ necessário), canal e o que foi feito.
 | 29/09 | Testador internacional, relatado ao Thiago | Ao entrar pela primeira vez, a tela "Bem-vindo ao Cronys" veio em português | Causa: sem empresa ainda, o app usava a língua da empresa pública (português). Agora fica na língua do aparelho; as duas empresas criadas assim foram passadas para inglês e dólar |
 | 29/09 | Usuário, relatado ao Thiago | Não encontrou onde mudar a moeda (estava travada pela assinatura ativa) | "Mudar a moeda" ao lado do valor por hora; "moeda" nas descrições das seções; aviso de moeda travada com cadeado e o caminho para trocar |
 | 29/09 | Testador (mensagem traduzida), relatado ao Thiago | "fiz login with gmail many functions calling same time" | Em investigação. Nos registros, o login pelo Google no app caiu no navegador em vez da janela nativa do Android, e dois testadores saíram e entraram de novo logo depois (a tela estava em português, erro já corrigido) |
+| 02/10 | Testador, relatado ao Thiago | Reclamou do aviso que aparece em cima do menu | Era o aviso de versão nova (1.13.4), que ficou em dois lugares: em cima do menu, em todas as telas, e na tela Hoje. Saiu de cima do menu; fica só na tela Hoje e no início do portal. Chega no próximo `.aab` |
 
 ## Mudanças no período
 
@@ -107,4 +108,5 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Rodapé "Agenda gerenciada pelo Cronys" na página pública de horários livres | T |
 | Sete páginas por ramo em `/para/<ramo>` (professores, clínicas, psicólogos, salões, pet shops, personal trainers, oficinas), com sitemap | T |
+| Aviso de versão nova só na tela Hoje e no início do portal, não mais em cima do menu (no próximo `.aab`) | Testador (feedback de 02/10) |
 | Correção: o botão "Links de disponibilidade" só aparece na empresa do endereço público (nas outras, o link abria a agenda errada); páginas por ramo sem prometer esse link | R |
