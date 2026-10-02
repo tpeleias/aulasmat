@@ -67,6 +67,23 @@
     padding-right: env(safe-area-inset-right);
   }
 
+  /* A faixa da barra de status (02/10). Com o WebView 140+ e viewport-fit=cover,
+     o Capacitor deixa a página desenhar por baixo da barra de status, que fica
+     transparente: o padding acima abre o espaço, mas ao rolar o conteúdo passava
+     por baixo da hora e da bateria. A faixa fixa, na cor do fundo, o esconde. No
+     site e nos aparelhos sem a área (inset 0) ela tem altura zero. */
+  #root::before {
+    content: "";
+    position: fixed;
+    inset: 0 0 auto 0;
+    height: env(safe-area-inset-top);
+    background: hsl(var(--background));
+    /* Acima da página e do menu de baixo (z-40), abaixo das janelas (z-50),
+       para o escurecido de um diálogo cobrir a faixa também. */
+    z-index: 45;
+    pointer-events: none;
+  }
+
   /* ---------------------------------------------------------------------
      Cronys — docs/cronys-brand-spec.md
      ---------------------------------------------------------------------

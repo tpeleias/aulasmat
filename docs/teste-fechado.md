@@ -109,5 +109,6 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Rodapé "Agenda gerenciada pelo Cronys" na página pública de horários livres | T |
 | Sete páginas por ramo em `/para/<ramo>` (professores, clínicas, psicólogos, salões, pet shops, personal trainers, oficinas), com sitemap | T |
 | Avisos de ação (marcado, salvo...) acima do menu de baixo e mais curtos | Testador (feedback de 02/10) |
+| Conteúdo não passa mais por baixo da barra de status do Android ao rolar (visto no print do testador) | T |
 | Aviso de versão nova só na tela Hoje e no início do portal, não mais em cima do menu (no próximo `.aab`) | R |
 | Correção: o botão "Links de disponibilidade" só aparece na empresa do endereço público (nas outras, o link abria a agenda errada); páginas por ramo sem prometer esse link | R |
