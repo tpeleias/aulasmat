@@ -46,6 +46,7 @@ necessário), canal e o que foi feito.
 | 29/09 | Testador internacional, relatado ao Thiago | Ao entrar pela primeira vez, a tela "Bem-vindo ao Cronys" veio em português | Causa: sem empresa ainda, o app usava a língua da empresa pública (português). Agora fica na língua do aparelho; as duas empresas criadas assim foram passadas para inglês e dólar |
 | 29/09 | Usuário, relatado ao Thiago | Não encontrou onde mudar a moeda (estava travada pela assinatura ativa) | "Mudar a moeda" ao lado do valor por hora; "moeda" nas descrições das seções; aviso de moeda travada com cadeado e o caminho para trocar |
 | 29/09 | Testador (mensagem traduzida), relatado ao Thiago | "fiz login with gmail many functions calling same time" | Em investigação. Nos registros, o login pelo Google no app caiu no navegador em vez da janela nativa do Android, e dois testadores saíram e entraram de novo logo depois (a tela estava em português, erro já corrigido) |
+| 02/10 | Testador, relatado ao Thiago (com print) | Os avisos que aparecem embaixo a cada mudança (marcar, editar...) ficam por cima do menu | Avisos sobem acima do menu de baixo, somem em 2,5 s (os com botão, como "Avisar no WhatsApp", seguem mais tempo) e o botão ganhou a cor da marca. Chega no próximo `.aab`; no site, na próxima publicação |
 
 ## Mudanças no período
 
@@ -101,10 +102,12 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Aviso de versão nova do app na tela inicial (Play In-App Updates) | T |
 | Repetir atendimento "até uma data", além de por quantidade | T |
 
-### 02/10 - site (sem versão nova do app)
+### 02/10 - site e próximo `.aab`
 
 | Mudança | Origem |
 |---|---|
 | Rodapé "Agenda gerenciada pelo Cronys" na página pública de horários livres | T |
 | Sete páginas por ramo em `/para/<ramo>` (professores, clínicas, psicólogos, salões, pet shops, personal trainers, oficinas), com sitemap | T |
+| Avisos de ação (marcado, salvo...) acima do menu de baixo e mais curtos | Testador (feedback de 02/10) |
+| Aviso de versão nova só na tela Hoje e no início do portal, não mais em cima do menu (no próximo `.aab`) | R |
 | Correção: o botão "Links de disponibilidade" só aparece na empresa do endereço público (nas outras, o link abria a agenda errada); páginas por ramo sem prometer esse link | R |
