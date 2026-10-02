@@ -19,6 +19,7 @@ import NativeLoginReturn from "./components/NativeLoginReturn";
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PublicAvailability = lazy(() => import("./pages/PublicAvailability"));
 const PublicHome = lazy(() => import("./pages/PublicHome"));
+const RamoPage = lazy(() => import("./pages/RamoPage"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
 const DeleteAccountInfo = lazy(() => import("./pages/DeleteAccountInfo"));
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/minha-conta" element={<MyAccount />} />
             <Route path="/google-agenda" element={<GoogleCalendarReturn />} />
             <Route path="/google-agenda/callback" element={<GoogleCalendarReturn />} />
+            <Route path="/para/:ramo" element={<RamoPage />} />
             <Route path="/disponibilidade" element={<PublicAvailability />} />
             <Route path="/disponibilidade/:teacher" element={<PublicAvailability />} />
             <Route path="/admin" element={<AdminLayout />}>

@@ -9,6 +9,7 @@ import { useParams } from "react-router-dom";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize, fmtMoney } from "@/lib/balance";
 import { colorOf } from "@/lib/teacherColors";
+import { CronysMark } from "@/components/brand";
 
 import { dateLocale, L } from "@/lib/i18n";
 type PublicService = { id: string; name: string; duration_minutes: number; price: number | null; mode: "presencial" | "online" | "ambos"; color: string | null };
@@ -219,7 +220,13 @@ export default function PublicAvailability() {
         ))}
 
         <footer className="text-center text-xs text-muted-foreground pt-8 pb-4">
-          {L("Esta página é apenas informativa. Não há agendamento online.", "This page is for information only. There's no online booking here.")}
+          <p>{L("Esta página é apenas informativa. Não há agendamento online.", "This page is for information only. There's no online booking here.")}</p>
+          <p className="mt-3">
+            <a href="https://cronys.com.br/?ref=disponibilidade" target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 hover:underline">
+              <CronysMark className="h-3.5 w-3.5" />
+              {L("Agenda gerenciada pelo Cronys", "Scheduling managed with Cronys")}
+            </a>
+          </p>
         </footer>
       </main>
     </div>
