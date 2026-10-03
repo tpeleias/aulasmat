@@ -10,6 +10,7 @@ import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
+import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { useTeacherName } from "@/hooks/useTeacherName";
 export default function ChildDashboard() {
   const teacherName = useTeacherName();
@@ -54,6 +55,8 @@ export default function ChildDashboard() {
       <div>
         <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {student.student_name.split(" ")[0]} 👋</h1>
       </div>
+
+      <NotificationEmailCard prompt />
 
       <ClientGoogleCalendar />
 

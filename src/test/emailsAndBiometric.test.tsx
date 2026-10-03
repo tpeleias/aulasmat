@@ -61,23 +61,35 @@ describe("biometria", () => {
 });
 
 describe("NotificationEmailCard", () => {
-  it("cliente com responsável grava os dois e-mails pela função", async () => {
+  it("login da família: o seu e-mail e, recolhido, o do aluno", async () => {
     const { supabase } = await import("@/integrations/supabase/client");
     const calls: [string, unknown][] = [];
     (supabase as unknown as { rpc: unknown }).rpc = async (fn: string, args: unknown) => {
       calls.push([fn, args]);
       return fn === "my_notification_email"
-        ? { data: { kind: "client", email: null, guardian_name: "Ana", guardian_email: null }, error: null }
-        : { data: { kind: "client", email: "bia@x.com", guardian_name: "Ana", guardian_email: "ana@x.com" }, error: null };
+        ? { data: { kind: "guardian", email: null, guardian_name: "Ana", student_name: "Bia", student_email: null }, error: null }
+        : { data: { kind: "guardian", email: "ana@x.com", guardian_name: "Ana", student_name: "Bia", student_email: "bia@x.com" }, error: null };
     };
     const { NotificationEmailCard } = await import("@/components/NotificationEmailCard");
     render(<NotificationEmailCard />);
-    await waitFor(() => screen.getByText("E-mail de Ana, responsável"));
-    fireEvent.change(screen.getByLabelText("E-mail para avisos"), { target: { value: " Bia@X.com" } });
-    fireEvent.change(screen.getByLabelText("E-mail de Ana, responsável"), { target: { value: "ana@x.com" } });
+    await waitFor(() => screen.getByText("Seu e-mail"));
+    expect(screen.queryByLabelText("E-mail de Bia")).toBeNull();
+    fireEvent.change(screen.getByLabelText("E-mail para avisos"), { target: { value: " Ana@X.com" } });
+    fireEvent.click(screen.getByText("Adicionar o e-mail de Bia"));
+    fireEvent.change(screen.getByLabelText("E-mail de Bia"), { target: { value: "bia@x.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar e-mail" }));
-    await waitFor(() => expect(calls.some(c => c[0] === "set_my_notification_email")).toBe(true));
-    expect(calls.find(c => c[0] === "set_my_notification_email")![1]).toEqual({ _email: "bia@x.com", _guardian_email: "ana@x.com" });
+    await waitFor(() => expect(calls.some(c => c[0] === "save_my_notification_email")).toBe(true));
+    expect(calls.find(c => c[0] === "save_my_notification_email")![1]).toEqual({ _mine: "ana@x.com", _student: "bia@x.com" });
+  });
+
+  it("login do aluno: só o e-mail dele, já com o que a família pôs", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    (supabase as unknown as { rpc: unknown }).rpc = async () => ({ data: { kind: "child", email: "bia@x.com", student_name: "Bia" }, error: null });
+    const { NotificationEmailCard } = await import("@/components/NotificationEmailCard");
+    render(<NotificationEmailCard />);
+    await waitFor(() => expect((screen.getByLabelText("E-mail para avisos") as HTMLInputElement).value).toBe("bia@x.com"));
+    expect(screen.queryByText("Seu e-mail")).toBeNull();
+    expect(screen.queryByText(/Adicionar o e-mail/)).toBeNull();
   });
 
   it("some para quem não tem cadastro ligado ao login", async () => {
