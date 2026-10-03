@@ -87,6 +87,18 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Entrar com o Google no app: cliente Android no Google Cloud (03/10)
+
+A janelinha nativa do Android (Credential Manager) só funciona com um cliente
+OAuth **Android** no mesmo projeto do cliente Web "Cronys login", com o pacote
+`com.aulasmat.app` e o SHA-1 da chave que assina o app. Sem ele, ela falhava
+calada, o app caía no navegador e a pessoa escolhia a conta três vezes.
+Criados em 03/10 (Thiago):
+- Play (chave de assinatura do app): `84:ED:F3:1B:5A:48:C7:01:82:D4:BA:BD:45:92:4B:20:05:5B:CA:12`
+- Upload: `32:2F:CE:E4:97:1D:36:2C:D7:DB:CC:8E:13:A6:69:AD:56:A6:A5:01`
+Os SHA-1 ficam na Play Console em Teste e lançamento → Configuração →
+Assinatura de apps. Testado: uma escolha só, login por id_token.
+
 ## E-mails automáticos, "esqueci a senha" e a digital (03/10)
 
 - Resend com o domínio cronys.com.br verificado (registros na GoDaddy). A chave
