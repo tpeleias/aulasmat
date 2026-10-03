@@ -3127,35 +3127,62 @@ END $$;
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
--- O cliente (Bia, responsavel Ana): grava o proprio e o da responsavel.
+-- O login da familia (Bia, responsavel Ana): "seu e-mail" e o da Ana; o da Bia e opcional.
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
-SELECT public.assert((public.my_notification_email() ->> 'kind') = 'client' AND (public.my_notification_email() ->> 'guardian_name') = 'Ana',
-  'cliente ve o proprio campo, com o da responsavel');
+SELECT public.assert((public.my_notification_email() ->> 'kind') = 'guardian' AND (public.my_notification_email() ->> 'guardian_name') = 'Ana'
+  AND (public.my_notification_email() ->> 'student_name') = 'Bia',
+  'login da familia com responsavel: o campo principal e o da responsavel');
 SELECT public.assert(NOT (public.my_notification_email() ->> 'emails_on')::boolean, 'empresa sem e-mails ligados: emails_on falso');
-SELECT public.set_my_notification_email(' Bia@Gmail.com ', 'ana@gmail.com');
-SELECT public.assert((public.my_notification_email() ->> 'email') = 'bia@gmail.com' AND (public.my_notification_email() ->> 'guardian_email') = 'ana@gmail.com',
-  'cliente grava o proprio e-mail e o da responsavel (minusculo, sem espaco)');
+SELECT public.save_my_notification_email(' Ana@Gmail.com ', NULL);
+SELECT public.assert((public.my_notification_email() ->> 'email') = 'ana@gmail.com' AND (public.my_notification_email() ->> 'student_email') IS NULL,
+  'responsavel grava o proprio e-mail sem mexer no do aluno');
+SELECT public.save_my_notification_email('ana@gmail.com', 'bia@gmail.com');
+SELECT public.assert((public.my_notification_email() ->> 'student_email') = 'bia@gmail.com', 'responsavel tambem pode por o e-mail do aluno');
 DO $$
 BEGIN
-  PERFORM public.set_my_notification_email('sem-arroba', NULL);
+  PERFORM public.save_my_notification_email('sem-arroba', NULL);
   RAISE EXCEPTION 'FALHOU: aceitou e-mail invalido';
 EXCEPTION WHEN invalid_parameter_value THEN RAISE NOTICE '  ok - e-mail invalido recusado em Minha conta';
 END $$;
 -- O profissional: grava em teacher_emails pela funcao, sem ler a tabela.
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.uprof'), true);
-SELECT public.set_my_notification_email('eva@gmail.com', NULL);
+SELECT public.save_my_notification_email('eva@gmail.com', NULL);
 SELECT public.assert((public.my_notification_email() ->> 'kind') = 'teacher' AND (public.my_notification_email() ->> 'email') = 'eva@gmail.com',
   'profissional grava o proprio e-mail');
 SELECT public.assert((public.my_notification_email() ->> 'emails_on')::boolean, 'a empresa da Eva manda e-mails: emails_on verdadeiro');
 SELECT public.assert((SELECT count(*) FROM public.teacher_emails) = 0, 'profissional continua sem ler a tabela de e-mails');
-SELECT public.set_my_notification_email('', NULL);
+SELECT public.save_my_notification_email('', NULL);
 SELECT public.assert((public.my_notification_email() ->> 'email') IS NULL, 'vazio apaga o e-mail do profissional');
 -- Admin sem cadastro de profissional: nao tem campo.
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
 SELECT public.assert(public.my_notification_email() IS NULL, 'admin sem cadastro nao tem o campo');
 COMMIT;
-SELECT public.assert((SELECT email FROM public.students WHERE user_id = current_setting('teste.ualuno')::uuid) = 'bia@gmail.com',
-  'o e-mail do cliente foi para o cadastro dele');
+SELECT public.assert((SELECT email FROM public.students WHERE user_id = current_setting('teste.ualuno')::uuid) = 'bia@gmail.com'
+  AND (SELECT guardian_email FROM public.students WHERE user_id = current_setting('teste.ualuno')::uuid) = 'ana@gmail.com',
+  'os e-mails foram para o cadastro: o do aluno e o da responsavel');
+
+-- O login do aluno (meu-painel): so o e-mail dele, ja com o que a familia pos.
+DO $$
+DECLARE _uc uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_uc, 'bia-painel@aluno.sistema.local');
+  DELETE FROM public.user_roles WHERE user_id = _uc;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_uc, 'child', current_setting('teste.a')::uuid);
+  UPDATE public.students SET child_user_id = _uc WHERE user_id = current_setting('teste.ualuno')::uuid;
+  PERFORM set_config('teste.uchild', _uc::text, false);
+END $$;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uchild'), true);
+SELECT public.assert((public.my_notification_email() ->> 'kind') = 'child' AND (public.my_notification_email() ->> 'email') = 'bia@gmail.com'
+  AND NOT (public.my_notification_email() ? 'guardian_name'),
+  'login do aluno: so o e-mail dele, ja preenchido com o que a familia pos');
+SELECT public.save_my_notification_email('bia.nova@gmail.com', 'outro@x.com');
+COMMIT;
+SELECT public.assert((SELECT email FROM public.students WHERE child_user_id = current_setting('teste.uchild')::uuid) = 'bia.nova@gmail.com'
+  AND (SELECT guardian_email FROM public.students WHERE child_user_id = current_setting('teste.uchild')::uuid) = 'ana@gmail.com',
+  'o aluno troca so o proprio e-mail, o da responsavel fica');
 
 BEGIN;
 SET LOCAL ROLE anon;

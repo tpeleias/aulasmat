@@ -147,3 +147,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Nome de quem atende com maiúscula no e-mail ("Thiago", e não "thiago", quando o cadastro está em minúsculas) | T |
 | "Cancelar o recebimento" numa linha só, longe do texto; abrir o link só pergunta, e quem saiu tem o botão "Foi sem querer: voltar a receber" (o Thiago tocou sem querer no link antigo, que tirava da lista na hora) | T |
 | "E-mail para avisos" do cliente com responsável: cada campo diz de quem é ("E-mail de Testinho Jr" e "E-mail de Teste, responsável") e dá para preencher só um (antes "Seu e-mail" confundia quem usa o login da família) | T |
+| "E-mail para avisos" conforme quem entra: no login da família, "Seu e-mail" é o do responsável e o do aluno fica recolhido ("Adicionar o e-mail de ..."); no login do aluno, só o dele, já com o que a família tiver posto; o aviso de primeira entrada aparece também no painel do aluno | T |
