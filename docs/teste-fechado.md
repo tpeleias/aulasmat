@@ -142,3 +142,8 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | "Mandar um e-mail de teste": quando o envio falha, o aviso diz que falhou (antes dizia, errado, que o login precisava de um e-mail de verdade) | T |
 | "E-mail para avisos" em Minha conta: o profissional, o cliente e o responsável põem o próprio e-mail (antes só o admin preenchia, e quem entra com usuário não tinha onde dizer) | T |
+| Aviso na tela inicial "Quer receber os avisos por e-mail?" para o profissional e o cliente que entram com usuário e ainda não deram e-mail, quando a empresa liga os e-mails; "Agora não" esconde para aquele login | T |
+| E-mails com visual novo: nome da empresa no topo, o tipo em destaque (marcada, horário alterado, cancelada, lembrete), data, horário de início e fim, quem atende, assunto e local em linhas separadas, o local abre no mapa, e fundo claro fixo | T |
+| Nome de quem atende com maiúscula no e-mail ("Thiago", e não "thiago", quando o cadastro está em minúsculas) | T |
+| "Cancelar o recebimento" numa linha só, longe do texto; abrir o link só pergunta, e quem saiu tem o botão "Foi sem querer: voltar a receber" (o Thiago tocou sem querer no link antigo, que tirava da lista na hora) | T |
+| "E-mail para avisos" do cliente com responsável: cada campo diz de quem é ("E-mail de Testinho Jr" e "E-mail de Teste, responsável") e dá para preencher só um (antes "Seu e-mail" confundia quem usa o login da família) | T |

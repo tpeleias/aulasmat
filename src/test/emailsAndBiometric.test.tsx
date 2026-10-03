@@ -72,9 +72,9 @@ describe("NotificationEmailCard", () => {
     };
     const { NotificationEmailCard } = await import("@/components/NotificationEmailCard");
     render(<NotificationEmailCard />);
-    await waitFor(() => screen.getByText("E-mail de Ana"));
+    await waitFor(() => screen.getByText("E-mail de Ana, responsável"));
     fireEvent.change(screen.getByLabelText("E-mail para avisos"), { target: { value: " Bia@X.com" } });
-    fireEvent.change(screen.getByLabelText("E-mail de Ana"), { target: { value: "ana@x.com" } });
+    fireEvent.change(screen.getByLabelText("E-mail de Ana, responsável"), { target: { value: "ana@x.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Salvar e-mail" }));
     await waitFor(() => expect(calls.some(c => c[0] === "set_my_notification_email")).toBe(true));
     expect(calls.find(c => c[0] === "set_my_notification_email")![1]).toEqual({ _email: "bia@x.com", _guardian_email: "ana@x.com" });

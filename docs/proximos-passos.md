@@ -101,6 +101,8 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
 - Cada um também põe o próprio em **Minha conta → E-mail para avisos**
   (profissional, cliente e responsável), pelas funções `my_notification_email`
   e `set_my_notification_email`.
+  Quem entra com usuário e ainda não deu e-mail vê o aviso "Quer receber os
+  avisos por e-mail?" na tela inicial (só com os e-mails da empresa ligados).
 - E-mail do profissional fica em `teacher_emails` (só admin lê). Descadastro:
   `/email/sair` (por empresa). Senha nova: `/nova-senha`.
 - Plano grátis do Resend: 100 e-mails/dia e 3.000/mês. Passou disso, plano

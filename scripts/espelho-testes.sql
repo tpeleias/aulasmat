@@ -3131,6 +3131,7 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
 SELECT public.assert((public.my_notification_email() ->> 'kind') = 'client' AND (public.my_notification_email() ->> 'guardian_name') = 'Ana',
   'cliente ve o proprio campo, com o da responsavel');
+SELECT public.assert(NOT (public.my_notification_email() ->> 'emails_on')::boolean, 'empresa sem e-mails ligados: emails_on falso');
 SELECT public.set_my_notification_email(' Bia@Gmail.com ', 'ana@gmail.com');
 SELECT public.assert((public.my_notification_email() ->> 'email') = 'bia@gmail.com' AND (public.my_notification_email() ->> 'guardian_email') = 'ana@gmail.com',
   'cliente grava o proprio e-mail e o da responsavel (minusculo, sem espaco)');
@@ -3145,6 +3146,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.uprof'), true)
 SELECT public.set_my_notification_email('eva@gmail.com', NULL);
 SELECT public.assert((public.my_notification_email() ->> 'kind') = 'teacher' AND (public.my_notification_email() ->> 'email') = 'eva@gmail.com',
   'profissional grava o proprio e-mail');
+SELECT public.assert((public.my_notification_email() ->> 'emails_on')::boolean, 'a empresa da Eva manda e-mails: emails_on verdadeiro');
 SELECT public.assert((SELECT count(*) FROM public.teacher_emails) = 0, 'profissional continua sem ler a tabela de e-mails');
 SELECT public.set_my_notification_email('', NULL);
 SELECT public.assert((public.my_notification_email() ->> 'email') IS NULL, 'vazio apaga o e-mail do profissional');
