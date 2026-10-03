@@ -34,6 +34,9 @@ type Student = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
   /** Migration 20260925070000; ausente antes dela. */
   whatsapp?: string | null;
+  /** E-mails para os avisos automáticos (migration 20261003020000). */
+  email?: string | null;
+  guardian_email?: string | null;
   // Ausente enquanto a migration 20260923020000 não estiver aplicada - e aí
   // ninguém está travado, que é exatamente o comportamento de antes.
   plan_locked?: boolean;
@@ -149,6 +152,10 @@ export default function StudentsPage() {
     if (!editing?.student_name?.trim()) { toast.error(L(`Nome ${c.do} ${c.l} obrigatório`, `${c.s} name is required`)); return; }
     const zap = normalizeWhatsApp(editing.whatsapp);
     if (zap === "invalido") { toast.error(L("WhatsApp com DDD, ex.: (11) 98765-4321", "WhatsApp with country code, e.g. +1 555 123 4567")); return; }
+    const mail = (x?: string | null) => (x ?? "").trim().toLowerCase() || null;
+    const okMail = (x: string | null) => !x || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x);
+    const email = mail(editing.email), guardianEmail = editing.guardian_name?.trim() ? mail(editing.guardian_email) : null;
+    if (!okMail(email) || !okMail(guardianEmail)) { toast.error(L("Confira o e-mail: algo como nome@exemplo.com", "Check the email: something like name@example.com")); return; }
     setBusy(true);
     const payload = {
       student_name: editing.student_name.trim(),
@@ -156,6 +163,8 @@ export default function StudentsPage() {
       address: editing.address?.trim() || null,
       // Só manda a coluna quando há o que gravar: antes da migration ela não existe.
       ...(zap || editing.whatsapp !== undefined ? { whatsapp: zap } : {}),
+      ...(email || editing.email !== undefined ? { email } : {}),
+      ...(guardianEmail || editing.guardian_email !== undefined ? { guardian_email: guardianEmail } : {}),
     } as never;
     const { error } = editing.id
       ? await supabase.from("students").update(payload).eq("id", editing.id)
@@ -315,6 +324,17 @@ export default function StudentsPage() {
                 onChange={e => setEditing(p => ({ ...p!, whatsapp: e.target.value }))} placeholder={L("(11) 98765-4321", "+1 555 123 4567")} />
               <p className="mt-1 text-xs text-muted-foreground">{L("Opcional. Usado para mandar lembrete e aviso pelo WhatsApp.", "Optional. Used to send reminders and notices on WhatsApp.")}</p>
             </div>
+            <div><Label>{L(`E-mail ${c.do} ${c.l}`, `${c.s} email`)}</Label>
+              <Input className="h-11 rounded-xl" type="email" inputMode="email" autoComplete="off" value={editing?.email ?? ""}
+                onChange={e => setEditing(p => ({ ...p!, email: e.target.value }))} placeholder="nome@exemplo.com" />
+            </div>
+            {!!editing?.guardian_name?.trim() && (
+              <div><Label>{L(`E-mail ${w.guardian.do} ${w.guardian.l}`, `${w.guardian.s} email`)}</Label>
+                <Input className="h-11 rounded-xl" type="email" inputMode="email" autoComplete="off" value={editing?.guardian_email ?? ""}
+                  onChange={e => setEditing(p => ({ ...p!, guardian_email: e.target.value }))} placeholder="nome@exemplo.com" />
+              </div>
+            )}
+            <p className="-mt-1 text-xs text-muted-foreground">{L("Opcional. Para os e-mails automáticos (marcação, lembrete), se a empresa ligar em Configurações.", "Optional. For automatic emails (booking, reminders), if turned on in Settings.")}</p>
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setEditing(null)}>{L("Cancelar", "Cancel")}</Button>

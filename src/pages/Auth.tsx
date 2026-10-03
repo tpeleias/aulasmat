@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Loader2, ArrowRight, Globe } from "lucide-react";
+import { Loader2, ArrowRight, Fingerprint, Globe } from "lucide-react";
 import { CronysMark, CronysWordmark } from "@/components/brand";
 import { isValidUsername, usernameToEmail } from "@/lib/username";
 import { haptics } from "@/lib/haptics";
@@ -19,6 +19,8 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 
 
 import { L, getLocale, getCurrency, isEnglish, toggleLanguage } from "@/lib/i18n";
+import { biometricAvailable, declineFor, declinedFor, forgetLogin, hasSavedLogin, loadLogin, saveLogin } from "@/lib/biometric";
+import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
 export default function Auth() {
   const { session, user, role, roleFailed, isPlatformAdmin, loading } = useAuth();
   const [signup, setSignup] = useState(false);
@@ -43,6 +45,10 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  // Login guardado no cofre do Android, protegido pela digital (src/lib/biometric.ts).
+  const [bioSaved, setBioSaved] = useState(false);
+  useEffect(() => { void (async () => setBioSaved((await biometricAvailable()) && (await hasSavedLogin())))(); }, []);
   const [google, setGoogle] = useState(false);
   const [googleBusy, setGoogleBusy] = useState(false);
   // No site, o botão oficial do Google (mostra cronys.com.br); se ele não
@@ -114,9 +120,34 @@ export default function Auth() {
     setBusy(false);
     if (error) { haptics.warning(); toast.error(signup ? error.message : isUsername ? L("Usuário ou senha incorretos.", "Wrong username or password.") : L("E-mail ou senha incorretos.", "Wrong email or password.")); return; }
     haptics.success();
+    if (!signup) void offerBiometric(typed, password);
     if (signup) toast.success(signupKind === "school"
       ? L(`Empresa criada! Você tem ${TRIAL_DAYS} dias do Cronys Pro para testar. Se pedirmos confirmação por e-mail, confirme e entre.`, `Business created! You have ${TRIAL_DAYS} days of Cronys Pro to try it. If we ask you to confirm by email, confirm and sign in.`)
       : L("Conta criada! Peça a quem te atende para vincular seu acesso ao seu cadastro.", "Account created! Ask your provider to link your login to your profile."));
+  };
+
+  // Depois de entrar com senha, no app: "usar a digital da próxima vez?".
+  // Uma pergunta só por login - "agora não" fica lembrado neste aparelho.
+  const offerBiometric = async (login: string, pw: string) => {
+    if (bioSaved || declinedFor(login) || !(await biometricAvailable())) return;
+    if (!window.confirm(L("Quer usar a digital (ou o rosto) para entrar da próxima vez?", "Use your fingerprint (or face) to sign in next time?"))) { declineFor(login); return; }
+    if (await saveLogin(login, pw)) toast.success(L("Pronto: da próxima vez, é só usar a digital.", "Done: next time, just use your fingerprint."));
+  };
+
+  const loginWithBiometric = async () => {
+    const saved = await loadLogin(L("Entrar no Cronys", "Sign in to Cronys"));
+    if (!saved) return;
+    setBusy(true);
+    const loginEmail = saved.username.includes("@") ? saved.username : usernameToEmail(saved.username);
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: saved.password });
+    setBusy(false);
+    if (error) {
+      // A senha mudou desde que foi guardada: esquece e volta à senha.
+      await forgetLogin(); setBioSaved(false); haptics.warning();
+      toast.error(L("A senha mudou. Entre com a senha nova e guarde a digital de novo.", "Your password changed. Sign in with the new one and save your fingerprint again."));
+      return;
+    }
+    haptics.success();
   };
 
   const continueWithGoogle = async () => {
@@ -178,6 +209,12 @@ export default function Auth() {
             </div>
           )}
 
+          {!signup && bioSaved && (
+            <Button type="button" variant="outline" className="mb-4 h-12 w-full gap-2 rounded-xl text-base" onClick={loginWithBiometric} disabled={busy}>
+              <Fingerprint className="h-5 w-5" /> {L("Entrar com a digital", "Sign in with fingerprint")}
+            </Button>
+          )}
+
           <form onSubmit={submitAccount} className="space-y-4">
             {signup && signupKind === "school" && (
               <>
@@ -213,6 +250,11 @@ export default function Auth() {
             <Field label={L("Senha", "Password")}>
               <Input type="password" required name="password" id="login-password" minLength={signup ? 6 : undefined} autoComplete={signup ? "new-password" : "current-password"} value={password} onChange={e => setPassword(e.target.value)} className="h-12 rounded-xl" />
             </Field>
+            {!signup && (
+              <div className="-mt-2 text-right">
+                <button type="button" className="text-xs font-medium text-primary" onClick={() => setForgotOpen(true)}>{L("Esqueci a senha", "Forgot password")}</button>
+              </div>
+            )}
             {signup && (
               <label className="flex items-start gap-2 text-xs text-muted-foreground">
                 <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[hsl(var(--primary))]" />
@@ -244,6 +286,7 @@ export default function Auth() {
               </p>
             )}
           </form>
+          <ForgotPasswordDialog key={forgotOpen ? "aberto" : "fechado"} open={forgotOpen} onOpenChange={setForgotOpen} initial={email} />
 
         </div>
       </div>
