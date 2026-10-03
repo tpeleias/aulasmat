@@ -119,3 +119,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | "Horários que o cliente vê": escolha clara entre todos os horários livres e só alguns por dia (a escassez), na empresa e por profissional, com "Como funciona" explicando onde vale e como os horários são escolhidos. Saiu do "Mais opções" escondido | T |
+
+### 03/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Sair da conta recarrega a página do zero, e a tela "Não deu para carregar sua conta" tenta de novo sozinha uma vez: sair e entrar na mesma aba às vezes deixava o login sem resposta | T |

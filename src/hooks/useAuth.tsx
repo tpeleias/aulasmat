@@ -129,6 +129,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // a sessão local é apagada assim mesmo.
         const { error } = await supabase.auth.signOut().catch(e => ({ error: e }));
         if (error) await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+        // E recarrega do zero (02/10): sair e entrar de novo na mesma aba às
+        // vezes deixava o cliente do Supabase sem mandar a consulta do papel, e
+        // o login novo caía em "Não deu para carregar sua conta" (visto nos
+        // registros: o login entrava, a pergunta a user_roles nunca saía). Uma
+        // página nova começa com um cliente novo.
+        if (import.meta.env.MODE !== "test") window.location.replace("/");
       },
     }}>
       {children}
