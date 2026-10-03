@@ -59,3 +59,33 @@ describe("biometria", () => {
     expect(declinedFor("bia@x.com")).toBe(false);
   });
 });
+
+describe("NotificationEmailCard", () => {
+  it("cliente com responsável grava os dois e-mails pela função", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const calls: [string, unknown][] = [];
+    (supabase as unknown as { rpc: unknown }).rpc = async (fn: string, args: unknown) => {
+      calls.push([fn, args]);
+      return fn === "my_notification_email"
+        ? { data: { kind: "client", email: null, guardian_name: "Ana", guardian_email: null }, error: null }
+        : { data: { kind: "client", email: "bia@x.com", guardian_name: "Ana", guardian_email: "ana@x.com" }, error: null };
+    };
+    const { NotificationEmailCard } = await import("@/components/NotificationEmailCard");
+    render(<NotificationEmailCard />);
+    await waitFor(() => screen.getByText("E-mail de Ana"));
+    fireEvent.change(screen.getByLabelText("E-mail para avisos"), { target: { value: " Bia@X.com" } });
+    fireEvent.change(screen.getByLabelText("E-mail de Ana"), { target: { value: "ana@x.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar e-mail" }));
+    await waitFor(() => expect(calls.some(c => c[0] === "set_my_notification_email")).toBe(true));
+    expect(calls.find(c => c[0] === "set_my_notification_email")![1]).toEqual({ _email: "bia@x.com", _guardian_email: "ana@x.com" });
+  });
+
+  it("some para quem não tem cadastro ligado ao login", async () => {
+    const { supabase } = await import("@/integrations/supabase/client");
+    (supabase as unknown as { rpc: unknown }).rpc = async () => ({ data: null, error: null });
+    const { NotificationEmailCard } = await import("@/components/NotificationEmailCard");
+    const { container } = render(<NotificationEmailCard />);
+    await new Promise(r => setTimeout(r, 0));
+    expect(container.textContent).toBe("");
+  });
+});

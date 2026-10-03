@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { USERNAME_DOMAIN } from "@/lib/username";
 import { saveNavApp, useNavApp, type NavApp } from "@/lib/navigation";
 import { L } from "@/lib/i18n";
+import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { biometricAvailable, forgetLogin, hasSavedLogin } from "@/lib/biometric";
 
 /**
@@ -84,6 +85,8 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
       <p className="flex items-center gap-2 text-sm text-muted-foreground"><UserRound className="h-4 w-4" /> {L("Entrando como", "Signed in as")} <span className="font-medium text-foreground">{login}</span></p>
 
       {plan}
+
+        <NotificationEmailCard />
 
         <Card className="space-y-3 rounded-2xl p-4">
           <h2 className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" /> {L("Trocar senha", "Change password")}</h2>
