@@ -148,3 +148,14 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | "Cancelar o recebimento" numa linha só, longe do texto; abrir o link só pergunta, e quem saiu tem o botão "Foi sem querer: voltar a receber" (o Thiago tocou sem querer no link antigo, que tirava da lista na hora) | T |
 | "E-mail para avisos" do cliente com responsável: cada campo diz de quem é ("E-mail de Testinho Jr" e "E-mail de Teste, responsável") e dá para preencher só um (antes "Seu e-mail" confundia quem usa o login da família) | T |
 | "E-mail para avisos" conforme quem entra: no login da família, "Seu e-mail" é o do responsável e o do aluno fica recolhido ("Adicionar o e-mail de ..."); no login do aluno, só o dele, já com o que a família tiver posto; o aviso de primeira entrada aparece também no painel do aluno | T |
+
+### 03/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Cobrança por e-mail: automática (no fim do dia em que houve atendimento, toda segunda e/ou todo mês num dia escolhido; a empresa liga as que quiser, nos planos Start, Pro e Max) só para quem tem valor em aberto, com os itens, o total, o Pix copia e cola já com o valor e o link de pagamento; e na mão, no Financeiro ("Cobrar por e-mail", "Cobrar todos por e-mail", "Enviar extrato por e-mail") | T |
+| "Pagamento recebido" por e-mail, com o recibo em PDF anexo (Start, Pro e Max) | T |
+| "Lembrar por e-mail" no atendimento marcado, em todos os planos | T |
+| Histórico dos e-mails enviados (em Configurações e por conta no Financeiro), com o que o Resend disse depois: entregue, voltou ou marcado como spam; e-mail que voltou aparece no cadastro do cliente e do profissional | T |
+| Descadastro por tipo: a pessoa escolhe quais e-mails quer continuar recebendo (marcações, lembretes, cobranças...) ou para de receber todos | T |
+| O "Responder" dos e-mails vai para o admin quando a empresa não preencheu o e-mail de contato (antes ia para um endereço sem caixa) | T |

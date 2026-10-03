@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { EmailIssueNote, useEmailIssues } from "@/hooks/useEmailIssues";
 import { supabase } from "@/integrations/supabase/client";
 import { useTeachers, teacherSlug, type Teacher } from "@/hooks/useTeachers";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -39,6 +40,7 @@ export default function TeachersPage() {
   // teacher_emails, que só o admin lê (migration 20261003020000): a linha de
   // teachers é lida por todo mundo da empresa.
   const [teacherEmails, setTeacherEmails] = useState<Record<string, string>>({});
+  const emailIssues = useEmailIssues();
   useEffect(() => {
     supabase.from("teacher_emails" as never).select("teacher_id, email").then(({ data }: { data: unknown }) => {
       setTeacherEmails(Object.fromEntries(((data ?? []) as { teacher_id: string; email: string }[]).map(r => [r.teacher_id, r.email])));
@@ -369,6 +371,7 @@ export default function TeachersPage() {
                 <Input type="email" inputMode="email" autoComplete="off" key={teacherEmails[t.id] ?? "vazio"}
                   defaultValue={teacherEmails[t.id] ?? ""} placeholder="nome@exemplo.com"
                   onBlur={e => { if (e.target.value.trim().toLowerCase() !== (teacherEmails[t.id] ?? "")) saveTeacherEmail(t.id, e.target.value); }} />
+                <EmailIssueNote email={teacherEmails[t.id]} issues={emailIssues} />
                 <p className="mt-1 text-[11px] text-muted-foreground">{L("Opcional. Recebe os avisos da própria agenda, se ligados em Configurações. Só os admins veem.", "Optional. Gets notices about their own calendar, if turned on in Settings. Only admins see it.")}</p>
               </div>
             </div>

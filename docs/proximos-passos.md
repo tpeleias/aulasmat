@@ -107,6 +107,18 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   `/email/sair` (por empresa). Senha nova: `/nova-senha`.
 - Plano grátis do Resend: 100 e-mails/dia e 3.000/mês. Passou disso, plano
   pago (US$ 20/mês, 50 mil).
+- **Cobrança (03/10, etapa 1):** automática em `billing_daily` (19h, quem teve
+  atendimento realizado no dia), `billing_weekly` (segunda 9h) e
+  `billing_monthly` (dia `billing_month_day`, 9h), uma vez por período
+  (`email_charge_sent`); manual pelo Financeiro (`send_charge`,
+  `send_statement`, `charge_all`). O valor vem de `_shared/statements.ts`, a
+  mesma conta do Financeiro; o Pix de `_shared/pix.ts`. Vai para o responsável
+  (ou o cliente sem responsável), nunca para o e-mail do aluno.
+- **Recibo:** gatilho em `wallet_transactions` → `email_payment_outbox` → PDF
+  (jsPDF) anexo. Plano: `email_billing` (Start, Pro, Max).
+- **Histórico** em `email_log`; o webhook do Resend (`/functions/v1/emails/webhook`,
+  segredo `resend_webhook_secret` no cofre) marca entregue/voltou/spam e
+  alimenta `email_bounces`. Descadastro por tipo em `email_optout_categories`.
 - Próximas etapas possíveis: e-mail saindo do domínio da própria empresa,
   horário dos lembretes por empresa, fuso por empresa, resumo do dia para o
   profissional.

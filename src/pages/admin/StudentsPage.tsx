@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { EmailIssueNote, useEmailIssues } from "@/hooks/useEmailIssues";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function StudentsPage() {
   const [sort, setSort] = useSortPreference<StudentSort>("alunos", STUDENT_SORTS, "name");
   const [selected, setSelected] = useState<Student | null>(null);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
+  const emailIssues = useEmailIssues();
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
   const [manageFor, setManageFor] = useState<Student | null>(null);
@@ -327,11 +329,13 @@ export default function StudentsPage() {
             <div><Label>{L(`E-mail ${c.do} ${c.l}`, `${c.s} email`)}</Label>
               <Input className="h-11 rounded-xl" type="email" inputMode="email" autoComplete="off" value={editing?.email ?? ""}
                 onChange={e => setEditing(p => ({ ...p!, email: e.target.value }))} placeholder="nome@exemplo.com" />
+              <EmailIssueNote email={editing?.email} issues={emailIssues} />
             </div>
             {!!editing?.guardian_name?.trim() && (
               <div><Label>{L(`E-mail ${w.guardian.do} ${w.guardian.l}`, `${w.guardian.s} email`)}</Label>
                 <Input className="h-11 rounded-xl" type="email" inputMode="email" autoComplete="off" value={editing?.guardian_email ?? ""}
                   onChange={e => setEditing(p => ({ ...p!, guardian_email: e.target.value }))} placeholder="nome@exemplo.com" />
+                <EmailIssueNote email={editing?.guardian_email} issues={emailIssues} />
               </div>
             )}
             <p className="-mt-1 text-xs text-muted-foreground">{L("Opcional. Para os e-mails automáticos (marcação, lembrete), se a empresa ligar em Configurações.", "Optional. For automatic emails (booking, reminders), if turned on in Settings.")}</p>

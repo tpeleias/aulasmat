@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent, Copy } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent, Copy, Mail, History } from "lucide-react";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
@@ -22,6 +22,8 @@ import { buildCollectionMessage, paymentInfoFromSettings, type PaymentInfo } fro
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
 import { buildPixPayload } from "@/lib/pix";
 import { syncBillingWidget } from "@/lib/widgetSync";
+import { emailAction, emailErrorText } from "@/lib/emailActions";
+import { EmailHistoryDialog } from "@/components/EmailHistoryDialog";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
@@ -221,6 +223,30 @@ export default function BillingPage() {
     navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v, templates));
     haptics.success();
     toast.success(L(`Mensagem de cobrança de ${a.label} copiada`, `Payment request for ${a.label} copied`));
+  };
+
+  // ---- E-mail (03/10): cobrança, extrato e "cobrar todos" ----
+  const [mailing, setMailing] = useState<string | null>(null);
+  const [historyFor, setHistoryFor] = useState<Account | null>(null);
+  const emailCharge = async (a: Account, statement = false) => {
+    setMailing(a.key + (statement ? ":s" : ""));
+    const r = await emailAction<{ to: string[] }>({ action: statement ? "send_statement" : "send_charge", student: a.student, guardian: a.guardian });
+    setMailing(null);
+    if (!r.ok) { haptics.warning(); toast.error(emailErrorText(r.error)); return; }
+    haptics.success();
+    if (!r.data.to.length) toast.message(L("Ninguém recebeu: os e-mails desta conta saíram da lista ou voltaram.", "No one got it: this account's emails unsubscribed or bounced."));
+    else toast.success(L(`${statement ? "Extrato" : "Cobrança"} enviado para ${r.data.to.join(", ")}`, `${statement ? "Statement" : "Payment reminder"} sent to ${r.data.to.join(", ")}`));
+  };
+  const chargeAllEmail = async () => {
+    const n = accounts.filter(a => a.owed > 0).length;
+    if (!confirm(L(`Mandar a cobrança por e-mail para as ${n} contas com valor em aberto?`, `Email a payment reminder to the ${n} accounts with an open balance?`))) return;
+    setMailing("all");
+    const r = await emailAction<{ accounts: number; emails: number; noEmail: number }>({ action: "charge_all" });
+    setMailing(null);
+    if (!r.ok) { haptics.warning(); toast.error(emailErrorText(r.error)); return; }
+    haptics.success();
+    toast.success(L(`Cobrança enviada para ${r.data.accounts} conta${r.data.accounts === 1 ? "" : "s"}`, `Reminder sent to ${r.data.accounts} account${r.data.accounts === 1 ? "" : "s"}`)
+      + (r.data.noEmail ? L(` · ${r.data.noEmail} sem e-mail no cadastro`, ` · ${r.data.noEmail} without email`) : ""));
   };
 
   const overdueCount = useMemo(() => accounts.filter(isOverdue).length, [accounts]);
@@ -432,7 +458,14 @@ export default function BillingPage() {
             <span className="text-xs text-muted-foreground">
               {L(`${accounts.length} conta${accounts.length > 1 ? "s" : ""}`, `${accounts.length} account${accounts.length > 1 ? "s" : ""}`)}
             </span>
-            <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
+            <div className="flex items-center gap-2">
+              {accounts.some(a => a.owed > 0) && (
+                <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === "all"} onClick={chargeAllEmail}>
+                  <Mail className="h-3.5 w-3.5" /> {L("Cobrar todos por e-mail", "Email all reminders")}
+                </Button>
+              )}
+              <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
+            </div>
           </div>
         )}
 
@@ -495,6 +528,11 @@ export default function BillingPage() {
                             <Copy className="w-3.5 h-3.5" /> {L("Copiar cobrança", "Copy request")}
                           </Button>
                         )}
+                        {a.owed > 0 && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === a.key} onClick={() => emailCharge(a)}>
+                            <Mail className="w-3.5 h-3.5" /> {L("Cobrar por e-mail", "Email reminder")}
+                          </Button>
+                        )}
                         {a.owed > 0 && pixFor(a) && (
                           <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyPix(a)}>
                             <Copy className="w-3.5 h-3.5" /> {L("Copiar Pix", "Copy Pix")}
@@ -511,6 +549,14 @@ export default function BillingPage() {
 
                   {isExp && (
                     <div className="mt-4 border-t border-border pt-3 space-y-4">
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === a.key + ":s"} onClick={() => emailCharge(a, true)}>
+                          <Mail className="w-3.5 h-3.5" /> {L("Enviar extrato por e-mail", "Email statement")}
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-xl text-xs" onClick={() => setHistoryFor(a)}>
+                          <History className="w-3.5 h-3.5" /> {L("E-mails enviados", "Emails sent")}
+                        </Button>
+                      </div>
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
@@ -833,6 +879,8 @@ export default function BillingPage() {
         lesson={editingLesson}
         onSaved={load}
       />
+      <EmailHistoryDialog open={!!historyFor} onOpenChange={v => { if (!v) setHistoryFor(null); }}
+        account={historyFor ? { student: historyFor.student, guardian: historyFor.guardian, label: historyFor.label } : undefined} />
     </PullToRefresh>
   );
 }

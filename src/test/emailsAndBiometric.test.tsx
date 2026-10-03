@@ -5,6 +5,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const invoke = vi.fn(async (_name: string, _opts?: unknown) => ({ data: null, error: null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: (n: string, o: unknown) => invoke(n, o) } } }));
+let billing = true;
+vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: { email_billing: billing }, loading: false }) }));
 
 import { EmailNotificationsSettings } from "@/components/EmailNotificationsSettings";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
@@ -26,6 +28,29 @@ describe("EmailNotificationsSettings", () => {
     expect(box(/Lembrete no dia/).getAttribute("data-state")).toBe("unchecked");
     fireEvent.click(box(/Lembrete no dia/));
     expect(onChange).toHaveBeenLastCalledWith({ enabled: true, reminder_day: true });
+  });
+});
+
+describe("EmailNotificationsSettings: financeiro", () => {
+  it("cobrança automática nasce desligada; o recibo, ligado", () => {
+    billing = true;
+    const onChange = vi.fn();
+    render(<EmailNotificationsSettings value={{ enabled: true }} onChange={onChange} />);
+    const box = (re: RegExp) => screen.getByRole("checkbox", { name: re });
+    expect(box(/fim do dia/).getAttribute("data-state")).toBe("unchecked");
+    expect(box(/segunda-feira/).getAttribute("data-state")).toBe("unchecked");
+    expect(box(/todo mês/).getAttribute("data-state")).toBe("unchecked");
+    expect(box(/Pagamento recebido/).getAttribute("data-state")).toBe("checked");
+    fireEvent.click(box(/segunda-feira/));
+    expect(onChange).toHaveBeenLastCalledWith({ enabled: true, billing_weekly: true });
+  });
+
+  it("fora do plano, as opções aparecem travadas", () => {
+    billing = false;
+    render(<EmailNotificationsSettings value={{ enabled: true }} onChange={() => {}} />);
+    expect(screen.getByText(/nos planos Start, Pro e Max/)).toBeTruthy();
+    expect((screen.getByRole("checkbox", { name: /segunda-feira/ }) as HTMLButtonElement).disabled).toBe(true);
+    billing = true;
   });
 });
 
