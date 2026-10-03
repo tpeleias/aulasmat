@@ -33,7 +33,7 @@ const dismiss = (uid: string) => {
   } catch { /* sem armazenamento */ }
 };
 
-type Info = { kind: "teacher" | "client"; emails_on?: boolean; email: string | null; guardian_name?: string | null; guardian_email?: string | null };
+type Info = { kind: "teacher" | "client"; emails_on?: boolean; email: string | null; student_name?: string | null; guardian_name?: string | null; guardian_email?: string | null };
 
 const RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 const rpc = (fn: string, args?: Record<string, unknown>) =>
@@ -64,7 +64,10 @@ export function NotificationEmailCard({ prompt = false }: { prompt?: boolean }) 
     const loginIsEmail = !!user?.email && !user.email.endsWith(`@${USERNAME_DOMAIN}`);
     if (!info.emails_on || info.email || info.guardian_email || loginIsEmail || !uid || dismissed(uid)) return null;
   }
-  const hasGuardian = info.kind === "client" && !!info.guardian_name;
+  // O login do cliente costuma ser usado pela família: cada campo diz de quem
+  // é. Responsável com o mesmo nome do cliente vira um campo só.
+  const same = (a?: string | null, b?: string | null) => (a ?? "").trim().toLowerCase() === (b ?? "").trim().toLowerCase();
+  const hasGuardian = info.kind === "client" && !!info.guardian_name && !same(info.guardian_name, info.student_name);
   const e = email.trim().toLowerCase();
   const g = guardian.trim().toLowerCase();
   const bad = (e && !RE.test(e)) || (hasGuardian && g && !RE.test(g));
@@ -95,17 +98,18 @@ export function NotificationEmailCard({ prompt = false }: { prompt?: boolean }) 
           : L("Onde chegam marcações, mudanças de horário e lembretes, quando a empresa liga os e-mails.", "Where bookings, time changes and reminders arrive, when the business turns emails on.")}
       </p>
       <div className="space-y-1.5">
-        {hasGuardian && <Label htmlFor="notif-email">{L("Seu e-mail", "Your email")}</Label>}
+        {hasGuardian && <Label htmlFor="notif-email">{info.student_name ? L(`E-mail de ${info.student_name}`, `${info.student_name}'s email`) : L("E-mail do cliente", "Client's email")}</Label>}
         <Input id="notif-email" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" value={email}
           onChange={ev => setEmail(ev.target.value)} placeholder={L("seu@email.com", "you@email.com")} aria-label={L("E-mail para avisos", "Email for notices")} />
       </div>
       {hasGuardian && (
         <div className="space-y-1.5">
-          <Label htmlFor="notif-guardian">{L(`E-mail de ${info.guardian_name}`, `${info.guardian_name}'s email`)}</Label>
+          <Label htmlFor="notif-guardian">{L(`E-mail de ${info.guardian_name}, responsável`, `${info.guardian_name}'s email (guardian)`)}</Label>
           <Input id="notif-guardian" type="email" inputMode="email" autoCapitalize="none" autoCorrect="off" value={guardian}
             onChange={ev => setGuardian(ev.target.value)} placeholder={L("email@exemplo.com", "email@example.com")} />
         </div>
       )}
+      {hasGuardian && <p className="text-xs text-muted-foreground">{L("Pode preencher só um: os avisos vão para quem tiver e-mail.", "You can fill in just one: notices go to whoever has an email.")}</p>}
       {bad && <p className="text-xs text-destructive">{L("Confira o e-mail: falta o @ ou o domínio.", "Check the email: the @ or the domain is missing.")}</p>}
       <div className="flex flex-wrap gap-2">
         <Button variant={prompt ? "default" : "outline"} className="rounded-xl" disabled={busy || !changed || !!bad} onClick={save}>{L("Salvar e-mail", "Save email")}</Button>
