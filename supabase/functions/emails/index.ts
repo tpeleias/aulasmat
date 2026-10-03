@@ -167,7 +167,7 @@ async function clientEmails(admin: Admin, l: Lesson) {
 
 async function teacherInfo(admin: Admin, l: Lesson) {
   const { data } = await admin.from("teachers").select("id, name, user_id").eq("account_id", l.account_id);
-  const slug = (n: string) => n.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim().replace(/\s+/g, "-");
+  const slug = (n: string) => n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/\s+/g, "-");
   const t = (data ?? []).find(x => slug(x.name) === l.teacher);
   if (!t) return { name: l.teacher, email: null as string | null };
   const { data: te } = await admin.from("teacher_emails").select("email").eq("teacher_id", t.id).maybeSingle();
