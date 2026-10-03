@@ -142,3 +142,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | "Mandar um e-mail de teste": quando o envio falha, o aviso diz que falhou (antes dizia, errado, que o login precisava de um e-mail de verdade) | T |
 | "E-mail para avisos" em Minha conta: o profissional, o cliente e o responsável põem o próprio e-mail (antes só o admin preenchia, e quem entra com usuário não tinha onde dizer) | T |
+| Aviso na tela inicial "Quer receber os avisos por e-mail?" para o profissional e o cliente que entram com usuário e ainda não deram e-mail, quando a empresa liga os e-mails; "Agora não" esconde para aquele login | T |

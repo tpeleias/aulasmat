@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import TrialBanner from "@/components/TrialBanner";
 import FirstSteps from "@/components/FirstSteps";
 import UpdateBanner from "@/components/UpdateBanner";
+import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
@@ -150,6 +151,8 @@ export default function HomePage() {
         </header>
 
         <UpdateBanner />
+
+        {isTeacher && <NotificationEmailCard prompt />}
 
         {!isTeacher && <TrialBanner />}
 
