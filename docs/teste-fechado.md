@@ -159,3 +159,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Histórico dos e-mails enviados (em Configurações e por conta no Financeiro), com o que o Resend disse depois: entregue, voltou ou marcado como spam; e-mail que voltou aparece no cadastro do cliente e do profissional | T |
 | Descadastro por tipo: a pessoa escolhe quais e-mails quer continuar recebendo (marcações, lembretes, cobranças...) ou para de receber todos | T |
 | O "Responder" dos e-mails vai para o admin quando a empresa não preencheu o e-mail de contato (antes ia para um endereço sem caixa) | T |
+| E-mails novos, cada um liga e desliga em Configurações: tarefa nova; tarefas pendentes junto do lembrete da véspera; resumo do atendimento para a família quando o profissional escreve; pacote acabando e pacote encerrado (Start, Pro e Max); agenda de amanhã às 18h para cada profissional e para os admins | T |

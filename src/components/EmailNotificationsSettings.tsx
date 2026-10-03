@@ -46,6 +46,9 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
         { k: "client_requests", label: L("Pedido pelo portal: recebido, aprovado ou recusado", "Portal request: received, approved or declined") },
         { k: "reminder_eve", label: L("Lembrete na véspera (às 18h)", "Reminder the day before (6 PM)") },
         { k: "reminder_day", label: L("Lembrete no dia (às 7h)", "Reminder on the day (7 AM)") },
+        { k: "homework_new", label: L("Tarefa nova", "New task") },
+        { k: "homework_due", label: L("Tarefas pendentes na véspera (junto do lembrete)", "Pending tasks the day before (with the reminder)") },
+        { k: "class_summary", label: L(`Resumo ${w.appointment.pick("do", "da")} ${w.appointment.l}, quando ${w.staff.o} ${w.staff.l} escreve`, `${w.appointment.s} summary, when the ${w.staff.l} writes one`) },
       ],
     },
     {
@@ -53,6 +56,7 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
       items: [
         { k: "teacher_changes", label: L(`${cap(w.staff.s)}: o que mudar na própria agenda`, `${w.staff.s}: changes to their own calendar`) },
         { k: "admin_requests", label: L("Admins: cada pedido novo do portal", "Admins: every new portal request") },
+        { k: "agenda_tomorrow", label: L(`Agenda de amanhã, às 18h (cada ${w.staff.s} a sua; os admins, a de todos)`, `Tomorrow's schedule at 6 PM (each ${w.staff.s} their own; admins everything)`) },
       ],
     },
   ];
@@ -125,6 +129,10 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
             <label className={`flex items-center gap-2 text-sm ${canBilling ? "cursor-pointer" : "opacity-50"}`}>
               <Checkbox disabled={!canBilling} checked={canBilling && isOn(p, "payment_received")} onCheckedChange={v => set("payment_received", v === true)} />
               {L("Pagamento recebido, com o recibo em PDF", "Payment received, with the PDF receipt")}
+            </label>
+            <label className={`flex items-center gap-2 text-sm ${canBilling ? "cursor-pointer" : "opacity-50"}`}>
+              <Checkbox disabled={!canBilling} checked={canBilling && isOn(p, "package_low")} onCheckedChange={v => set("package_low", v === true)} />
+              {L(`Pacote acabando (o crédito não cobre ${w.appointment.pick("outro", "outra")} ${w.appointment.l}) e pacote encerrado`, `Package running out (credit won't cover another ${w.appointment.l}) and used up`)}
             </label>
           </div>
           <p className="text-xs text-muted-foreground">

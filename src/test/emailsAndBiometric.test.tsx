@@ -50,7 +50,22 @@ describe("EmailNotificationsSettings: financeiro", () => {
     render(<EmailNotificationsSettings value={{ enabled: true }} onChange={() => {}} />);
     expect(screen.getByText(/nos planos Start, Pro e Max/)).toBeTruthy();
     expect((screen.getByRole("checkbox", { name: /segunda-feira/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("checkbox", { name: /Pacote acabando/ }) as HTMLButtonElement).disabled).toBe(true);
     billing = true;
+  });
+});
+
+describe("EmailNotificationsSettings: tarefas, resumo, pacote e agenda", () => {
+  it("nascem ligados e cada um desliga sozinho", () => {
+    billing = true;
+    const onChange = vi.fn();
+    render(<EmailNotificationsSettings value={{ enabled: true }} onChange={onChange} />);
+    const box = (re: RegExp) => screen.getByRole("checkbox", { name: re });
+    for (const re of [/Tarefa nova/, /Tarefas pendentes na véspera/, /^Resumo/, /Pacote acabando/, /Agenda de amanhã/]) {
+      expect(box(re).getAttribute("data-state")).toBe("checked");
+    }
+    fireEvent.click(box(/Agenda de amanhã/));
+    expect(onChange).toHaveBeenLastCalledWith({ enabled: true, agenda_tomorrow: false });
   });
 });
 
