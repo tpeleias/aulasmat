@@ -23,6 +23,7 @@ import { statusLabel } from "@/lib/lessonStatus";
 import { cap } from "@/lib/vocabulary";
 import type { LessonPackage } from "@/lib/packages";
 import { LessonWhatsApp } from "@/components/LessonWhatsApp";
+import { LessonEmailReminder } from "@/components/LessonEmailReminder";
 import { usePlan } from "@/hooks/usePlan";
 import { confirmMessage, whatsAppLink } from "@/lib/whatsapp";
 import { useMessageTemplates } from "@/hooks/useMessageTemplates";
@@ -511,6 +512,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         <DialogHeader><DialogTitle>{isTeacher ? cap(a.s) : lesson?.id ? L(`Editar ${a.l}`, `Edit ${a.l}`) : `${a.novo} ${a.l}`}</DialogTitle></DialogHeader>
         <div className="grid gap-3">
           {lesson?.id && <LessonWhatsApp lesson={lesson} phone={phoneOf(lesson)} />}
+          {lesson?.id && <LessonEmailReminder lesson={lesson} />}
           {/* Professor: escreve o resumo da própria aula que já começou (e ela
               vira realizada). Resto do diálogo continua só leitura. */}
           {isTeacher && lesson?.id && teacherCanSummarize && (

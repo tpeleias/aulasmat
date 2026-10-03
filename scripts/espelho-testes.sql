@@ -3194,4 +3194,58 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - visitante nao gr
 END $$;
 COMMIT;
 
+\echo '--- 56. Cobranca por e-mail: recibo na fila, historico e e-mail que voltou (03/10) ---'
+SELECT public.assert(NOT public.email_pref('{"enabled": true}', 'billing_daily') AND NOT public.email_pref('{"enabled": true}', 'billing_weekly')
+  AND NOT public.email_pref('{"enabled": true}', 'billing_monthly') AND public.email_pref('{"enabled": true}', 'payment_received'),
+  'cobranca automatica nasce desligada; o recibo, ligado');
+SELECT public.assert((public.plan_features('essencial') ->> 'email_billing')::boolean = false AND (public.plan_features('start') ->> 'email_billing')::boolean
+  AND (public.plan_features('pro_solo') ->> 'email_branding')::boolean AND NOT (public.plan_features('pro_solo') ->> 'email_custom')::boolean
+  AND (public.plan_features('pro') ->> 'email_custom')::boolean,
+  'planos: cobranca do Start em diante, marca do Pro em diante, texto so no Max');
+
+-- Empresa E (Pro, e-mails ligados no bloco 54): pagamento entra na fila; voucher e cobranca nao.
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E1', 150, 'adjustment', 'Pagamento');
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E1', 20, 'voucher', 'Voucher');
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E1', -100, 'adjustment', 'Ajuste');
+SELECT public.assert((SELECT count(*) FROM public.email_payment_outbox WHERE account_id = current_setting('teste.e')::uuid) = 1,
+  'so o pagamento de verdade vira e-mail de recibo');
+
+UPDATE public.settings SET email_notifications = '{"enabled": true, "payment_received": false}' WHERE account_id = current_setting('teste.e')::uuid;
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E1', 80, 'adjustment', 'Pagamento');
+SELECT public.assert((SELECT count(*) FROM public.email_payment_outbox WHERE account_id = current_setting('teste.e')::uuid) = 1,
+  'recibo desligado: nada entra na fila');
+UPDATE public.settings SET email_notifications = '{"enabled": true}' WHERE account_id = current_setting('teste.e')::uuid;
+
+-- Historico: o admin da empresa le; os outros nao.
+INSERT INTO public.email_log (account_id, to_email, kind, subject) VALUES (current_setting('teste.a')::uuid, 'ana@gmail.com', 'charge', 'Pagamento em aberto');
+INSERT INTO public.email_bounces (email, reason) VALUES ('ana@gmail.com', 'mailbox does not exist');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((SELECT count(*) FROM public.email_log) = 1, 'admin le o historico da empresa');
+SELECT public.assert((SELECT count(*) FROM public.account_email_issues()) = 1, 'admin ve o e-mail que voltou, do proprio cadastro');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+SELECT public.assert((SELECT count(*) FROM public.email_log) = 0, 'admin de outra empresa nao le o historico');
+SELECT public.assert((SELECT count(*) FROM public.account_email_issues()) = 0, 'nem os e-mails que voltaram');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((SELECT count(*) FROM public.email_log) = 0, 'cliente nao le o historico');
+DO $$
+BEGIN
+  INSERT INTO public.email_log (account_id, to_email, kind, subject) VALUES (current_setting('teste.a')::uuid, 'x@y.com', 'charge', 'x');
+  RAISE EXCEPTION 'FALHOU: logado escreveu no historico';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - ninguem escreve no historico pela API';
+END $$;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.email_payment_outbox;
+  RAISE EXCEPTION 'FALHOU: logado leu a fila de recibos';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a fila de recibos e fechada';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='

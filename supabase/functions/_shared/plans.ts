@@ -60,6 +60,12 @@ export type PlanFeatures = {
   any_teacher: boolean;
   /** Google Agenda: ocupado de lá bloqueia aqui, e os agendamentos vão para lá. */
   google_calendar: boolean;
+  /** E-mail: cobrança automática e "pagamento recebido" com recibo (03/10). */
+  email_billing: boolean;
+  /** E-mail: logo, cor e assinatura da empresa (03/10). */
+  email_branding: boolean;
+  /** E-mail: texto de cada aviso editável e horário dos lembretes (03/10). */
+  email_custom: boolean;
 };
 
 export type PlanDef = {
@@ -89,6 +95,7 @@ const PAID_FEATURES: PlanFeatures = {
   packages: true, recurring_blocks: true, vocabulary: true, whatsapp_link: true,
   whatsapp_auto: false, arrival_location: false, services_multi: true,
   teacher_services: false, any_teacher: false, google_calendar: false,
+  email_billing: true, email_branding: false, email_custom: false,
 };
 
 export const PLANS: Record<PlanId, PlanDef> = {
@@ -101,6 +108,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
       packages: false, recurring_blocks: false, vocabulary: true, whatsapp_link: false,
       whatsapp_auto: false, arrival_location: false, services_multi: false,
       teacher_services: false, any_teacher: false, google_calendar: false,
+      email_billing: false, email_branding: false, email_custom: false,
     },
   },
   start: {
@@ -115,7 +123,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     maxTeachers: 3, includedTeachers: 1, extraTeachers: true, maxActiveClients: null,
     assistantMessages: 20, assistantCostCapUsd: 0.6, assistantNeedsPayment: false, assistantAddon: true,
     autoMessagesQuota: null,
-    features: { ...PAID_FEATURES, google_calendar: true },
+    features: { ...PAID_FEATURES, google_calendar: true, email_branding: true },
   },
   pro: {
     id: "pro", name: { pt: "Max", en: "Max" },
@@ -125,7 +133,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     features: {
       ...PAID_FEATURES,
       whatsapp_auto: true, arrival_location: true, teacher_services: true, any_teacher: true,
-      google_calendar: true,
+      google_calendar: true, email_branding: true, email_custom: true,
     },
   },
 };
