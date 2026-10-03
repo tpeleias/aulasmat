@@ -1,5 +1,6 @@
 // E-mails automáticos (03/10). O miolo (visual, envio, textos da agenda) está
-// em core.ts; a cobrança, o recibo e o histórico, em billing.ts.
+// em core.ts; a cobrança, o recibo e o histórico, em billing.ts; tarefas,
+// resumo, pacote e a agenda de amanhã, em events.ts.
 //
 //   POST /cron {mode: "outbox" | "reminders"} + x-cron-secret   <- o pg_cron, pelo pg_net
 //   POST /webhook                                                <- o Resend: entregue, voltou, spam
@@ -14,9 +15,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
   adminEmails, CATEGORY_OF, clientEmails, clientMsg, corsHeaders, ctxCache, ctxFor, deliver, esc, FROM_ADDRESS, hmac,
   json, layout, localMidnight, localParts, NOREPLY, pref, real, secret, send, SITE, staffMsg, teacherInfo, unb64, word,
-  type Admin, type Lesson,
+  type Admin, type Lesson, type Msg,
 } from "./core.ts";
 import { chargeAll, processCharges, processPayments, remindLesson, sendCharge, statementFor } from "./billing.ts";
+import { homeworkBlock, homeworkDueMail, pendingHomework, processAgenda, processEvents } from "./events.ts";
 
 // ---------------------------------------------------------------------------
 // Fila
@@ -91,16 +93,31 @@ async function processReminders(admin: Admin, apiKey: string, force?: "eve" | "d
   let sent = 0;
   for (const l of (lessons ?? []) as Lesson[]) {
     const ctx = await ctxFor(admin, l.account_id);
-    if (!ctx || !pref(ctx, kind === "eve" ? "reminder_eve" : "reminder_day")) continue;
+    if (!ctx) continue;
+    const remind = pref(ctx, kind === "eve" ? "reminder_eve" : "reminder_day");
+    // Na véspera, as tarefas pendentes vão junto do lembrete; sem o lembrete,
+    // num e-mail só delas.
+    const homework = kind === "eve" && pref(ctx, "homework_due");
+    if (!remind && !homework) continue;
+    const markKind = remind ? kind : "homework";
     const { data: mark } = await admin.from("email_reminders_sent")
-      .upsert({ lesson_id: l.id, kind, start_at: l.start_at }, { onConflict: "lesson_id,kind,start_at", ignoreDuplicates: true })
+      .upsert({ lesson_id: l.id, kind: markKind, start_at: l.start_at }, { onConflict: "lesson_id,kind,start_at", ignoreDuplicates: true })
       .select("lesson_id");
     if (!mark || !mark.length) continue;
     try {
-      const t = await teacherInfo(admin, l);
-      const m = clientMsg(kind, ctx, l, t.name, null);
-      const { emails } = await clientEmails(admin, l);
-      if (m) for (const e of emails) { if (await deliver(admin, apiKey, ctx, e, m, { kind, student: l.student_name, guardian: l.guardian_name })) sent++; }
+      const pending = homework ? await pendingHomework(admin, l) : [];
+      let m: Msg | null = null;
+      let k = kind as string;
+      if (remind) {
+        const t = await teacherInfo(admin, l);
+        m = clientMsg(kind, ctx, l, t.name, null);
+        if (m && pending.length) m = { ...m, html: [...(m.html ?? []), homeworkBlock(ctx, pending)] };
+      } else if (pending.length) {
+        m = homeworkDueMail(ctx, l, pending);
+        k = "homework_due";
+      }
+      const { emails } = m ? await clientEmails(admin, l) : { emails: [] as string[] };
+      if (m) for (const e of emails) { if (await deliver(admin, apiKey, ctx, e, m, { kind: k, student: l.student_name, guardian: l.guardian_name })) sent++; }
     } catch (e) { console.error("reminder", l.id, String(e)); }
   }
   return sent;
@@ -200,8 +217,8 @@ Deno.serve(async (req) => {
     if (!expected || req.headers.get("x-cron-secret") !== expected) return json({ error: "forbidden" }, 403);
     if (!apiKey) return json({ ok: false, error: "not configured" });
     const sent = body.mode === "reminders"
-      ? (await processReminders(admin, apiKey)) + (await processCharges(admin, apiKey))
-      : (await processOutbox(admin, apiKey)) + (await processPayments(admin, apiKey));
+      ? (await processReminders(admin, apiKey)) + (await processCharges(admin, apiKey)) + (await processAgenda(admin, apiKey))
+      : (await processOutbox(admin, apiKey)) + (await processPayments(admin, apiKey)) + (await processEvents(admin, apiKey));
     return json({ ok: true, sent });
   }
 

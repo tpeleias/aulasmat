@@ -3248,4 +3248,58 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a fila de recibo
 END $$;
 COMMIT;
 
+\echo '--- 57. E-mails da etapa 2: tarefa nova, resumo e pacote acabando (03/10) ---'
+SELECT public.assert(public.email_pref('{"enabled": true}', 'homework_new') AND public.email_pref('{"enabled": true}', 'class_summary')
+  AND public.email_pref('{"enabled": true}', 'package_low') AND public.email_pref('{"enabled": true}', 'agenda_tomorrow'),
+  'avisos da etapa 2 nascem ligados');
+DO $$
+DECLARE _s uuid;
+BEGIN
+  INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (current_setting('teste.e')::uuid, 'Aluno E9', 'Mae E9') RETURNING id INTO _s;
+  PERFORM set_config('teste.es', _s::text, false);
+END $$;
+INSERT INTO public.homework (account_id, student_id, title, deadline) VALUES (current_setting('teste.e')::uuid, current_setting('teste.es')::uuid, 'Lista 1', now() + interval '2 day');
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE account_id = current_setting('teste.e')::uuid AND kind = 'homework') = 1,
+  'tarefa nova entra na fila');
+
+-- Resumo: so a primeira vez que ele aparece.
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.e')::uuid, 'Aluno E9', 'Mae E9', 'eva', now() - interval '2 hour', 60, 'agendada');
+UPDATE public.lessons SET class_summary = '   ' WHERE account_id = current_setting('teste.e')::uuid AND student_name = 'Aluno E9';
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE kind = 'summary' AND account_id = current_setting('teste.e')::uuid) = 0,
+  'resumo em branco nao manda');
+UPDATE public.lessons SET class_summary = 'Revisamos fracoes.' WHERE account_id = current_setting('teste.e')::uuid AND student_name = 'Aluno E9';
+UPDATE public.lessons SET class_summary = 'Revisamos fracoes e equacoes.' WHERE account_id = current_setting('teste.e')::uuid AND student_name = 'Aluno E9';
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE kind = 'summary' AND account_id = current_setting('teste.e')::uuid) = 1,
+  'resumo escrito entra na fila uma vez; editar depois nao repete');
+
+-- Pacote: so o debito de quem ja comprou pacote.
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Sem Pacote', -50, 'lesson', 'Aula');
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE kind = 'package' AND account_id = current_setting('teste.e')::uuid) = 0,
+  'debito sem pacote comprado nao vira aviso');
+INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Aluno E9', 'Mae E9', 200, 'package', 'Pacote 4 aulas');
+INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
+VALUES (current_setting('teste.e')::uuid, 'Outro Filho', ' mae e9 ', -50, 'lesson', 'Aula');
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE kind = 'package' AND account_id = current_setting('teste.e')::uuid) = 1,
+  'debito de quem tem pacote (mesma conta do responsavel) entra na fila');
+
+UPDATE public.settings SET email_notifications = '{"enabled": true, "homework_new": false}' WHERE account_id = current_setting('teste.e')::uuid;
+INSERT INTO public.homework (account_id, student_id, title, deadline) VALUES (current_setting('teste.e')::uuid, current_setting('teste.es')::uuid, 'Lista 2', now() + interval '2 day');
+SELECT public.assert((SELECT count(*) FROM public.email_event_outbox WHERE account_id = current_setting('teste.e')::uuid AND kind = 'homework') = 1,
+  'tarefa nova desligada: nada entra');
+UPDATE public.settings SET email_notifications = '{"enabled": true}' WHERE account_id = current_setting('teste.e')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+BEGIN
+  PERFORM 1 FROM public.email_event_outbox;
+  RAISE EXCEPTION 'FALHOU: logado leu a fila de avisos';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a fila de avisos e fechada';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='

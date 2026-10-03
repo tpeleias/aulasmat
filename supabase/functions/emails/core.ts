@@ -38,7 +38,8 @@ export type Category = "agenda" | "lembretes" | "financeiro" | "tarefas" | "resu
 export const CATEGORY_OF: Record<string, Category> = {
   booked: "agenda", changed: "agenda", cancelled: "agenda", requested: "agenda", approved: "agenda", declined: "agenda",
   eve: "lembretes", day: "lembretes", lesson_reminder: "lembretes",
-  charge: "financeiro", statement: "financeiro", payment: "financeiro",
+  charge: "financeiro", statement: "financeiro", payment: "financeiro", package: "financeiro",
+  homework: "tarefas", homework_due: "tarefas", class_summary: "resumo", agenda_tomorrow: "agenda",
 };
 
 export const json = (b: unknown, status = 200) =>

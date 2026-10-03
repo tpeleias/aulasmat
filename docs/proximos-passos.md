@@ -119,9 +119,16 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
 - **Histórico** em `email_log`; o webhook do Resend (`/functions/v1/emails/webhook`,
   segredo `resend_webhook_secret` no cofre) marca entregue/voltou/spam e
   alimenta `email_bounces`. Descadastro por tipo em `email_optout_categories`.
-- Próximas etapas possíveis: e-mail saindo do domínio da própria empresa,
-  horário dos lembretes por empresa, fuso por empresa, resumo do dia para o
-  profissional.
+- **Etapa 2 (03/10):** `homework_new` (gatilho em `homework`, 2 min de
+  espera), `class_summary` (gatilho em `lessons.class_summary`, 10 min, uma
+  vez por atendimento), `package_low` (débito de quem já comprou pacote; avisa
+  uma vez "acabando" e uma vez "acabou" por pacote comprado, chave em
+  `email_event_sent`), tudo pela fila `email_event_outbox`; `homework_due`
+  (tarefas não entregues junto do lembrete da véspera, ou num e-mail só
+  delas) e `agenda_tomorrow` (18h, cada profissional a sua, os admins a de
+  todos). Código em `emails/events.ts`. Todos nascem ligados.
+- Próximas etapas: personalização por plano (etapa 3), e-mails de login pelo
+  Resend (etapa 4); depois, domínio da própria empresa, fuso por empresa.
 - Digital: `@capgo/capacitor-native-biometric`; a senha fica no cofre do
   Android, só sai com a digital. Trocar a senha em Minha conta apaga o login
   guardado.
