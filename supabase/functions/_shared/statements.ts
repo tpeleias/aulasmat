@@ -89,7 +89,7 @@ export function computeStatementsCore(txs: LedgerTx[], lessons: LedgerLesson[], 
     const acc = accounts.get(k) ?? {
       key: k, label: labels.accountLabel(t), student: t.student_name,
       guardian: (t.guardian_name ?? "").trim() || null,
-      balance: 0, credits: 0, charges: [], lessonVouchers: new Map(),
+      balance: 0, credits: 0, charges: [] as Charge[], lessonVouchers: new Map<string, { amount: number; description: string | null }[]>(),
     };
     const amount = Number(t.amount);
     acc.balance += amount;
