@@ -120,7 +120,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | "Horários que o cliente vê": escolha clara entre todos os horários livres e só alguns por dia (a escassez), na empresa e por profissional, com "Como funciona" explicando onde vale e como os horários são escolhidos. Saiu do "Mais opções" escondido | T |
 
-### 03/10 - site (o app recebe no próximo `.aab`)
+### 03/10 - versão 1.15.1
 
 | Mudança | Origem |
 |---|---|
