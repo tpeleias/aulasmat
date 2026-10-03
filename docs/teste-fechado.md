@@ -125,3 +125,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Sair da conta recarrega a página do zero, e a tela "Não deu para carregar sua conta" tenta de novo sozinha uma vez: sair e entrar na mesma aba às vezes deixava o login sem resposta | T |
+
+### 03/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Nome de quem atende com acento e como foi cadastrado ("Bom dia, João", e não "Joao") na tela Hoje, nas aulas, pedidos, cobrança, evolução, resumo e nos portais | T |
+| "Horários que o cliente vê": 0 vale no mínimo e no máximo (máximo 0 = o dia aparece sem horários) | T |

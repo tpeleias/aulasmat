@@ -9,6 +9,7 @@ import { change, periodRange, summarizePeriod, type PeriodKind, type SummaryLess
 import { useWords } from "@/hooks/useVocabulary";
 
 import { intlLocale, L } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type Props = {
   lessons: SummaryLesson[];
   txs: LedgerTx[];
@@ -44,6 +45,7 @@ function Tile({ label, value, hint, className = "", children }: { label: string;
 }
 
 export default function PeriodSummary({ lessons, txs, statements, compact = false }: Props) {
+  const teacherName = useTeacherName();
   const w = useWords();
   const ap = w.appointment;
   const dadas = L(`${ap.p} ${ap.pick("realizados", "realizadas")}`, `${ap.p} done`);
@@ -124,7 +126,7 @@ export default function PeriodSummary({ lessons, txs, statements, compact = fals
         <ul className="divide-y divide-border rounded-xl border border-border text-sm">
           {s.porProfessor.map(t => (
             <li key={t.teacher} className="flex items-center justify-between gap-2 px-3 py-1.5">
-              <span className="capitalize">{capitalize(t.teacher)}</span>
+              <span className="capitalize">{teacherName(t.teacher)}</span>
               <span className="tabular-nums text-muted-foreground">{t.aulas} {t.aulas === 1 ? ap.l : ap.lp} · <span className="text-foreground">{fmtMoney(t.valor)}</span></span>
             </li>
           ))}

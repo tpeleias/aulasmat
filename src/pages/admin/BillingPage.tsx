@@ -34,6 +34,7 @@ import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/pack
 import { useServices, type Service } from "@/hooks/useServices";
 
 import { dateLocale, L, currencySymbol } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
@@ -81,6 +82,7 @@ const kindLabel = (t: Tx, v: Vocabulary) =>
         : Number(t.amount) >= 0 ? L("Pagamento", "Payment") : L("Ajuste", "Adjustment");
 
 export default function BillingPage() {
+  const teacherName = useTeacherName();
   const { price: listPrice } = useLessonPrice();
   const { templates } = useMessageTemplates();
   // Pacote, voucher e desconto sao a mesma familia - abatimento combinado
@@ -513,7 +515,7 @@ export default function BillingPage() {
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <CalendarClock className="w-3.5 h-3.5" />
                           {L(`${v.appointment.proximo} ${v.appointment.l}`, `Next ${v.appointment.l}`)}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
-                          · {a.nextLesson.subject ?? v.appointment.s} ({capitalize(a.nextLesson.teacher)})
+                          · {a.nextLesson.subject ?? v.appointment.s} ({teacherName(a.nextLesson.teacher)})
                         </div>
                       )}
 

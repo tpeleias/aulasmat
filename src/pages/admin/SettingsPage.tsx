@@ -151,8 +151,8 @@ export default function SettingsPage() {
       scarcity: {
         ...Object.fromEntries(DIAS.map((_, i) => {
           const d = s.scarcity?.[String(i)] ?? SCARCITY_PADRAO[String(i)];
-          const min = clamp(d.min, 1, 12);
-          return [String(i), { min, max: clamp(Math.max(d.max, min), 1, 12) }];
+          const min = clamp(d.min, 0, 12);
+          return [String(i), { min, max: clamp(Math.max(d.max, min), 0, 12) }];
         })),
         // "Todos os horários livres" (02/10): os números ficam guardados para
         // quando voltar a "só alguns".

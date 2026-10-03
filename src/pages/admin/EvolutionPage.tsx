@@ -15,6 +15,7 @@ import EmptyState from "@/components/EmptyState";
 import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SubmissionRow = { homework_id: string; teacher_feedback: string | null; submitted_at: string };
 
@@ -28,6 +29,7 @@ const studentMatchKey = (name: string, guardian: string | null) =>
   `${name.trim().toLowerCase()}|${(guardian ?? "").trim().toLowerCase()}`;
 
 export default function EvolutionPage() {
+  const teacherName = useTeacherName();
   const w = useWords();
   const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState<StudentRow[]>([]);
@@ -135,7 +137,7 @@ export default function EvolutionPage() {
                           <div className="flex items-center gap-2 text-sm">
                             <GraduationCap className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="font-medium capitalize">{format(new Date(e.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
-                            <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {capitalize(e.teacher)}</span>
+                            <span className="text-muted-foreground">· {e.subject ?? w.appointment.s} · {teacherName(e.teacher)}</span>
                           </div>
                           {e.summary ? (
                             <div className="mt-1.5 flex items-start gap-2">

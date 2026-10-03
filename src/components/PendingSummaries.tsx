@@ -8,6 +8,7 @@ import { capitalize } from "@/lib/balance";
 import { LessonSummaryDialog, type SummaryLesson } from "@/components/LessonSummaryDialog";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type Row = SummaryLesson & { teacher: string };
 
 const DAYS = 10;
@@ -21,6 +22,7 @@ const MAX = 5;
  * o resumo só existia escondido nos detalhes do atendimento.
  */
 export default function PendingSummaries({ refreshKey }: { refreshKey?: number }) {
+  const teacherName = useTeacherName();
   const w = useWords();
   const ap = w.appointment;
   const [rows, setRows] = useState<Row[]>([]);
@@ -71,7 +73,7 @@ export default function PendingSummaries({ refreshKey }: { refreshKey?: number }
               <div className="truncate text-sm font-medium">{l.student_name}</div>
               <div className="truncate text-xs text-muted-foreground">
                 <span className="capitalize">{format(new Date(l.start_at), L("EEE dd/MM HH:mm", "EEE, MMM d, h:mm a"), { locale: dateLocale() })}</span>
-                {l.subject ? ` · ${l.subject}` : ""} · {capitalize(l.teacher)}
+                {l.subject ? ` · ${l.subject}` : ""} · {teacherName(l.teacher)}
               </div>
             </div>
             <Button size="sm" variant="secondary" className="shrink-0 gap-1 rounded-xl" onClick={() => setOpen(l)}>

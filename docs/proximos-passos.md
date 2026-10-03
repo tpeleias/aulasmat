@@ -87,6 +87,17 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Robô da Play não entra com a conta de revisão (03/10) - PENDÊNCIA DO THIAGO
+
+Depois de cada `.aab` (1.15.0 e 1.15.1), um OnePlus 8 Pro com Android 11 vindo
+de IPs do Google (`192.178.11.x`) tentou entrar dezenas de vezes, com senha, e
+todas deram "Invalid login credentials". É o robô do Relatório de pré-lançamento
+(o mesmo de 19/09, ver abaixo). Não é defeito do app: é login com senha errada.
+O que preocupa: a conta de revisão `demo` (demo@aluno.sistema.local) não entra
+desde 19/09/2026. **Conferir no Play Console → Conteúdo do app → Acesso ao app**
+se o usuário é `demo` e a senha é a atual; o revisor da produção usa as mesmas.
+Daqui não dá para ler essas credenciais.
+
 ## Feedback dos primeiros testes (27/09)
 
 Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:

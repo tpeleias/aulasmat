@@ -10,7 +10,9 @@ import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
+import { useTeacherName } from "@/hooks/useTeacherName";
 export default function ChildDashboard() {
+  const teacherName = useTeacherName();
   const { student, loading } = useStudent();
   const w = useWords();
   const ap = w.appointment;
@@ -67,7 +69,7 @@ export default function ChildDashboard() {
               <Clock className="w-4 h-4" />
               <span>{format(new Date(nextLesson.start_at), timeFmt(), { locale: dateLocale() })}</span>
               <span>· {nextLesson.duration_minutes} min</span>
-              <span>· {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(nextLesson.teacher)}</span>
+              <span>· {w.model === "aulas" ? L("Prof. ", "") : ""}{teacherName(nextLesson.teacher)}</span>
             </div>
             {nextLesson.subject && <Badge variant="secondary">{nextLesson.subject}</Badge>}
           </div>
@@ -83,7 +85,7 @@ export default function ChildDashboard() {
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
               <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd/MM 'às' HH:mm", "EEEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{teacherName(l.teacher)}</div>
             </div>
           </div>
         ))}
