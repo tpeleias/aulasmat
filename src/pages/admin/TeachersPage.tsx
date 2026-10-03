@@ -17,6 +17,7 @@ import { useServices } from "@/hooks/useServices";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { scarcityOff, type ScarcitySetting } from "@/lib/availability";
 import { ScarcityEditor } from "@/components/ScarcityEditor";
+import { forgetTeacherNames } from "@/hooks/useTeacherName";
 import { toast } from "sonner";
 import { capitalize } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
@@ -73,7 +74,7 @@ export default function TeachersPage() {
     setBusy(true);
     const { error } = await supabase.from("teachers" as any).insert({ name: v });
     setBusy(false);
-    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(L(`${st.s} ${st.pick("cadastrado", "cadastrada")}`, `${st.s} added`)); setName(""); reload(); syncSeats(); }
+    if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(L(`${st.s} ${st.pick("cadastrado", "cadastrada")}`, `${st.s} added`)); setName(""); forgetTeacherNames(); reload(); syncSeats(); }
   };
 
   // Renomear passa pelo banco (rename_teacher) porque aulas e bloqueios
@@ -139,6 +140,7 @@ export default function TeachersPage() {
     toast.success(L(`${st.s} ${st.pick("renomeado", "renomeada")}${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} ${ap.pick("atualizado", "atualizada")}${n === 1 ? "" : "s"}` : ""}`,
       `${st.s} renamed${n ? ` - ${n} ${n === 1 ? ap.l : ap.lp} updated` : ""}`));
     setRenaming(null);
+    forgetTeacherNames();
     reload();
   };
 

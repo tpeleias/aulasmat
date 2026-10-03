@@ -11,6 +11,7 @@ import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import { openRoute, useNavApp } from "@/lib/navigation";
+import { useTeacherName } from "@/hooks/useTeacherName";
 export type SheetStudent = {
   id: string; student_name: string; guardian_name: string | null; address: string | null; user_id: string | null;
 };
@@ -38,6 +39,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
   // troca quem ocupa as vagas do Essencial.
   onPause?: () => void;
 }) {
+  const teacherName = useTeacherName();
   const w = useWords();
   const navApp = useNavApp();
   if (!student) return null;
@@ -101,7 +103,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
                 <li key={l.id} className="flex items-center justify-between gap-3 px-3 py-2.5 text-sm">
                   <div className="min-w-0">
                     <div className="font-medium capitalize">{format(new Date(l.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
-                    <div className="truncate text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {capitalize(l.teacher)}</div>
+                    <div className="truncate text-xs text-muted-foreground">{l.subject ?? w.appointment.s} · {l.duration_minutes} min · {teacherName(l.teacher)}</div>
                   </div>
                   <Badge variant={l.status === "realizada" ? "secondary" : "outline"} className="shrink-0 text-[10px]">{statusLabel(l.status, w)}</Badge>
                 </li>

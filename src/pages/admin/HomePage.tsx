@@ -29,6 +29,7 @@ import { useWords } from "@/hooks/useVocabulary";
 import type { Vocabulary } from "@/lib/vocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
   start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean;
@@ -48,6 +49,7 @@ function greeting(d: Date) {
 }
 
 export default function HomePage() {
+  const teacherName = useTeacherName();
   const navigate = useNavigate();
   const w = useWords();
   const ap = w.appointment;
@@ -144,7 +146,7 @@ export default function HomePage() {
       <div className="space-y-6">
         <header>
           <p className="text-sm text-muted-foreground capitalize">{format(now, L("EEEE, d 'de' MMMM", "EEEE, MMMM d"), { locale: dateLocale() })}</p>
-          <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {capitalize(teacher)}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{greeting(now)}, {teacherName(teacher)}</h1>
         </header>
 
         <UpdateBanner />
@@ -186,7 +188,7 @@ export default function HomePage() {
                         {isNext && <Badge className="h-5 rounded-full px-2 text-[10px]">{L("próxima", "next")}</Badge>}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {l.subject ?? ap.s} · {capitalize(l.teacher)}{l.is_online ? " · online" : ""}
+                        {l.subject ?? ap.s} · {teacherName(l.teacher)}{l.is_online ? " · online" : ""}
                       </div>
                     </div>
                     {l.is_online && <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />}

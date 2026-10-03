@@ -16,6 +16,7 @@ import { Check, X, Clock, MapPin, Wifi, Repeat } from "lucide-react";
 import { useWords } from "@/hooks/useVocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 type Request = {
   id: string; student_name: string; guardian_name: string | null; teacher: string;
   start_at: string; duration_minutes: number; address: string | null; is_online: boolean;
@@ -37,6 +38,7 @@ type Original = { id: string; start_at: string; status: string; teacher: string 
  * esperando resposta de um horário que segue reservado.
  */
 export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
+  const teacherName = useTeacherName();
   const w = useWords();
   const [requests, setRequests] = useState<Request[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -132,7 +134,7 @@ export function LessonRequests({ onChanged }: { onChanged?: () => void }) {
                     {past && <Badge variant="destructive" className="h-5 px-2 text-[10px]">{L("horário já passou", "time has passed")}</Badge>}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {format(start, L("EEE, dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })} · {r.duration_minutes} min · {capitalize(r.teacher)}
+                    {format(start, L("EEE, dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })} · {r.duration_minutes} min · {teacherName(r.teacher)}
                     {r.subject ? ` · ${r.subject}` : ""}
                   </div>
                   {r.reschedule_of && (() => {

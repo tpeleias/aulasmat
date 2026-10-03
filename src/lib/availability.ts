@@ -69,10 +69,12 @@ export function pickScarcityCandidates(
   minN: number,
   maxN: number,
 ): Date[] {
-  if (candidateStarts.length === 0) return [];
+  if (candidateStarts.length === 0 || maxN <= 0) return [];
   const dayKey = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`;
   const rand = seedRandom(`${teacherKey}|${dayKey}|${minN}-${maxN}`);
-  const lo = Math.max(1, Math.min(minN, maxN));
+  // 0 vale (03/10): máximo 0 = o dia aparece sem horários; mínimo 0 = há dias
+  // em que nenhum aparece.
+  const lo = Math.max(0, Math.min(minN, maxN));
   const hi = Math.max(lo, maxN);
   const target = lo + Math.floor(rand() * (hi - lo + 1));
   const count = Math.min(candidateStarts.length, target);

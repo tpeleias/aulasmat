@@ -27,6 +27,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { useServices, teacherDoes } from "@/hooks/useServices";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { useTeacherName } from "@/hooks/useTeacherName";
 // "Qualquer profissional" no seletor (Max): o app escolhe pela prioridade.
 const ANY = "__qualquer__";
 
@@ -38,6 +39,7 @@ const DAYS_AHEAD = 5;
 type Original = { id: string; start_at: string; teacher: string; subject: string | null; status: string; is_online: boolean; service_id?: string | null };
 
 export default function StudentBooking() {
+  const teacherName = useTeacherName();
   const settings = useAppSettings();
   const w = useWords();
   const ap = w.appointment;
@@ -346,8 +348,8 @@ export default function StudentBooking() {
               <div className="space-y-2">
                 <p>
                   {original
-                    ? <>{L(`Você vai pedir para trocar ${ap.o} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com`, `You're asking to move the ${ap.l} on ${format(new Date(original.start_at), "MMM d 'at' HH:mm")} to this time, with`)} <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>
-                    : <>{L(`Você vai pedir ${ap.um} ${ap.l} com`, `You're requesting ${ap.um} ${ap.l} with`)} <strong>{capitalize(pending?.teacher ?? teacher)}</strong>:</>}
+                    ? <>{L(`Você vai pedir para trocar ${ap.o} ${ap.l} de ${format(new Date(original.start_at), "dd/MM 'às' HH:mm")} por este horário, com`, `You're asking to move the ${ap.l} on ${format(new Date(original.start_at), "MMM d 'at' HH:mm")} to this time, with`)} <strong>{teacherName(pending?.teacher ?? teacher)}</strong>:</>
+                    : <>{L(`Você vai pedir ${ap.um} ${ap.l} com`, `You're requesting ${ap.um} ${ap.l} with`)} <strong>{teacherName(pending?.teacher ?? teacher)}</strong>:</>}
                 </p>
                 {pending && (
                   <p className="text-foreground font-medium">

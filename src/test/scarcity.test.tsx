@@ -69,3 +69,22 @@ describe("ScarcityEditor", () => {
     expect(screen.getByText(/A sua agenda mostra sempre tudo/)).toBeTruthy();
   });
 });
+
+describe("escassez com 0 (03/10)", () => {
+  it("máximo 0: o dia não mostra horário", () => {
+    expect(visibleStarts(monday, starts, "x", { min: 0, max: 0 })).toEqual([]);
+  });
+  it("mínimo 0 e máximo 2: de 0 a 2", () => {
+    const n = visibleStarts(monday, starts, "x", { min: 0, max: 2 }).length;
+    expect(n).toBeGreaterThanOrEqual(0);
+    expect(n).toBeLessThanOrEqual(2);
+  });
+  it("o editor aceita 0 no mínimo", () => {
+    const onChange = vi.fn();
+    render(<ScarcityEditor value={{ "1": { min: 1, max: 3 } }} onChange={onChange} />);
+    const min = screen.getByLabelText("Segunda: mínimo");
+    fireEvent.focus(min);
+    fireEvent.change(min, { target: { value: "0" } });
+    expect(onChange.mock.calls.at(-1)![0]["1"]).toEqual({ min: 0, max: 3 });
+  });
+});

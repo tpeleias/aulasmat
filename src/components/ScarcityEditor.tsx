@@ -59,7 +59,7 @@ export function ScarcityEditor({ value, onChange, inheritFrom, who }: {
   };
 
   const setDay = (k: string, campo: "min" | "max", n: number) => {
-    const d = { ...days[k], [campo]: Math.max(1, Math.min(12, Math.round(n) || 1)) };
+    const d = { ...days[k], [campo]: Math.max(0, Math.min(12, Number.isFinite(n) ? Math.round(n) : 0)) };
     // Mínimo maior que o máximo não faz sentido: o outro acompanha.
     if (campo === "min" && d.max < d.min) d.max = d.min;
     if (campo === "max" && d.min > d.max) d.min = d.max;
@@ -104,6 +104,7 @@ export function ScarcityEditor({ value, onChange, inheritFrom, who }: {
           <p className="text-xs text-muted-foreground">
             {L(`Por dia, quantos horários ${who ? `de ${who} ` : ""}aparecem: o app escolhe um número entre o mínimo e o máximo.`,
                `Per day, how many ${who ? `of ${who}'s ` : ""}times show: the app picks a number between the min and max.`)}
+            {" "}{L("Máximo 0: o dia aparece sem horários.", "Max 0: the day shows no times.")}
           </p>
           <div className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2">
             <span />
@@ -116,8 +117,8 @@ export function ScarcityEditor({ value, onChange, inheritFrom, who }: {
             return (
               <div key={k} className="grid grid-cols-[1fr_4.5rem_4.5rem] items-center gap-2">
                 <span className="text-sm">{nome}</span>
-                <NumberField min={1} max={12} value={days[k].min} onValueChange={n => setDay(k, "min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
-                <NumberField min={1} max={12} value={days[k].max} onValueChange={n => setDay(k, "max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
+                <NumberField min={0} max={12} value={days[k].min} onValueChange={n => setDay(k, "min", n)} aria-label={L(`${nome}: mínimo`, `${nome}: min`)} />
+                <NumberField min={0} max={12} value={days[k].max} onValueChange={n => setDay(k, "max", n)} aria-label={L(`${nome}: máximo`, `${nome}: max`)} />
               </div>
             );
           })}

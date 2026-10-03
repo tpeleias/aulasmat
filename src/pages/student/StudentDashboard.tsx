@@ -23,9 +23,11 @@ import { cap } from "@/lib/vocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
+import { useTeacherName } from "@/hooks/useTeacherName";
 const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentDashboard() {
+  const teacherName = useTeacherName();
   const { student, loading } = useStudent();
   const w = useWords();
   const ap = w.appointment;
@@ -120,7 +122,7 @@ export default function StudentDashboard() {
             <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
               <div>
                 <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
-                <div className="text-xs text-muted-foreground">{l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
+                <div className="text-xs text-muted-foreground">{l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{teacherName(l.teacher)}</div>
               </div>
               <div className="flex items-center gap-1">
                 <Badge variant={statusBadgeVariant(l.status)}>{statusLabel(l.status, w)}</Badge>
@@ -141,7 +143,7 @@ export default function StudentDashboard() {
           <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2 first:border-0 first:pt-0">
             <div>
               <div className="text-sm font-medium">{format(new Date(l.start_at), L("EEEE, dd 'de' MMMM 'às' HH:mm", "EEEE, MMMM d 'at' h:mm a"), { locale: dateLocale() })}</div>
-              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{capitalize(l.teacher)}</div>
+              <div className="text-xs text-muted-foreground">{l.subject ?? ap.s} · {l.duration_minutes} min · {w.model === "aulas" ? L("Prof. ", "") : ""}{teacherName(l.teacher)}</div>
             </div>
             <WhatsAppButton teacher={l.teacher} message={L(`Olá! Sobre ${ap.o} ${ap.l} em ${format(new Date(l.start_at), "dd/MM HH:mm")}`, `Hi! About the ${ap.l} on ${format(new Date(l.start_at), "MMM d, HH:mm")}`)} />
           </div>
