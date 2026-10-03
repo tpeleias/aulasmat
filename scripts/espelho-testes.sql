@@ -3034,4 +3034,83 @@ SELECT public.assert((SELECT count(*) FROM public.lessons) = 0, 'login criado co
 SELECT public.assert((SELECT count(*) FROM public.students) = 0, 'nem clientes');
 COMMIT;
 
+\echo '--- 54. E-mails automaticos: fila e e-mail do profissional (03/10) ---'
+DO $$
+DECLARE _e uuid; _t uuid; _l uuid;
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Emails E', 'emails-e', 'pro') RETURNING id INTO _e;
+  INSERT INTO public.settings (account_id) VALUES (_e);
+  INSERT INTO public.teachers (account_id, name, active) VALUES (_e, 'Eva', true) RETURNING id INTO _t;
+  PERFORM set_config('teste.e', _e::text, false);
+  PERFORM set_config('teste.et', _t::text, false);
+END $$;
+
+-- Desligado (padrao): nada entra na fila.
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E1', 'eva', now() + interval '3 day', 60, 'agendada');
+SELECT public.assert((SELECT count(*) FROM public.email_outbox WHERE account_id = current_setting('teste.e')::uuid) = 0,
+  'empresa sem e-mails ligados nao enfileira nada');
+
+UPDATE public.settings SET email_notifications = '{"enabled": true}' WHERE account_id = current_setting('teste.e')::uuid;
+SELECT public.assert(public.email_pref('{"enabled": true}', 'client_booked') AND NOT public.email_pref('{"enabled": true}', 'reminder_day')
+  AND NOT public.email_pref('{"enabled": false, "client_booked": true}', 'client_booked'),
+  'padrao: tudo ligado menos o lembrete do dia; desligado geral vence');
+
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E2', 'eva', now() + interval '4 day', 60, 'agendada');
+SELECT public.assert((SELECT kind FROM public.email_outbox WHERE account_id = current_setting('teste.e')::uuid) = 'booked', 'marcado -> booked');
+
+UPDATE public.lessons SET start_at = start_at + interval '2 hour' WHERE student_name = 'Cliente E2';
+SELECT public.assert(EXISTS (SELECT 1 FROM public.email_outbox WHERE kind = 'changed' AND old_start IS NOT NULL AND account_id = current_setting('teste.e')::uuid),
+  'horario mudou -> changed, com o horario antigo');
+
+UPDATE public.lessons SET notes = 'so uma nota' WHERE student_name = 'Cliente E2';
+SELECT public.assert((SELECT count(*) FROM public.email_outbox WHERE account_id = current_setting('teste.e')::uuid) = 2,
+  'mudar so a anotacao nao manda e-mail');
+
+UPDATE public.lessons SET status = 'cancelada' WHERE student_name = 'Cliente E2';
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.e')::uuid, 'Cliente E3', 'eva', now() + interval '5 day', 60, 'solicitada');
+UPDATE public.lessons SET status = 'recusada' WHERE student_name = 'Cliente E3';
+SELECT public.assert((SELECT string_agg(kind, ',' ORDER BY created_at, kind) FROM public.email_outbox WHERE account_id = current_setting('teste.e')::uuid
+  AND kind IN ('cancelled','requested','declined')) IS NOT NULL
+  AND EXISTS (SELECT 1 FROM public.email_outbox WHERE kind = 'cancelled' AND account_id = current_setting('teste.e')::uuid)
+  AND EXISTS (SELECT 1 FROM public.email_outbox WHERE kind = 'requested' AND account_id = current_setting('teste.e')::uuid)
+  AND EXISTS (SELECT 1 FROM public.email_outbox WHERE kind = 'declined' AND account_id = current_setting('teste.e')::uuid),
+  'cancelado, pedido e recusado entram na fila');
+
+-- O e-mail do profissional: so admin da propria empresa.
+INSERT INTO public.teacher_emails (teacher_id, account_id, email)
+VALUES (current_setting('teste.et')::uuid, current_setting('teste.e')::uuid, 'eva@exemplo.com');
+DO $$
+BEGIN
+  INSERT INTO public.students (account_id, student_name, email) VALUES (current_setting('teste.e')::uuid, 'Errado', 'sem-arroba');
+  RAISE EXCEPTION 'FALHOU: aceitou e-mail invalido';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - e-mail invalido recusado no cadastro';
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((SELECT count(*) FROM public.teacher_emails) = 0, 'cliente nao le e-mail de profissional');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((SELECT count(*) FROM public.teacher_emails) = 0, 'admin de outra empresa nao le e-mail de profissional');
+DO $$
+BEGIN
+  PERFORM 1 FROM public.email_outbox;
+  RAISE EXCEPTION 'FALHOU: logado leu a fila de e-mails';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a fila de e-mails e fechada';
+END $$;
+COMMIT;
+BEGIN;
+SET LOCAL ROLE anon;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.teacher_emails;
+  RAISE EXCEPTION 'FALHOU: visitante leu e-mail de profissional';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - visitante nao le e-mail de profissional';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='

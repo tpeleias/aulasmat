@@ -80,6 +80,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Entrar com a digital (03/10, @capgo/capacitor-native-biometric). -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- "Estou a caminho" (Cronys Max): a posição é lida uma vez, com o app
          aberto, e vai só na mensagem de WhatsApp que a pessoa envia. Nada de
          localização em segundo plano. -->

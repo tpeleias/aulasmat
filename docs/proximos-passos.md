@@ -87,6 +87,28 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## E-mails automáticos, "esqueci a senha" e a digital (03/10)
+
+- Resend com o domínio cronys.com.br verificado (registros na GoDaddy). A chave
+  fica no cofre do Supabase (`resend_api_key`), nunca no código.
+- Cada empresa liga em **Configurações → E-mails automáticos** (nasce
+  desligado) e escolhe tipo a tipo; o botão "Mandar um e-mail de teste para
+  mim" confere tudo. Remetente `Nome da empresa <lembretes@cronys.com.br>`,
+  "Responder" para o e-mail de contato da empresa.
+- Como sai: gatilho em `lessons` → `email_outbox` → pg_cron a cada minuto chama
+  a função `emails`; lembretes de hora em hora (18h véspera, 7h no dia, horário
+  de Brasília para todas as empresas por enquanto).
+- E-mail do profissional fica em `teacher_emails` (só admin lê). Descadastro:
+  `/email/sair` (por empresa). Senha nova: `/nova-senha`.
+- Plano grátis do Resend: 100 e-mails/dia e 3.000/mês. Passou disso, plano
+  pago (US$ 20/mês, 50 mil).
+- Próximas etapas possíveis: e-mail saindo do domínio da própria empresa,
+  horário dos lembretes por empresa, fuso por empresa, resumo do dia para o
+  profissional.
+- Digital: `@capgo/capacitor-native-biometric`; a senha fica no cofre do
+  Android, só sai com a digital. Trocar a senha em Minha conta apaga o login
+  guardado.
+
 ## Robô da Play não entra com a conta de revisão (03/10) - PENDÊNCIA DO THIAGO
 
 Depois de cada `.aab` (1.15.0 e 1.15.1), um OnePlus 8 Pro com Android 11 vindo
@@ -107,9 +129,8 @@ Anotado pelo Thiago depois dos testes com a Kika Sport e com ele mesmo:
   vezes em "criar conta de cliente" no app antigo e virou cliente sem empresa;
   converti à mão para admin da Kika Sport.
 - [x] **Redefinir senha pelo gestor:** botão no `/gestor` (PR #71).
-- [ ] **"Esqueci a senha" pela própria pessoa:** falta o envio de e-mail
-  (servidor próprio: contato@cronys.com.br da GoDaddy ou Resend). Depois, o
-  botão na tela de entrar e a página de senha nova.
+- [x] **"Esqueci a senha" pela própria pessoa:** feito em 03/10 (Resend, ver
+  "E-mails automáticos" acima).
 - [x] **Modalidade (serviço) que não voltava ao padrão:** ao tirar o serviço
   (ou apagar a descrição), a duração e o valor do serviço ficavam. Agora voltam
   ao padrão, a não ser que tenham sido mudados à mão.
@@ -712,8 +733,7 @@ código FUNDADOR ainda está ativo.
 
 **Quando quiser as próximas funções (depende de algo seu)**
 18. Notificação no app: criar projeto no Firebase e passar a chave.
-19. E-mail automático (lembrete de aula): escolher provedor (Resend etc.) -
-    é o mesmo SMTP do item 15.
+19. E-mail automático (lembrete de aula): FEITO em 03/10 (Resend).
 20. Monitoramento de erros: criar conta no Sentry e passar o DSN.
 
 ### O QUE FALTA - lista para fazer depois

@@ -21,6 +21,7 @@ import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScarcityEditor } from "@/components/ScarcityEditor";
+import { EmailNotificationsSettings, type EmailPrefs } from "@/components/EmailNotificationsSettings";
 import { scarcityOff } from "@/lib/availability";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { canSellHere } from "@/lib/subscription";
@@ -532,6 +533,11 @@ export default function SettingsPage() {
         </div>
         <Button asChild size="sm" variant="outline" className="shrink-0"><Link to="/admin/mensagens">{L("Configurar mensagens", "Edit messages")}</Link></Button>
       </Card>
+
+      {"email_notifications" in s && (
+        <EmailNotificationsSettings value={(s as { email_notifications?: EmailPrefs }).email_notifications}
+          onChange={next => setS(x => ({ ...x, email_notifications: next }))} />
+      )}
 
       <Card className="p-5 space-y-4">
         <div>

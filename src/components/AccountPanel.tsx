@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -8,11 +8,12 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { KeyRound, Moon, Navigation, Sun, Trash2, UserRound } from "lucide-react";
+import { Fingerprint, KeyRound, Moon, Navigation, Sun, Trash2, UserRound } from "lucide-react";
 import { toast } from "sonner";
 import { USERNAME_DOMAIN } from "@/lib/username";
 import { saveNavApp, useNavApp, type NavApp } from "@/lib/navigation";
 import { L } from "@/lib/i18n";
+import { biometricAvailable, forgetLogin, hasSavedLogin } from "@/lib/biometric";
 
 /**
  * O que é da pessoa, não da empresa: login, senha, app de rota, modo claro ou
@@ -33,6 +34,9 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
   const navApp = useNavApp();
   // A escolha aparece na hora; a conta confirma em seguida.
   const [navPick, setNavPick] = useState<NavApp | null>(null);
+  // Entrar com a digital (só no app, e só se o login estiver guardado).
+  const [bioSaved, setBioSaved] = useState(false);
+  useEffect(() => { void (async () => setBioSaved((await biometricAvailable()) && (await hasSavedLogin())))(); }, []);
 
   const email = user?.email ?? "";
   const login = email.endsWith(`@${USERNAME_DOMAIN}`) ? email.slice(0, -USERNAME_DOMAIN.length - 1) : email;
@@ -49,6 +53,9 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
     if (error) { toast.error(error.message); return; }
     toast.success(L("Senha trocada", "Password changed"));
     setPw(""); setPw2("");
+    // A senha guardada para a digital ficou velha: na próxima entrada com
+    // senha o app oferece guardar de novo.
+    if (bioSaved) { await forgetLogin(); setBioSaved(false); }
   };
 
   const pickNav = async (app: NavApp) => {
@@ -85,6 +92,12 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
           <Input type="password" value={pw2} onChange={e => setPw2(e.target.value)} placeholder={L("Repita a nova senha", "Repeat the new password")} autoComplete="new-password" />
           <Button variant="outline" className="rounded-xl" disabled={busy || pw.length < 6 || pw !== pw2} onClick={changePassword}>{L("Salvar nova senha", "Save new password")}</Button>
           </>}
+          {bioSaved && (
+            <Button variant="ghost" className="gap-2 rounded-xl px-0 text-muted-foreground"
+              onClick={async () => { await forgetLogin(); setBioSaved(false); toast.success(L("Pronto: a digital não entra mais nesta conta", "Done: fingerprint sign-in is off")); }}>
+              <Fingerprint className="h-4 w-4" /> {L("Parar de entrar com a digital", "Stop signing in with fingerprint")}
+            </Button>
+          )}
         </Card>
 
         {staff && (

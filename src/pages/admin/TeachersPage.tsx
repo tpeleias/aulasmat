@@ -35,6 +35,26 @@ export default function TeachersPage() {
   const w = useWords();
   const st = w.staff;
   const { teachers, reload } = useTeachers(false);
+  // E-mail de cada profissional para os avisos automáticos. Mora em
+  // teacher_emails, que só o admin lê (migration 20261003020000): a linha de
+  // teachers é lida por todo mundo da empresa.
+  const [teacherEmails, setTeacherEmails] = useState<Record<string, string>>({});
+  useEffect(() => {
+    supabase.from("teacher_emails" as never).select("teacher_id, email").then(({ data }: { data: unknown }) => {
+      setTeacherEmails(Object.fromEntries(((data ?? []) as { teacher_id: string; email: string }[]).map(r => [r.teacher_id, r.email])));
+    });
+  }, []);
+  const saveTeacherEmail = async (id: string, raw: string) => {
+    const email = raw.trim().toLowerCase();
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { toast.error(L("Confira o e-mail: algo como nome@exemplo.com", "Check the email: something like name@example.com")); return; }
+    const t = teachers.find(x => x.id === id);
+    const { error } = email
+      ? await supabase.from("teacher_emails" as never).upsert({ teacher_id: id, account_id: (t as unknown as { account_id: string })?.account_id, email, updated_at: new Date().toISOString() } as never)
+      : await supabase.from("teacher_emails" as never).delete().eq("teacher_id", id);
+    if (error) { toast.error(error.message); return; }
+    setTeacherEmails(x => { const n = { ...x }; if (email) n[id] = email; else delete n[id]; return n; });
+    toast.success(L("E-mail salvo", "Email saved"));
+  };
   // O limite conta professor ATIVO, igual ao gatilho do banco.
   const ativos = teachers.filter(t => t.active).length;
   const semVaga = plan.max_teachers !== null && ativos >= plan.max_teachers;
@@ -344,6 +364,13 @@ export default function TeachersPage() {
                     : L("Número guardado, mas o botão não aparece", "Number saved, but the button is hidden")}
                 </span>
               </label>
+              <div>
+                <label className="text-xs text-muted-foreground">{L(`E-mail de ${capitalize(t.name)}`, `${capitalize(t.name)}'s email`)}</label>
+                <Input type="email" inputMode="email" autoComplete="off" key={teacherEmails[t.id] ?? "vazio"}
+                  defaultValue={teacherEmails[t.id] ?? ""} placeholder="nome@exemplo.com"
+                  onBlur={e => { if (e.target.value.trim().toLowerCase() !== (teacherEmails[t.id] ?? "")) saveTeacherEmail(t.id, e.target.value); }} />
+                <p className="mt-1 text-[11px] text-muted-foreground">{L("Opcional. Recebe os avisos da própria agenda, se ligados em Configurações. Só os admins veem.", "Optional. Gets notices about their own calendar, if turned on in Settings. Only admins see it.")}</p>
+              </div>
             </div>
 
             <Collapsible className="rounded-md border border-border bg-muted/30">
