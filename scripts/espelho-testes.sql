@@ -3113,4 +3113,56 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - visitante nao le
 END $$;
 COMMIT;
 
+\echo '--- 55. Cada um poe o proprio e-mail para avisos (03/10) ---'
+DO $$
+DECLARE _up uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_up, 'eva@aluno.sistema.local');
+  DELETE FROM public.user_roles WHERE user_id = _up;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_up, 'teacher', current_setting('teste.e')::uuid);
+  UPDATE public.teachers SET user_id = _up WHERE id = current_setting('teste.et')::uuid;
+  PERFORM set_config('teste.uprof', _up::text, false);
+END $$;
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+-- O cliente (Bia, responsavel Ana): grava o proprio e o da responsavel.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((public.my_notification_email() ->> 'kind') = 'client' AND (public.my_notification_email() ->> 'guardian_name') = 'Ana',
+  'cliente ve o proprio campo, com o da responsavel');
+SELECT public.set_my_notification_email(' Bia@Gmail.com ', 'ana@gmail.com');
+SELECT public.assert((public.my_notification_email() ->> 'email') = 'bia@gmail.com' AND (public.my_notification_email() ->> 'guardian_email') = 'ana@gmail.com',
+  'cliente grava o proprio e-mail e o da responsavel (minusculo, sem espaco)');
+DO $$
+BEGIN
+  PERFORM public.set_my_notification_email('sem-arroba', NULL);
+  RAISE EXCEPTION 'FALHOU: aceitou e-mail invalido';
+EXCEPTION WHEN invalid_parameter_value THEN RAISE NOTICE '  ok - e-mail invalido recusado em Minha conta';
+END $$;
+-- O profissional: grava em teacher_emails pela funcao, sem ler a tabela.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.uprof'), true);
+SELECT public.set_my_notification_email('eva@gmail.com', NULL);
+SELECT public.assert((public.my_notification_email() ->> 'kind') = 'teacher' AND (public.my_notification_email() ->> 'email') = 'eva@gmail.com',
+  'profissional grava o proprio e-mail');
+SELECT public.assert((SELECT count(*) FROM public.teacher_emails) = 0, 'profissional continua sem ler a tabela de e-mails');
+SELECT public.set_my_notification_email('', NULL);
+SELECT public.assert((public.my_notification_email() ->> 'email') IS NULL, 'vazio apaga o e-mail do profissional');
+-- Admin sem cadastro de profissional: nao tem campo.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+SELECT public.assert(public.my_notification_email() IS NULL, 'admin sem cadastro nao tem o campo');
+COMMIT;
+SELECT public.assert((SELECT email FROM public.students WHERE user_id = current_setting('teste.ualuno')::uuid) = 'bia@gmail.com',
+  'o e-mail do cliente foi para o cadastro dele');
+
+BEGIN;
+SET LOCAL ROLE anon;
+DO $$
+BEGIN
+  PERFORM public.set_my_notification_email('x@y.com', NULL);
+  RAISE EXCEPTION 'FALHOU: visitante gravou e-mail';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - visitante nao grava e-mail';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='
