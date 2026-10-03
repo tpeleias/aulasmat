@@ -8,7 +8,7 @@ import BottomNav, { type NavItem } from "@/components/BottomNav";
 import { useTheme } from "@/hooks/useTheme";
 import { UserRound, LogOut, LayoutDashboard, Calendar, FolderOpen, ListChecks, Moon, Sun } from "lucide-react";
 import { CronysMark } from "@/components/brand";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 
 import { L } from "@/lib/i18n";
 export default function ChildLayout() {
@@ -16,6 +16,7 @@ export default function ChildLayout() {
   const { student, loading: stLoading } = useStudent();
   const { theme, toggleTheme } = useTheme();
   const w = useWords();
+  const tasks = useTasksEnabled();
 
   if (loading || stLoading) return null;
   if (!session) return <Navigate to="/entrar" replace />;
@@ -28,7 +29,7 @@ export default function ChildLayout() {
     { to: "/meu-painel", label: L("Início", "Home"), icon: LayoutDashboard, end: true },
     { to: "/meu-painel/aulas", label: w.appointment.p, icon: Calendar },
     { to: "/meu-painel/materiais", label: L("Materiais", "Materials"), icon: FolderOpen },
-    { to: "/meu-painel/tarefas", label: L("Tarefas", "Tasks"), icon: ListChecks },
+    ...(tasks ? [{ to: "/meu-painel/tarefas", label: w.task.p, icon: ListChecks }] : []),
   ];
 
   return (

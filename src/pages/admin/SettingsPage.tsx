@@ -10,7 +10,8 @@ import { FALLBACK_LESSON_PRICE, primeLessonPrice } from "@/hooks/useLessonPrice"
 import { fmtMoney } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
 import { Badge } from "@/components/ui/badge";
-import { useWords } from "@/hooks/useVocabulary";
+import { useVocabulary, useWords } from "@/hooks/useVocabulary";
+import { tasksDefault } from "@/lib/vocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 import VocabularySettings from "@/components/VocabularySettings";
@@ -79,6 +80,7 @@ type Settings = {
 export default function SettingsPage() {
   const { plan, loading: planLoading } = usePlan();
   const v = useWords();
+  const { model: vocabModel, reload: reloadVocab } = useVocabulary();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -181,7 +183,10 @@ export default function SettingsPage() {
     };
     const { error } = await supabase.from("settings").update(payload).eq("id", rowId);
     if (error) { setSaveState("error"); toast.error(dbErrorMessage(error, v)); return; }
+    const tasksChanged = lastSaved.current !== null && (JSON.parse(lastSaved.current) as { tasks_enabled?: unknown }).tasks_enabled !== (snap as { tasks_enabled?: unknown }).tasks_enabled;
     lastSaved.current = key;
+    // Ligou ou desligou as tarefas: o menu e as telas leem do vocabulário.
+    if (tasksChanged) void reloadVocab();
     // Só marca "salvo" se nada mudou enquanto gravava.
     if (JSON.stringify(current.current) === key) setSaveState("saved");
     // As outras telas leem o valor de um cache; sem isto, o diálogo de nova
@@ -524,6 +529,21 @@ export default function SettingsPage() {
           </div>
           <Switch checked={s.show_payment_info_to_students} onCheckedChange={v => setS({ ...s, show_payment_info_to_students: v })} />
         </div>
+        {"tasks_enabled" in s && (() => {
+          const on = (s as { tasks_enabled?: boolean | null }).tasks_enabled ?? tasksDefault(vocabModel);
+          return (
+            <div className="flex items-center justify-between rounded-md border border-border p-3">
+              <div>
+                <Label className="cursor-pointer">{L(`Usar ${v.task.p}`, `Use ${v.task.p}`)}</Label>
+                <p className="text-xs text-muted-foreground">
+                  {L(`O que ${v.client.o} ${v.client.l} faz até ${v.appointment.o} ${v.appointment.pick("próximo", "próxima")} ${v.appointment.l}, com prazo, no portal e nos e-mails. Desligado, some de tudo; o que já foi criado fica guardado.`,
+                     `What the ${v.client.l} does before the next ${v.appointment.l}, with a due date, in the portal and emails. When off, it's hidden everywhere; what you created is kept.`)}
+                </p>
+              </div>
+              <Switch checked={on} onCheckedChange={x => setS({ ...s, tasks_enabled: x } as typeof s)} aria-label={L(`Usar ${v.task.p}`, `Use ${v.task.p}`)} />
+            </div>
+          );
+        })()}
       </Card>
 
       <Card className="flex items-center justify-between gap-3 p-5">

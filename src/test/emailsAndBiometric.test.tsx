@@ -82,7 +82,7 @@ describe("EmailNotificationsSettings: tarefas, resumo, pacote e agenda", () => {
     const onChange = vi.fn();
     render(<EmailNotificationsSettings value={{ enabled: true }} onChange={onChange} />);
     const box = (re: RegExp) => screen.getByRole("checkbox", { name: re });
-    for (const re of [/Tarefa nova/, /Tarefas pendentes na véspera/, /^Resumo/, /Pacote acabando/, /Agenda de amanhã/]) {
+    for (const re of [/Nova tarefa/, /Tarefas pendentes na véspera/, /^Resumo/, /Pacote acabando/, /Agenda de amanhã/]) {
       expect(box(re).getAttribute("data-state")).toBe("checked");
     }
     fireEvent.click(box(/Agenda de amanhã/));

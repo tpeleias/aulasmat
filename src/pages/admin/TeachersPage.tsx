@@ -25,7 +25,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { ProUpsell } from "@/components/ProUpsell";
 import { money, itemPrice, upgradeOffer } from "@/lib/subscription";
 import { teacherUpgrade, type PlanId } from "@shared/plans";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap } from "@/lib/vocabulary";
 
@@ -34,6 +34,7 @@ import { L } from "@/lib/i18n";
 export default function TeachersPage() {
   const { plan } = usePlan();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const st = w.staff;
   const { teachers, reload } = useTeachers(false);
   // E-mail de cada profissional para os avisos automáticos. Mora em
@@ -426,8 +427,8 @@ export default function TeachersPage() {
           <DialogHeader>
             <DialogTitle>{L(`Acesso de ${accessFor ? capitalize(accessFor.name) : ""}`, `${accessFor ? capitalize(accessFor.name) : ""}'s login`)}</DialogTitle>
             <DialogDescription>
-              {L(`Com o acesso próprio, ${st.o} ${st.l} consulta ${w.appointment.os} ${w.appointment.lp} ${st.pick("dele", "dela")} e ${w.client.os} ${w.client.lp} com quem já atende, põe material e tarefa e mexe nos próprios bloqueios. Quem marca e desmarca é você. Não vê o financeiro, os valores nem as configurações.`,
-                 `With their own login, the ${st.l} sees their ${w.appointment.lp} and the ${w.client.lp} they already serve, adds materials and homework, and manages their own time off. You book and cancel. They don't see billing, prices or settings.`)}
+              {L(`Com o acesso próprio, ${st.o} ${st.l} consulta ${w.appointment.os} ${w.appointment.lp} ${st.pick("dele", "dela")} e ${w.client.os} ${w.client.lp} com quem já atende, põe material${tasks ? ` e ${w.task.l}` : ""} e mexe nos próprios bloqueios. Quem marca e desmarca é você. Não vê o financeiro, os valores nem as configurações.`,
+                 `With their own login, the ${st.l} sees their ${w.appointment.lp} and the ${w.client.lp} they already serve, adds materials${tasks ? ` and ${w.task.lp}` : ""}, and manages their own time off. You book and cancel. They don't see billing, prices or settings.`)}
             </DialogDescription>
           </DialogHeader>
           {accessFor?.user_id ? (

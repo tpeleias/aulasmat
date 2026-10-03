@@ -17,8 +17,8 @@ import PullToRefresh from "@/components/PullToRefresh";
 import { haptics } from "@/lib/haptics";
 import { publicSiteUrl } from "@/lib/publicUrl";
 import { usePlan } from "@/hooks/usePlan";
-import { useWords } from "@/hooks/useVocabulary";
-import { cap, guardianAlwaysShown, type Vocabulary } from "@/lib/vocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { cap, guardianAlwaysShown, listWithTasks, type Vocabulary } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
 type Student = {
@@ -50,6 +50,7 @@ const toggles = (w: Vocabulary): { key: keyof Visibility; label: string; hint: s
 export default function AccessPage() {
   const { plan } = usePlan();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const TOGGLES = toggles(w);
   const [students, setStudents] = useState<Student[]>([]);
   const [visibility, setVisibility] = useState<Visibility | null>(null);
@@ -111,7 +112,7 @@ export default function AccessPage() {
     else if (plan.school_code) lines.push(L(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`, `To create your account in the app, use our code: ${plan.school_code}`));
     if (s.child_username) lines.push(L(`Acesso ${w.client.do} ${w.client.l}: usuário ${s.child_username} (entra na mesma tela, com a senha dele).`, `The ${w.client.l}'s login: username ${s.child_username} (same sign-in screen, with their own password).`));
     if (password.trim()) lines.push(L(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`, `Temporary password: ${password.trim()} (the app asks you to change it on first sign-in).`));
-    lines.push("", L(`Por lá você vê ${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}, o que está em aberto, os materiais e as tarefas.`, `There you'll see upcoming ${w.appointment.lp}, what's outstanding, materials and homework.`));
+    lines.push("", L(`Por lá você vê ${listWithTasks([`${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}`, "o que está em aberto", "os materiais", ...(tasks ? [`${w.task.os} ${w.task.lp}`] : [])], w, false)}.`, `There you'll see ${listWithTasks([`upcoming ${w.appointment.lp}`, "what's outstanding", "materials"], w, tasks)}.`));
     return lines.join("\n");
   };
 

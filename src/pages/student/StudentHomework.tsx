@@ -4,13 +4,22 @@ import { useStudent } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Upload, Download, Clock, AlertCircle } from "lucide-react";
+import { Upload, Download, Clock, AlertCircle, CheckCircle2, RotateCcw } from "lucide-react";
 import { differenceInDays, isPast, format } from "date-fns";
 import { toast } from "sonner";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
 
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { tasksAreSubmitted, taskStatusLabel, type Vocabulary } from "@/lib/vocabulary";
+
 import { L } from "@/lib/i18n";
+
+// As tarefas do cliente (03/10: o nome é o do ramo). Nas aulas a tarefa se
+// entrega com arquivo; nos outros ramos se marca como feita, e o arquivo
+// (uma foto, por exemplo) é opcional.
 export default function StudentHomework() {
+  const w = useWords();
+  const tasks = useTasksEnabled();
   const { student } = useStudent();
   const [homeworks, setHomeworks] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, any[]>>({});
@@ -30,16 +39,18 @@ export default function StudentHomework() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{L("Tarefas", "Tasks")}</h1>
-      {homeworks.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">{L("Nenhuma tarefa atribuída.", "No tasks assigned.")}</Card>}
-      {homeworks.map(h => (
-        <HomeworkCard key={h.id} hw={h} subs={submissions[h.id] ?? []} student={student!} onChange={load} />
+      <h1 className="text-2xl font-bold">{w.task.p}</h1>
+      {!tasks && <Card className="p-6 text-center text-muted-foreground text-sm">{L("Esta parte não está ligada aqui.", "This section isn't turned on here.")}</Card>}
+      {tasks && homeworks.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">{L(`${w.task.nenhum} ${w.task.l} por enquanto.`, `No ${w.task.lp} yet.`)}</Card>}
+      {tasks && homeworks.map(h => (
+        <HomeworkCard key={h.id} hw={h} subs={submissions[h.id] ?? []} student={student!} onChange={load} w={w} />
       ))}
     </div>
   );
 }
 
-function HomeworkCard({ hw, subs, student, onChange }: any) {
+function HomeworkCard({ hw, subs, student, onChange, w }: { hw: any; subs: any[]; student: any; onChange: () => void; w: Vocabulary }) {
+  const submit = tasksAreSubmitted(w.model);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const deadline = new Date(hw.deadline);
@@ -58,9 +69,17 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
     const { error } = await supabase.from("homework_submissions").insert({
       homework_id: hw.id, file_path: path, file_type: file.type,
     });
-    if (!error) await supabase.from("homework").update({ status: "entregue" }).eq("id", hw.id);
+    // O status vira "entregue" no banco, pelo gatilho do envio (migration 20261004010000).
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success(L("Tarefa enviada!", "Task submitted!")); onChange(); }
+    if (error) toast.error(error.message); else { toast.success(submit ? L("Enviado!", "Submitted!") : L("Arquivo enviado!", "File sent!")); onChange(); }
+  };
+
+  const markDone = async (done: boolean) => {
+    setBusy(true);
+    const { error } = await supabase.rpc("mark_homework_done" as never, { _homework: hw.id, _done: done } as never);
+    setBusy(false);
+    if (error) toast.error(L("Não deu para marcar agora. Tente de novo.", "Couldn't update it now. Try again."));
+    else { if (done) toast.success(L("Marcado como feito!", "Marked as done!")); onChange(); }
   };
 
   const download = async (path: string) => {
@@ -76,11 +95,11 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
           {hw.description && <div className="text-sm text-muted-foreground mt-1">{hw.description}</div>}
         </div>
         {overdue ? (
-          <Badge variant="destructive" className="gap-1"><AlertCircle className="w-3 h-3" /> {L("Atrasado", "Late")}</Badge>
+          <Badge variant="destructive" className="gap-1"><AlertCircle className="w-3 h-3" /> {taskStatusLabel("atrasada", w)}</Badge>
         ) : hw.status === "entregue" ? (
-          <Badge>{L("Entregue", "Submitted")}</Badge>
+          <Badge>{taskStatusLabel("entregue", w)}</Badge>
         ) : days === 0 ? (
-          <Badge variant="destructive" className="gap-1"><Clock className="w-3 h-3" /> {L("Entrega hoje", "Due today")}</Badge>
+          <Badge variant="destructive" className="gap-1"><Clock className="w-3 h-3" /> {L("Prazo hoje", "Due today")}</Badge>
         ) : (
           <Badge variant="secondary" className="gap-1"><Clock className="w-3 h-3" /> {L(`Faltam ${days} ${days === 1 ? "dia" : "dias"}`, `${days} ${days === 1 ? "day" : "days"} left`)}</Badge>
         )}
@@ -89,7 +108,7 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
 
       {subs.length > 0 && (
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase text-muted-foreground">{L("Suas entregas", "Your submissions")}</div>
+          <div className="text-xs font-medium uppercase text-muted-foreground">{submit ? L("Suas entregas", "Your submissions") : L("Seus arquivos", "Your files")}</div>
           {subs.map((s: any) => (
             <div key={s.id} className="flex items-center justify-between border border-border rounded p-2">
               <div className="text-sm">
@@ -102,11 +121,22 @@ function HomeworkCard({ hw, subs, student, onChange }: any) {
         </div>
       )}
 
-      <div>
+      <div className="flex flex-wrap gap-2">
         <input ref={fileRef} type="file" hidden onChange={e => e.target.files?.[0] && upload(e.target.files[0])} />
-        <Button onClick={() => fileRef.current?.click()} disabled={busy} variant={hw.status === "entregue" ? "outline" : "default"}>
-          <Upload className="w-4 h-4 mr-1" /> {hw.status === "entregue" ? L("Enviar nova versão", "Upload new version") : L("Enviar tarefa", "Submit task")}
-        </Button>
+        {submit ? (
+          <Button onClick={() => fileRef.current?.click()} disabled={busy} variant={hw.status === "entregue" ? "outline" : "default"}>
+            <Upload className="w-4 h-4 mr-1" /> {hw.status === "entregue" ? L("Enviar nova versão", "Upload new version") : L(`Enviar ${w.task.l}`, `Submit ${w.task.l}`)}
+          </Button>
+        ) : (
+          <>
+            {hw.status === "entregue" ? (
+              <Button variant="outline" onClick={() => markDone(false)} disabled={busy}><RotateCcw className="w-4 h-4 mr-1" /> {L("Desmarcar", "Undo")}</Button>
+            ) : (
+              <Button onClick={() => markDone(true)} disabled={busy}><CheckCircle2 className="w-4 h-4 mr-1" /> {L("Marcar como feito", "Mark as done")}</Button>
+            )}
+            <Button variant="outline" onClick={() => fileRef.current?.click()} disabled={busy}><Upload className="w-4 h-4 mr-1" /> {L("Enviar foto ou arquivo", "Send a photo or file")}</Button>
+          </>
+        )}
       </div>
     </Card>
   );

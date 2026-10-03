@@ -1,11 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { buildVocabulary, isBusinessModel, type BusinessModel, type Vocabulary } from "@/lib/vocabulary";
+import { buildVocabulary, isBusinessModel, tasksDefault, type BusinessModel, type Vocabulary } from "@/lib/vocabulary";
 import { isCurrency, isLocale, setLocale, type Currency, type Locale } from "@/lib/i18n";
 
 // O que o banco devolve em my_vocabulary() (migration 20260924060000).
-type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null; setup_done?: boolean; member?: boolean };
+type Raw = { business_model: string | null; active?: boolean; custom: unknown; custom_saved?: boolean; locale?: Locale; currency?: Currency; currency_symbol?: string | null; setup_done?: boolean; member?: boolean; tasks?: boolean };
 
 type Ctx = {
   /** As palavras da empresa: `v.appointment.s` é "Aula", "Consulta", "Revisão"... */
@@ -23,6 +23,12 @@ type Ctx = {
    * acontece com erro de rede.
    */
   needsOnboarding: boolean;
+  /**
+   * Tarefas ligadas nesta empresa (migration 20261004010000): o padrão do
+   * ramo ou o que a empresa escolheu. Desligadas, somem do menu, do painel,
+   * do cadastro e dos e-mails.
+   */
+  tasks: boolean;
   /** As palavras editadas que valem agora (só no Pro). */
   custom: unknown;
   /** Há palavras editadas guardadas, mesmo que o plano atual não as use. */
@@ -72,6 +78,8 @@ function parse(raw: unknown): Raw | null {
     // empresa do endereço público, e a língua dela não vale para a pessoa
     // (migration 20260929010000). Sem a chave, banco antigo: conta como membro.
     member: r.member !== false,
+    // Sem a chave (banco antes da migration): o padrão do ramo.
+    tasks: typeof r.tasks === "boolean" ? r.tasks : undefined,
   };
 }
 
@@ -139,6 +147,7 @@ export function VocabularyProvider({ children }: { children: ReactNode }) {
       model,
       active,
       needsOnboarding: answered && raw !== null && (model === null || raw.setup_done === false),
+      tasks: raw?.tasks ?? tasksDefault(model),
       custom: raw?.custom ?? null,
       customSaved: raw?.custom_saved === true,
       loading,
@@ -155,6 +164,7 @@ const FORA_DO_PROVIDER: Ctx = {
   model: null,
   active: false,
   needsOnboarding: false,
+  tasks: true,
   custom: null,
   customSaved: false,
   loading: false,
@@ -165,6 +175,11 @@ const FORA_DO_PROVIDER: Ctx = {
 /** As palavras da empresa de quem está logado (ou da dona do endereço, sem login). */
 export function useVocabulary(): Ctx {
   return useContext(VocabularyContext) ?? FORA_DO_PROVIDER;
+}
+
+/** Se as tarefas aparecem nesta empresa. */
+export function useTasksEnabled(): boolean {
+  return useVocabulary().tasks;
 }
 
 /** Atalho para quem só precisa das palavras. */

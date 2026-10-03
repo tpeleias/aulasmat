@@ -100,7 +100,7 @@ async function processReminders(admin: Admin, apiKey: string) {
       const remind = pref(ctx, kind === "eve" ? "reminder_eve" : "reminder_day");
       // Na véspera, as tarefas pendentes vão junto do lembrete; sem o lembrete,
       // num e-mail só delas.
-      const homework = kind === "eve" && pref(ctx, "homework_due");
+      const homework = kind === "eve" && ctx.tasks && pref(ctx, "homework_due");
       if (!remind && !homework) continue;
       const markKind = remind ? kind : "homework";
       const { data: mark } = await admin.from("email_reminders_sent")

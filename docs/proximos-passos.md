@@ -87,6 +87,18 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Tarefas por ramo (03/10)
+
+- Palavra `task` no vocabulário (`src/lib/vocabulary.ts`, editável no Pro):
+  Tarefa (aulas, oficina, outro), Orientação (saúde), Atividade (psicologia),
+  Treino para casa (esportes), Cuidado (beleza, pet).
+- `settings.tasks_enabled` (nulo = `tasks_default` do ramo: ligadas em aulas,
+  saúde, psicologia e esportes). `my_vocabulary()` devolve `tasks`; o front
+  usa `useTasksEnabled()`; a função `emails` usa `account_tasks_on`.
+- Nas aulas a tarefa se entrega com arquivo; nos outros ramos
+  `mark_homework_done` marca/desmarca. Gatilho `homework_submission_done`
+  põe "entregue" ao mandar arquivo (a família não tem UPDATE em homework).
+
 ## Entrar com o Google no app: cliente Android no Google Cloud (03/10)
 
 A janelinha nativa do Android (Credential Manager) só funciona com um cliente

@@ -24,7 +24,7 @@ export const EMAIL_CATEGORIES = () => [
   { key: "agenda", label: L("Marcações, mudanças de horário e cancelamentos", "Bookings, time changes and cancellations") },
   { key: "lembretes", label: L("Lembretes antes do atendimento", "Reminders before appointments") },
   { key: "financeiro", label: L("Cobranças e recibos de pagamento", "Payment reminders and receipts") },
-  { key: "tarefas", label: L("Tarefas", "Tasks") },
+  { key: "tarefas", label: L("Tarefas e orientações", "Tasks and instructions") },
   { key: "resumo", label: L("Resumo do atendimento", "Appointment summary") },
 ];
 

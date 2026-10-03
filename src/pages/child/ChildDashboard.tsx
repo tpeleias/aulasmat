@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, FolderOpen, ListChecks } from "lucide-react";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { taskStatusLabel } from "@/lib/vocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
@@ -16,6 +17,7 @@ export default function ChildDashboard() {
   const teacherName = useTeacherName();
   const { student, loading } = useStudent();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const ap = w.appointment;
   const [lessons, setLessons] = useState<any[]>([]);
   const [homework, setHomework] = useState<any[]>([]);
@@ -96,11 +98,11 @@ export default function ChildDashboard() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/meu-painel/materiais" />
-        <StatCard icon={ListChecks} label={L("Tarefas", "Tasks")} value={dueHomework.length} href="/meu-painel/tarefas" />
+        {tasks && <StatCard icon={ListChecks} label={w.task.p} value={dueHomework.length} href="/meu-painel/tarefas" />}
       </div>
 
-      <Card className="p-5 space-y-3">
-        <h2 className="font-semibold">{L("Tarefas com prazo", "Tasks due")}</h2>
+      {tasks && <Card className="p-5 space-y-3">
+        <h2 className="font-semibold">{L(`${w.task.p} com prazo`, `${w.task.p} due`)}</h2>
         {dueHomework.length === 0 && <p className="text-sm text-muted-foreground">{L("Você está em dia!", "You're all caught up!")}</p>}
         {dueHomework.slice(0, 5).map(h => (
           <div key={h.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0">
@@ -108,10 +110,10 @@ export default function ChildDashboard() {
               <div className="font-medium">{h.title}</div>
               <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(new Date(h.deadline), L("dd/MM HH:mm", "MMM d, h:mm a"))}</div>
             </div>
-            <Badge variant="secondary">{h.status}</Badge>
+            <Badge variant="secondary">{taskStatusLabel(h.status, w)}</Badge>
           </div>
         ))}
-      </Card>
+      </Card>}
     </div>
   );
 }

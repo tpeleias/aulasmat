@@ -12,15 +12,14 @@ import { capitalize } from "@/lib/balance";
 import { buildTimeline, computeAttendance, type EvolutionLesson, type EvolutionHomework } from "@/lib/evolution";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { taskStatusLabel } from "@/lib/vocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
 import { useTeacherName } from "@/hooks/useTeacherName";
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type SubmissionRow = { homework_id: string; teacher_feedback: string | null; submitted_at: string };
 
-const homeworkLabel = (h: { status: string; deadline: string }) =>
-  h.status === "entregue" ? L("Entregue", "Submitted") : isPast(new Date(h.deadline)) ? L("Atrasada", "Late") : L("Pendente", "Pending");
 
 // lessons não tem student_id (é texto, como o resto do app - accountKey em
 // balance.ts é a mesma ideia, mas agrupa por FAMÍLIA; aqui precisa ser por
@@ -31,6 +30,7 @@ const studentMatchKey = (name: string, guardian: string | null) =>
 export default function EvolutionPage() {
   const teacherName = useTeacherName();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [homework, setHomework] = useState<(EvolutionHomework & { studentId: string })[]>([]);
@@ -88,7 +88,7 @@ export default function EvolutionPage() {
   );
   const studentHomework = useMemo(() => homework.filter(h => h.studentId === studentId), [homework, studentId]);
   const attendance = useMemo(() => computeAttendance(studentLessons), [studentLessons]);
-  const timeline = useMemo(() => buildTimeline(studentLessons, studentHomework), [studentLessons, studentHomework]);
+  const timeline = useMemo(() => buildTimeline(studentLessons, tasks ? studentHomework : []), [studentLessons, studentHomework, tasks]);
 
   if (loading) return <ListSkeleton rows={4} />;
 
@@ -96,7 +96,9 @@ export default function EvolutionPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{L(`Evolução ${w.client.do} ${w.client.l}`, `${w.client.s} progress`)}</h1>
-        <p className="text-sm text-muted-foreground">{L(`Presença, resumo ${w.appointment.dos} ${w.appointment.lp} e devolutiva das tarefas, numa linha do tempo.`, `Attendance, ${w.appointment.l} notes and homework feedback, on a timeline.`)}</p>
+        <p className="text-sm text-muted-foreground">{tasks
+          ? L(`Presença, resumo ${w.appointment.dos} ${w.appointment.lp} e devolutiva ${w.task.dos} ${w.task.lp}, numa linha do tempo.`, `Attendance, ${w.appointment.l} notes and ${w.task.l} feedback, on a timeline.`)
+          : L(`Presença e resumo ${w.appointment.dos} ${w.appointment.lp}, numa linha do tempo.`, `Attendance and ${w.appointment.l} notes, on a timeline.`)}</p>
       </div>
 
       <WheelSelect value={studentId} onValueChange={v => setSearchParams({ aluno: v })} className="w-full max-w-sm h-10 rounded-xl"
@@ -126,7 +128,9 @@ export default function EvolutionPage() {
           <div>
             <div className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Linha do tempo", "Timeline")}</div>
             {timeline.length === 0 ? (
-              <EmptyState icon={TrendingUp} title={L("Nada ainda", "Nothing yet")} description={L(`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} e tarefas aparecem aqui conforme acontecem.`, `Completed ${w.appointment.lp} and homework show up here as they happen.`)} />
+              <EmptyState icon={TrendingUp} title={L("Nada ainda", "Nothing yet")} description={tasks
+                ? L(`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} e ${w.task.lp} aparecem aqui conforme acontecem.`, `Completed ${w.appointment.lp} and ${w.task.lp} show up here as they happen.`)
+                : L(`${w.appointment.p} ${w.appointment.pick("realizados", "realizadas")} aparecem aqui conforme acontecem.`, `Completed ${w.appointment.lp} show up here as they happen.`)} />
             ) : (
               <ul className="space-y-2">
                 {timeline.map((e, i) => (
@@ -159,7 +163,7 @@ export default function EvolutionPage() {
                           <div className="flex items-center gap-2 text-sm">
                             <BookOpen className="h-3.5 w-3.5 shrink-0 text-primary" />
                             <span className="font-medium">{e.title}</span>
-                            <Badge variant={e.status === "entregue" ? "secondary" : "outline"} className="text-[10px]">{homeworkLabel({ status: e.status, deadline: e.date })}</Badge>
+                            <Badge variant={e.status === "entregue" ? "secondary" : "outline"} className="text-[10px]">{taskStatusLabel(e.status !== "entregue" && isPast(new Date(e.date)) ? "atrasada" : e.status, w)}</Badge>
                             <span className="ml-auto shrink-0 text-xs text-muted-foreground">{format(new Date(e.date), L("dd/MM", "MMM d"), { locale: dateLocale() })}</span>
                           </div>
                           {e.feedback && <p className="mt-1.5 text-sm text-muted-foreground">{e.feedback}</p>}

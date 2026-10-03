@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 import { L } from "@/lib/i18n";
 
@@ -27,6 +27,7 @@ export function EmailBrandingSettings({ value, set, accountId, canBrand, canCust
   canBrand: boolean; canCustom: boolean;
 }) {
   const w = useWords();
+  const tasks = useTasksEnabled();
   const file = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [kind, setKind] = useState("eve");
@@ -46,7 +47,7 @@ export function EmailBrandingSettings({ value, set, accountId, canBrand, canCust
     { k: "day", label: L("Lembrete do dia", "Same-day reminder"), fields: "{nome} {responsavel} {data} {hora} {profissional}" },
     { k: "charge", label: L("Cobrança", "Payment reminder"), fields: "{nome} {responsavel} {valor}" },
     { k: "payment", label: L("Pagamento recebido", "Payment received"), fields: "{nome} {valor} {data}" },
-    { k: "homework", label: L("Tarefa nova", "New task"), fields: "{nome} {tarefa} {prazo}" },
+    ...(tasks ? [{ k: "homework", label: L(`${w.task.novo} ${w.task.l}`, `New ${w.task.l}`), fields: "{nome} {tarefa} {prazo}" }] : []),
     { k: "class_summary", label: L(`Resumo ${w.appointment.pick("do", "da")} ${w.appointment.l}`, `${w.appointment.s} summary`), fields: "{nome} {data} {profissional}" },
     { k: "package", label: L("Pacote acabando", "Package running out"), fields: "{nome} {responsavel} {saldo}" },
   ];

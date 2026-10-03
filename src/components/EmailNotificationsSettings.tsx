@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { usePlan } from "@/hooks/usePlan";
 import { EmailHistoryDialog } from "@/components/EmailHistoryDialog";
 import { EmailBrandingSettings } from "@/components/EmailBrandingSettings";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 import { L } from "@/lib/i18n";
 
@@ -28,6 +28,7 @@ const isOn = (p: EmailPrefs, k: string) => (k in p ? p[k] === true : !OFF_BY_DEF
 
 export function EmailNotificationsSettings({ value, onChange, accountId = null }: { value: EmailPrefs | null | undefined; onChange: (v: EmailPrefs) => void; accountId?: string | null }) {
   const w = useWords();
+  const tasks = useTasksEnabled();
   const { plan } = usePlan();
   const canBilling = plan?.email_billing === true;
   const [history, setHistory] = useState(false);
@@ -47,8 +48,10 @@ export function EmailNotificationsSettings({ value, onChange, accountId = null }
         { k: "client_requests", label: L("Pedido pelo portal: recebido, aprovado ou recusado", "Portal request: received, approved or declined") },
         { k: "reminder_eve", label: L("Lembrete na véspera (às 18h)", "Reminder the day before (6 PM)") },
         { k: "reminder_day", label: L("Lembrete no dia (às 7h)", "Reminder on the day (7 AM)") },
-        { k: "homework_new", label: L("Tarefa nova", "New task") },
-        { k: "homework_due", label: L("Tarefas pendentes na véspera (junto do lembrete)", "Pending tasks the day before (with the reminder)") },
+        ...(tasks ? [
+          { k: "homework_new", label: L(`${w.task.novo} ${w.task.l}`, `New ${w.task.l}`) },
+          { k: "homework_due", label: L(`${w.task.p} ${w.task.pick("pendentes", "pendentes")} na véspera (junto do lembrete)`, `Pending ${w.task.lp} the day before (with the reminder)`) },
+        ] : []),
         { k: "class_summary", label: L(`Resumo ${w.appointment.pick("do", "da")} ${w.appointment.l}, quando ${w.staff.o} ${w.staff.l} escreve`, `${w.appointment.s} summary, when the ${w.staff.l} writes one`) },
       ],
     },
