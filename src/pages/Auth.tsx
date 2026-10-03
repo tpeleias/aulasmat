@@ -344,6 +344,17 @@ function Field({ label, htmlFor, children }: { label: string; htmlFor?: string; 
 // voltou). Recarregar a página resolve quase sempre: começa um cliente novo.
 function LoadFailedScreen() {
   const { signOut, user } = useAuth();
+  // A primeira vez, recarrega sozinho: quase sempre resolve, e a pessoa nem
+  // precisa tocar em "Tentar de novo". Uma vez por minuto, para não entrar em
+  // laço se for falta de internet.
+  useEffect(() => {
+    const key = "cronys-auto-retry-login";
+    let last = 0;
+    try { last = Number(sessionStorage.getItem(key) ?? 0); } catch { /* sem storage */ }
+    if (Date.now() - last < 60_000) return;
+    try { sessionStorage.setItem(key, String(Date.now())); } catch { /* sem storage */ }
+    window.location.reload();
+  }, []);
   return (
     <div className="flex flex-1 items-center justify-center bg-background p-6">
       <div className="max-w-md space-y-4 rounded-3xl border border-border bg-card p-8 text-center">
