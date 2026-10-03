@@ -136,7 +136,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | "Esqueci a senha" na tela de entrar: link por e-mail e a página para criar a senha nova | T |
 | Entrar com a digital (ou o rosto) no app Android: oferecido depois de entrar com senha; dá para desligar em Minha conta (só funciona no app) | T |
 
-### 03/10 - site (o app recebe no próximo `.aab`)
+### 03/10 - versão 1.16.1
 
 | Mudança | Origem |
 |---|---|
