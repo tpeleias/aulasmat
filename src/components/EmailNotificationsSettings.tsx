@@ -53,7 +53,10 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
     const { data, error } = await supabase.functions.invoke("emails", { body: { action: "test" } });
     setTesting(false);
     const to = (data as { to?: string } | null)?.to;
-    if (error || !to) toast.error(L("Não deu para enviar. Seu login precisa ter um e-mail de verdade.", "Couldn't send. Your login needs a real email address."));
+    // 400 = o login não tem e-mail de verdade; o resto é falha no envio.
+    const status = (error as { context?: { status?: number } } | null)?.context?.status;
+    if (status === 400) toast.error(L("Não deu para enviar. Seu login precisa ter um e-mail de verdade.", "Couldn't send. Your login needs a real email address."));
+    else if (error || !to) toast.error(L("O envio falhou agora. Tente de novo em alguns minutos.", "Sending failed. Try again in a few minutes."));
     else toast.success(L(`E-mail de teste enviado para ${to}`, `Test email sent to ${to}`));
   };
 
