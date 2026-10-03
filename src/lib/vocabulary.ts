@@ -17,7 +17,7 @@ import { getLocale, L, type Locale } from "@/lib/i18n";
 export type Gender = "m" | "f";
 export type TermSpec = { s: string; p: string; g: Gender };
 
-export const TERM_KEYS = ["business", "staff", "appointment", "client", "guardian", "topic"] as const;
+export const TERM_KEYS = ["business", "staff", "appointment", "client", "guardian", "topic", "task"] as const;
 export type TermKey = (typeof TERM_KEYS)[number];
 export type VocabularySpec = Record<TermKey, TermSpec>;
 
@@ -32,6 +32,7 @@ export const TERM_LABELS: Record<TermKey, string> = {
   client: L("Quem é atendido", "Who is served"),
   guardian: L("Quem responde e paga", "Who is responsible and pays"),
   topic: L("O assunto do atendimento", "What the appointment is about"),
+  task: L("O que fica para fazer até o próximo", "What's left to do before the next one"),
 };
 
 const t = (s: string, p: string, g: Gender): TermSpec => ({ s, p, g });
@@ -44,28 +45,28 @@ const e = (s: string, p: string): TermSpec => ({ s, p, g: "m" });
 export const PRESETS_EN: Record<BusinessModel, { nome: string; exemplo: string; terms: VocabularySpec }> = {
   aulas: { nome: "Tutoring and lessons", exemplo: "Private lessons, tutoring, languages, music", terms: {
     business: e("School", "Schools"), staff: e("Teacher", "Teachers"), appointment: e("Lesson", "Lessons"),
-    client: e("Student", "Students"), guardian: e("Parent", "Parents"), topic: e("Subject", "Subjects") } },
+    client: e("Student", "Students"), guardian: e("Parent", "Parents"), topic: e("Subject", "Subjects"), task: e("Task", "Tasks") } },
   saude: { nome: "Health and medical clinics", exemplo: "Doctors' offices, clinics, physiotherapy, nutrition", terms: {
     business: e("Clinic", "Clinics"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
-    client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+    client: e("Patient", "Patients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services"), task: e("Home instruction", "Home instructions") } },
   psicologia: { nome: "Psychology and therapy", exemplo: "Psychologists, therapists, speech therapy", terms: {
     business: e("Practice", "Practices"), staff: e("Therapist", "Therapists"), appointment: e("Session", "Sessions"),
-    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services"), task: e("Exercise", "Exercises") } },
   beleza: { nome: "Beauty salons and aesthetics", exemplo: "Hairdressers, nail salons, barbershops, aesthetics", terms: {
     business: e("Salon", "Salons"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
-    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services"), task: e("Aftercare tip", "Aftercare tips") } },
   pet: { nome: "Pets and veterinary", exemplo: "Vets, grooming, dog training", terms: {
     business: e("Pet business", "Pet businesses"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
-    client: e("Pet", "Pets"), guardian: e("Owner", "Owners"), topic: e("Service", "Services") } },
+    client: e("Pet", "Pets"), guardian: e("Owner", "Owners"), topic: e("Service", "Services"), task: e("Home care", "Home care") } },
   esportes: { nome: "Sports and fitness", exemplo: "Personal trainers, gyms, sports schools", terms: {
     business: e("Gym", "Gyms"), staff: e("Coach", "Coaches"), appointment: e("Session", "Sessions"),
-    client: e("Member", "Members"), guardian: e("Guardian", "Guardians"), topic: e("Activity", "Activities") } },
+    client: e("Member", "Members"), guardian: e("Guardian", "Guardians"), topic: e("Activity", "Activities"), task: e("Home workout", "Home workouts") } },
   oficina: { nome: "Repair shops and maintenance", exemplo: "Car repair, tech support, repairs", terms: {
     business: e("Shop", "Shops"), staff: e("Technician", "Technicians"), appointment: e("Appointment", "Appointments"),
-    client: e("Customer", "Customers"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+    client: e("Customer", "Customers"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services"), task: e("Task", "Tasks") } },
   outro: { nome: "Other business", exemplo: "Any appointment-based service", terms: {
     business: e("Business", "Businesses"), staff: e("Professional", "Professionals"), appointment: e("Appointment", "Appointments"),
-    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services") } },
+    client: e("Client", "Clients"), guardian: e("Guardian", "Guardians"), topic: e("Service", "Services"), task: e("Task", "Tasks") } },
 };
 
 export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; terms: VocabularySpec }> = {
@@ -79,6 +80,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Aluno", "Alunos", "m"),
       guardian: responsavel,
       topic: t("Matéria", "Matérias", "f"),
+      task: t("Tarefa", "Tarefas", "f"),
     },
   },
   saude: {
@@ -91,6 +93,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Paciente", "Pacientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Orientação", "Orientações", "f"),
     },
   },
   psicologia: {
@@ -103,6 +106,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Paciente", "Pacientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Atividade", "Atividades", "f"),
     },
   },
   beleza: {
@@ -115,6 +119,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Cliente", "Clientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Cuidado", "Cuidados", "m"),
     },
   },
   pet: {
@@ -128,6 +133,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Pet", "Pets", "m"),
       guardian: t("Tutor", "Tutores", "m"),
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Cuidado", "Cuidados", "m"),
     },
   },
   esportes: {
@@ -140,6 +146,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Aluno", "Alunos", "m"),
       guardian: responsavel,
       topic: t("Modalidade", "Modalidades", "f"),
+      task: t("Treino para casa", "Treinos para casa", "m"),
     },
   },
   oficina: {
@@ -152,6 +159,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Cliente", "Clientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Tarefa", "Tarefas", "f"),
     },
   },
   outro: {
@@ -164,6 +172,7 @@ export const PRESETS: Record<BusinessModel, { nome: string; exemplo: string; ter
       client: t("Cliente", "Clientes", "m"),
       guardian: responsavel,
       topic: t("Serviço", "Serviços", "m"),
+      task: t("Tarefa", "Tarefas", "f"),
     },
   },
 };
@@ -276,6 +285,40 @@ export function vocabularySummary(v: Vocabulary): string {
  * um (Thiago, 28/09): aluno (pais) e pet (tutor). Nos outros ramos ele fica
  * atrás da caixinha "Menor de 18 anos".
  */
+/**
+ * Tarefas ligadas por padrão (Thiago, 03/10): onde há algo para fazer entre um
+ * atendimento e outro - aula, terapia, fisioterapia/nutrição, treino. Nos
+ * outros ramos a empresa liga se quiser (settings.tasks_enabled). O mesmo de
+ * public.tasks_default no banco.
+ */
+export function tasksDefault(model: BusinessModel | null): boolean {
+  return model === null || model === "aulas" || model === "psicologia" || model === "saude" || model === "esportes";
+}
+
+/** Nas aulas a tarefa se entrega (com arquivo); nos outros ramos se marca como feita. */
+export function tasksAreSubmitted(model: BusinessModel | null): boolean {
+  return model === null || model === "aulas";
+}
+
 export function guardianAlwaysShown(model: BusinessModel | null): boolean {
   return model === "aulas" || model === "pet";
+}
+
+/**
+ * "aulas, materiais e tarefas" - com as tarefas só quando estão ligadas.
+ * `items` já na língua da tela; a palavra das tarefas entra no fim, em
+ * minúscula e no plural.
+ */
+export function listWithTasks(items: string[], v: Vocabulary, tasks: boolean): string {
+  const all = tasks ? [...items, v.task.lp] : items;
+  const and = v.task.en ? " and " : " e ";
+  return all.length <= 1 ? all.join("") : `${all.slice(0, -1).join(", ")}${and}${all[all.length - 1]}`;
+}
+
+/** "Entregue" nas aulas; "Feita"/"Feito" nos outros ramos (concorda com a palavra). */
+export function taskStatusLabel(status: string, v: Vocabulary): string {
+  const t = v.task;
+  if (status === "entregue") return tasksAreSubmitted(v.model) ? L("Entregue", "Submitted") : L(t.pick("Feito", "Feita"), "Done");
+  if (status === "atrasada") return L(t.pick("Atrasado", "Atrasada"), "Late");
+  return L("Pendente", "Pending");
 }

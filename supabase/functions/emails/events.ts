@@ -7,7 +7,7 @@
 // véspera saem às 18h, no cron de hora em hora.
 import {
   adminEmails, authEmail, cap1, clientEmails, ctxFor, deliver, esc, fmtDay, fmtTime, lessonRows, localMidnight, localParts,
-  pref, real, SITE, teacherInfo, word, type Admin, type Ctx, type Lesson, type Msg,
+  pref, real, SITE, taskWord, teacherInfo, word, type Admin, type Ctx, type Lesson, type Msg,
 } from "./core.ts";
 import { billingRecipients, money, statementFor } from "./billing.ts";
 
@@ -40,10 +40,11 @@ const multiline = (t: string) => esc(t.trim()).replace(/\r?\n/g, "<br>");
 /** A lista de tarefas, em bloco, para o lembrete da véspera e o e-mail só de tarefas. */
 export function homeworkBlock(ctx: Ctx, list: Homework[]) {
   const en = ctx.account.locale === "en";
+  const t = taskWord(ctx);
   const items = list.map(h => `<tr><td style="padding:8px 0;border-top:1px solid #eee9dd">
 <div style="font-size:15px;color:#1d1f27;font-weight:bold">${esc(h.title)}</div>
 <div style="font-size:13px;color:#77756c">${esc(en ? "Due" : "Prazo")}: ${esc(deadlineText(h.deadline, en))}</div></td></tr>`).join("");
-  return `<p style="font-size:13px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#77756c;margin:4px 0 4px">${esc(en ? "Pending tasks" : "Tarefas pendentes")}</p>
+  return `<p style="font-size:13px;font-weight:bold;letter-spacing:.04em;text-transform:uppercase;color:#77756c;margin:4px 0 4px">${esc(en ? `Pending ${t.lp}` : `${t.p} pendentes`)}</p>
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0 0 16px;border-bottom:1px solid #eee9dd">${items}</table>`;
 }
 
@@ -61,17 +62,19 @@ export async function pendingHomework(admin: Admin, l: Lesson): Promise<Homework
 // ---------------------------------------------------------------------------
 export function homeworkMail(ctx: Ctx, h: Homework, s: StudentRow, link: string): Msg {
   const en = ctx.account.locale === "en";
+  const t = taskWord(ctx);
+  const novo = en ? `New ${t.l}` : `${t.a("Nova", "Novo")} ${t.l}`;
   const rows: [string, string][] = [
     [en ? "For" : "Para", esc(s.student_name)],
     [en ? "Due" : "Prazo", `<b>${esc(deadlineText(h.deadline, en))}</b>`],
   ];
   return {
-    subject: en ? `New task: ${h.title}` : `Tarefa nova: ${h.title}`,
-    kicker: en ? "New task" : "Tarefa nova", tone: "info",
+    subject: `${novo}: ${h.title}`,
+    kicker: novo, tone: "info",
     title: h.title,
     rows,
     paragraphs: h.description?.trim() ? [multiline(h.description)] : [],
-    cta: { href: link, label: en ? "See the task" : "Ver a tarefa" },
+    cta: { href: link, label: en ? `See the ${t.l}` : `Ver ${t.a("a", "o")} ${t.l}` },
     vars: { nome: s.student_name, tarefa: h.title, prazo: deadlineText(h.deadline, en) },
   };
 }
@@ -160,7 +163,7 @@ export async function processEvents(admin: Admin, apiKey: string) {
 }
 
 async function sendHomework(admin: Admin, apiKey: string, ctx: Ctx, id: string) {
-  if (!pref(ctx, "homework_new")) return 0;
+  if (!ctx.tasks || !pref(ctx, "homework_new")) return 0;
   const { data: h } = await admin.from("homework").select("id, student_id, title, description, deadline, status").eq("id", id).maybeSingle();
   if (!h || h.status === "entregue") return 0;
   const { data: s } = await admin.from("students").select("id, student_name, guardian_name, email, guardian_email, user_id")
@@ -179,7 +182,7 @@ async function sendSummary(admin: Admin, apiKey: string, ctx: Ctx, lessonId: str
   if (!l || !String(l.class_summary ?? "").trim() || l.status === "cancelada") return 0;
   const lesson = l as Lesson & { class_summary: string };
   const t = await teacherInfo(admin, lesson);
-  const pending = pref(ctx, "homework_due") ? await pendingHomework(admin, lesson) : [];
+  const pending = ctx.tasks && pref(ctx, "homework_due") ? await pendingHomework(admin, lesson) : [];
   const m = summaryMail(ctx, lesson, t.name, pending);
   const { emails } = await clientEmails(admin, lesson);
   let sent = 0;
@@ -265,12 +268,13 @@ export async function processAgenda(admin: Admin, apiKey: string, now = new Date
 /** Só as tarefas, na véspera, para quem desligou o lembrete mas quer as tarefas. */
 export function homeworkDueMail(ctx: Ctx, l: Lesson, list: Homework[]): Msg {
   const w = word(ctx);
+  const t = taskWord(ctx);
   return {
-    subject: w.en ? `Tasks for tomorrow's ${w.l}` : `Tarefas para ${w.a("a", "o")} ${w.l} de amanhã`,
-    kicker: w.en ? "Tasks" : "Tarefas", tone: "remind",
-    title: w.en ? `${l.student_name} has pending tasks` : `${l.student_name} tem tarefas pendentes`,
+    subject: w.en ? `${t.p} for tomorrow's ${w.l}` : `${t.p} para ${w.a("a", "o")} ${w.l} de amanhã`,
+    kicker: t.p, tone: "remind",
+    title: w.en ? `${l.student_name} has pending ${t.lp}` : `${l.student_name} tem ${t.lp} pendentes`,
     rows: [[w.en ? "Next" : "Próxim" + w.a("a", "o"), esc(`${cap1(fmtDay(l.start_at, w.en))}, ${fmtTime(l.start_at, w.en)}`)]],
     html: [homeworkBlock(ctx, list)],
-    cta: { href: `${SITE}/aluno/tarefas`, label: w.en ? "See the tasks" : "Ver as tarefas" },
+    cta: { href: `${SITE}/aluno/tarefas`, label: w.en ? `See the ${t.lp}` : `Ver ${t.a("as", "os")} ${t.lp}` },
   };
 }

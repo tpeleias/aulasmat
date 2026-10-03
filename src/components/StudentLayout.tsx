@@ -10,7 +10,7 @@ import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
 import { capitalize } from "@/lib/balance";
 import { UserRound, LogOut, LayoutDashboard, Calendar, Wallet, FolderOpen, ListChecks, CalendarPlus, CalendarSearch, Moon, Sun } from "lucide-react";
 import { CronysWordmark } from "@/components/brand";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { usePlan } from "@/hooks/usePlan";
 import { availabilityPath } from "@/lib/availabilityLinks";
 
@@ -22,6 +22,7 @@ export default function StudentLayout() {
   const { teachers } = useTeachers(true);
   const { theme, toggleTheme } = useTheme();
   const w = useWords();
+  const tasks = useTasksEnabled();
   // A página de horários é a da empresa do cliente (antes /disponibilidade, que
   // sem login era a do endereço público).
   const { plan } = usePlan();
@@ -40,7 +41,7 @@ export default function StudentLayout() {
     ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: L("Agendar", "Book"), icon: CalendarPlus }] : []),
     { to: "/aluno/financeiro", label: L("Financeiro", "Billing"), icon: Wallet },
     { to: "/aluno/materiais", label: L("Materiais", "Materials"), icon: FolderOpen },
-    { to: "/aluno/tarefas", label: L("Tarefas", "Tasks"), icon: ListChecks },
+    ...(tasks ? [{ to: "/aluno/tarefas", label: w.task.p, icon: ListChecks }] : []),
   ];
   const tabs = items.slice(0, 4);
   const overflow = items.slice(4);

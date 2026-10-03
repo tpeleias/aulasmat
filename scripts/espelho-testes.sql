@@ -3325,4 +3325,47 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - cliente nao grav
 END $$;
 COMMIT;
 
+\echo '--- 59. Tarefas por ramo, marcar como feita e entregar (03/10) ---'
+SELECT public.assert(public.tasks_default('aulas') AND public.tasks_default('saude') AND public.tasks_default(NULL)
+  AND NOT public.tasks_default('beleza') AND NOT public.tasks_default('oficina'), 'tarefas ligadas por padrao so nos ramos certos');
+DO $$
+DECLARE _s uuid; _h1 uuid; _h2 uuid;
+BEGIN
+  SELECT id INTO _s FROM public.students WHERE account_id = current_setting('teste.a')::uuid AND student_name = 'Bia';
+  INSERT INTO public.homework (account_id, student_id, title, deadline) VALUES (current_setting('teste.a')::uuid, _s, 'Lista A', now() + interval '1 day') RETURNING id INTO _h1;
+  INSERT INTO public.homework (account_id, student_id, title, deadline) VALUES (current_setting('teste.a')::uuid, _s, 'Lista B', now() + interval '1 day') RETURNING id INTO _h2;
+  PERFORM set_config('teste.h1', _h1::text, false);
+  PERFORM set_config('teste.h2', _h2::text, false);
+END $$;
+INSERT INTO public.homework_submissions (account_id, homework_id, file_path) VALUES (current_setting('teste.a')::uuid, current_setting('teste.h2')::uuid, 'x/y.pdf');
+SELECT public.assert((SELECT status FROM public.homework WHERE id = current_setting('teste.h2')::uuid) = 'entregue',
+  'mandar o arquivo marca a tarefa como entregue');
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((public.my_vocabulary() ->> 'tasks')::boolean, 'a familia sabe que as tarefas estao ligadas');
+SELECT public.assert(public.mark_homework_done(current_setting('teste.h1')::uuid) = 'entregue', 'a familia marca a propria tarefa como feita');
+SELECT public.assert(public.mark_homework_done(current_setting('teste.h1')::uuid, false) = 'pendente', 'e desmarca');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+DO $$
+BEGIN
+  PERFORM public.mark_homework_done(current_setting('teste.h1')::uuid);
+  RAISE EXCEPTION 'FALHOU: outra empresa marcou a tarefa';
+EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM LIKE 'FALHOU%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - ninguem de fora marca a tarefa';
+END $$;
+COMMIT;
+
+UPDATE public.settings SET tasks_enabled = false WHERE account_id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert(NOT (public.my_vocabulary() ->> 'tasks')::boolean, 'desligadas na empresa: a familia nao ve');
+COMMIT;
+UPDATE public.settings SET tasks_enabled = NULL WHERE account_id = current_setting('teste.a')::uuid;
+
 \echo '=== FIM ==='

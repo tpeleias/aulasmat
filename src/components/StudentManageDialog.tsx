@@ -13,8 +13,8 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
 import { isValidUsername, normalizeUsername } from "@/lib/username";
-import { useWords } from "@/hooks/useVocabulary";
-import { cap } from "@/lib/vocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { cap, listWithTasks, taskStatusLabel } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
 type Student = { id: string; student_name: string; guardian_name?: string | null; user_id: string | null; guardian_username?: string | null; child_user_id?: string | null; child_username?: string | null };
@@ -26,6 +26,7 @@ export function StudentManageDialog({ student, open, onOpenChange, onChanged, te
   student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void; teacherMode?: boolean;
 }) {
   const w0 = useWords();
+  const tasks = useTasksEnabled();
   const [canAdd, setCanAdd] = useState(true);
   const [me, setMe] = useState<string | null>(null);
   useEffect(() => {
@@ -42,14 +43,14 @@ export function StudentManageDialog({ student, open, onOpenChange, onChanged, te
         <DialogHeader><DialogTitle>{student.student_name}</DialogTitle></DialogHeader>
         {teacherMode && !canAdd && (
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            {L(`Você poderá pôr materiais e tarefas depois da primeira aula dada para ${student.student_name}.`, `You'll be able to add materials and homework after your first ${w0.appointment.l} with ${student.student_name}.`)}
+            {L(`Você poderá pôr ${listWithTasks(["materiais"], w0, tasks)} depois ${w0.appointment.pick("do primeiro", "da primeira")} ${w0.appointment.l} ${w0.appointment.pick("feito", "feita")} com ${student.student_name}.`, `You'll be able to add ${listWithTasks(["materials"], w0, tasks)} after your first ${w0.appointment.l} with ${student.student_name}.`)}
           </p>
         )}
         <Tabs defaultValue={teacherMode ? "materials" : "account"}>
-          <TabsList className={`grid ${teacherMode ? "grid-cols-2" : "grid-cols-3"} w-full`}>
+          <TabsList className={`grid ${["grid-cols-1", "grid-cols-2", "grid-cols-3"][(teacherMode ? 0 : 1) + (tasks ? 1 : 0)]} w-full`}>
             {!teacherMode && <TabsTrigger value="account">{L("Conta", "Account")}</TabsTrigger>}
             <TabsTrigger value="materials">{L("Materiais", "Materials")}</TabsTrigger>
-            <TabsTrigger value="homework">{L("Tarefas", "Homework")}</TabsTrigger>
+            {tasks && <TabsTrigger value="homework">{w0.task.p}</TabsTrigger>}
           </TabsList>
           {!teacherMode && (
             <TabsContent value="account" className="mt-4">
@@ -188,6 +189,7 @@ function AccountTab({ student, onChanged }: { student: Student; onChanged: () =>
 
 function ChildAccessSection({ student, onChanged }: { student: Student; onChanged: () => void }) {
   const w = useWords();
+  const tasks = useTasksEnabled();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [resetPw, setResetPw] = useState("");
@@ -225,7 +227,7 @@ function ChildAccessSection({ student, onChanged }: { student: Student; onChange
       <div>
         <div className="text-sm font-medium mb-1">{L(`Acesso próprio ${w.client.do} ${w.client.l} (ex.: criança ou adolescente)`, `The ${w.client.l}'s own login (e.g. a child or teenager)`)}</div>
         <p className="text-xs text-muted-foreground">
-          {L(`Login simples por username, com acesso restrito a ${w.appointment.lp}, materiais e tarefas (sem dados financeiros).`, `Simple username login, limited to ${w.appointment.lp}, materials and homework (no billing data).`)}
+          {L(`Login simples por username, com acesso restrito a ${listWithTasks([w.appointment.lp, "materiais"], w, tasks)} (sem dados financeiros).`, `Simple username login, limited to ${listWithTasks([w.appointment.lp, "materials"], w, tasks)} (no billing data).`)}
         </p>
       </div>
       {student.child_username ? (
@@ -374,11 +376,11 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
       deadline: new Date(form.deadline).toISOString(),
     });
     setBusy(false);
-    if (error) toast.error(error.message); else { toast.success(L("Tarefa criada", "Homework created")); setForm({ title: "", description: "", deadline: "" }); load(); }
+    if (error) toast.error(error.message); else { toast.success(L(`${w.task.s} ${w.task.pick("criado", "criada")}`, `${w.task.s} created`)); setForm({ title: "", description: "", deadline: "" }); load(); }
   };
 
   const remove = async (id: string) => {
-    if (!confirm(L("Excluir tarefa?", "Delete homework?"))) return;
+    if (!confirm(L(`Excluir ${w.task.o} ${w.task.l}?`, `Delete this ${w.task.l}?`))) return;
     const { error } = await supabase.from("homework").delete().eq("id", id);
     if (error) toast.error(error.message); else load();
   };
@@ -398,15 +400,15 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
   return (
     <div className="space-y-4">
       {perms.canAdd && <Card className="p-4 space-y-3">
-        <div className="text-sm font-medium">{L("Nova tarefa", "New homework")}</div>
+        <div className="text-sm font-medium">{w.task.novo} {w.task.l}</div>
         <div><Label>{L("Título", "Title")}</Label><Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} /></div>
         <div><Label>{L("Descrição", "Description")}</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} /></div>
         <div><Label>{L("Prazo", "Due date")}</Label><Input type="datetime-local" value={form.deadline} onChange={e => setForm({ ...form, deadline: e.target.value })} /></div>
-        <Button onClick={create} disabled={busy} className="gap-2"><Plus className="w-4 h-4" /> {L("Criar tarefa", "Create homework")}</Button>
+        <Button onClick={create} disabled={busy} className="gap-2"><Plus className="w-4 h-4" /> {L(`Criar ${w.task.l}`, `Create ${w.task.l}`)}</Button>
       </Card>}
 
       <div className="space-y-2 max-h-72 overflow-y-auto">
-        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{L("Nenhuma tarefa.", "No homework.")}</p>}
+        {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{L(`${w.task.nenhum} ${w.task.l}.`, `No ${w.task.lp}.`)}</p>}
         {items.map(h => (
           <Card key={h.id} className="p-3 space-y-2">
             <div className="flex items-start justify-between gap-2">
@@ -416,7 +418,7 @@ function HomeworkTab({ student, perms }: { student: Student; perms: Perms }) {
                 <div className="text-xs text-muted-foreground mt-1">{L("Prazo", "Due")}: {format(new Date(h.deadline), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
               </div>
               <div className="flex items-center gap-1">
-                <Badge variant={h.status === "entregue" ? "default" : "secondary"}>{L(h.status, ({ entregue: "submitted", pendente: "pending", atrasada: "late" } as Record<string, string>)[h.status] ?? h.status)}</Badge>
+                <Badge variant={h.status === "entregue" ? "default" : "secondary"}>{taskStatusLabel(h.status, w)}</Badge>
                 {(!perms.ownerId || h.created_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(h.id)}><Trash2 className="w-4 h-4" /></Button>}
               </div>
             </div>

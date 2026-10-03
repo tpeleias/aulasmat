@@ -21,8 +21,8 @@ export const KIND_LABEL: Record<string, () => string> = {
   eve: () => L("Lembrete (véspera)", "Reminder (day before)"), day: () => L("Lembrete (no dia)", "Reminder (same day)"),
   lesson_reminder: () => L("Lembrete", "Reminder"), charge: () => L("Cobrança", "Payment reminder"),
   statement: () => L("Extrato", "Statement"), payment: () => L("Pagamento recebido", "Payment received"),
-  package: () => L("Pacote acabando", "Package running out"), homework: () => L("Tarefa nova", "New task"),
-  homework_due: () => L("Tarefas pendentes", "Pending tasks"), class_summary: () => L("Resumo do atendimento", "Appointment summary"),
+  package: () => L("Pacote acabando", "Package running out"), homework: () => L("Tarefa / orientação nova", "New task"),
+  homework_due: () => L("Tarefas / orientações pendentes", "Pending tasks"), class_summary: () => L("Resumo do atendimento", "Appointment summary"),
   agenda_tomorrow: () => L("Agenda de amanhã", "Tomorrow's schedule"),
 };
 

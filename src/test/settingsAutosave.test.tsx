@@ -19,7 +19,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: {}, loading: true }) }));
-vi.mock("@/hooks/useVocabulary", () => ({ useWords: () => DEFAULT_VOCABULARY }));
+vi.mock("@/hooks/useVocabulary", () => ({ useWords: () => DEFAULT_VOCABULARY, useTasksEnabled: () => true, useVocabulary: () => ({ v: DEFAULT_VOCABULARY, model: "aulas", tasks: true, reload: async () => {} }) }));
 vi.mock("@/hooks/useLessonPrice", () => ({ FALLBACK_LESSON_PRICE: 100, primeLessonPrice: () => {} }));
 let mobile = false;
 vi.mock("@/hooks/useAuth", () => ({ useAuth: () => ({ user: { email: "ana@x.com", user_metadata: {} }, role: "admin", signOut: async () => {} }) }));

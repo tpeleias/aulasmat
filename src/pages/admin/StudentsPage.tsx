@@ -24,7 +24,7 @@ import { usePlan } from "@/hooks/usePlan";
 import { useAuth } from "@/hooks/useAuth";
 import { ProUpsell } from "@/components/ProUpsell";
 import { nextPlanForClients, upgradeOffer } from "@/lib/subscription";
-import { useWords } from "@/hooks/useVocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { DEFAULT_VOCABULARY, guardianAlwaysShown, type Vocabulary } from "@/lib/vocabulary";
 import { GuardianField } from "@/components/GuardianField";
@@ -63,6 +63,7 @@ export default function StudentsPage() {
   // nem a administração do cadastro (editar, acessos, excluir, pausar).
   const { isTeacher } = useAuth();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const c = w.client;
   const SORTS = studentSorts(w);
   const navigate = useNavigate();
@@ -302,7 +303,7 @@ export default function StudentsPage() {
         onSchedule={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setScheduleFor(s); }}
         showMoney={!isTeacher}
         onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
-        manageLabel={isTeacher ? L("Materiais e tarefas", "Materials and homework") : undefined}
+        manageLabel={isTeacher ? (tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")) : undefined}
         onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
         onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}

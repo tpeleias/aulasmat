@@ -19,8 +19,8 @@ import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { isRequest, statusBadgeVariant, statusLabel } from "@/lib/lessonStatus";
 import { WithdrawRequestButton } from "@/components/WithdrawRequestButton";
-import { useWords } from "@/hooks/useVocabulary";
-import { cap } from "@/lib/vocabulary";
+import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
+import { cap, listWithTasks } from "@/lib/vocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
@@ -31,6 +31,7 @@ export default function StudentDashboard() {
   const teacherName = useTeacherName();
   const { student, loading } = useStudent();
   const w = useWords();
+  const tasks = useTasksEnabled();
   const ap = w.appointment;
 
   const settings = useAppSettings();
@@ -99,7 +100,7 @@ export default function StudentDashboard() {
       <NotificationEmailCard prompt />
       <div>
         <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
-        <p className="text-sm text-muted-foreground">{L(`Aqui está um resumo ${ap.pick("dos seus", "das suas")} ${ap.lp} e tarefas.`, `Here's a summary of your ${ap.lp} and tasks.`)}</p>
+        <p className="text-sm text-muted-foreground">{L(`Aqui está um resumo ${ap.pick("dos seus", "das suas")} ${listWithTasks([ap.lp], w, tasks)}.`, `Here's a summary of your ${listWithTasks([ap.lp], w, tasks)}.`)}</p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -111,7 +112,7 @@ export default function StudentDashboard() {
           href="/aluno/financeiro"
           tone={owed > 0 ? "destructive" : "default"}
         />
-        <StatCard icon={ListChecks} label={L("Tarefas pendentes", "Pending tasks")} value={dueHomework.length} href="/aluno/tarefas" />
+        {tasks && <StatCard icon={ListChecks} label={L(`${w.task.p} ${w.task.pick("pendentes", "pendentes")}`, `Pending ${w.task.lp}`)} value={dueHomework.length} href="/aluno/tarefas" />}
         <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/aluno/materiais" />
       </div>
 
@@ -203,6 +204,7 @@ export default function StudentDashboard() {
 
 function ChildAccessCard({ student }: { student: any }) {
   const w = useWords();
+  const tasks = useTasksEnabled();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -243,7 +245,7 @@ function ChildAccessCard({ student }: { student: any }) {
         <h2 className="font-semibold">{L(`Acesso ${w.client.do} ${w.client.l}`, `${w.client.s} access`)}</h2>
       </div>
       <p className="text-xs text-muted-foreground">
-        {L(`Crie um login simples para o seu filho(a) acessar somente ${w.appointment.os} ${w.appointment.lp}, materiais e tarefas (sem dados financeiros).`, `Create a simple login so your child can see only the ${w.appointment.lp}, materials and tasks (no financial data).`)}
+        {L(`Crie um login simples para o seu filho(a) acessar somente ${w.appointment.os} ${listWithTasks([w.appointment.lp, "materiais"], w, tasks)} (sem dados financeiros).`, `Create a simple login so your child can see only the ${listWithTasks([w.appointment.lp, "materials"], w, tasks)} (no financial data).`)}
       </p>
 
       {created ? (

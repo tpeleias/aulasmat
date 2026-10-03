@@ -37,6 +37,8 @@ export type Ctx = {
   custom: Templates | null;
   /** Hora do lembrete da véspera e do dia (Max escolhe; o padrão é 18h e 7h). */
   hours: { eve: number; day: number };
+  /** Tarefas ligadas na empresa (account_tasks_on, migration 20261004010000). */
+  tasks: boolean;
 };
 
 export type Brand = { logo: string | null; color: string | null; signature: string | null };
@@ -84,6 +86,29 @@ export function word(ctx: Ctx) {
   // "marcada" / "marcado"
   const a = (fem: string, masc: string) => (g === "f" ? fem : masc);
   return { s, l: s.toLocaleLowerCase(en ? "en" : "pt-BR"), en, a };
+}
+
+/** A palavra das tarefas no ramo (a mesma de src/lib/vocabulary.ts), com a editada por cima. */
+const TASK_WORDS: Record<string, { pt: [string, string]; g: "f" | "m"; en: [string, string] }> = {
+  aulas: { pt: ["Tarefa", "Tarefas"], g: "f", en: ["Task", "Tasks"] },
+  saude: { pt: ["Orientação", "Orientações"], g: "f", en: ["Home instruction", "Home instructions"] },
+  psicologia: { pt: ["Atividade", "Atividades"], g: "f", en: ["Exercise", "Exercises"] },
+  beleza: { pt: ["Cuidado", "Cuidados"], g: "m", en: ["Aftercare tip", "Aftercare tips"] },
+  pet: { pt: ["Cuidado", "Cuidados"], g: "m", en: ["Home care", "Home care"] },
+  esportes: { pt: ["Treino para casa", "Treinos para casa"], g: "m", en: ["Home workout", "Home workouts"] },
+  oficina: { pt: ["Tarefa", "Tarefas"], g: "f", en: ["Task", "Tasks"] },
+  outro: { pt: ["Tarefa", "Tarefas"], g: "f", en: ["Task", "Tasks"] },
+};
+export function taskWord(ctx: Ctx) {
+  const en = ctx.account.locale === "en";
+  const base = TASK_WORDS[ctx.account.business_model ?? "aulas"] ?? TASK_WORDS.aulas;
+  const custom = ctx.account.vocabulary?.task as { s?: string; p?: string; g?: string } | undefined;
+  const s = (custom?.s || (en ? base.en[0] : base.pt[0])).trim();
+  const p = (custom?.p || (en ? base.en[1] : base.pt[1])).trim();
+  const g = (custom?.g === "f" || custom?.g === "m" ? custom.g : base.g) as "f" | "m";
+  const a = (fem: string, masc: string) => (g === "f" ? fem : masc);
+  const low = (x: string) => x.toLocaleLowerCase(en ? "en" : "pt-BR");
+  return { s, p, l: low(s), lp: low(p), en, a };
 }
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -241,8 +266,9 @@ export async function ctxFor(admin: Admin, account: string): Promise<Ctx | null>
   const c: Ctx = {
     account: a as Ctx["account"], prefs, contact,
     replyTo: contact, settings: (s ?? {}) as Record<string, unknown>,
-    brand: null, custom: null, hours: { eve: 18, day: 7 },
+    brand: null, custom: null, hours: { eve: 18, day: 7 }, tasks: true,
   };
+  c.tasks = (await admin.rpc("account_tasks_on", { _account: account })).data !== false;
   const can = async (f: string) => (await admin.rpc("account_can", { _capability: f, _account: account })).data === true;
   if (await can("email_branding")) c.brand = brandOf(prefs);
   if (await can("email_custom")) {
