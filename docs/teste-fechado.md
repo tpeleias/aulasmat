@@ -135,3 +135,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | E-mails automáticos, que cada empresa liga em Configurações (nascem desligados): ao cliente e ao responsável (marcado, horário alterado, cancelado, pedido recebido/aprovado/recusado, lembrete na véspera às 18h e/ou no dia às 7h), ao profissional (mudanças na própria agenda) e aos admins (pedido novo). Saem de lembretes@cronys.com.br com o nome da empresa, "Responder" vai para o contato dela, e todo e-mail tem o link para não receber mais. Campos de e-mail no cadastro do cliente, do responsável e do profissional | T |
 | "Esqueci a senha" na tela de entrar: link por e-mail e a página para criar a senha nova | T |
 | Entrar com a digital (ou o rosto) no app Android: oferecido depois de entrar com senha; dá para desligar em Minha conta (só funciona no app) | T |
+
+### 03/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| "Mandar um e-mail de teste": quando o envio falha, o aviso diz que falhou (antes dizia, errado, que o login precisava de um e-mail de verdade) | T |
