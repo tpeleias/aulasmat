@@ -2,7 +2,8 @@
 //
 //   POST /cron {mode: "outbox" | "reminders"} + x-cron-secret   <- o pg_cron, pelo pg_net
 //   POST {action: "password_reset", email, locale?}              <- "Esqueci a senha" (sem login)
-//   POST {action: "unsubscribe", c, e, t}                        <- link "não quero mais receber"
+//   POST {action: "unsubscribe_check" | "unsubscribe" | "resubscribe", c, e, t}  <- página /email/sair
+//   POST /unsubscribe?c&e&t                                      <- "cancelar inscrição" do Gmail (um clique)
 //   POST {action: "test"}                                         <- admin: um e-mail de teste para si
 //
 // Saem pelo Resend, de lembretes@cronys.com.br, com o nome da empresa como
@@ -63,11 +64,6 @@ function word(ctx: Ctx) {
   const a = (fem: string, masc: string) => (g === "f" ? fem : masc);
   return { s, l: s.toLocaleLowerCase(en ? "en" : "pt-BR"), en, a };
 }
-
-const fmtWhen = (iso: string, en: boolean) =>
-  new Date(iso).toLocaleString(en ? "en-US" : "pt-BR", {
-    timeZone: TZ, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hour12: en,
-  });
 
 const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
