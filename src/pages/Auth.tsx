@@ -113,7 +113,8 @@ export default function Auth() {
             data: signupKind === "school"
               // Língua e moeda do aparelho: a empresa nasce nelas (migration 20260925180000).
               ? { signup_kind: "school", school_name: schoolName.trim(), teacher_name: teacherName.trim(), locale: getLocale(), currency: getCurrency() }
-              : schoolCode.trim() ? { school_code: schoolCode.trim().toLowerCase() } : {},
+              // A língua também vale para os e-mails de login (função emails, auth.ts).
+              : schoolCode.trim() ? { school_code: schoolCode.trim().toLowerCase(), locale: getLocale() } : { locale: getLocale() },
           },
         })
       : await supabase.auth.signInWithPassword({ email: loginEmail, password });

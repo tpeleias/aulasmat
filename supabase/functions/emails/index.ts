@@ -4,6 +4,7 @@
 //
 //   POST /cron {mode: "outbox" | "reminders"} + x-cron-secret   <- o pg_cron, pelo pg_net
 //   POST /webhook                                                <- o Resend: entregue, voltou, spam
+//   POST /auth-hook                                              <- Supabase Auth: e-mails de login (auth.ts)
 //   POST {action: "password_reset", email, locale?}              <- "Esqueci a senha" (sem login)
 //   POST {action: "unsubscribe_check" | "unsubscribe" | "resubscribe", c, e, t, category?}  <- /email/sair
 //   POST /unsubscribe?c&e&t                                      <- "cancelar inscrição" do Gmail (um clique)
@@ -13,11 +14,12 @@
 //   POST {action: "remind_lesson", lesson_id}                    <- admin/profissional: "Lembrar por e-mail"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import {
-  adminEmails, CATEGORY_OF, clientEmails, clientMsg, corsHeaders, ctxCache, ctxFor, deliver, esc, FROM_ADDRESS, hmac,
+  adminEmails, applyCustom, CATEGORY_OF, clientEmails, clientMsg, corsHeaders, ctxCache, ctxFor, deliver, esc, FROM_ADDRESS, hmac,
   json, layout, localMidnight, localParts, NOREPLY, pref, real, secret, send, SITE, staffMsg, teacherInfo, unb64, word,
   type Admin, type Lesson, type Msg,
 } from "./core.ts";
 import { chargeAll, processCharges, processPayments, remindLesson, sendCharge, statementFor } from "./billing.ts";
+import { handleAuthHook } from "./auth.ts";
 import { homeworkBlock, homeworkDueMail, pendingHomework, processAgenda, processEvents } from "./events.ts";
 
 // ---------------------------------------------------------------------------
@@ -78,47 +80,49 @@ async function processOutbox(admin: Admin, apiKey: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Lembretes: 18h a véspera, 7h o próprio dia (hora de Brasília)
+// Lembretes: a véspera às 18h e o próprio dia às 7h (hora de Brasília); no
+// Max, cada empresa escolhe as horas (Ctx.hours).
 // ---------------------------------------------------------------------------
-async function processReminders(admin: Admin, apiKey: string, force?: "eve" | "day") {
+async function processReminders(admin: Admin, apiKey: string) {
   const now = new Date();
   const { date, hour } = localParts(now);
-  const kind = force ?? (hour === 18 ? "eve" : hour === 7 ? "day" : null);
-  if (!kind) return 0;
   const today = localMidnight(date);
-  const from = kind === "eve" ? new Date(today.getTime() + 86400000) : new Date(Math.max(today.getTime(), now.getTime() + 30 * 60000));
-  const to = new Date(today.getTime() + (kind === "eve" ? 2 : 1) * 86400000);
-  const { data: lessons } = await admin.from("lessons").select("*").eq("status", "agendada")
-    .gte("start_at", from.toISOString()).lt("start_at", to.toISOString()).limit(500);
   let sent = 0;
-  for (const l of (lessons ?? []) as Lesson[]) {
-    const ctx = await ctxFor(admin, l.account_id);
-    if (!ctx) continue;
-    const remind = pref(ctx, kind === "eve" ? "reminder_eve" : "reminder_day");
-    // Na véspera, as tarefas pendentes vão junto do lembrete; sem o lembrete,
-    // num e-mail só delas.
-    const homework = kind === "eve" && pref(ctx, "homework_due");
-    if (!remind && !homework) continue;
-    const markKind = remind ? kind : "homework";
-    const { data: mark } = await admin.from("email_reminders_sent")
-      .upsert({ lesson_id: l.id, kind: markKind, start_at: l.start_at }, { onConflict: "lesson_id,kind,start_at", ignoreDuplicates: true })
-      .select("lesson_id");
-    if (!mark || !mark.length) continue;
-    try {
-      const pending = homework ? await pendingHomework(admin, l) : [];
-      let m: Msg | null = null;
-      let k = kind as string;
-      if (remind) {
-        const t = await teacherInfo(admin, l);
-        m = clientMsg(kind, ctx, l, t.name, null);
-        if (m && pending.length) m = { ...m, html: [...(m.html ?? []), homeworkBlock(ctx, pending)] };
-      } else if (pending.length) {
-        m = homeworkDueMail(ctx, l, pending);
-        k = "homework_due";
-      }
-      const { emails } = m ? await clientEmails(admin, l) : { emails: [] as string[] };
-      if (m) for (const e of emails) { if (await deliver(admin, apiKey, ctx, e, m, { kind: k, student: l.student_name, guardian: l.guardian_name })) sent++; }
-    } catch (e) { console.error("reminder", l.id, String(e)); }
+  for (const kind of ["eve", "day"] as const) {
+    const from = kind === "eve" ? new Date(today.getTime() + 86400000) : new Date(Math.max(today.getTime(), now.getTime() + 30 * 60000));
+    const to = new Date(today.getTime() + (kind === "eve" ? 2 : 1) * 86400000);
+    if (from >= to) continue;
+    const { data: lessons } = await admin.from("lessons").select("*").eq("status", "agendada")
+      .gte("start_at", from.toISOString()).lt("start_at", to.toISOString()).limit(500);
+    for (const l of (lessons ?? []) as Lesson[]) {
+      const ctx = await ctxFor(admin, l.account_id);
+      if (!ctx || ctx.hours[kind] !== hour) continue;
+      const remind = pref(ctx, kind === "eve" ? "reminder_eve" : "reminder_day");
+      // Na véspera, as tarefas pendentes vão junto do lembrete; sem o lembrete,
+      // num e-mail só delas.
+      const homework = kind === "eve" && pref(ctx, "homework_due");
+      if (!remind && !homework) continue;
+      const markKind = remind ? kind : "homework";
+      const { data: mark } = await admin.from("email_reminders_sent")
+        .upsert({ lesson_id: l.id, kind: markKind, start_at: l.start_at }, { onConflict: "lesson_id,kind,start_at", ignoreDuplicates: true })
+        .select("lesson_id");
+      if (!mark || !mark.length) continue;
+      try {
+        const pending = homework ? await pendingHomework(admin, l) : [];
+        let m: Msg | null = null;
+        let k: string = kind;
+        if (remind) {
+          const t = await teacherInfo(admin, l);
+          m = clientMsg(kind, ctx, l, t.name, null);
+          if (m && pending.length) m = { ...m, html: [...(m.html ?? []), homeworkBlock(ctx, pending)] };
+        } else if (pending.length) {
+          m = homeworkDueMail(ctx, l, pending);
+          k = "homework_due";
+        }
+        const { emails } = m ? await clientEmails(admin, l) : { emails: [] as string[] };
+        if (m) for (const e of emails) { if (await deliver(admin, apiKey, ctx, e, m, { kind: k, student: l.student_name, guardian: l.guardian_name })) sent++; }
+      } catch (e) { console.error("reminder", l.id, String(e)); }
+    }
   }
   return sent;
 }
@@ -209,6 +213,7 @@ Deno.serve(async (req) => {
   const raw = await req.text().catch(() => "");
   if (url.pathname.endsWith("/webhook")) return handleWebhook(admin, req, raw);
   const apiKey = await secret(admin, "resend_api_key");
+  if (url.pathname.endsWith("/auth-hook")) return handleAuthHook(admin, req, raw, apiKey);
   let body: Record<string, string> = {};
   try { body = raw ? JSON.parse(raw) : {}; } catch { /* corpo do um-clique do Gmail não é JSON */ }
 
@@ -274,12 +279,13 @@ Deno.serve(async (req) => {
     const fake: Lesson = { id: "teste", account_id: ctx.account.id, student_name: w.en ? "Sample client" : "Cliente de exemplo", guardian_name: null,
       teacher: "", start_at: new Date(Date.now() + 86400000).toISOString(), duration_minutes: 60, status: "agendada",
       address: null, is_online: true, subject: null, reschedule_of: null };
-    const m = clientMsg("eve", ctx, fake, w.en ? "your team" : "a sua equipe", null)!;
+    const base = clientMsg("eve", ctx, fake, w.en ? "your team" : "a sua equipe", null)!;
+    // Com o visual e o texto da empresa (Pro e Max), para ela ver como fica.
+    const m = applyCustom(ctx, "eve", { ...base, paragraphs: [esc(w.en ? "This is how reminders reach your clients." : "É assim que os lembretes chegam aos seus clientes.")] });
     await send(apiKey, {
       from: `${ctx.account.name.replace(/[<>"]/g, "")} <${FROM_ADDRESS}>`, to,
       subject: (w.en ? "[Test] " : "[Teste] ") + m.subject,
-      html: layout({ ...m, paragraphs: [esc(w.en ? "This is how reminders reach your clients." : "É assim que os lembretes chegam aos seus clientes.")] },
-        { from: ctx.account.name, en: w.en }),
+      html: layout(m, { from: ctx.account.name, en: w.en, brand: ctx.brand }),
       reply_to: ctx.replyTo,
     });
     return json({ ok: true, to });

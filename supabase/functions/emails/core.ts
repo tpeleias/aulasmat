@@ -31,7 +31,19 @@ export type Ctx = {
   /** Para onde vai o "Responder": o contato da empresa ou, sem ele, o e-mail do admin. */
   replyTo: string | null;
   settings: Record<string, unknown>;
+  /** Logo, cor e assinatura (Pro e Max); nulo = o visual padrão. */
+  brand: Brand | null;
+  /** Textos editados por tipo de e-mail (Max). */
+  custom: Templates | null;
+  /** Hora do lembrete da véspera e do dia (Max escolhe; o padrão é 18h e 7h). */
+  hours: { eve: number; day: number };
 };
+
+export type Brand = { logo: string | null; color: string | null; signature: string | null };
+export type Templates = Record<string, { subject?: string; message?: string }>;
+
+/** Os e-mails que o Max pode reescrever (as mesmas chaves da tela). */
+export const EDITABLE = ["booked", "changed", "cancelled", "eve", "day", "charge", "payment", "homework", "class_summary", "package"];
 
 /** O tipo de aviso, para a pessoa poder parar de receber só um deles. */
 export type Category = "agenda" | "lembretes" | "financeiro" | "tarefas" | "resumo";
@@ -119,6 +131,8 @@ export const TONE: Record<Tone, string> = { ok: "#2f7d76", change: "#9a6a1f", ca
 
 export type Mail = {
   kicker?: string; tone?: Tone; title: string;
+  /** Primeiro parágrafo, logo abaixo do título (já escapado). */
+  lead?: string;
   rows?: [string, string][];      // rótulo, valor (o valor já vem escapado)
   /** Blocos prontos (tabela de itens, caixa do Pix), depois das linhas. */
   html?: string[];
@@ -126,7 +140,18 @@ export type Mail = {
   cta?: { href: string; label: string };
   /** Letra miúda no fim do cartão ("mensagem enviada automaticamente..."). */
   note?: string;
+  /** Os campos que o texto editado (Max) pode usar: {nome}, {data}... */
+  vars?: Record<string, string>;
 };
+
+const HEX = /^#[0-9a-f]{6}$/i;
+/** Texto escuro ou claro sobre a cor da empresa, o que for mais legível. */
+export function inkOn(hex: string) {
+  const n = parseInt(hex.slice(1), 16);
+  const lum = (0.299 * (n >> 16) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+  return lum > 0.6 ? "#13141b" : "#ffffff";
+}
+const multilineEsc = (t: string) => esc(t.trim()).replace(/\r?\n/g, "<br>");
 
 /**
  * O e-mail (03/10, refeito a pedido do Thiago): tabela simples, que todo
@@ -134,8 +159,15 @@ export type Mail = {
  * resto), o nome da empresa no topo, os dados em linhas com rótulo e o
  * "parar de receber" longe do texto, numa linha só dele.
  */
-export function layout(m: Mail, foot: { from: string; unsubscribe?: string | null; en: boolean }) {
+export function layout(m: Mail, foot: { from: string; unsubscribe?: string | null; en: boolean; brand?: Brand | null }) {
   const color = TONE[m.tone ?? "info"];
+  const b = foot.brand;
+  const accent = b?.color && HEX.test(b.color) ? b.color : null;
+  const btn = accent ?? "#c9a24b";
+  const btnInk = accent ? inkOn(accent) : "#13141b";
+  const head = b?.logo
+    ? `<img src="${esc(b.logo)}" alt="${esc(foot.from)}" height="44" style="display:block;height:auto;max-height:44px;max-width:200px;border:0">`
+    : esc(foot.from);
   const rows = (m.rows ?? []).map(([k, v]) => `
 <tr><td style="padding:6px 12px 6px 0;font-size:13px;color:#77756c;vertical-align:top;white-space:nowrap;width:84px">${esc(k)}</td>
 <td style="padding:6px 0;font-size:16px;line-height:1.4;color:#1d1f27;vertical-align:top">${v}</td></tr>`).join("");
@@ -151,19 +183,21 @@ ${foot.en ? "Don't want these emails?" : "Não quer mais estes e-mails?"}<br>
 <body style="margin:0;padding:0;background:#f4f1ea;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1d1f27">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f1ea"><tr><td align="center" style="padding:28px 14px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px">
-<tr><td style="padding:0 6px 14px;font-size:15px;font-weight:bold;color:#13141b">${esc(foot.from)}</td></tr>
-<tr><td style="background:#ffffff;border:1px solid #e6e1d4;border-radius:16px;padding:26px 24px">
+<tr><td style="padding:0 6px 14px;font-size:15px;font-weight:bold;color:#13141b">${head}</td></tr>
+<tr><td style="background:#ffffff;border:1px solid #e6e1d4;${accent ? `border-top:4px solid ${accent};` : ""}border-radius:16px;padding:26px 24px">
 ${m.kicker ? `<div style="font-size:12px;font-weight:bold;letter-spacing:.06em;text-transform:uppercase;color:${color};margin:0 0 8px">${esc(m.kicker)}</div>` : ""}
 <h1 style="font-size:22px;line-height:1.3;margin:0 0 18px;color:#13141b">${esc(m.title)}</h1>
+${m.lead ? `<p style="font-size:15px;line-height:1.55;margin:0 0 16px;color:#3a3c46">${m.lead}</p>` : ""}
 ${rows ? `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #eee9dd;border-bottom:1px solid #eee9dd;margin:0 0 18px"><tr><td style="padding:10px 0"><table role="presentation" cellpadding="0" cellspacing="0" width="100%">${rows}</table></td></tr></table>` : ""}
 ${(m.html ?? []).join("\n")}
 ${(m.paragraphs ?? []).map(t => `<p style="font-size:15px;line-height:1.55;margin:0 0 12px;color:#3a3c46">${t}</p>`).join("\n")}
-${m.cta ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 2px"><tr><td style="background:#c9a24b;border-radius:10px"><a href="${m.cta.href}" style="display:inline-block;padding:13px 20px;font-size:15px;font-weight:bold;color:#13141b;text-decoration:none">${esc(m.cta.label)}</a></td></tr></table>` : ""}
+${m.cta ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:18px 0 2px"><tr><td style="background:${btn};border-radius:10px"><a href="${m.cta.href}" style="display:inline-block;padding:13px 20px;font-size:15px;font-weight:bold;color:${btnInk};text-decoration:none">${esc(m.cta.label)}</a></td></tr></table>` : ""}
+${b?.signature ? `<p style="font-size:15px;line-height:1.55;margin:18px 0 0;color:#3a3c46">${multilineEsc(b.signature)}</p>` : ""}
 ${m.note ? `<p style="font-size:12px;line-height:1.5;margin:18px 0 0;color:#8b897f;font-style:italic">${esc(m.note)}</p>` : ""}
 </td></tr>
-<tr><td style="padding:18px 8px 0;font-size:12px;line-height:1.6;color:#8b897f;text-align:center">${foot.en
+${foot.from === "Cronys" ? "" : `<tr><td style="padding:18px 8px 0;font-size:12px;line-height:1.6;color:#8b897f;text-align:center">${foot.en
     ? `${esc(foot.from)} uses Cronys to manage its schedule.`
-    : `${esc(foot.from)} usa o Cronys para cuidar da agenda.`}</td></tr>
+    : `${esc(foot.from)} usa o Cronys para cuidar da agenda.`}</td></tr>`}
 ${unsub}
 </table></td></tr></table></body></html>`;
 }
@@ -203,16 +237,65 @@ export async function ctxFor(admin: Admin, account: string): Promise<Ctx | null>
   if (!a || a.active === false) return null;
   const { data: s } = await admin.from("settings").select("*").eq("account_id", account).maybeSingle();
   const contact = real(s?.contact_email as string | null);
+  const prefs = (s?.email_notifications ?? {}) as Record<string, unknown>;
   const c: Ctx = {
-    account: a as Ctx["account"], prefs: (s?.email_notifications ?? {}) as Record<string, unknown>, contact,
+    account: a as Ctx["account"], prefs, contact,
     replyTo: contact, settings: (s ?? {}) as Record<string, unknown>,
+    brand: null, custom: null, hours: { eve: 18, day: 7 },
   };
+  const can = async (f: string) => (await admin.rpc("account_can", { _capability: f, _account: account })).data === true;
+  if (await can("email_branding")) c.brand = brandOf(prefs);
+  if (await can("email_custom")) {
+    c.custom = templatesOf(prefs);
+    c.hours = { eve: hourIn(prefs.reminder_eve_hour, 12, 22, 18), day: hourIn(prefs.reminder_day_hour, 5, 11, 7) };
+  }
   // Sem e-mail de contato, a resposta do cliente iria para lembretes@, que não
   // tem caixa: vai para o admin.
   if (!contact) c.replyTo = (await adminEmails(admin, c))[0] ?? null;
   ctxCache.set(account, c);
   return c;
 }
+const hourIn = (v: unknown, min: number, max: number, dflt: number) => {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= min && n <= max ? n : dflt;
+};
+const text = (v: unknown, max: number) => (typeof v === "string" && v.trim() ? v.trim().slice(0, max) : null);
+
+/** Só aceita logo do próprio bucket (nada de imagem de fora no e-mail). */
+export function brandOf(p: Record<string, unknown>): Brand | null {
+  const base = `${Deno.env.get("SUPABASE_URL")}/storage/v1/object/public/email-logos/`;
+  const logo = typeof p.brand_logo === "string" && p.brand_logo.startsWith(base) ? p.brand_logo : null;
+  const color = typeof p.brand_color === "string" && HEX.test(p.brand_color) ? p.brand_color : null;
+  const signature = text(p.brand_signature, 300);
+  return logo || color || signature ? { logo, color, signature } : null;
+}
+export function templatesOf(p: Record<string, unknown>): Templates | null {
+  const t = p.templates;
+  if (!t || typeof t !== "object") return null;
+  const out: Templates = {};
+  for (const k of EDITABLE) {
+    const v = (t as Record<string, { subject?: unknown; message?: unknown }>)[k];
+    const subject = text(v?.subject, 150);
+    const message = text(v?.message, 1500);
+    if (subject || message) out[k] = { ...(subject ? { subject } : {}), ...(message ? { message } : {}) };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+/** Troca {campo} pelo valor; campo desconhecido fica como está. */
+export const fill = (s: string, vars: Record<string, string>) => s.replace(/\{(\w+)\}/g, (all, k: string) => (k in vars ? vars[k] : all));
+
+/** O texto do Max por cima do padrão: o assunto e a mensagem de abertura. */
+export function applyCustom(ctx: Ctx, kind: string, m: Msg): Msg {
+  const t = ctx.custom?.[kind];
+  if (!t) return m;
+  const vars = { empresa: ctx.account.name, ...(m.vars ?? {}) };
+  const out = { ...m };
+  if (t.subject) out.subject = fill(t.subject, vars).replace(/\s+/g, " ").slice(0, 200);
+  if (t.message) { out.lead = multilineEsc(fill(t.message, vars)); out.paragraphs = []; }
+  return out;
+}
+
 export function pref(ctx: Ctx, key: string) {
   const p = ctx.prefs;
   if (p.enabled !== true) return false;
@@ -301,6 +384,12 @@ export const beforeRow = (old: string, en: boolean): [string, string] =>
   [en ? "Before" : "Antes", `<s style="color:#8b897f">${esc(cap1(fmtDay(old, en)))}, ${esc(fmtTime(old, en))}</s>`];
 
 export function clientMsg(kind: string, ctx: Ctx, l: Lesson, teacher: string, oldStart: string | null): Msg | null {
+  const m = clientMsgBase(kind, ctx, l, teacher, oldStart);
+  const en = ctx.account.locale === "en";
+  return m && { ...m, vars: { nome: l.student_name, responsavel: l.guardian_name || l.student_name, data: fmtDay(l.start_at, en), hora: fmtTime(l.start_at, en), profissional: teacher } };
+}
+
+function clientMsgBase(kind: string, ctx: Ctx, l: Lesson, teacher: string, oldStart: string | null): Msg | null {
   const w = word(ctx);
   const rows = lessonRows(ctx, l, teacher);
   const when = `${fmtDay(l.start_at, w.en)}, ${fmtTime(l.start_at, w.en)}`;
@@ -405,6 +494,7 @@ export type DeliverOpts = {
  */
 export async function deliver(admin: Admin, apiKey: string, ctx: Ctx, to: string, m: Msg, opts: DeliverOpts | boolean = false): Promise<boolean> {
   const o: DeliverOpts = typeof opts === "boolean" ? { kind: "aviso", staff: opts } : opts;
+  m = o.staff ? m : applyCustom(ctx, o.kind, m);
   const category = CATEGORY_OF[o.kind];
   if (await optedOut(admin, ctx.account.id, to, category)) return false;
   if (await bounced(admin, to)) return false;
@@ -415,7 +505,7 @@ export async function deliver(admin: Admin, apiKey: string, ctx: Ctx, to: string
   try {
     const id = await send(apiKey, {
       from: `${ctx.account.name.replace(/[<>"]/g, "")} <${FROM_ADDRESS}>`,
-      to, subject: m.subject, html: layout(m, { from: ctx.account.name, unsubscribe: links?.page, en }),
+      to, subject: m.subject, html: layout(m, { from: ctx.account.name, unsubscribe: links?.page, en, brand: ctx.brand }),
       reply_to: o.staff ? null : ctx.replyTo, unsubscribe: links?.oneClick, attachments: o.attachments,
     });
     await admin.from("email_log").insert({ ...log, resend_id: id });

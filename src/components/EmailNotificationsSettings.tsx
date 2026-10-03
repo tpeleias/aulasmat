@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { usePlan } from "@/hooks/usePlan";
 import { EmailHistoryDialog } from "@/components/EmailHistoryDialog";
+import { EmailBrandingSettings } from "@/components/EmailBrandingSettings";
 import { useWords } from "@/hooks/useVocabulary";
 import { cap } from "@/lib/vocabulary";
 import { L } from "@/lib/i18n";
@@ -19,13 +20,13 @@ import { L } from "@/lib/i18n";
  * função "emails". Chave ausente = ligada, menos o lembrete do dia - o mesmo
  * padrão de email_pref no banco.
  */
-export type EmailPrefs = Record<string, boolean | number>;
+export type EmailPrefs = Record<string, unknown>;
 
 // O que nasce desligado mesmo com os e-mails ligados (o mesmo de email_pref no banco).
 const OFF_BY_DEFAULT = ["reminder_day", "billing_daily", "billing_weekly", "billing_monthly"];
 const isOn = (p: EmailPrefs, k: string) => (k in p ? p[k] === true : !OFF_BY_DEFAULT.includes(k));
 
-export function EmailNotificationsSettings({ value, onChange }: { value: EmailPrefs | null | undefined; onChange: (v: EmailPrefs) => void }) {
+export function EmailNotificationsSettings({ value, onChange, accountId = null }: { value: EmailPrefs | null | undefined; onChange: (v: EmailPrefs) => void; accountId?: string | null }) {
   const w = useWords();
   const { plan } = usePlan();
   const canBilling = plan?.email_billing === true;
@@ -33,7 +34,7 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
   const p = value ?? {};
   const enabled = p.enabled === true;
   const [testing, setTesting] = useState(false);
-  const set = (k: string, v: boolean | number) => onChange({ ...p, [k]: v } as EmailPrefs);
+  const set = (k: string, v: unknown) => onChange({ ...p, [k]: v } as EmailPrefs);
   const monthDay = Math.min(28, Math.max(1, Number((p as Record<string, unknown>).billing_month_day) || 1));
 
   const groups: { title: string; items: { k: string; label: string }[] }[] = [
@@ -135,6 +136,8 @@ export function EmailNotificationsSettings({ value, onChange }: { value: EmailPr
               {L(`Pacote acabando (o crédito não cobre ${w.appointment.pick("outro", "outra")} ${w.appointment.l}) e pacote encerrado`, `Package running out (credit won't cover another ${w.appointment.l}) and used up`)}
             </label>
           </div>
+          <EmailBrandingSettings value={p} set={set} accountId={accountId}
+            canBrand={plan?.email_branding === true} canCustom={plan?.email_custom === true} />
           <p className="text-xs text-muted-foreground">
             {L("Todo e-mail tem um link para a pessoa parar de receber, tudo ou só um tipo.", "Every email has a link for the person to stop receiving them, all or just one kind.")}
           </p>
