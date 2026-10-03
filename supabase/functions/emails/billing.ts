@@ -133,7 +133,6 @@ export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; s
   const intro = o.statement
     ? (en ? `Here is your statement with ${ctx.account.name}.` : `Segue o seu extrato com ${ctx.account.name}.`)
     : (en ? `This is a reminder of the open balance with ${ctx.account.name}.` : `Este é um lembrete do valor em aberto com ${ctx.account.name}.`);
-  const p = (t: string) => `<p style="font-size:15px;line-height:1.55;margin:0 0 14px;color:#3a3c46">${esc(t)}</p>`;
   const button = pay.link
     ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 14px"><tr><td style="background:#c9a24b;border-radius:10px"><a href="${esc(pay.link.href)}" style="display:inline-block;padding:13px 20px;font-size:15px;font-weight:bold;color:#13141b;text-decoration:none">${esc(pay.link.label)}</a></td></tr></table>`
     : "";
@@ -141,7 +140,9 @@ export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; s
     subject: en ? `Payment due: ${money(ctx, st.owed)} · ${ctx.account.name}` : `Pagamento em aberto: ${money(ctx, st.owed)} · ${ctx.account.name}`,
     kicker: en ? "Payment" : "Pagamento", tone: "change",
     title: en ? `Hi ${name}, here's what's open` : `Olá, ${name}! Veja o que está em aberto`,
-    html: [p(intro), itemsTable(ctx, st.items), ...pay.blocks, button,
+    lead: esc(intro),
+    vars: { nome: name, responsavel: (st.guardian ?? st.student).trim(), valor: money(ctx, st.owed) },
+    html: [itemsTable(ctx, st.items), ...pay.blocks, button,
       ...(pay.note ? [`<p style="font-size:13px;color:#77756c;margin:0 0 14px">${esc(pay.note)}</p>`] : [])],
     paragraphs: [esc(en ? "Any questions? Just reply to this email." : "Alguma dúvida? É só responder este e-mail.")],
     note: o.auto ? (en ? NOTE_AUTO_EN : NOTE_AUTO_PT) : (en ? NOTE_EN : NOTE_PT),
@@ -284,6 +285,7 @@ export async function processPayments(admin: Admin, apiKey: string) {
             ...(balanceLine ? [[en ? "Balance" : "Situação", esc(balanceLine)] as [string, string]] : []),
           ],
           paragraphs: [esc(en ? "The receipt is attached as a PDF." : "O recibo vai em anexo, em PDF.")],
+          vars: { nome: payer, valor: money(ctx, Number(tx.amount)), data: date },
         };
         // Sem o PDF (se a biblioteca falhar), o aviso sai do mesmo jeito.
         let attachments: { filename: string; content: string }[] = [];

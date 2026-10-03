@@ -160,3 +160,5 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Descadastro por tipo: a pessoa escolhe quais e-mails quer continuar recebendo (marcações, lembretes, cobranças...) ou para de receber todos | T |
 | O "Responder" dos e-mails vai para o admin quando a empresa não preencheu o e-mail de contato (antes ia para um endereço sem caixa) | T |
 | E-mails novos, cada um liga e desliga em Configurações: tarefa nova; tarefas pendentes junto do lembrete da véspera; resumo do atendimento para a família quando o profissional escreve; pacote acabando e pacote encerrado (Start, Pro e Max); agenda de amanhã às 18h para cada profissional e para os admins | T |
+| Personalização dos e-mails: logo, cor e assinatura (Pro e Max); assunto e mensagem de cada e-mail com campos como {nome} e {valor}, e a hora dos lembretes (Max). O e-mail de teste já sai com essa cara | T |
+| E-mails de login (confirmar cadastro, senha nova, troca de e-mail...) pelo remetente do Cronys, em português ou inglês conforme a pessoa; passa a valer quando o hook for ligado no painel do Supabase | T |

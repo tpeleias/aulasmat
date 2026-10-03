@@ -127,8 +127,19 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   (tarefas não entregues junto do lembrete da véspera, ou num e-mail só
   delas) e `agenda_tomorrow` (18h, cada profissional a sua, os admins a de
   todos). Código em `emails/events.ts`. Todos nascem ligados.
-- Próximas etapas: personalização por plano (etapa 3), e-mails de login pelo
-  Resend (etapa 4); depois, domínio da própria empresa, fuso por empresa.
+- **Etapa 3 (03/10):** Pro e Max põem logo (bucket público `email-logos`,
+  pasta = id da empresa), cor e assinatura; o Max reescreve assunto e mensagem
+  de abertura de 10 e-mails (campos {nome}, {data}, {valor}...) e escolhe a
+  hora dos lembretes (véspera 12h–22h, dia 5h–11h). Fica em
+  `settings.email_notifications` (`brand_*`, `templates`, `reminder_*_hour`);
+  a função só usa com `account_can`.
+- **Etapa 4 (03/10):** e-mails de login (cadastro, convite, link mágico,
+  senha, troca de e-mail, código, avisos de senha/e-mail trocados) pelo Resend,
+  em português ou inglês, na rota `/functions/v1/emails/auth-hook`. Ligar no
+  painel: Authentication → Hooks → Send Email Hook (HTTPS) com esse endereço;
+  o segredo gerado ali vai para o cofre como `auth_hook_secret`. Até ligar, o
+  Supabase continua mandando os dele.
+- Depois: domínio da própria empresa, fuso por empresa.
 - Digital: `@capgo/capacitor-native-biometric`; a senha fica no cofre do
   Android, só sai com a digital. Trocar a senha em Minha conta apaga o login
   guardado.

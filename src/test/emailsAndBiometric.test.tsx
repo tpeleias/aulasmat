@@ -6,7 +6,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 const invoke = vi.fn(async (_name: string, _opts?: unknown) => ({ data: null, error: null }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { functions: { invoke: (n: string, o: unknown) => invoke(n, o) } } }));
 let billing = true;
-vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: { email_billing: billing }, loading: false }) }));
+let brand = false, custom = false;
+vi.mock("@/hooks/usePlan", () => ({ usePlan: () => ({ plan: { email_billing: billing, email_branding: brand, email_custom: custom }, loading: false }) }));
 
 import { EmailNotificationsSettings } from "@/components/EmailNotificationsSettings";
 import { ForgotPasswordDialog } from "@/components/ForgotPasswordDialog";
@@ -52,6 +53,26 @@ describe("EmailNotificationsSettings: financeiro", () => {
     expect((screen.getByRole("checkbox", { name: /segunda-feira/ }) as HTMLButtonElement).disabled).toBe(true);
     expect((screen.getByRole("checkbox", { name: /Pacote acabando/ }) as HTMLButtonElement).disabled).toBe(true);
     billing = true;
+  });
+});
+
+describe("EmailNotificationsSettings: personalização (etapa 3)", () => {
+  it("sem Pro/Max fica travado; no Max, o texto editado vai para templates", () => {
+    brand = false; custom = false;
+    const onChange = vi.fn();
+    const { unmount } = render(<EmailNotificationsSettings value={{ enabled: true }} onChange={onChange} accountId="acc" />);
+    expect(screen.getByText(/nos planos Pro e Max/)).toBeTruthy();
+    expect(screen.getByText(/no plano Max/)).toBeTruthy();
+    expect((screen.getByLabelText("Assinatura no fim de cada e-mail") as HTMLTextAreaElement).disabled).toBe(true);
+    unmount();
+
+    brand = true; custom = true;
+    render(<EmailNotificationsSettings value={{ enabled: true }} onChange={onChange} accountId="acc" />);
+    fireEvent.change(screen.getByLabelText("Assinatura no fim de cada e-mail"), { target: { value: "Um abraço" } });
+    expect(onChange).toHaveBeenLastCalledWith({ enabled: true, brand_signature: "Um abraço" });
+    fireEvent.change(screen.getByLabelText("Assunto"), { target: { value: "Até amanhã, {nome}!" } });
+    expect(onChange).toHaveBeenLastCalledWith({ enabled: true, templates: { eve: { subject: "Até amanhã, {nome}!" } } });
+    brand = false; custom = false;
   });
 });
 

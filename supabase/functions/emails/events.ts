@@ -72,6 +72,7 @@ export function homeworkMail(ctx: Ctx, h: Homework, s: StudentRow, link: string)
     rows,
     paragraphs: h.description?.trim() ? [multiline(h.description)] : [],
     cta: { href: link, label: en ? "See the task" : "Ver a tarefa" },
+    vars: { nome: s.student_name, tarefa: h.title, prazo: deadlineText(h.deadline, en) },
   };
 }
 
@@ -88,13 +89,16 @@ export function summaryMail(ctx: Ctx, l: Lesson & { class_summary: string }, tea
       ...(pending.length ? [homeworkBlock(ctx, pending)] : []),
     ],
     paragraphs: [esc(w.en ? "Questions? Just reply to this email." : "Alguma dúvida? É só responder este e-mail.")],
+    vars: { nome: l.student_name, data: fmtDay(l.start_at, w.en), profissional: teacher },
   };
 }
 
 export function packageMail(ctx: Ctx, payer: string, balance: number, out: boolean): Msg {
   const w = word(ctx);
   const first = payer.split(/\s+/)[0];
+  const vars = { nome: first, responsavel: payer, saldo: money(ctx, Math.max(0, balance)) };
   return out ? {
+    vars,
     subject: w.en ? `Your package has been used up · ${ctx.account.name}` : `Os créditos do pacote acabaram · ${ctx.account.name}`,
     kicker: w.en ? "Package used up" : "Pacote encerrado", tone: "remind",
     title: w.en ? `${first}, your package has been used up` : `${first}, os créditos do pacote acabaram`,
@@ -103,6 +107,7 @@ export function packageMail(ctx: Ctx, payer: string, balance: number, out: boole
       ? `The last ${w.l} used the remaining credit. To keep going with a new package, just reply to this email.`
       : `${w.a("A última", "O último")} ${w.l} usou o crédito que faltava. Para seguir com um pacote novo, é só responder este e-mail.`)],
   } : {
+    vars,
     subject: w.en ? `Your package is running out · ${ctx.account.name}` : `Seu pacote está acabando · ${ctx.account.name}`,
     kicker: w.en ? "Package running out" : "Pacote acabando", tone: "remind",
     title: w.en ? `${first}, your package is running out` : `${first}, seu pacote está acabando`,

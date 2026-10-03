@@ -536,7 +536,8 @@ export default function SettingsPage() {
 
       {"email_notifications" in s && (
         <EmailNotificationsSettings value={(s as { email_notifications?: EmailPrefs }).email_notifications}
-          onChange={next => setS(x => ({ ...x, email_notifications: next }))} />
+          onChange={next => setS(x => ({ ...x, email_notifications: next }))}
+          accountId={(s as { account_id?: string }).account_id ?? null} />
       )}
 
       <Card className="p-5 space-y-4">

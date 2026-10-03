@@ -3302,4 +3302,27 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a fila de avisos
 END $$;
 COMMIT;
 
+\echo '--- 58. Logo dos e-mails: so o admin, na pasta da propria empresa (03/10) ---'
+SELECT public.assert((SELECT public FROM storage.buckets WHERE id = 'email-logos'), 'bucket do logo e publico (o e-mail abre sem login)');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+INSERT INTO storage.objects (bucket_id, name) VALUES ('email-logos', current_setting('teste.a') || '/logo-1.png');
+SELECT public.assert(true, 'admin grava o logo na pasta da propria empresa');
+DO $$
+BEGIN
+  INSERT INTO storage.objects (bucket_id, name) VALUES ('email-logos', current_setting('teste.b') || '/logo-1.png');
+  RAISE EXCEPTION 'FALHOU: admin gravou na pasta de outra empresa';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - nao grava na pasta de outra empresa';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  INSERT INTO storage.objects (bucket_id, name) VALUES ('email-logos', current_setting('teste.a') || '/logo-2.png');
+  RAISE EXCEPTION 'FALHOU: cliente gravou logo';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - cliente nao grava logo';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='
