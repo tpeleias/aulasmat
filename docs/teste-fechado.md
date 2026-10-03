@@ -149,7 +149,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | "E-mail para avisos" do cliente com responsável: cada campo diz de quem é ("E-mail de Testinho Jr" e "E-mail de Teste, responsável") e dá para preencher só um (antes "Seu e-mail" confundia quem usa o login da família) | T |
 | "E-mail para avisos" conforme quem entra: no login da família, "Seu e-mail" é o do responsável e o do aluno fica recolhido ("Adicionar o e-mail de ..."); no login do aluno, só o dele, já com o que a família tiver posto; o aviso de primeira entrada aparece também no painel do aluno | T |
 
-### 03/10 - site (o app recebe no próximo `.aab`)
+### 03/10 - versão 1.17.0
 
 | Mudança | Origem |
 |---|---|
