@@ -154,11 +154,11 @@ export default function CalendarPage() {
   // Google Agenda: ao abrir a agenda, puxa o ocupado de lá (a função ignora quem
   // sincronizou há menos de 2 minutos) e relê se algo veio.
   useEffect(() => {
-    if (!plan.google_calendar) return;
+    if (!plan.google_calendar_import) return;
     supabase.functions.invoke("google-calendar", { body: { action: "sync" } })
       .then(({ data }) => { if (data?.synced > 0) load(); })
       .catch(() => {});
-  }, [plan.google_calendar]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [plan.google_calendar_import]); // eslint-disable-line react-hooks/exhaustive-deps
   // Separado do load: os professores chegam depois, e a cor do widget depende
   // da ordem deles.
   useEffect(() => {

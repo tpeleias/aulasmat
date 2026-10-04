@@ -58,8 +58,16 @@ export type PlanFeatures = {
   services_multi: boolean;
   teacher_services: boolean;
   any_teacher: boolean;
-  /** Google Agenda: ocupado de lá bloqueia aqui, e os agendamentos vão para lá. */
+  /**
+   * Google Agenda: conectar e mandar os agendamentos para lá (exportar). Em
+   * todos os planos desde 04/10 (Thiago): é o que faz o app grudar no dia a dia.
+   */
   google_calendar: boolean;
+  /**
+   * Google Agenda: o ocupado de lá bloqueia aqui (importar). É um bloqueio
+   * automático, então segue o bloqueio semanal: do Start em diante (04/10).
+   */
+  google_calendar_import: boolean;
   /** E-mail: cobrança automática e "pagamento recebido" com recibo (03/10). */
   email_billing: boolean;
   /** E-mail: logo, cor e assinatura da empresa (03/10). */
@@ -94,7 +102,7 @@ export type PlanDef = {
 const PAID_FEATURES: PlanFeatures = {
   packages: true, recurring_blocks: true, vocabulary: true, whatsapp_link: true,
   whatsapp_auto: false, arrival_location: false, services_multi: true,
-  teacher_services: false, any_teacher: false, google_calendar: false,
+  teacher_services: false, any_teacher: false, google_calendar: true, google_calendar_import: true,
   email_billing: true, email_branding: false, email_custom: false,
 };
 
@@ -107,7 +115,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     features: {
       packages: false, recurring_blocks: false, vocabulary: true, whatsapp_link: false,
       whatsapp_auto: false, arrival_location: false, services_multi: false,
-      teacher_services: false, any_teacher: false, google_calendar: false,
+      teacher_services: false, any_teacher: false, google_calendar: true, google_calendar_import: false,
       email_billing: false, email_branding: false, email_custom: false,
     },
   },

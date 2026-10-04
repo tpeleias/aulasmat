@@ -87,6 +87,16 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Google Agenda por plano (04/10)
+
+- `google_calendar` (conectar e exportar, do profissional e do cliente) em
+  todos os planos; `google_calendar_import` (o ocupado de lá vira bloqueio)
+  do Start em diante, junto com `recurring_blocks`.
+- Quem barra é o banco: `google_calendar_set` recusa ligar a importação sem o
+  plano (dica `plano:google_calendar_import`) e `google_calendar_replace_busy`
+  não grava ocupado (e apaga o antigo) sem o plano. A função google-calendar
+  não mudou.
+
 ## Tarefas por ramo (03/10)
 
 - Palavra `task` no vocabulário (`src/lib/vocabulary.ts`, editável no Pro):

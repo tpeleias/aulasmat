@@ -69,8 +69,10 @@ export type Plan = {
   teacher_services?: boolean;
   /** Max: a família pede "qualquer profissional", pela prioridade do admin. */
   any_teacher?: boolean;
-  /** Pro e Max: Google Agenda (ocupado de lá bloqueia aqui; agendamentos vão para lá). */
+  /** Todos os planos (04/10): conectar o Google Agenda e mandar os agendamentos para lá. */
   google_calendar?: boolean;
+  /** Start, Pro e Max: o ocupado do Google bloqueia aqui (como o bloqueio semanal). */
+  google_calendar_import?: boolean;
   /** E-mail: cobrança automática e recibo (Start, Pro, Max); marca da empresa (Pro, Max); texto e horários (Max). */
   email_billing?: boolean;
   email_branding?: boolean;

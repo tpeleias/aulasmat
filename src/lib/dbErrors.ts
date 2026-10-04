@@ -53,7 +53,8 @@ export function dbErrorMessage(error: DbError, v: Vocabulary = DEFAULT_VOCABULAR
       return L("Com a assinatura ativa não dá para trocar a moeda: ela é cobrada na moeda em que foi feita. Para trocar, cancele a assinatura e assine de novo.",
         "You can't change the currency while subscribed: the subscription is billed in the currency it started in. To change it, cancel and subscribe again.");
     case "plano":
-      if (arg === "google_calendar") return L("O Google Agenda faz parte do Cronys Pro e do Max.", "Google Calendar is part of Cronys Pro and Max.");
+      if (arg === "google_calendar") return L("O Google Agenda não está disponível no seu plano.", "Google Calendar isn't available on your plan.");
+      if (arg === "google_calendar_import") return L("Trazer o ocupado do Google faz parte do Start, do Pro e do Max.", "Importing Google busy times is part of Start, Pro and Max.");
       break;
     case "conta_teste": return L("Conta de teste: não é permitido mudar a senha nem excluir a conta.", "Test account: changing the password or deleting the account isn't allowed.");
     case "ja_tem_empresa": return L("Esta conta já tem uma empresa. Entre de novo para abrir.", "This account already has a business. Sign in again to open it.");

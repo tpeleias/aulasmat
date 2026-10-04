@@ -2727,7 +2727,17 @@ COMMIT;
 SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.blocks WHERE source = 'google' AND account_id = current_setting('teste.g')::uuid),
   'importacao desligada: o ocupado importado sai na hora');
 
--- Start nao tem Google Agenda.
+-- Plano (04/10): o Start importa e exporta; o Essencial so exporta.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.sgadm'), true);
+SELECT public.google_calendar_set(current_setting('teste.solo')::uuid, true, true);
+SELECT public.assert(true, 'Start liga importar e exportar');
+SELECT public.google_calendar_set(current_setting('teste.solo')::uuid, false, false);
+COMMIT;
+UPDATE public.accounts SET plan = 'essencial'
+ WHERE id = (SELECT account_id FROM public.teachers WHERE id = current_setting('teste.solo')::uuid);
 BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
@@ -2736,14 +2746,17 @@ DO $$
 DECLARE _h text;
 BEGIN
   PERFORM public.google_calendar_set(current_setting('teste.solo')::uuid, true, false);
-  RAISE EXCEPTION 'FALHOU: Start ligou o Google Agenda';
+  RAISE EXCEPTION 'FALHOU: Essencial ligou a importacao do Google';
 EXCEPTION WHEN check_violation THEN
   GET STACKED DIAGNOSTICS _h = PG_EXCEPTION_HINT;
-  PERFORM public.assert(_h = 'plano:google_calendar', 'Start nao liga o Google Agenda (' || _h || ')');
+  PERFORM public.assert(_h = 'plano:google_calendar_import', 'Essencial nao importa o ocupado do Google (' || _h || ')');
 END $$;
+SELECT public.google_calendar_set(current_setting('teste.solo')::uuid, false, true);
+SELECT public.assert(true, 'Essencial exporta os agendamentos para o Google');
 SELECT public.google_calendar_set(current_setting('teste.solo')::uuid, false, false);
-SELECT public.assert(true, 'Start pode deixar tudo desligado');
 COMMIT;
+UPDATE public.accounts SET plan = 'start'
+ WHERE id = (SELECT account_id FROM public.teachers WHERE id = current_setting('teste.solo')::uuid);
 
 -- Desconectar apaga conexao, fila e ocupado.
 SELECT public.google_calendar_replace_busy(current_setting('teste.gabi')::uuid, now(), now() + interval '60 days',
@@ -2818,9 +2831,9 @@ UPDATE public.lessons SET start_at = start_at + interval '1 hour' WHERE student_
 SELECT public.assert(EXISTS (SELECT 1 FROM public.client_calendar_queue WHERE user_id = current_setting('teste.resp')::uuid),
   'aula da Lia remarcada enfileira a Rosa');
 
--- Plano sem Google Agenda: o switch nao vale.
-UPDATE public.accounts SET plan = 'start' WHERE id = current_setting('teste.g')::uuid;
-SELECT public.assert(NOT public.client_calendar_enabled(current_setting('teste.g')::uuid), 'no Start o switch do cliente nao vale');
+-- Exportar e de todos os planos (04/10): o switch do cliente vale ate no Essencial.
+UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.g')::uuid;
+SELECT public.assert(public.client_calendar_enabled(current_setting('teste.g')::uuid), 'no Essencial o switch do cliente vale');
 UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.g')::uuid;
 SELECT public.client_calendar_forget(current_setting('teste.resp')::uuid);
 SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.client_calendar_connections WHERE user_id = current_setting('teste.resp')::uuid),
@@ -3367,5 +3380,31 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true
 SELECT public.assert(NOT (public.my_vocabulary() ->> 'tasks')::boolean, 'desligadas na empresa: a familia nao ve');
 COMMIT;
 UPDATE public.settings SET tasks_enabled = NULL WHERE account_id = current_setting('teste.a')::uuid;
+
+\echo '--- 60. Google Agenda por plano: exportar em todos, importar do Start em diante (04/10) ---'
+SELECT public.assert((public.plan_features('essencial') ->> 'google_calendar')::boolean
+  AND NOT (public.plan_features('essencial') ->> 'google_calendar_import')::boolean
+  AND (public.plan_features('start') ->> 'google_calendar_import')::boolean
+  AND (public.plan_features('pro') ->> 'google_calendar_import')::boolean, 'exportar em todos; importar do Start em diante');
+DO $$
+DECLARE _g uuid; _t uuid;
+BEGIN
+  INSERT INTO public.accounts (name, slug, plan) VALUES ('Google G', 'google-g', 'essencial') RETURNING id INTO _g;
+  INSERT INTO public.teachers (account_id, name, active) VALUES (_g, 'Gil', true) RETURNING id INTO _t;
+  PERFORM set_config('teste.gg', _g::text, false);
+  PERFORM set_config('teste.ggt', _t::text, false);
+END $$;
+SELECT public.assert(public.google_calendar_replace_busy(current_setting('teste.ggt')::uuid, now(), now() + interval '7 day',
+  jsonb_build_array(jsonb_build_object('start', now() + interval '1 day', 'end', now() + interval '1 day 1 hour'))) = 0
+  AND NOT EXISTS (SELECT 1 FROM public.blocks WHERE account_id = current_setting('teste.gg')::uuid AND source = 'google'),
+  'no Essencial o ocupado do Google nao vira bloqueio');
+UPDATE public.accounts SET plan = 'start' WHERE id = current_setting('teste.gg')::uuid;
+SELECT public.assert(public.google_calendar_replace_busy(current_setting('teste.ggt')::uuid, now(), now() + interval '7 day',
+  jsonb_build_array(jsonb_build_object('start', now() + interval '1 day', 'end', now() + interval '1 day 1 hour'))) = 1,
+  'no Start o ocupado do Google vira bloqueio');
+UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.gg')::uuid;
+SELECT public.google_calendar_replace_busy(current_setting('teste.ggt')::uuid, now(), now() + interval '7 day', '[]'::jsonb);
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.blocks WHERE account_id = current_setting('teste.gg')::uuid AND source = 'google'),
+  'voltou ao Essencial: o ocupado importado some');
 
 \echo '=== FIM ==='

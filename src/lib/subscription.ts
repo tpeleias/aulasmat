@@ -130,7 +130,8 @@ export function comparisonRows(interval: Interval): CompareRow[] {
     row(L("WhatsApp com um toque", "One-tap WhatsApp"), t => CFG[t].features.whatsapp_link),
     row(L("Pacotes, vouchers e desconto por cliente", "Packages, vouchers and client discounts"), t => CFG[t].features.packages),
     row(L("Bloqueio semanal", "Weekly blocks"), t => CFG[t].features.recurring_blocks),
-    row(L("Google Agenda nos dois sentidos", "Two-way Google Calendar"), t => CFG[t].features.google_calendar),
+    row(L("Agendamentos no Google Agenda", "Bookings in Google Calendar"), t => CFG[t].features.google_calendar),
+    row(L("Ocupado do Google bloqueia a agenda", "Google busy times block your schedule"), t => CFG[t].features.google_calendar_import),
     row(L("Assistente com IA", "AI assistant"), t => {
       const p = CFG[t];
       if (p.assistantMessages > 0 && !p.assistantAddon) return L(`${p.assistantMessages} msgs/mês`, `${p.assistantMessages} msgs/mo`);

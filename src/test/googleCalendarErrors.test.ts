@@ -15,16 +15,17 @@ describe("erros do Google Agenda", () => {
     expect(dbErrorMessage(e)).toMatch(/^Desconecte o Google/);
     setLocale("en", "USD");
     expect(dbErrorMessage(e)).toBe("Disconnect Google from your current profile before switching.");
-    expect(dbErrorMessage({ message: "x", hint: "plano:google_calendar" })).toBe("Google Calendar is part of Cronys Pro and Max.");
+    expect(dbErrorMessage({ message: "x", hint: "plano:google_calendar" })).toBe("Google Calendar isn't available on your plan.");
+    expect(dbErrorMessage({ message: "x", hint: "plano:google_calendar_import" })).toBe("Importing Google busy times is part of Start, Pro and Max.");
   });
 
   it("código da função, também vindo em erro HTTP", async () => {
     setLocale("en", "USD");
     expect(await googleFunctionError({ code: "not_enabled" }, null)).toMatch(/hasn't turned on/);
     const httpError = { context: { json: async () => ({ code: "plan" }) } };
-    expect(await googleFunctionError(null, httpError)).toMatch(/Pro and Max/);
+    expect(await googleFunctionError(null, httpError)).toMatch(/isn't available on your plan/);
     setLocale("pt-BR", "BRL");
-    expect(await googleFunctionError(null, httpError)).toMatch(/Pro e do Max/);
+    expect(await googleFunctionError(null, httpError)).toMatch(/não está disponível no seu plano/);
   });
 
   it("erro guardado na conexão: chave nova, texto antigo e texto do Google", () => {

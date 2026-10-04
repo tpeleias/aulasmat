@@ -164,3 +164,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | E-mails de login (confirmar cadastro, senha nova, troca de e-mail...) pelo remetente do Cronys, em português ou inglês conforme a pessoa; passa a valer quando o hook for ligado no painel do Supabase | T |
 | Tarefas por ramo: o nome muda (Tarefas nas aulas, Orientações na saúde, Atividades na psicologia, Treinos para casa nos esportes, Cuidados em beleza e pet) e só vêm ligadas em aulas, saúde, psicologia e esportes; interruptor "Usar ..." em Configurações → Portal; desligadas somem do menu, do painel, do cadastro, da Evolução e dos e-mails (o que já existe fica guardado) | T |
 | Fora das aulas, a tarefa se marca como feita (o arquivo fica opcional); e mandar o arquivo agora marca a tarefa como entregue (antes ficava "pendente") | T |
+
+### 04/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Google Agenda por plano: mandar os agendamentos para o Google (do profissional e do cliente) passa a valer em todos os planos; trazer o ocupado do Google para bloquear a agenda fica do Start em diante, como o bloqueio semanal (antes as duas coisas eram só Pro e Max) | T |

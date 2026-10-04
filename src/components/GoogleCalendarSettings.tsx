@@ -13,9 +13,10 @@ import { L } from "@/lib/i18n";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { googleFunctionError, googleStoredError } from "@/lib/googleCalendarErrors";
 import { toast } from "sonner";
-import { CalendarDays, Loader2 } from "lucide-react";
+import { CalendarDays, Loader2, Lock } from "lucide-react";
 
-// Google Agenda por profissional (Pro e Max). O admin vê todo mundo; o login de
+// Google Agenda por profissional: exportar em todos os planos, importar o
+// ocupado do Start em diante (04/10). O admin vê todo mundo; o login de
 // profissional vê só a si. Cada um conecta SÓ o próprio Google (ninguém entra
 // na conta Google de outra pessoa): o profissional com login, o dele; o admin,
 // o cadastro que ele marcou como "sou eu" (teachers.admin_user_id). Os demais
@@ -78,12 +79,16 @@ export default function GoogleCalendarSettings() {
 
   if (!plan.google_calendar) {
     return (
-      <ProUpsell titulo={L("Google Agenda é do Cronys Pro e do Max", "Google Calendar comes with Cronys Pro and Max")} compacto>
+      <ProUpsell titulo={L("Google Agenda não está no seu plano", "Google Calendar isn't in your plan")} compacto>
         {L("os compromissos do Google bloqueiam o horário aqui, e os agendamentos do Cronys aparecem no Google.",
            "your Google events block the time here, and Cronys bookings show up in Google.")}
       </ProUpsell>
     );
   }
+
+  // Trazer o ocupado do Google é um bloqueio automático: do Start em diante,
+  // como o bloqueio semanal (04/10). Mandar os agendamentos vale em todos.
+  const canImport = plan.google_calendar_import === true;
 
   const connect = async (r: Row) => {
     setBusy(r.teacher_id);
@@ -204,12 +209,17 @@ export default function GoogleCalendarSettings() {
             {r.can_manage && r.connected && r.status !== "revoked" && (
               <div className="grid sm:grid-cols-2 gap-2">
                 <label className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
-                  <span>{L("Importar ocupado do Google", "Import Google busy times")}</span>
-                  <Switch checked={r.import_enabled} onCheckedChange={v => setSwitches(r, v, r.export_enabled)} />
+                  <span className={canImport ? "" : "text-muted-foreground"}>
+                    {L("Importar ocupado do Google", "Import Google busy times")}
+                    {!canImport && <span className="mt-0.5 flex items-center gap-1 text-xs"><Lock className="h-3 w-3" /> {L("nos planos Start, Pro e Max", "on the Start, Pro and Max plans")}</span>}
+                  </span>
+                  <Switch checked={canImport && r.import_enabled} disabled={!canImport} onCheckedChange={v => setSwitches(r, v, r.export_enabled)}
+                    aria-label={L("Importar ocupado do Google", "Import Google busy times")} />
                 </label>
                 <label className="flex items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2 text-sm">
                   <span>{L("Exportar agendamentos para o Google", "Export bookings to Google")}</span>
-                  <Switch checked={r.export_enabled} onCheckedChange={v => setSwitches(r, r.import_enabled, v)} />
+                  <Switch checked={r.export_enabled} onCheckedChange={v => setSwitches(r, canImport && r.import_enabled, v)}
+                    aria-label={L("Exportar agendamentos para o Google", "Export bookings to Google")} />
                 </label>
               </div>
             )}
