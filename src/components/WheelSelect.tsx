@@ -28,6 +28,10 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
 }) {
   const mobile = useIsMobile();
   const [open, setOpen] = useState(false);
+  // A rodinha só escolhe; vale ao fechar a gaveta. Antes cada linha que
+  // passava já salvava, e na língua isso recarregava o app inteiro no meio da
+  // rolagem, com a gaveta aberta (tela preta, 04/10).
+  const [pending, setPending] = useState(value);
 
   if (!mobile) {
     return (
@@ -43,6 +47,12 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
   const current = options.find(o => o.value === value);
   const choices = options.filter(o => !o.disabled || o.value === value);
   const labelOf = (v: string) => choices.find(o => o.value === v)?.label ?? v;
+  const close = (confirm: boolean) => {
+    setOpen(false);
+    // Abriu e fechou sem rolar, com o campo vazio: o "Pronto" fica com a primeira.
+    const next = pending || (confirm && !current && choices[0] ? choices[0].value : "");
+    if (next && next !== value) onValueChange(next);
+  };
 
   return (
     <>
@@ -51,7 +61,7 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
         disabled={disabled}
         aria-label={label}
         aria-haspopup="listbox"
-        onClick={() => setOpen(true)}
+        onClick={() => { setPending(value); setOpen(true); }}
         className={cn(
           "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           className,
@@ -60,7 +70,7 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
         <span className={cn("truncate", !current && "text-muted-foreground")}>{current ? current.label : placeholder}</span>
         <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
       </button>
-      <Drawer open={open} onOpenChange={setOpen} shouldScaleBackground={false}>
+      <Drawer open={open} onOpenChange={o => (o ? setOpen(true) : close(false))} shouldScaleBackground={false}>
         <DrawerContent>
           <DrawerHeader className="pb-1">
             <DrawerTitle className="text-center">{label}</DrawerTitle>
@@ -72,17 +82,13 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
               className="mx-auto max-w-sm"
               label={label}
               options={choices.map(o => o.value)}
-              value={value}
+              value={pending}
               format={labelOf}
-              onChange={onValueChange}
+              onChange={v => setPending(String(v))}
             />
           </div>
           <DrawerFooter>
-            <Button className="mx-auto h-11 w-full max-w-sm rounded-xl" onClick={() => {
-              // Abriu e fechou sem rolar, com o campo vazio: fica com a primeira.
-              if (!current && choices[0]) onValueChange(choices[0].value);
-              setOpen(false);
-            }}>{L("Pronto", "Done")}</Button>
+            <Button className="mx-auto h-11 w-full max-w-sm rounded-xl" onClick={() => close(true)}>{L("Pronto", "Done")}</Button>
           </DrawerFooter>
         </DrawerContent>
       </Drawer>

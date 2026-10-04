@@ -24,7 +24,21 @@ describe("WheelSelect", () => {
     const roda = screen.getByRole("listbox", { name: "Situação" });
     expect(within(roda).getByRole("option", { name: "Agendada" }).getAttribute("aria-selected")).toBe("true");
     fireEvent.click(within(roda).getByRole("option", { name: "Cancelada" }));
+    // Rolar só escolhe: vale no "Pronto" (a língua recarregava o app no meio
+    // da rolagem e ficava a tela preta, 04/10).
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Pronto" }));
+    expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenLastCalledWith("cancelada");
+  });
+
+  it("no celular, fechar sem mexer não muda nada", () => {
+    mobile = true;
+    const onChange = vi.fn();
+    render(<WheelSelect value="agendada" onValueChange={onChange} options={opcoes} label="Situação" />);
+    fireEvent.click(screen.getByRole("button", { name: "Situação" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pronto" }));
+    expect(onChange).not.toHaveBeenCalled();
   });
 
   it("vazio: mostra o convite e, ao confirmar sem rolar, fica com a primeira", () => {
