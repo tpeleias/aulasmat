@@ -51,7 +51,8 @@ necessário), canal e o que foi feito.
 ## Mudanças no período
 
 Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
-**H** = preparação para os testadores do Hive; **R** = revisão técnica.
+**H** = preparação para os testadores do Hive; **R** = revisão técnica;
+**U** = relato de um usuário ao Thiago.
 
 ### 26/09 - versões 1.12.0 a 1.12.2
 
@@ -171,3 +172,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Erros do site e do app vão para o Sentry (só nas versões publicadas), sem dado pessoal: sem IP nem cookies, e e-mail, telefone, CPF, CNPJ e tokens saem trocados por [removido]; o erro leva só o id de quem está logado e a versão | T |
 | Um erro que derrubava a tela inteira deixava a página em branco; agora aparece "Algo deu errado" com o botão "Recarregar" | T |
+| No celular, escolher a língua (e qualquer outra caixa com a rodinha) travava em tela preta: cada linha que passava já salvava, e a língua recarregava o app inteiro no meio da rolagem. Agora a escolha só vale ao tocar em "Pronto" ou fechar a gaveta | U |
