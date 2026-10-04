@@ -38,6 +38,8 @@ jobs:
         env:
           # Hides the in-app updater: a store build updates through the store.
           APP_DISTRIBUTION: play
+          # A versão aparece nos erros do Sentry.
+          APP_VERSION: ${{ inputs.version_name }}
 
       - name: Sync Capacitor Android project
         run: npx cap sync android

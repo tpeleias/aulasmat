@@ -2,3 +2,4 @@
 
 declare const __BUILD_SHA__: string;
 declare const __DISTRIBUTION__: string;
+declare const __APP_VERSION__: string;

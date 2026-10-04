@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
+import { setMonitoringUser } from "@/lib/monitoring";
 
 type Role = "admin" | "teacher" | "student" | "child" | null;
 type Ctx = {
@@ -97,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // coisa e outra, ela vê "logado, sem papel" e decide errado.
       if ((s?.user?.id ?? null) !== resolvedFor.current && s?.user) setResolving(true);
       setSession(s);
+      setMonitoringUser(s?.user?.id ?? null);
       // Fora do callback: chamar o supabase aqui dentro trava o cliente de auth.
       setTimeout(() => { void resolve(s?.user?.id ?? null); }, 0);
     });

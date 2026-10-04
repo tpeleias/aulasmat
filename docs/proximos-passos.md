@@ -87,6 +87,23 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Sentry (04/10)
+
+Erros do site e do app no Sentry, plano Developer (grátis, 5 mil erros por
+mês). Projeto do Thiago, DSN em `src/lib/monitoring.ts` (o DSN é público).
+- Liga só no build de produção (`import.meta.env.PROD`); em dev e nos testes não.
+- `environment`: `android` (Capacitor) ou `web`; tag `distribution` (play/direct).
+- `release`: `cronys@<versão do .aab>` (o `android-release.yml` passa
+  `APP_VERSION` = `version_name`) ou `cronys@<commit>` no site. No Lovable não
+  há GITHUB_SHA, então sai `cronys@dev`.
+- Sem PII: `sendDefaultPii: false`, sem cookies/headers/corpo, usuário só pelo
+  id, `scrub()` troca e-mail, JWT, CPF, CNPJ, telefone e tokens de URL por
+  [removido]; cliques e digitação não viram breadcrumb (levariam nomes da tela).
+- Sem traces e sem replay (`tracesSampleRate: 0`).
+- `Sentry.ErrorBoundary` no `main.tsx` com `CrashScreen` (antes: tela branca).
+- Sem source maps enviados: o stack vem minificado. Se precisar, criar um token
+  do Sentry e usar `@sentry/vite-plugin` no workflow.
+
 ## Tarefas por ramo (03/10)
 
 - Palavra `task` no vocabulário (`src/lib/vocabulary.ts`, editável no Pro):
