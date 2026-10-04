@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
@@ -32,6 +32,8 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
   // passava já salvava, e na língua isso recarregava o app inteiro no meio da
   // rolagem, com a gaveta aberta (tela preta, 04/10).
   const [pending, setPending] = useState(value);
+  // O "Pronto" fecha e a gaveta pode avisar o fechamento de novo: vale uma vez.
+  const closed = useRef(true);
 
   if (!mobile) {
     return (
@@ -49,6 +51,8 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
   const labelOf = (v: string) => choices.find(o => o.value === v)?.label ?? v;
   const close = (confirm: boolean) => {
     setOpen(false);
+    if (closed.current) return;
+    closed.current = true;
     // Abriu e fechou sem rolar, com o campo vazio: o "Pronto" fica com a primeira.
     const next = pending || (confirm && !current && choices[0] ? choices[0].value : "");
     if (next && next !== value) onValueChange(next);
@@ -61,7 +65,7 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
         disabled={disabled}
         aria-label={label}
         aria-haspopup="listbox"
-        onClick={() => { setPending(value); setOpen(true); }}
+        onClick={() => { setPending(value); closed.current = false; setOpen(true); }}
         className={cn(
           "flex h-10 w-full items-center justify-between gap-2 rounded-md border border-input bg-background px-3 py-2 text-left text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           className,
@@ -70,7 +74,7 @@ export function WheelSelect({ value, onValueChange, options, label, placeholder,
         <span className={cn("truncate", !current && "text-muted-foreground")}>{current ? current.label : placeholder}</span>
         <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
       </button>
-      <Drawer open={open} onOpenChange={o => (o ? setOpen(true) : close(false))} shouldScaleBackground={false}>
+      <Drawer open={open} onOpenChange={o => { if (o) { closed.current = false; setOpen(true); } else close(false); }} shouldScaleBackground={false}>
         <DrawerContent>
           <DrawerHeader className="pb-1">
             <DrawerTitle className="text-center">{label}</DrawerTitle>
