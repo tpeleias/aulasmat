@@ -3,7 +3,12 @@ import { Capacitor } from "@capacitor/core";
 import { StatusBar, Style } from "@capacitor/status-bar";
 import { Preferences } from "@capacitor/preferences";
 import App from "./App.tsx";
+import { startMonitoring } from "./lib/monitoring";
+import { CrashScreen } from "./components/CrashScreen";
+import * as Sentry from "@sentry/react";
 import "./index.css";
+
+startMonitoring();
 
 if (Capacitor.isNativePlatform()) {
   StatusBar.setOverlaysWebView({ overlay: false });
@@ -29,4 +34,10 @@ window.addEventListener("vite:preloadError", (event) => {
   window.location.reload();
 });
 
-createRoot(document.getElementById("root")!).render(<App />);
+// Um erro que derruba a tela inteira vai para o Sentry e mostra o botão de
+// recarregar, em vez da tela em branco.
+createRoot(document.getElementById("root")!).render(
+  <Sentry.ErrorBoundary fallback={<CrashScreen />}>
+    <App />
+  </Sentry.ErrorBoundary>,
+);

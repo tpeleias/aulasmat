@@ -164,3 +164,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | E-mails de login (confirmar cadastro, senha nova, troca de e-mail...) pelo remetente do Cronys, em português ou inglês conforme a pessoa; passa a valer quando o hook for ligado no painel do Supabase | T |
 | Tarefas por ramo: o nome muda (Tarefas nas aulas, Orientações na saúde, Atividades na psicologia, Treinos para casa nos esportes, Cuidados em beleza e pet) e só vêm ligadas em aulas, saúde, psicologia e esportes; interruptor "Usar ..." em Configurações → Portal; desligadas somem do menu, do painel, do cadastro, da Evolução e dos e-mails (o que já existe fica guardado) | T |
 | Fora das aulas, a tarefa se marca como feita (o arquivo fica opcional); e mandar o arquivo agora marca a tarefa como entregue (antes ficava "pendente") | T |
+
+### 04/10 - versão 1.18.0
+
+| Mudança | Origem |
+|---|---|
+| Erros do site e do app vão para o Sentry (só nas versões publicadas), sem dado pessoal: sem IP nem cookies, e e-mail, telefone, CPF, CNPJ e tokens saem trocados por [removido]; o erro leva só o id de quem está logado e a versão | T |
+| Um erro que derrubava a tela inteira deixava a página em branco; agora aparece "Algo deu errado" com o botão "Recarregar" | T |
