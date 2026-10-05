@@ -35,6 +35,8 @@ import { WheelPicker } from "@/components/WheelPicker";
 
 import { navAppName, routeUrl, useNavApp } from "@/lib/navigation";
 import { buildOccurrences, countUntil, MAX_OCCURRENCES, WEEKDAY_SHORT, weekdaysLabel } from "@/lib/recurrence";
+import { MeetingJoinButton } from "@/components/MeetingJoinButton";
+import { safeMeetingUrl } from "@/lib/meeting";
 
 // A rodinha de duração: de 5 em 5 minutos, até 4 horas.
 const DURATIONS = Array.from({ length: 48 }, (_, i) => (i + 1) * 5);
@@ -47,6 +49,9 @@ type Lesson = {
   absence_charged?: boolean;
   /** O serviço escolhido (migration 20260925110000). */
   service_id?: string | null;
+  /** Link da reunião (migration 20261005010000): vazio = o automático do profissional. */
+  meeting_url?: string | null;
+  meeting_source?: string | null;
 };
 
 type AbsencePolicy = { on: boolean; hours: number; percent: number };
@@ -349,7 +354,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       );
 
       // payment_status is derived from the wallet by the database; never send it back.
-      const { id: _ignore, payment_status: _ps, ...rest } = form as any;
+      // A origem do link quem decide é o banco (colado aqui vira "manual").
+      const { id: _ignore, payment_status: _ps, meeting_source: _ms, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").update(payload).eq("id", lesson.id);
       if (error) { setBusy(false); toast.error(lessonErrorMessage(error, v)); return; }
@@ -357,7 +363,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
       if (applyToAll) {
         // status/class_summary/start_at ficam de fora: são específicos de cada aula,
         // só o horário (hora:minuto) é reaplicado, mantendo a data de cada ocorrência.
-        const { id: _i2, payment_status: _ps2, status: _st, class_summary: _cs, start_at: _sa, ...futureRest } = form as any;
+        // O link também: cada aula tem o seu (a sala do Jitsi é uma por aula).
+        const { id: _i2, payment_status: _ps2, status: _st, class_summary: _cs, start_at: _sa, meeting_url: _mu, meeting_source: _ms2, ...futureRest } = form as any;
         const newTime = format(new Date(form.start_at), "HH:mm");
         const timeChanged = newTime !== format(new Date(lesson.start_at), "HH:mm");
         for (const m of futureMatches) {
@@ -392,7 +399,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     }
     if (!recurring || (totalCount <= 1 && repeatDays.length === 0)) {
       // payment_status is derived from the wallet by the database; never send it back.
-      const { id: _ignore, payment_status: _ps, ...rest } = form as any;
+      const { id: _ignore, payment_status: _ps, meeting_source: _ms, ...rest } = form as any;
       const payload = { ...rest, ...names, start_at: new Date(form.start_at).toISOString() };
       const { error } = await supabase.from("lessons").insert(payload);
       setBusy(false);
@@ -416,7 +423,7 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
         new Date(r.start_at) < occEnd && new Date(r.end_at) > occ
       );
       if (hit) conflicts.push(format(occ, L("dd/MM HH:mm", "MMM d, h:mm a")));
-      else { const { id: _i, payment_status: _ps, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
+      else { const { id: _i, payment_status: _ps, meeting_source: _ms, ...rest } = form as any; toInsert.push({ ...rest, ...names, start_at: occ.toISOString() }); }
     }
 
     if (toInsert.length === 0) {
@@ -621,6 +628,25 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
               {L("On-line", "Online")}
             </label>
           </div>
+          {form.is_online && (
+            <div className="space-y-1">
+              <Label htmlFor="meeting-url">{L("Link da reunião", "Meeting link")}</Label>
+              <div className="flex gap-2">
+                <Input id="meeting-url" inputMode="url" value={form.meeting_url ?? ""} disabled={isTeacher}
+                  placeholder={L("Vazio = o link automático d" + v.staff.pick("o", "a") + " " + v.staff.l, "Empty = the automatic link")}
+                  onChange={e => setForm({ ...form, meeting_url: e.target.value })} />
+                {lesson?.id && safeMeetingUrl(lesson.meeting_url) && safeMeetingUrl(form.meeting_url) === lesson.meeting_url && (
+                  <MeetingJoinButton url={lesson.meeting_url} compact />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {lesson?.id && lesson.meeting_source === "google" && !lesson.meeting_url
+                  ? L("O Google Meet está sendo criado; o link aparece em instantes.", "Google Meet is being created; the link shows up in a moment.")
+                  : L(`Cole um link (Zoom, Meet, Teams...) ou deixe vazio para usar o que ${v.staff.o} ${v.staff.l} escolheu. O link vai nos lembretes, no portal e no WhatsApp.`,
+                      "Paste a link (Zoom, Meet, Teams...) or leave it empty to use the professional's choice. The link goes in reminders, the portal and WhatsApp.")}
+              </p>
+            </div>
+          )}
           {!isTeacher && <>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>{L("Pacote", "Package")}</Label>

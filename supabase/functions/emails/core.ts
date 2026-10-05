@@ -23,7 +23,13 @@ export type Lesson = {
   id: string; account_id: string; student_name: string; guardian_name: string | null; teacher: string;
   start_at: string; duration_minutes: number | null; status: string; address: string | null;
   is_online: boolean | null; subject: string | null; reschedule_of: string | null;
+  /** Link da reunião da aula on-line (migration 20261005010000). */
+  meeting_url?: string | null;
 };
+
+/** Só link http(s) vira botão: o banco já recusa o resto, aqui é a segunda trava. */
+export const meetingLink = (l: Lesson) =>
+  l.is_online && l.meeting_url && /^https?:\/\/[^\s"'<>]+$/i.test(l.meeting_url) ? l.meeting_url : null;
 export type Ctx = {
   account: { id: string; name: string; locale: string; currency: string | null; business_model: string | null; vocabulary: Record<string, { s?: string; g?: string }> | null };
   prefs: Record<string, unknown>;
@@ -393,8 +399,11 @@ export function lessonRows(ctx: Ctx, l: Lesson, teacher: string): [string, strin
   const w = word(ctx);
   const end = l.duration_minutes ? new Date(new Date(l.start_at).getTime() + l.duration_minutes * 60000).toISOString() : null;
   const hora = `${fmtTime(l.start_at, w.en)}${end ? ` – ${fmtTime(end, w.en)}` : ""}`;
+  const link = meetingLink(l);
   const where = l.is_online
-    ? (w.en ? "Online" : "On-line")
+    ? (link
+      ? `${w.en ? "Online" : "On-line"} · <a href="${esc(link)}" style="color:#1d1f27;text-decoration:underline;font-weight:bold">${w.en ? "Join" : "Entrar"}</a>`
+      : (w.en ? "Online" : "On-line"))
     : l.address ? `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(l.address)}" style="color:#1d1f27;text-decoration:underline">${esc(l.address)}</a>` : null;
   const rows: [string, string][] = [
     [w.en ? "Date" : "Data", `<b>${esc(cap1(fmtDay(l.start_at, w.en)))}</b>`],
@@ -412,7 +421,7 @@ export const beforeRow = (old: string, en: boolean): [string, string] =>
 export function clientMsg(kind: string, ctx: Ctx, l: Lesson, teacher: string, oldStart: string | null): Msg | null {
   const m = clientMsgBase(kind, ctx, l, teacher, oldStart);
   const en = ctx.account.locale === "en";
-  return m && { ...m, vars: { nome: l.student_name, responsavel: l.guardian_name || l.student_name, data: fmtDay(l.start_at, en), hora: fmtTime(l.start_at, en), profissional: teacher } };
+  return m && { ...m, vars: { nome: l.student_name, responsavel: l.guardian_name || l.student_name, data: fmtDay(l.start_at, en), hora: fmtTime(l.start_at, en), profissional: teacher, link: meetingLink(l) ?? "" } };
 }
 
 function clientMsgBase(kind: string, ctx: Ctx, l: Lesson, teacher: string, oldStart: string | null): Msg | null {
@@ -468,6 +477,8 @@ function clientMsgBase(kind: string, ctx: Ctx, l: Lesson, teacher: string, oldSt
         kicker: w.en ? "Reminder" : "Lembrete", tone: "remind",
         title: w.en ? `Your ${w.l} is ${kind === "eve" ? "tomorrow" : "today"}` : `${w.a("Sua", "Seu")} ${w.l} é ${kind === "eve" ? "amanhã" : "hoje"}`,
         rows, paragraphs: [esc(w.en ? "Can't make it? Reply to this email." : "Não vai conseguir? É só responder este e-mail.")],
+        // On-line: o botão já é a entrada na sala.
+        ...(meetingLink(l) ? { cta: { href: meetingLink(l)!, label: w.en ? `Join the ${w.l}` : `Entrar ${w.a("na", "no")} ${w.l}` } } : {}),
       };
   }
   return null;

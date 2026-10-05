@@ -33,7 +33,7 @@ import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import { useTeacherName } from "@/hooks/useTeacherName";
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
-  start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean;
+  start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean; meeting_url?: string | null;
 };
 
 const suggestions = (w: Vocabulary) => [
@@ -86,12 +86,12 @@ export default function HomePage() {
     const dayStart = startOfDay(now).toISOString();
     const dayEnd = startOfDay(addDays(now, 1)).toISOString();
     const [t, n, w, d] = await Promise.all([
-      supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
+      supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online, meeting_url")
         // Tudo que é aula de verdade hoje, inclusive as já realizadas - o que sai
         // são as descartadas e os pedidos sem resposta, que não são compromisso.
         .gte("start_at", dayStart).lt("start_at", dayEnd)
         .not("status", "in", "(cancelada,recusada,solicitada)").order("start_at"),
-      supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online")
+      supabase.from("lessons").select("id, student_name, guardian_name, subject, teacher, start_at, duration_minutes, status, address, is_online, meeting_url")
         .gte("start_at", now.toISOString()).eq("status", "agendada").order("start_at").limit(1),
       isTeacher
         ? Promise.resolve({ data: [] as LedgerTx[] })
@@ -194,7 +194,7 @@ export default function HomePage() {
                         {l.subject ?? ap.s} · {teacherName(l.teacher)}{l.is_online ? " · online" : ""}
                       </div>
                     </div>
-                    {l.is_online && <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                    {l.is_online && !l.meeting_url && <Wifi className="h-4 w-4 shrink-0 text-muted-foreground" />}
                     <LessonQuickActions lesson={l} phone={phoneOf(l)} />
                   </li>
                 );

@@ -173,4 +173,11 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Erros do site e do app vão para o Sentry (só nas versões publicadas), sem dado pessoal: sem IP nem cookies, e e-mail, telefone, CPF, CNPJ e tokens saem trocados por [removido]; o erro leva só o id de quem está logado e a versão | T |
 | Um erro que derrubava a tela inteira deixava a página em branco; agora aparece "Algo deu errado" com o botão "Recarregar" | T |
+
+### 04 e 05/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
 | No celular, escolher a língua (e qualquer outra caixa com a rodinha) travava em tela preta: cada linha que passava já salvava, e a língua recarregava o app inteiro no meio da rolagem. Agora a escolha só vale ao tocar em "Pronto" ou fechar a gaveta | U |
+| Link de reunião nos atendimentos on-line: cada profissional escolhe (em Configurações → Integrações, ou em Minha conta no login de profissional) entre nenhum automático, a própria sala fixa (Zoom, Meet, Teams...), uma sala do Jitsi Meet por atendimento (grátis, com instruções de uso na tela) ou um Google Meet por atendimento (Pro e Max, com o Google Agenda conectado; sem ele, cai no Jitsi). Dá para colar outro link no próprio atendimento | T |
+| O link vai junto: botão "Entrar" na agenda, no início e no portal do cliente (e no login do filho), "Entrar na aula" no lembrete do dia e da véspera por e-mail, no lembrete do WhatsApp (campo novo {link}) e no evento do Google Agenda | T |

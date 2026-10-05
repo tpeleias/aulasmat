@@ -19,6 +19,7 @@ import LanguageSettings from "@/components/LanguageSettings";
 import PackagesSettings from "@/components/PackagesSettings";
 import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
+import MeetingSettings from "@/components/MeetingSettings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScarcityEditor } from "@/components/ScarcityEditor";
@@ -54,7 +55,7 @@ const SECTIONS: { id: SectionId; icon: typeof Building2; label: () => string; hi
   { id: "agenda", icon: CalendarDays, label: () => L("Agenda", "Calendar"), hint: v => L(`Horário de trabalho, ${v.topic.lp}`, `Working hours, ${v.topic.lp}`) },
   { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, moeda, pacotes, Pix, falta", "Price, currency, packages, payment, no-shows") },
   { id: "clientes", icon: Users, label: () => L("Clientes", "Clients"), hint: () => L("Portal, pedidos, mensagens", "Portal, requests, messages") },
-  { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => "Google Agenda" },
+  { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => L("Google Agenda, link das reuniões on-line", "Google Calendar, online meeting links") },
 ];
 
 type Settings = {
@@ -573,6 +574,7 @@ export default function SettingsPage() {
     </>,
     integracoes: <>
       <GoogleCalendarSettings />
+      <MeetingSettings />
     </>,
   };
 

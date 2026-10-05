@@ -87,6 +87,35 @@ fácil de entender. Virou "Horários que o cliente vê" (`ScarcityEditor`):
   sorteia. Vale na página de horários, no portal (pedir horário) e no quadro da
   `/inicio`.
 
+## Link de reunião (05/10)
+
+Migration `20261005010000_meeting_links.sql`. Escolha por profissional em
+`teacher_meeting` (fora de `teachers`, que a página pública lê):
+`none | fixed | jitsi | google_meet`. O gatilho `lessons_meeting_fill` preenche
+`lessons.meeting_url` e `meeting_source` (`manual | fixed | jitsi | google`):
+- colado à mão na aula = `manual`, nunca é trocado;
+- trocar de profissional ou de escolha refaz o automático das próximas aulas;
+- `google_meet` só com Google conectado + exportação ligada + Pro/Max
+  (`meeting_google_ready`); sem isso, Jitsi. A função `google-calendar` cria o
+  Meet no evento (`conferenceData.createRequest`, `conferenceDataVersion=1` só
+  nesse pedido) e devolve o `hangoutLink` para a aula. Não testado com uma conta
+  de verdade ainda: se o Google recusar o Meet na agenda "Cronys", o evento sai
+  sem link e a aula fica pendente (o admin pode colar um link ou escolher Jitsi).
+- Jitsi: `meet.jit.si/Cronys-<20 hex>`; quem abre a sala precisa entrar com
+  Google/GitHub/Facebook (regra do meet.jit.si desde 2023), o cliente não.
+- Filho: `get_child_meetings()` (a `get_child_lessons` não tem a coluna).
+- Telas: `MeetingSettings` (Integrações e Minha conta do profissional),
+  campo na `LessonDialog`, `MeetingJoinButton`, `NextOnlineLesson` no portal.
+- E-mails: linha "Local: On-line · Entrar" e botão no lembrete; campo `{link}`.
+- Zoom automático: não feito (precisa de app aprovado no Zoom).
+
+## Notificações no celular (pendente, 05/10)
+
+Ideia combinada: Firebase Cloud Messaging, só no app Android. Primeiro para o
+profissional (próxima aula, marcação/cancelamento pelo link, pagamento) e o
+lembrete de aula do cliente; débito só por e-mail (no máximo um aviso discreto,
+se a empresa ligar). Precisa do `google-services.json` do Thiago.
+
 ## Sentry (04/10)
 
 Erros do site e do app no Sentry, plano Developer (grátis, 5 mil erros por

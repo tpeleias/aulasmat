@@ -14,6 +14,8 @@ import {
 
 import { L } from "@/lib/i18n";
 import { navAppName, openRoute, useNavApp } from "@/lib/navigation";
+import { lessonMeetingUrl } from "@/lib/meeting";
+import { MeetingJoinButton } from "@/components/MeetingJoinButton";
 export type QuickLesson = {
   id: string;
   student_name: string;
@@ -21,6 +23,7 @@ export type QuickLesson = {
   start_at: string;
   address?: string | null;
   is_online?: boolean;
+  meeting_url?: string | null;
 };
 
 /** Balão com telefone no verde do WhatsApp (desenho do ícone brand-whatsapp do Tabler, MIT). */
@@ -89,6 +92,7 @@ export function LessonQuickActions({ lesson, phone }: { lesson: QuickLesson; pho
           {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
         </Button>
       )}
+      {lessonMeetingUrl(lesson) && <MeetingJoinButton url={lessonMeetingUrl(lesson)} compact />}
       {presencial && (
         <Button size="icon" variant="ghost" className={`${btn} text-primary`} title={L(`Abrir rota no ${navAppName(navApp)}`, `Open route in ${navAppName(navApp)}`)}
           onClick={() => { haptics.tap(); openRoute(lesson.address!, navApp); }}>

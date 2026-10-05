@@ -278,7 +278,7 @@ Deno.serve(async (req) => {
     const w = word(ctx);
     const fake: Lesson = { id: "teste", account_id: ctx.account.id, student_name: w.en ? "Sample client" : "Cliente de exemplo", guardian_name: null,
       teacher: "", start_at: new Date(Date.now() + 86400000).toISOString(), duration_minutes: 60, status: "agendada",
-      address: null, is_online: true, subject: null, reschedule_of: null };
+      address: null, is_online: true, subject: null, reschedule_of: null, meeting_url: "https://meet.jit.si/Cronys-exemplo" };
     const base = clientMsg("eve", ctx, fake, w.en ? "your team" : "a sua equipe", null)!;
     // Com o visual e o texto da empresa (Pro e Max), para ela ver como fica.
     const m = applyCustom(ctx, "eve", { ...base, paragraphs: [esc(w.en ? "This is how reminders reach your clients." : "É assim que os lembretes chegam aos seus clientes.")] });

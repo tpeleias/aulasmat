@@ -296,6 +296,8 @@ export type Database = {
           guardian_name: string | null
           id: string
           is_online: boolean
+          meeting_source: string | null
+          meeting_url: string | null
           notes: string | null
           package_type: string
           payment_status: string
@@ -315,6 +317,8 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           is_online?: boolean
+          meeting_source?: string | null
+          meeting_url?: string | null
           notes?: string | null
           package_type?: string
           payment_status?: string
@@ -334,6 +338,8 @@ export type Database = {
           guardian_name?: string | null
           id?: string
           is_online?: boolean
+          meeting_source?: string | null
+          meeting_url?: string | null
           notes?: string | null
           package_type?: string
           payment_status?: string

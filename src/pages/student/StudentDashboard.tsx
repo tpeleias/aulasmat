@@ -24,6 +24,7 @@ import { cap, listWithTasks } from "@/lib/vocabulary";
 
 import { dateLocale, L } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
+import { NextOnlineLesson } from "@/components/NextOnlineLesson";
 import { useTeacherName } from "@/hooks/useTeacherName";
 const fmt = (v: number) => fmtMoney(v);
 
@@ -102,6 +103,8 @@ export default function StudentDashboard() {
         <h1 className="text-2xl font-bold">{L("Olá", "Hi")}, {(student.guardian_name?.trim().split(" ")[0]) || student.student_name.split(" ")[0]} 👋</h1>
         <p className="text-sm text-muted-foreground">{L(`Aqui está um resumo ${ap.pick("dos seus", "das suas")} ${listWithTasks([ap.lp], w, tasks)}.`, `Here's a summary of your ${listWithTasks([ap.lp], w, tasks)}.`)}</p>
       </div>
+
+      <NextOnlineLesson lessons={upcoming} teacherName={teacherName} />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Calendar} label={`${ap.proximos} ${ap.lp}`} value={upcoming.length} href="/aluno/aulas" />
