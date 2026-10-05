@@ -182,3 +182,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Link de reunião nos atendimentos on-line: cada profissional escolhe (em Configurações → Integrações, ou em Minha conta no login de profissional) entre nenhum automático, a própria sala fixa (Zoom, Meet, Teams...), uma sala do Jitsi Meet por atendimento (grátis, com instruções de uso na tela) ou um Google Meet por atendimento (Pro e Max, com o Google Agenda conectado; sem ele, cai no Jitsi). Dá para colar outro link no próprio atendimento | T |
 | O link vai junto: botão "Entrar" na agenda, no início e no portal do cliente (e no login do filho), "Entrar na aula" no lembrete do dia e da véspera por e-mail, no lembrete do WhatsApp (campo novo {link}) e no evento do Google Agenda | T |
 | Avisos no celular (só no app Android): o app convida a ligar no painel ("Receber avisos no celular?") e cada pessoa escolhe em Minha conta o que recebe. Para quem atende: aviso antes de cada atendimento (10, 15, 30 ou 60 min antes), pedidos e cancelamentos dos clientes e o resumo do dia às 7h. Para o cliente: véspera às 18h, 1 hora antes (on-line: tocar no aviso entra na reunião), marcado, aceito, recusado, cancelado, horário novo e tarefa nova. Entre 21h e 8h só os lembretes de horário; cobrança não vai por aviso | T |
+
+### 05/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Widget: tocar num atendimento on-line com link entra direto na reunião (antes abria a agenda), e aparece o ícone de câmera ao lado do WhatsApp, como os outros atalhos | T |
+| Agenda (lista de próximos): tocar num atendimento pergunta o que fazer - "Entrar na reunião (Google Meet/Zoom/Jitsi)", "Abrir rota no Waze" ou "Abrir a aula" - em vez de abrir o Waze sem perguntar; on-line sem link explica onde colocar um. O toque longo continua abrindo a aula | T |

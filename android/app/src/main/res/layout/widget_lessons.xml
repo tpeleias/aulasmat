@@ -70,6 +70,7 @@
         </LinearLayout>
         <ImageView android:id="@+id/row1_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
         <ImageView android:id="@+id/row1_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row1_meet" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_meet" android:contentDescription="Entrar na reunião" android:visibility="gone" />
         <ImageView android:id="@+id/row1_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
@@ -103,6 +104,7 @@
         </LinearLayout>
         <ImageView android:id="@+id/row2_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
         <ImageView android:id="@+id/row2_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row2_meet" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_meet" android:contentDescription="Entrar na reunião" android:visibility="gone" />
         <ImageView android:id="@+id/row2_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
@@ -136,6 +138,7 @@
         </LinearLayout>
         <ImageView android:id="@+id/row3_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
         <ImageView android:id="@+id/row3_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row3_meet" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_meet" android:contentDescription="Entrar na reunião" android:visibility="gone" />
         <ImageView android:id="@+id/row3_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
@@ -169,6 +172,7 @@
         </LinearLayout>
         <ImageView android:id="@+id/row4_wa" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_whatsapp" android:contentDescription="Lembrar no WhatsApp" android:visibility="gone" />
         <ImageView android:id="@+id/row4_loc" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_locate" android:contentDescription="Estou a caminho" android:visibility="gone" />
+        <ImageView android:id="@+id/row4_meet" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_meet" android:contentDescription="Entrar na reunião" android:visibility="gone" />
         <ImageView android:id="@+id/row4_nav" android:layout_width="30dp" android:layout_height="30dp" android:padding="5dp" android:src="@drawable/ic_widget_nav" android:contentDescription="Abrir rota" android:visibility="gone" />
     </LinearLayout>
 
