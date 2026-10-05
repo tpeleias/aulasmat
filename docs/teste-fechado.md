@@ -174,7 +174,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Erros do site e do app vão para o Sentry (só nas versões publicadas), sem dado pessoal: sem IP nem cookies, e e-mail, telefone, CPF, CNPJ e tokens saem trocados por [removido]; o erro leva só o id de quem está logado e a versão | T |
 | Um erro que derrubava a tela inteira deixava a página em branco; agora aparece "Algo deu errado" com o botão "Recarregar" | T |
 
-### 04 e 05/10 - site (o app recebe no próximo `.aab`)
+### 04 e 05/10 - versão 1.18.1
 
 | Mudança | Origem |
 |---|---|
