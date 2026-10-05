@@ -15,6 +15,7 @@ import { saveNavApp, useNavApp, type NavApp } from "@/lib/navigation";
 import { L } from "@/lib/i18n";
 import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { biometricAvailable, forgetLogin, hasSavedLogin } from "@/lib/biometric";
+import PushSettings from "@/components/PushSettings";
 
 /**
  * O que é da pessoa, não da empresa: login, senha, app de rota, modo claro ou
@@ -87,6 +88,8 @@ export default function AccountPanel({ plan }: { plan?: React.ReactNode }) {
       {plan}
 
         <NotificationEmailCard />
+
+        <PushSettings />
 
         <Card className="space-y-3 rounded-2xl p-4">
           <h2 className="flex items-center gap-2 font-semibold"><KeyRound className="h-4 w-4" /> {L("Trocar senha", "Change password")}</h2>

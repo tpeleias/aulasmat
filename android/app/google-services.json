@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "931709990963",
+    "project_id": "cronys-81448",
+    "storage_bucket": "cronys-81448.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:931709990963:android:1c238344c07ed07d308b46",
+        "android_client_info": {
+          "package_name": "com.aulasmat.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCymofOFqL0LGgO6iBnPl0HGHQWyyXccB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:931709990963:android:f2b4cce892d229f8308b46",
+        "android_client_info": {
+          "package_name": "com.aulasmat.com"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCymofOFqL0LGgO6iBnPl0HGHQWyyXccB0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

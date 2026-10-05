@@ -26,6 +26,7 @@ import { dateLocale, L } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
 import { NextOnlineLesson } from "@/components/NextOnlineLesson";
 import { useTeacherName } from "@/hooks/useTeacherName";
+import { PushPrompt } from "@/components/PushSettings";
 const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentDashboard() {
@@ -105,6 +106,7 @@ export default function StudentDashboard() {
       </div>
 
       <NextOnlineLesson lessons={upcoming} teacherName={teacherName} />
+      <PushPrompt />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Calendar} label={`${ap.proximos} ${ap.lp}`} value={upcoming.length} href="/aluno/aulas" />
