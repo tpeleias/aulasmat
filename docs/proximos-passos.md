@@ -109,12 +109,29 @@ Migration `20261005010000_meeting_links.sql`. Escolha por profissional em
 - E-mails: linha "Local: On-line · Entrar" e botão no lembrete; campo `{link}`.
 - Zoom automático: não feito (precisa de app aprovado no Zoom).
 
-## Notificações no celular (pendente, 05/10)
+## Notificações no celular (05/10)
 
-Ideia combinada: Firebase Cloud Messaging, só no app Android. Primeiro para o
-profissional (próxima aula, marcação/cancelamento pelo link, pagamento) e o
-lembrete de aula do cliente; débito só por e-mail (no máximo um aviso discreto,
-se a empresa ligar). Precisa do `google-services.json` do Thiago.
+Firebase Cloud Messaging, projeto `cronys-81448` (do Thiago), só no app
+Android (`@capacitor/push-notifications`, `android/app/google-services.json`).
+Migration `20261005020000_push_notifications.sql`:
+- `push_devices` (token por aparelho; `register_push_device` /
+  `unregister_push_device`, este no "Sair"), `push_prefs` (`my_push_prefs`,
+  `set_push_prefs`: soon, soon_minutes 10/15/30/60, requests, day, eve, hour,
+  changes, homework; tudo ligado por padrão), `push_outbox` (fila; `dedupe`
+  único nos lembretes por horário).
+- Gatilhos `lessons_push` e `homework_push` enfileiram os eventos; quem fez a
+  mudança não recebe. Sem nenhum aparelho cadastrado, saem na hora.
+- Cron `push-outbox` (de minuto em minuto, se há fila) e `push-reminders`
+  (5 em 5 min) chamam a função `push` (`push_kick`, segredo `push_cron_secret`).
+- A função assina o JWT da conta de serviço (cofre: `fcm_service_account`) e
+  manda pela API v1. Token que o FCM diz não existir sai de `push_devices`.
+  Entre 21h e 8h só lembretes de horário. Vários "marcado" do mesmo cliente
+  juntos viram um aviso.
+- Testado em 05/10: a chave autentica no Google (aparelho falso recusado como
+  inexistente). Falta o teste num celular de verdade, com o `.aab` novo.
+- Play Console: a seção "Segurança dos dados" talvez precise marcar "IDs do
+  dispositivo ou outros IDs" (o token do Firebase), para funcionalidade do app.
+- iPhone: precisaria do app iOS e de uma chave da Apple (APNs).
 
 ## Sentry (04/10)
 

@@ -16,6 +16,11 @@ const config: CapacitorConfig = {
     // Login com o Google nativo do Android (src/lib/googleLogin.ts). Só o
     // Google: o Facebook traria o SDK dele e a permissão de ID de publicidade,
     // que a ficha da Play Store declara que o app não usa.
+    // Notificações (05/10): no Android quem desenha é o sistema, com o ícone
+    // ic_stat_cronys e o canal "cronys" (src/lib/push.ts cria o canal).
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SocialLogin: {
       providers: { google: true, facebook: false, apple: false, twitter: false },
       logLevel: 1,

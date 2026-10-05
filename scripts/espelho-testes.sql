@@ -3449,4 +3449,55 @@ EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a sala fixa nao 
 END $$;
 COMMIT;
 
+\echo '--- 61. Notificacoes: aparelho, preferencias e quem recebe (05/10) ---'
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.register_push_device('token-da-familia-0000000001');
+SELECT public.assert((public.set_push_prefs('{"hour": false}'::jsonb) ->> 'hour')::boolean = false, 'a familia desliga o lembrete de 1h antes');
+DO $$
+BEGIN
+  PERFORM public.set_push_prefs('{"cobranca": true}'::jsonb);
+  RAISE EXCEPTION 'FALHOU: aceitou preferencia desconhecida';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - preferencia desconhecida e recusada';
+END $$;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.push_devices;
+  RAISE EXCEPTION 'FALHOU: leu os aparelhos';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - ninguem le os aparelhos direto';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.register_push_device('token-do-admin-00000000000001');
+COMMIT;
+
+-- O pedido da familia avisa o admin (o profissional nao tem login); quem pediu nao recebe.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), false);
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, status)
+VALUES (current_setting('teste.a')::uuid, 'Bia', 'Ana', 'thiago', now() + interval '6 days 7 hours', 60, 'solicitada');
+SELECT set_config('teste.pl', (SELECT id::text FROM public.lessons WHERE status = 'solicitada' AND student_name = 'Bia' ORDER BY created_at DESC LIMIT 1), false);
+SELECT public.assert((SELECT count(*) FROM public.push_outbox WHERE kind = 'staff_request' AND user_id = current_setting('teste.ua')::uuid) = 1,
+  'pedido novo vai para o admin');
+SELECT public.assert((SELECT count(*) FROM public.push_outbox WHERE kind = 'staff_request' AND user_id = current_setting('teste.ualuno')::uuid) = 0,
+  'quem pediu nao recebe o proprio pedido');
+-- O admin aceita: a familia recebe.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), false);
+UPDATE public.lessons SET status = 'agendada' WHERE id = current_setting('teste.pl')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.push_outbox WHERE kind = 'client_approved' AND user_id = current_setting('teste.ualuno')::uuid) = 1,
+  'pedido aceito vai para a familia');
+-- A familia cancela: vai para o admin.
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), false);
+UPDATE public.lessons SET status = 'cancelada' WHERE id = current_setting('teste.pl')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.push_outbox WHERE kind = 'staff_cancel' AND user_id = current_setting('teste.ua')::uuid) = 1,
+  'cancelamento da familia vai para o admin');
+SELECT set_config('request.jwt.claim.sub', '', false);
+SELECT public.assert((SELECT count(*) FROM public.push_staff_users(current_setting('teste.a')::uuid, 'thiago', false)) >= 1,
+  'profissional sem login: o aviso vai para os admins');
+SELECT public.assert((SELECT count(*) FROM public.push_client_users(current_setting('teste.a')::uuid, ' bia ', 'ANA') WHERE NOT child) = 1,
+  'acha a familia pelo nome, sem ligar para espaco e maiuscula');
+DELETE FROM public.lessons WHERE id = current_setting('teste.pl')::uuid;
+DELETE FROM public.push_outbox;
+DELETE FROM public.push_devices;
+
 \echo '=== FIM ==='

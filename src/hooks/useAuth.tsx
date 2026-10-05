@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, ReactNode } fro
 import { supabase } from "@/integrations/supabase/client";
 import type { Session, User } from "@supabase/supabase-js";
 import { setMonitoringUser } from "@/lib/monitoring";
+import { forgetPushDevice, resumePush } from "@/lib/push";
 
 type Role = "admin" | "teacher" | "student" | "child" | null;
 type Ctx = {
@@ -93,12 +94,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setResolving(false);
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       // Junto com a sessão nova, e não depois: se a tela renderizar entre uma
       // coisa e outra, ela vê "logado, sem papel" e decide errado.
       if ((s?.user?.id ?? null) !== resolvedFor.current && s?.user) setResolving(true);
       setSession(s);
       setMonitoringUser(s?.user?.id ?? null);
+      // Com a permissão já dada, o aparelho se cadastra de novo neste login.
+      if (s?.user && (event === "SIGNED_IN" || event === "INITIAL_SESSION")) setTimeout(() => { void resumePush(); }, 0);
       // Fora do callback: chamar o supabase aqui dentro trava o cliente de auth.
       setTimeout(() => { void resolve(s?.user?.id ?? null); }, 0);
     });
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signOut: async () => {
         // Sair tem que funcionar mesmo com o servidor fora: se a chamada falhar,
         // a sessão local é apagada assim mesmo.
+        await forgetPushDevice();
         const { error } = await supabase.auth.signOut().catch(e => ({ error: e }));
         if (error) await supabase.auth.signOut({ scope: "local" }).catch(() => {});
         // E recarrega do zero (02/10): sair e entrar de novo na mesma aba às

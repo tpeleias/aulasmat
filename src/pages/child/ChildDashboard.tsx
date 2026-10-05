@@ -14,6 +14,7 @@ import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
 import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { useTeacherName } from "@/hooks/useTeacherName";
 import { NextOnlineLesson } from "@/components/NextOnlineLesson";
+import { PushPrompt } from "@/components/PushSettings";
 export default function ChildDashboard() {
   const teacherName = useTeacherName();
   const { student, loading } = useStudent();
@@ -71,6 +72,7 @@ export default function ChildDashboard() {
       <ClientGoogleCalendar />
 
       <NextOnlineLesson lessons={lessons} teacherName={teacherName} />
+      <PushPrompt />
 
       <Card className="p-6 space-y-4 border-primary/30">
         <div className="flex items-center gap-2 text-primary">

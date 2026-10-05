@@ -31,6 +31,7 @@ import type { Vocabulary } from "@/lib/vocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import { useTeacherName } from "@/hooks/useTeacherName";
+import { PushPrompt } from "@/components/PushSettings";
 type Lesson = {
   id: string; student_name: string; guardian_name: string | null; subject: string | null; teacher: string;
   start_at: string; duration_minutes: number; status: string; address: string | null; is_online: boolean; meeting_url?: string | null;
@@ -151,6 +152,8 @@ export default function HomePage() {
         </header>
 
         <UpdateBanner />
+
+        <PushPrompt />
 
         {isTeacher && <NotificationEmailCard prompt />}
 

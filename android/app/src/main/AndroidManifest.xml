@@ -75,11 +75,16 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
+        <!-- Notificações (05/10, Firebase): o ícone e o canal padrão. -->
+        <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_cronys" />
+        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="cronys" />
     </application>
 
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Avisos de atendimento no celular (05/10). O app pede na hora certa, não ao abrir. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Entrar com a digital (03/10, @capgo/capacitor-native-biometric). -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
     <!-- "Estou a caminho" (Cronys Max): a posição é lida uma vez, com o app

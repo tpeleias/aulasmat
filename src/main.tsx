@@ -4,6 +4,7 @@ import { StatusBar, Style } from "@capacitor/status-bar";
 import { Preferences } from "@capacitor/preferences";
 import App from "./App.tsx";
 import { startMonitoring } from "./lib/monitoring";
+import { listenPush } from "./lib/push";
 import { CrashScreen } from "./components/CrashScreen";
 import * as Sentry from "@sentry/react";
 import "./index.css";
@@ -18,6 +19,8 @@ if (Capacitor.isNativePlatform()) {
   // configure() call, otherwise it silently keeps using the default
   // "CapacitorStorage" group, which the native widget doesn't read from.
   Preferences.configure({ group: "AulasMatPrefs" });
+  // Notificações: os ouvintes logo ao abrir, para o toque que abriu o app chegar.
+  void listenPush();
 }
 
 // As telas são arquivos separados com nome de hash. Quem está com a página
