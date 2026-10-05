@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 import { Repeat } from "lucide-react";
 
 import { dateLocale, L } from "@/lib/i18n";
+import { MeetingJoinButton } from "@/components/MeetingJoinButton";
+import { lessonMeetingUrl } from "@/lib/meeting";
 const fmt = (v: number) => fmtMoney(v);
 
 export default function StudentLessons() {
@@ -107,6 +109,9 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
                   esta mesma tela pelo /meu-painel e não deve ver o botão. */}
               {!hideFinancial && isRequest(l.status) && onChanged && (
                 <WithdrawRequestButton lessonId={l.id} startAt={l.start_at} onDone={onChanged} />
+              )}
+              {l.status === "agendada" && new Date(l.start_at).getTime() + Number(l.duration_minutes ?? 60) * 60_000 > Date.now() && (
+                <MeetingJoinButton url={lessonMeetingUrl(l)} compact />
               )}
               {canSwap(l) && (
                 <Button asChild size="sm" variant="outline" className="h-8 rounded-xl">

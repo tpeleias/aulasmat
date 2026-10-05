@@ -3368,4 +3368,85 @@ SELECT public.assert(NOT (public.my_vocabulary() ->> 'tasks')::boolean, 'desliga
 COMMIT;
 UPDATE public.settings SET tasks_enabled = NULL WHERE account_id = current_setting('teste.a')::uuid;
 
+\echo '--- 60. Link de reuniao: fixo, Jitsi, manual e troca de escolha (05/10) ---'
+DO $$
+DECLARE _t uuid;
+BEGIN
+  SELECT id INTO _t FROM public.teachers WHERE account_id = current_setting('teste.a')::uuid AND public.teacher_slug(name) = 'thiago';
+  IF _t IS NULL THEN
+    INSERT INTO public.teachers (name, account_id, active) VALUES ('Thiago', current_setting('teste.a')::uuid, true) RETURNING id INTO _t;
+  END IF;
+  PERFORM set_config('teste.tm', _t::text, false);
+END $$;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, is_online)
+VALUES ('Bia', 'Ana', 'thiago', now() + interval '3 days', 60, true);
+SELECT public.assert((SELECT meeting_url FROM public.lessons WHERE student_name = 'Bia' AND is_online) IS NULL,
+  'sem escolha: aula on-line nasce sem link');
+SELECT public.set_meeting_settings(current_setting('teste.tm')::uuid, 'jitsi');
+SELECT public.assert((SELECT meeting_url LIKE 'https://meet.jit.si/Cronys-%' AND meeting_source = 'jitsi' FROM public.lessons WHERE student_name = 'Bia' AND is_online),
+  'escolheu Jitsi: a proxima aula on-line ganha sala');
+SELECT set_config('teste.j1', (SELECT meeting_url FROM public.lessons WHERE student_name = 'Bia' AND is_online), true);
+SELECT set_config('teste.lbia', (SELECT id::text FROM public.lessons WHERE student_name = 'Bia' AND is_online), true);
+SELECT public.set_meeting_settings(current_setting('teste.tm')::uuid, 'jitsi');
+SELECT public.assert((SELECT meeting_url FROM public.lessons WHERE student_name = 'Bia' AND is_online) = current_setting('teste.j1'),
+  'salvar a mesma escolha nao troca o link ja enviado');
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, is_online)
+VALUES ('Caio', 'Ana', 'thiago', now() + interval '4 days', 60, true);
+SELECT public.assert((SELECT meeting_url FROM public.lessons WHERE student_name = 'Caio' AND is_online) <> current_setting('teste.j1'),
+  'cada aula tem a propria sala do Jitsi');
+SELECT public.set_meeting_settings(current_setting('teste.tm')::uuid, 'fixed', 'zoom.us/j/123');
+SELECT public.assert((SELECT meeting_url = 'https://zoom.us/j/123' AND meeting_source = 'fixed' FROM public.lessons WHERE student_name = 'Bia' AND is_online),
+  'sala fixa: vira o link das proximas aulas (com https://)');
+UPDATE public.lessons SET meeting_url = 'https://meet.google.com/abc-defg-hij' WHERE student_name = 'Caio' AND is_online;
+SELECT public.assert((SELECT meeting_source FROM public.lessons WHERE student_name = 'Caio' AND is_online) = 'manual',
+  'link colado na aula fica marcado como manual');
+SELECT public.set_meeting_settings(current_setting('teste.tm')::uuid, 'jitsi');
+SELECT public.assert((SELECT meeting_url FROM public.lessons WHERE student_name = 'Caio' AND is_online) = 'https://meet.google.com/abc-defg-hij',
+  'trocar a escolha nao mexe no link colado a mao');
+SELECT public.assert(public.regenerate_lesson_meeting((SELECT id FROM public.lessons WHERE student_name = 'Caio' AND is_online)) LIKE 'https://meet.jit.si/%',
+  'gerar outro link volta ao automatico');
+UPDATE public.lessons SET is_online = false WHERE id = current_setting('teste.lbia')::uuid;
+SELECT public.assert((SELECT meeting_url FROM public.lessons WHERE id = current_setting('teste.lbia')::uuid) IS NULL,
+  'virou presencial: o link sai');
+SELECT public.set_meeting_settings(current_setting('teste.tm')::uuid, 'google_meet');
+INSERT INTO public.lessons (student_name, guardian_name, teacher, start_at, duration_minutes, is_online)
+VALUES ('Duda', 'Ana', 'thiago', now() + interval '5 days', 60, true);
+SELECT public.assert((SELECT meeting_source FROM public.lessons WHERE student_name = 'Duda') = 'jitsi',
+  'Meet sem Google conectado cai no Jitsi');
+DO $$
+BEGIN
+  PERFORM public.set_meeting_settings(current_setting('teste.tm')::uuid, 'fixed', 'https://zoom.us/j/1 <script>');
+  RAISE EXCEPTION 'FALHOU: aceitou link com espaco';
+EXCEPTION WHEN check_violation THEN RAISE NOTICE '  ok - link estranho e recusado';
+END $$;
+DELETE FROM public.lessons WHERE id = current_setting('teste.lbia')::uuid
+   OR (student_name IN ('Caio', 'Duda') AND is_online AND start_at > now() + interval '2 days');
+COMMIT;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+SELECT public.assert((SELECT count(*) FROM public.meeting_settings()) = (SELECT count(*) FROM public.meeting_settings() WHERE teacher_id <> current_setting('teste.tm')::uuid),
+  'outra empresa nao ve a escolha do profissional');
+DO $$
+BEGIN
+  PERFORM public.set_meeting_settings(current_setting('teste.tm')::uuid, 'jitsi');
+  RAISE EXCEPTION 'FALHOU: outra empresa mudou a escolha';
+EXCEPTION WHEN raise_exception THEN
+  IF SQLERRM LIKE 'FALHOU%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - outra empresa nao muda a escolha';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM 1 FROM public.teacher_meeting;
+  RAISE EXCEPTION 'FALHOU: cliente leu a tabela';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a sala fixa nao fica a vista do cliente';
+END $$;
+COMMIT;
+
 \echo '=== FIM ==='

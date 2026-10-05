@@ -13,6 +13,7 @@ import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import ClientGoogleCalendar from "@/components/ClientGoogleCalendar";
 import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { useTeacherName } from "@/hooks/useTeacherName";
+import { NextOnlineLesson } from "@/components/NextOnlineLesson";
 export default function ChildDashboard() {
   const teacherName = useTeacherName();
   const { student, loading } = useStudent();
@@ -24,8 +25,15 @@ export default function ChildDashboard() {
 
   useEffect(() => {
     if (!student) return;
-    const loadLessons = () => (supabase as any).rpc("get_child_lessons").then(({ data }: any) => {
-      const ordered = [...(data ?? [])].sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+    const loadLessons = () => Promise.all([
+      (supabase as any).rpc("get_child_lessons"),
+      // Os links das aulas on-line vêm à parte (migration 20261005010000).
+      (supabase as any).rpc("get_child_meetings"),
+    ]).then(([{ data }, { data: meets }]: any) => {
+      const links = new Map<string, string>((meets ?? []).map((m: any) => [m.id, m.meeting_url]));
+      const ordered = [...(data ?? [])]
+        .map((l: any) => (links.has(l.id) ? { ...l, is_online: true, meeting_url: links.get(l.id) } : l))
+        .sort((a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
       setLessons(ordered);
     });
     const loadHw = () => supabase.from("homework").select("id, title, deadline, status").eq("student_id", student.id).order("deadline").then(({ data }) => setHomework(data ?? []));
@@ -61,6 +69,8 @@ export default function ChildDashboard() {
       <NotificationEmailCard prompt />
 
       <ClientGoogleCalendar />
+
+      <NextOnlineLesson lessons={lessons} teacherName={teacherName} />
 
       <Card className="p-6 space-y-4 border-primary/30">
         <div className="flex items-center gap-2 text-primary">

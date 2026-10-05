@@ -11,7 +11,7 @@ import { L, isEnglish } from "@/lib/i18n";
 // preenche pelos nomes em português; fillTemplate aceita os dois.
 export const TAG_EN: Record<string, string> = {
   saudacao: "greeting", nome: "name", aluno: "client", de_aluno: "of_client", dia: "day", hora: "time",
-  endereco: "address", local: "place", localizacao: "location", mapa: "map",
+  endereco: "address", local: "place", link: "link", localizacao: "location", mapa: "map",
   lista: "list", resumo: "summary", total: "total", como_pagar: "how_to_pay",
 };
 const TAG_PT = Object.fromEntries(Object.entries(TAG_EN).map(([pt, en]) => [en, pt]));
@@ -34,7 +34,8 @@ const lessonTags = (w: Vocabulary): Placeholder[] => [
   { tag: "dia", desc: L("\"quinta-feira, 01/10\"", "\"Thursday, Oct 1\"") },
   { tag: "hora", desc: "\"15:00\"" },
   { tag: "endereco", desc: L("o endereço cadastrado", "the saved address") },
-  { tag: "local", desc: L("\" em Rua X, 10\" ou \" (on-line)\"", "\" at 10 X Street\" or \" (online)\"") },
+  { tag: "local", desc: L("\" em Rua X, 10\" ou \" (on-line) - link: ...\"", "\" at 10 X Street\" or \" (online) - link: ...\"") },
+  { tag: "link", desc: L(`o link da reunião, quando ${w.appointment.o} ${w.appointment.l} é on-line`, `the meeting link, when the ${w.appointment.l} is online`) },
 ];
 
 export const MESSAGE_TYPES = (w: Vocabulary): { key: MessageKey; title: string; when: string; tags: Placeholder[] }[] => [

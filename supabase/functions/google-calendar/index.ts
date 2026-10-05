@@ -213,7 +213,20 @@ async function ensureCalendar(admin: SupabaseClient, c: Conn, token: string, tz:
   return cal.id;
 }
 
-type Desired = { id: string; summary: string; description: string; location?: string; start: string; end: string };
+type Desired = {
+  id: string; summary: string; description: string; location?: string; start: string; end: string;
+  /** A aula (para devolver o link do Meet). */
+  lessonId?: string;
+  /** Pedir ao Google um Meet neste evento (aula on-line com "Google Meet" e ainda sem link). */
+  meet?: boolean;
+};
+
+/** Aula on-line: o link no lugar e na descrição; sem link, só "Online". */
+function onlineBits(isOnline: boolean, link: string | null | undefined, en: boolean, note: string) {
+  if (!isOnline) return { location: undefined as string | undefined, description: note };
+  if (!link) return { location: "Online", description: note };
+  return { location: link, description: `${en ? "Join" : "Entrar"}: ${link}\n\n${note}` };
+}
 
 /** O cliente: "Aula com Thiago · Matemática", com endereço ou "Online", sem valores. */
 async function desiredClientEvents(admin: SupabaseClient, c: Conn, enabled: boolean): Promise<Desired[]> {
@@ -224,21 +237,30 @@ async function desiredClientEvents(admin: SupabaseClient, c: Conn, enabled: bool
     _to: new Date(Date.now() + EXPORT_AHEAD).toISOString(),
   });
   if (error) throw new Error(error.message);
-  return ((data ?? []) as { id: string; start_at: string; duration_minutes: number | null; teacher_name: string; what: string | null; address: string | null; is_online: boolean; word: string; locale: string }[])
-    .map(l => {
-      const en = l.locale === "en";
-      const start = new Date(l.start_at);
-      return {
-        id: eventId(l.id),
-        summary: `${l.word} ${en ? "with" : "com"} ${l.teacher_name}${l.what ? ` · ${l.what}` : ""}`,
-        description: en
-          ? "Booked in Cronys. To reschedule or cancel, use the app."
-          : "Marcado pelo Cronys. Para remarcar ou desmarcar, use o app.",
-        location: l.is_online ? "Online" : (l.address || undefined),
-        start: start.toISOString(),
-        end: new Date(start.getTime() + (l.duration_minutes ?? 60) * 60_000).toISOString(),
-      };
-    });
+  const rows = (data ?? []) as { id: string; start_at: string; duration_minutes: number | null; teacher_name: string; what: string | null; address: string | null; is_online: boolean; word: string; locale: string }[];
+  // O link da reunião (migration 20261005010000) vem à parte: a função do banco é anterior a ele.
+  const links = new Map<string, string>();
+  const online = rows.filter(l => l.is_online).map(l => l.id);
+  for (let i = 0; i < online.length; i += 200) {
+    const { data: ls } = await admin.from("lessons").select("id, meeting_url").in("id", online.slice(i, i + 200));
+    for (const l of ls ?? []) if (l.meeting_url) links.set(l.id, l.meeting_url);
+  }
+  return rows.map(l => {
+    const en = l.locale === "en";
+    const start = new Date(l.start_at);
+    const note = en
+      ? "Booked in Cronys. To reschedule or cancel, use the app."
+      : "Marcado pelo Cronys. Para remarcar ou desmarcar, use o app.";
+    const bits = onlineBits(l.is_online, links.get(l.id), en, note);
+    return {
+      id: eventId(l.id),
+      summary: `${l.word} ${en ? "with" : "com"} ${l.teacher_name}${l.what ? ` · ${l.what}` : ""}`,
+      description: bits.description,
+      location: l.is_online ? bits.location : (l.address || undefined),
+      start: start.toISOString(),
+      end: new Date(start.getTime() + (l.duration_minutes ?? 60) * 60_000).toISOString(),
+    };
+  });
 }
 
 async function desiredEvents(admin: SupabaseClient, c: Conn): Promise<Desired[]> {
@@ -249,7 +271,7 @@ async function desiredEvents(admin: SupabaseClient, c: Conn): Promise<Desired[]>
   const { data: acc } = await admin.from("accounts").select("locale").eq("id", c.account_id).maybeSingle();
   const en = acc?.locale === "en";
   const { data: lessons, error } = await admin.from("lessons")
-    .select("id, student_name, subject, start_at, duration_minutes, status, address, is_online, services(name)")
+    .select("id, student_name, subject, start_at, duration_minutes, status, address, is_online, meeting_url, meeting_source, services(name)")
     .eq("account_id", c.account_id)
     .eq("teacher", String(slug))
     .gte("start_at", new Date(Date.now() - EXPORT_BACK).toISOString())
@@ -263,11 +285,14 @@ async function desiredEvents(admin: SupabaseClient, c: Conn): Promise<Desired[]>
   return (lessons ?? []).map((l: any) => {
     const what = l.services?.name || l.subject || "";
     const start = new Date(l.start_at);
+    const bits = onlineBits(!!l.is_online, l.meeting_url, en, note);
     return {
       id: eventId(l.id),
+      lessonId: l.id,
+      meet: !!l.is_online && l.meeting_source === "google" && !l.meeting_url,
       summary: what ? `${l.student_name} · ${what}` : l.student_name,
-      description: note,
-      location: l.is_online ? "Online" : (l.address || undefined),
+      description: bits.description,
+      location: l.is_online ? bits.location : (l.address || undefined),
       start: start.toISOString(),
       end: new Date(start.getTime() + (l.duration_minutes ?? 60) * 60_000).toISOString(),
     };
@@ -284,7 +309,20 @@ function eventBody(d: Desired) {
     end: { dateTime: d.end },
     status: "confirmed",
     extendedProperties: { private: { cronys: "1" } },
+    // O requestId fixo por aula: repetir o pedido não cria outro Meet.
+    ...(d.meet ? { conferenceData: { createRequest: { requestId: `${d.id}m`, conferenceSolutionKey: { type: "hangoutsMeet" } } } } : {}),
   };
+}
+
+// Só quem pede o Meet manda conferenceDataVersion=1: com ele, um PUT sem
+// conferenceData tiraria o Meet que o evento já tem.
+const confQ = (d: Desired) => (d.meet ? "?conferenceDataVersion=1" : "");
+
+/** O Meet ficou pronto: o link vai para a aula (e dali para e-mails, portal, WhatsApp). */
+async function saveMeet(admin: SupabaseClient, d: Desired, ev: any) {
+  const link = typeof ev?.hangoutLink === "string" ? ev.hangoutLink : null;
+  if (!d.meet || !d.lessonId || !link || !/^https:\/\/meet\.google\.com\//.test(link)) return;
+  await admin.from("lessons").update({ meeting_url: link }).eq("id", d.lessonId).is("meeting_url", null);
 }
 
 const sameInstant = (a?: string, b?: string) => !!a && !!b && new Date(a).getTime() === new Date(b).getTime();
@@ -329,18 +367,20 @@ async function exportEvents(admin: SupabaseClient, c: Conn, token: string, tz: s
   for (const d of want) {
     const e = have.get(d.id);
     have.delete(d.id);
-    if (e && e.summary === d.summary && (e.description ?? "") === d.description && (e.location ?? "") === (d.location ?? "")
+    // O Meet já existe no evento (a volta para a aula falhou antes): só devolve.
+    if (e && d.meet && e.hangoutLink) { await saveMeet(admin, d, e); d.meet = false; }
+    if (e && !d.meet && e.summary === d.summary && (e.description ?? "") === d.description && (e.location ?? "") === (d.location ?? "")
         && sameInstant(e.start?.dateTime, d.start) && sameInstant(e.end?.dateTime, d.end)) continue;
     if (e) {
-      await gfetch(token, `${base}/${d.id}`, { method: "PUT", body: JSON.stringify(eventBody(d)) });
+      await saveMeet(admin, d, await gfetch(token, `${base}/${d.id}${confQ(d)}`, { method: "PUT", body: JSON.stringify(eventBody(d)) }));
       continue;
     }
     try {
-      await gfetch(token, base, { method: "POST", body: JSON.stringify(eventBody(d)) });
+      await saveMeet(admin, d, await gfetch(token, `${base}${confQ(d)}`, { method: "POST", body: JSON.stringify(eventBody(d)) }));
     } catch (err) {
       // 409: o id já existiu (evento apagado antes). Atualizar o traz de volta.
       if (!(err instanceof GoogleError) || err.status !== 409) throw err;
-      await gfetch(token, `${base}/${d.id}`, { method: "PUT", body: JSON.stringify(eventBody(d)) });
+      await saveMeet(admin, d, await gfetch(token, `${base}/${d.id}${confQ(d)}`, { method: "PUT", body: JSON.stringify(eventBody(d)) }));
     }
   }
   // O que sobrou é aula cancelada, apagada, trocada de profissional (ou exportação desligada).

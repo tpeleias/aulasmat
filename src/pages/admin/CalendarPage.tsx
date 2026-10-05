@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { addDays, addMinutes, format, getDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays, Video } from "lucide-react";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { useTeachers, teacherSlug } from "@/hooks/useTeachers";
@@ -25,7 +25,9 @@ import { useAuth } from "@/hooks/useAuth";
 
 import { dateLocale, L, timeFmt, hourLabel } from "@/lib/i18n";
 import { navAppName, openRoute, routeUrl, useNavApp } from "@/lib/navigation";
-type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; status?: string | null };
+import { lessonMeetingUrl } from "@/lib/meeting";
+import { openExternal } from "@/lib/whatsapp";
+type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; meeting_url?: string | null; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
 type Settings = { work_start: string; work_end: string; slot_minutes: number };
@@ -344,7 +346,15 @@ export default function CalendarPage() {
             : (lesson as { absence_charged?: boolean }).absence_charged ? `${format(ls, timeFmt())} · ${L("falta cobrada", "no-show charged")}`
             : `${format(ls, timeFmt())} · ${lesson.subject ?? ap.s}`}</span>
         </div>
-        {lesson.is_online ? (
+        {lesson.is_online && lessonMeetingUrl(lesson) ? (
+          <a
+            href={lessonMeetingUrl(lesson)!}
+            target="_blank" rel="noopener noreferrer"
+            onClick={(e) => { e.stopPropagation(); e.preventDefault(); openExternal(lessonMeetingUrl(lesson)!); }}
+            className="absolute top-1 right-1 p-0.5 text-primary hover:opacity-80"
+            title={L("Entrar na reunião", "Join the meeting")}
+          ><Video className="w-3 h-3" /></a>
+        ) : lesson.is_online ? (
           <span className="absolute top-1 right-1 p-0.5 text-muted-foreground" title={L(`${ap.s} on-line`, `Online ${ap.l}`)}><Wifi className="w-3 h-3" /></span>
         ) : lesson.address ? (
           <a

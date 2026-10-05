@@ -9,6 +9,7 @@ import { cap } from "@/lib/vocabulary";
 import { fillTemplate, templateFor, type MessageTemplates } from "@/lib/messageTemplates";
 
 import { dateLocale, getCurrency, L, timeFmt } from "@/lib/i18n";
+import { lessonMeetingUrl } from "@/lib/meeting";
 /**
  * Número como o banco guarda (students.whatsapp): só dígitos, com o 55.
  * Aceita o que a pessoa digita - "(11) 98765-4321", "+55 11 98765 4321".
@@ -36,6 +37,8 @@ type LessonInfo = {
   start_at: string | Date;
   address?: string | null;
   is_online?: boolean;
+  /** Link da reunião (aula on-line). */
+  meeting_url?: string | null;
 };
 
 const firstName = (s: string | null | undefined) => String(s ?? "").trim().split(/\s+/)[0] ?? "";
@@ -47,6 +50,7 @@ export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string>
   const aluno = cap(firstName(l.student_name));
   const toGuardian = !!l.guardian_name?.trim() && l.guardian_name.trim().toLowerCase() !== l.student_name.trim().toLowerCase();
   const address = l.address?.trim() ?? "";
+  const link = lessonMeetingUrl(l) ?? "";
   return {
     saudacao: who ? L(`Olá, ${who}!`, `Hi ${who}!`) : L("Olá!", "Hi!"),
     nome: who,
@@ -55,8 +59,11 @@ export function lessonVars(l: LessonInfo, w: Vocabulary): Record<string, string>
     responsavel: cap(firstName(l.guardian_name)),
     dia: format(d, L("EEEE, dd/MM", "EEEE, MMM d"), { locale: dateLocale() }),
     hora: format(d, timeFmt()),
-    endereco: l.is_online ? L("on-line", "online") : address,
-    local: l.is_online ? L(` (${w.appointment.s.toLowerCase()} on-line)`, ` (online ${w.appointment.l})`) : address ? L(` em ${address}`, ` at ${address}`) : "",
+    endereco: l.is_online ? (link ? L(`on-line: ${link}`, `online: ${link}`) : L("on-line", "online")) : address,
+    local: l.is_online
+      ? L(` (${w.appointment.s.toLowerCase()} on-line)`, ` (online ${w.appointment.l})`) + (link ? L(` - link: ${link}`, ` - link: ${link}`) : "")
+      : address ? L(` em ${address}`, ` at ${address}`) : "",
+    link,
   };
 }
 
