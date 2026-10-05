@@ -109,6 +109,25 @@ Migration `20261005010000_meeting_links.sql`. Escolha por profissional em
 - E-mails: linha "Local: On-line · Entrar" e botão no lembrete; campo `{link}`.
 - Zoom automático: não feito (precisa de app aprovado no Zoom).
 
+## IDEIAS DE IA (guardadas em 05/10 - o Thiago pediu para esperar)
+
+Custos estimados com o tamanho real das mensagens do assistente (dólar R$ 5,50):
+- Assistente hoje (Claude Sonnet 5): ~US$ 0,016/mensagem (~R$ 0,09). Uso real
+  até 05/10: 6 mensagens. Se crescer: testar Claude Haiku 4.5 (metade do
+  preço, só trocar o modelo) com ~30 pedidos reais antes.
+- Gemini pago (Firebase AI Logic ou API direto, mesmo preço): 2.5 Flash
+  ~R$ 0,025/msg, 2.5 Flash-Lite ~R$ 0,007, 3.5 Flash ~R$ 0,05-0,11. Trocar o
+  assistente = reescrever as ferramentas + pôr a Google na Política de
+  Privacidade. O Gemini grátis pode usar os dados para melhorar produtos da
+  Google: não usar com dado de cliente.
+- Ideias (custo por uso): resumo da aula por texto (~R$ 0,02) ou por áudio
+  (~R$ 0,05, Gemini ouve áudio, o Claude não); relatório do mês para os pais
+  (~R$ 0,07 por aluno); foto da lista de exercícios -> tarefa (~R$ 0,03); print
+  do WhatsApp -> marcar a aula (~R$ 0,10). Uma empresa de ~20 alunos usando
+  tudo: poucos reais por mês. Sugestão para começar: resumo da aula.
+- Chave da própria empresa (BYOK): ver a conversa de 05/10; ideia é oferecer só
+  como opção no Max, com a chave no cofre, e manter a IA incluída com teto.
+
 ## Notificações no celular (05/10)
 
 Firebase Cloud Messaging, projeto `cronys-81448` (do Thiago), só no app
