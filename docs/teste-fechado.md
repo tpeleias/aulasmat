@@ -47,12 +47,13 @@ necessário), canal e o que foi feito.
 | 29/09 | Usuário, relatado ao Thiago | Não encontrou onde mudar a moeda (estava travada pela assinatura ativa) | "Mudar a moeda" ao lado do valor por hora; "moeda" nas descrições das seções; aviso de moeda travada com cadeado e o caminho para trocar |
 | 29/09 | Testador (mensagem traduzida), relatado ao Thiago | "fiz login with gmail many functions calling same time" | Em investigação. Nos registros, o login pelo Google no app caiu no navegador em vez da janela nativa do Android, e dois testadores saíram e entraram de novo logo depois (a tela estava em português, erro já corrigido) |
 | 02/10 | Testador, relatado ao Thiago; confirmado pelo Thiago no aparelho | Os avisos que aparecem embaixo a cada mudança (marcar, editar...) ficam por cima do menu | Avisos sobem acima do menu de baixo, somem em 2,5 s (os com botão, como "Avisar no WhatsApp", seguem mais tempo) e o botão ganhou a cor da marca. Chega no próximo `.aab`; no site, na próxima publicação |
+| 04/10 | Testador, relatado ao Thiago | Ao entrar na escolha de língua, o app travou numa tela preta e não carregou nada | A rodinha do celular salvava a cada linha que passava, e a língua recarregava o app no meio da rolagem; agora só vale no "Pronto" (site em 04/10, app na próxima versão) |
 
 ## Mudanças no período
 
 Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 **H** = preparação para os testadores do Hive; **R** = revisão técnica;
-**U** = relato de um usuário ao Thiago.
+**U** = relato de um testador ao Thiago.
 
 ### 26/09 - versões 1.12.0 a 1.12.2
 
