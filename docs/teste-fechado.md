@@ -183,7 +183,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | O link vai junto: botão "Entrar" na agenda, no início e no portal do cliente (e no login do filho), "Entrar na aula" no lembrete do dia e da véspera por e-mail, no lembrete do WhatsApp (campo novo {link}) e no evento do Google Agenda | T |
 | Avisos no celular (só no app Android): o app convida a ligar no painel ("Receber avisos no celular?") e cada pessoa escolhe em Minha conta o que recebe. Para quem atende: aviso antes de cada atendimento (10, 15, 30 ou 60 min antes), pedidos e cancelamentos dos clientes e o resumo do dia às 7h. Para o cliente: véspera às 18h, 1 hora antes (on-line: tocar no aviso entra na reunião), marcado, aceito, recusado, cancelado, horário novo e tarefa nova. Entre 21h e 8h só os lembretes de horário; cobrança não vai por aviso | T |
 
-### 05/10 - site (o app recebe no próximo `.aab`)
+### 05/10 - versão 1.18.2
 
 | Mudança | Origem |
 |---|---|
