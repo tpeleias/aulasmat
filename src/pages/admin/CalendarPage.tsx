@@ -27,6 +27,7 @@ import { dateLocale, L, timeFmt, hourLabel } from "@/lib/i18n";
 import { navAppName, openRoute, routeUrl, useNavApp } from "@/lib/navigation";
 import { lessonMeetingUrl } from "@/lib/meeting";
 import { openExternal } from "@/lib/whatsapp";
+import { LessonGoSheet } from "@/components/LessonGoSheet";
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; meeting_url?: string | null; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
@@ -54,6 +55,7 @@ export default function CalendarPage() {
   const defaultTeacher = useDefaultTeacher();
   const w = useWords();
   const navApp = useNavApp();
+  const [going, setGoing] = useState<Lesson | null>(null);
   const ap = w.appointment;
   const { teachers: allTeachers } = useTeachers(true);
   // Professor só vê a agenda dele: nem abas, nem legenda, nem bloqueio dos outros.
@@ -205,11 +207,9 @@ export default function CalendarPage() {
     const wasLongPress = longPressFired.current;
     cancelPressTimer();
     if (wasLongPress) return;
-    if (!lesson.is_online && lesson.address) {
-      openRoute(lesson.address, navApp);
-    } else {
-      openEditFor(lesson);
-    }
+    // Com rota ou reunião, pergunta o que fazer (05/10); sem nenhum, abre a aula.
+    if ((!lesson.is_online && lesson.address) || lessonMeetingUrl(lesson) || lesson.is_online) setGoing(lesson);
+    else openEditFor(lesson);
   };
 
   const skipRecurringForDay = async (blockId: string, day: Date) => {
@@ -623,6 +623,8 @@ export default function CalendarPage() {
       </div>
 
       <LessonDialog open={dlgOpen} onOpenChange={setDlgOpen} slotStart={slotStart} lesson={editing} onSaved={load} defaultTeacher={defaultTeacher} />
+
+      <LessonGoSheet lesson={going} navApp={navApp} onClose={() => setGoing(null)} onEdit={l => openEditFor(l as Lesson)} />
 
       <AlertDialog open={!!freeing} onOpenChange={v => !v && setFreeing(null)}>
         <AlertDialogContent className="rounded-2xl">

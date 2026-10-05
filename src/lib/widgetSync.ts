@@ -10,6 +10,7 @@ import type { Vocabulary } from "@/lib/vocabulary";
 
 import { dateLocale, L, timeFmt } from "@/lib/i18n";
 import { fmtMoney } from "@/lib/balance";
+import { lessonMeetingUrl } from "@/lib/meeting";
 const LESSONS_KEY = "upcoming_lessons_widget";
 const BILLING_KEY = "billing_widget";
 const MAX_WIDGET_LESSONS = 4;
@@ -31,6 +32,8 @@ export interface WidgetLessonInput {
   is_online: boolean;
   teacher: string;
   guardian_name?: string | null;
+  /** Link da reunião (aula on-line): o widget entra direto. */
+  meeting_url?: string | null;
 }
 
 /** Atalhos do widget: o que o plano libera e onde achar o WhatsApp do cliente. */
@@ -68,6 +71,7 @@ export async function syncUpcomingLessonsWidget(lessons: WidgetLessonInput[], te
       subject: l.subject ?? "",
       address: l.address ?? "",
       isOnline: l.is_online,
+      meetingUrl: lessonMeetingUrl(l) ?? "",
       teacher: l.teacher,
       alt: teacherOrder.length > 1 && teacherOrder.indexOf(l.teacher) > 0,
       waUrl: shortcuts?.remind ? whatsAppLink(shortcuts.phoneOf(l), reminderMessage(l, shortcuts.words, shortcuts.templates)) : "",

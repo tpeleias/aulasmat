@@ -36,6 +36,8 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
     private static final int[] ROW_WA_IDS = { R.id.row1_wa, R.id.row2_wa, R.id.row3_wa, R.id.row4_wa };
     private static final int[] ROW_LOC_IDS = { R.id.row1_loc, R.id.row2_loc, R.id.row3_loc, R.id.row4_loc };
     private static final int[] ROW_NAV_IDS = { R.id.row1_nav, R.id.row2_nav, R.id.row3_nav, R.id.row4_nav };
+    // Aula on-line com link (05/10): a câmera entra na reunião.
+    private static final int[] ROW_MEET_IDS = { R.id.row1_meet, R.id.row2_meet, R.id.row3_meet, R.id.row4_meet };
 
     @Override
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
@@ -147,15 +149,27 @@ public class LessonsWidgetProvider extends AppWidgetProvider {
                 views.setTextViewText(ROW_ADDRESS_IDS[i], addressLabel);
             }
 
+            // Tocar na aula: a presencial abre a rota; a on-line com link entra
+            // direto na reunião (Thiago, 05/10); sem nenhum dos dois, a agenda.
+            String meetingUrl = lesson.optString("meetingUrl", "");
+            boolean hasMeeting = isOnline && (meetingUrl.startsWith("https://") || meetingUrl.startsWith("http://"));
             if (!isOnline && !address.isEmpty()) {
                 PendingIntent wazePending = viewUrl(context, base + 10 + i,
                     "https://waze.com/ul?q=" + Uri.encode(address) + "&navigate=yes");
                 views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], wazePending);
                 views.setOnClickPendingIntent(ROW_NAV_IDS[i], wazePending);
                 views.setViewVisibility(ROW_NAV_IDS[i], View.VISIBLE);
+                views.setViewVisibility(ROW_MEET_IDS[i], View.GONE);
+            } else if (hasMeeting) {
+                PendingIntent meetPending = viewUrl(context, base + 40 + i, meetingUrl);
+                views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], meetPending);
+                views.setOnClickPendingIntent(ROW_MEET_IDS[i], meetPending);
+                views.setViewVisibility(ROW_MEET_IDS[i], View.VISIBLE);
+                views.setViewVisibility(ROW_NAV_IDS[i], View.GONE);
             } else {
                 views.setOnClickPendingIntent(ROW_CONTAINER_IDS[i], openAgenda);
                 views.setViewVisibility(ROW_NAV_IDS[i], View.GONE);
+                views.setViewVisibility(ROW_MEET_IDS[i], View.GONE);
             }
 
             // O link do lembrete já vem pronto do app (número e mensagem), só
