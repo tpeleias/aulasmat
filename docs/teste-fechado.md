@@ -189,3 +189,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Widget: tocar num atendimento on-line com link entra direto na reunião (antes abria a agenda), e aparece o ícone de câmera ao lado do WhatsApp, como os outros atalhos | T |
 | Agenda (lista de próximos): tocar num atendimento pergunta o que fazer - "Entrar na reunião (Google Meet/Zoom/Jitsi)", "Abrir rota no Waze" ou "Abrir a aula" - em vez de abrir o Waze sem perguntar; on-line sem link explica onde colocar um. O toque longo continua abrindo a aula | T |
+
+### 06/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Agenda com visão do mês (pedido da esposa do Thiago, repassado por ele): no computador, cada dia mostra até 3 atendimentos com hora e nome, "+N mais" e o "+" para marcar; no celular, pontinhos na cor de cada profissional e, embaixo, a lista do dia tocado. Tocar no dia abre a visão de 1 dia | T |

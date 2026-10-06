@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { addDays, addMinutes, format, getDay, isSameDay, startOfDay, startOfWeek } from "date-fns";
+import { addDays, addMinutes, addMonths, endOfMonth, endOfWeek, format, getDay, isSameDay, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Check, ChevronLeft, ChevronRight, Plus, MapPin, Wifi, CalendarDays, Video } from "lucide-react";
@@ -28,6 +28,8 @@ import { navAppName, openRoute, routeUrl, useNavApp } from "@/lib/navigation";
 import { lessonMeetingUrl } from "@/lib/meeting";
 import { openExternal } from "@/lib/whatsapp";
 import { LessonGoSheet } from "@/components/LessonGoSheet";
+import { CalendarMonth } from "@/components/CalendarMonth";
+import { useIsMobile } from "@/hooks/use-mobile";
 type Lesson = { id: string; student_name: string; guardian_name: string | null; subject: string | null; start_at: string; duration_minutes: number; price: number; package_type: string; payment_status: string; notes: string | null; teacher: string; address: string | null; is_online: boolean; meeting_url?: string | null; status?: string | null };
 type BlockException = { id: string; block_id: string; exception_date: string };
 type Block = { id: string; title: string; block_type: string; start_at: string | null; end_at: string | null; weekday: number | null; start_time: string | null; end_time: string | null };
@@ -35,19 +37,28 @@ type Settings = { work_start: string; work_end: string; slot_minutes: number };
 
 const CELL_H = 52; // px per hour
 const HEADER_H = 56; // px for the day header row
-type DayCount = 1 | 3 | 7;
+// 30 = o mês (06/10).
+type DayCount = 1 | 3 | 7 | 30;
 
 const DAY_COUNTS: { value: DayCount; label: string }[] = [
   { value: 1, label: L("1 dia", "1 day") },
   { value: 3, label: L("3 dias", "3 days") },
   { value: 7, label: L("Semana", "Week") },
+  { value: 30, label: L("Mês", "Month") },
 ];
 
 const LONG_PRESS_MS = 500;
 
 // A week always starts on Sunday; shorter ranges start wherever you are.
 function anchorFor(date: Date, count: DayCount) {
+  if (count === 30) return startOfMonth(date);
   return count === 7 ? startOfWeek(date, { weekStartsOn: 0 }) : startOfDay(date);
+}
+
+/** O que a tela busca: no mês, a grade inteira (com o fim e o começo dos vizinhos). */
+function rangeFor(anchor: Date, count: DayCount): [Date, Date] {
+  if (count === 30) return [startOfWeek(anchor, { weekStartsOn: 0 }), addDays(endOfWeek(endOfMonth(anchor), { weekStartsOn: 0 }), 1)];
+  return [anchor, addDays(anchor, count)];
 }
 
 
@@ -56,6 +67,7 @@ export default function CalendarPage() {
   const w = useWords();
   const navApp = useNavApp();
   const [going, setGoing] = useState<Lesson | null>(null);
+  const mobile = useIsMobile();
   const ap = w.appointment;
   const { teachers: allTeachers } = useTeachers(true);
   // Professor só vê a agenda dele: nem abas, nem legenda, nem bloqueio dos outros.
@@ -103,7 +115,7 @@ export default function CalendarPage() {
   const lessonTap = (lesson: Lesson) => tapGuard(() => { haptics.tap(); setEditing(lesson); setDlgOpen(true); });
 
   const days = useMemo(
-    () => Array.from({ length: dayCount }, (_, i) => addDays(anchor, i)),
+    () => Array.from({ length: dayCount === 30 ? 1 : dayCount }, (_, i) => addDays(anchor, i)),
     [anchor, dayCount]
   );
 
@@ -120,7 +132,14 @@ export default function CalendarPage() {
     try { localStorage.setItem("agenda_dias", String(count)); } catch { /* not worth failing over */ }
   };
 
-  const shiftRange = (direction: -1 | 1) => setAnchor(a => addDays(a, direction * dayCount));
+  const shiftRange = (direction: -1 | 1) => setAnchor(a => (dayCount === 30 ? addMonths(a, direction) : addDays(a, direction * dayCount)));
+  // Do mês para o dia tocado (sem trocar a escolha guardada: voltar ao mês é um toque).
+  const openDay = (d: Date) => { setDayCount(1); setAnchor(startOfDay(d)); };
+  const newOnDay = (d: Date) => {
+    const [h, m] = settings.work_start.split(":").map(Number);
+    const at = new Date(d); at.setHours(h || 8, m || 0, 0, 0);
+    setEditing(null); setSlotStart(at); setDlgOpen(true);
+  };
   const goToToday = () => setAnchor(anchorFor(new Date(), dayCount));
 
   const toggleSummaryTeacher = (slug: string) =>
@@ -131,8 +150,9 @@ export default function CalendarPage() {
     });
 
   const load = useCallback(async () => {
-    const from = anchor.toISOString();
-    const to = addDays(anchor, dayCount).toISOString();
+    const [fromD, toD] = rangeFor(anchor, dayCount);
+    const from = fromD.toISOString();
+    const to = toD.toISOString();
     const nowIso = new Date().toISOString();
     const nextSevenDaysIso = addDays(new Date(), 7).toISOString();
     const [s, l, b, ex, up] = await Promise.all([
@@ -207,7 +227,10 @@ export default function CalendarPage() {
     const wasLongPress = longPressFired.current;
     cancelPressTimer();
     if (wasLongPress) return;
-    // Com rota ou reunião, pergunta o que fazer (05/10); sem nenhum, abre a aula.
+    openFromList(lesson);
+  };
+  // Com rota ou reunião, pergunta o que fazer (05/10); sem nenhum, abre a aula.
+  const openFromList = (lesson: Lesson) => {
     if ((!lesson.is_online && lesson.address) || lessonMeetingUrl(lesson) || lesson.is_online) setGoing(lesson);
     else openEditFor(lesson);
   };
@@ -465,6 +488,8 @@ export default function CalendarPage() {
           <p className="text-sm text-muted-foreground">
             {teacherFilter === "all"
               ? `${L("Próximos 7 dias", "Next 7 days")} · ${format(new Date(), L("dd 'de' MMM", "MMM d"), { locale: dateLocale() })} — ${format(addDays(new Date(), 7), L("dd 'de' MMM yyyy", "MMM d, yyyy"), { locale: dateLocale() })}`
+              : dayCount === 30
+                ? format(anchor, L("MMMM 'de' yyyy", "MMMM yyyy"), { locale: dateLocale() })
               : days.length === 1
                 ? format(days[0], L("EEEE, dd 'de' MMM yyyy", "EEEE, MMM d, yyyy"), { locale: dateLocale() })
                 : `${format(days[0], L("dd 'de' MMM", "MMM d"), { locale: dateLocale() })} — ${format(days[days.length - 1], L("dd 'de' MMM yyyy", "MMM d, yyyy"), { locale: dateLocale() })}`}
@@ -592,19 +617,24 @@ export default function CalendarPage() {
         <div className="flex items-center justify-between border-b border-border p-1.5">
           <Button variant="ghost" size="icon" onClick={() => shiftRange(-1)}><ChevronLeft className="w-4 h-4" /></Button>
           <div className="text-sm font-semibold capitalize text-center">
-            {days.length === 1
+            {dayCount === 30 ? format(anchor, L("MMMM 'de' yyyy", "MMMM yyyy"), { locale: dateLocale() }) : days.length === 1
               ? format(days[0], L("EEEE, dd 'de' MMM", "EEEE, MMM d"), { locale: dateLocale() })
               : `${format(days[0], L("dd/MM", "MMM d"))} — ${format(days[days.length - 1], L("dd/MM", "MMM d"))}`}
           </div>
           <Button variant="ghost" size="icon" onClick={() => shiftRange(1)}><ChevronRight className="w-4 h-4" /></Button>
         </div>
-        {/* A week needs more width than a phone has, so only that range scrolls sideways. */}
+        {dayCount === 30 ? (
+          <CalendarMonth month={anchor} lessons={lessons} teacherSlugs={teacherSlugs} chosenColors={chosenColors}
+            onOpenLesson={l => (mobile ? openFromList : openEditFor)(l as Lesson)} onOpenDay={openDay} onNewOnDay={newOnDay} />
+        ) : (
+        /* A week needs more width than a phone has, so only that range scrolls sideways. */
         <div className="overflow-x-auto">
           <div className={`flex ${dayCount === 7 ? "min-w-[760px]" : dayCount === 3 ? "min-w-[330px]" : ""}`}>
             {renderTimeGutter()}
             {days.map(d => renderDayColumn(d))}
           </div>
         </div>
+        )}
       </div>
       )}
 
