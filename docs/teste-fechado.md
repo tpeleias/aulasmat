@@ -190,7 +190,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Widget: tocar num atendimento on-line com link entra direto na reunião (antes abria a agenda), e aparece o ícone de câmera ao lado do WhatsApp, como os outros atalhos | T |
 | Agenda (lista de próximos): tocar num atendimento pergunta o que fazer - "Entrar na reunião (Google Meet/Zoom/Jitsi)", "Abrir rota no Waze" ou "Abrir a aula" - em vez de abrir o Waze sem perguntar; on-line sem link explica onde colocar um. O toque longo continua abrindo a aula | T |
 
-### 06/10 - site (o app recebe no próximo `.aab`)
+### 06/10 - versão 1.18.3
 
 | Mudança | Origem |
 |---|---|
