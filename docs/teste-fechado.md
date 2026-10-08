@@ -203,3 +203,13 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Financeiro refeito: cada conta abre em três abas. "Aulas" fica na ordem da data da aula (antes saía na ordem em que a cobrança foi lançada), agrupada por mês, e cada aula diz se está paga, quanto falta e com o que foi paga ("Pago com Pacote 10 aulas · 12/09"). "Pagamentos" mostra cada pagamento ou pacote numa linha só (dinheiro + desconto do pacote), com a barra de quanto já foi usado, "Abateu 7 de 10 aulas", quanto sobra e a lista das aulas onde foi abatido. "Extrato" junta tudo com o saldo depois de cada linha. Botão para trocar entre mais recentes / mais antigas primeiro | T |
 | Financeiro mais prático: busca pelo nome, filtros (Todas, A receber, Com crédito, Em atraso), o pacote em uso aparece no cartão da conta ("sobra R$ 660, 3 aulas"), os botões de cobrança foram para um menu "Cobrar" (mensagem, Pix, e-mail) e o resto para "⋯"; ao registrar um pagamento, a tela mostra antes quais aulas ele vai quitar | T |
 | Portal do cliente: o Financeiro mostra as mesmas abas, sem os botões de editar | T |
+
+### 08 e 09/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Pacote passa a abater AULAS, não valor: vender o "Pacote 10 aulas" dá 10 aulas (de 60 min ou da duração do serviço); cada aula realizada gasta 1, a de 2h gasta 2, e a aula aparece "no pacote · aula 3 de 10". O pacote também cobre as aulas que estavam em aberto. O valor do pacote vira uma cobrança, paga como qualquer outra. Cartão da família mostra "restam 5 de 10"; e-mail avisa quando resta 1 aula e quando acaba | T |
+| Pacotes cadastrados ganham "duração de cada aula" (Configurações → Pacotes); o assistente ganhou a ação de vender pacote | T |
+| O único pacote antigo com saldo (Rafael, Pacote 5 aulas de 03/10, sobravam R$ 440) foi convertido: 3 aulas já usadas, restam 2; a conta segue zerada | T |
+| Visual mais moderno: botões dourados com brilho e sombra, cartões mais arredondados com sombra suave, abas e barra de baixo mais destacadas, títulos na fonte da marca | T |
+
