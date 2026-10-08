@@ -204,7 +204,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Financeiro mais prático: busca pelo nome, filtros (Todas, A receber, Com crédito, Em atraso), o pacote em uso aparece no cartão da conta ("sobra R$ 660, 3 aulas"), os botões de cobrança foram para um menu "Cobrar" (mensagem, Pix, e-mail) e o resto para "⋯"; ao registrar um pagamento, a tela mostra antes quais aulas ele vai quitar | T |
 | Portal do cliente: o Financeiro mostra as mesmas abas, sem os botões de editar | T |
 
-### 08 e 09/10 - site (o app recebe no próximo `.aab`)
+### 08 e 09/10 - site e versão 1.18.5 (`.aab` no teste interno e no fechado em 08/10)
 
 | Mudança | Origem |
 |---|---|
