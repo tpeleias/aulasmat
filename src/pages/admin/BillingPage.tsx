@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
-import { Plus, ChevronDown, ChevronRight, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check, CreditCard } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AccountLedger from "@/components/AccountLedger";
 import { buildLedger, currentPackage, currentPurchase, lessonsLeftIn, type AccountLedger as Ledger, type PackagePurchase, type PackageUse } from "@/lib/ledger";
 import { cn } from "@/lib/utils";
+import { payAction, payErrorText, useOnlinePayments } from "@/lib/onlinePayments";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
@@ -243,10 +244,31 @@ export default function BillingPage() {
     toast.success(L(`Pix de ${fmtMoney(a.owed)} copiado`, `Pix of ${fmtMoney(a.owed)} copied`));
   };
 
-  const copyCollection = (a: Account) => {
-    navigator.clipboard.writeText(buildCollectionMessage(a.items, payment, v, templates));
+  // Pagamento on-line pelo Stripe da empresa (09/10): conectado, a mensagem
+  // leva o link "pagar com cartão ou Pix" no lugar do link fixo.
+  const online = useOnlinePayments();
+  const payLinkFor = async (a: Account) => {
+    const r = await payAction<{ url: string }>({ action: "link", student: a.student, guardian: a.guardian });
+    if (!r.ok) { toast.error(payErrorText(r.error)); return null; }
+    return r.data.url;
+  };
+  const copyCollection = async (a: Account) => {
+    let info = payment;
+    if (online.connected) {
+      const url = await payLinkFor(a);
+      if (url) info = { ...payment, paymentLink: url, linkLabel: L("Pagar com cartão ou Pix", "Pay by card or Pix"), linkNote: null };
+    }
+    try { await navigator.clipboard.writeText(buildCollectionMessage(a.items, info, v, templates)); }
+    catch { toast.error(L("Não deu para copiar. Tente de novo.", "Couldn't copy. Try again.")); return; }
     haptics.success();
     toast.success(L(`Mensagem de cobrança de ${a.label} copiada`, `Payment request for ${a.label} copied`));
+  };
+  const copyPayLink = async (a: Account) => {
+    const url = await payLinkFor(a);
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); } catch { toast.error(L("Não deu para copiar.", "Couldn't copy.")); return; }
+    haptics.success();
+    toast.success(L(`Link de pagamento de ${a.label} copiado (cobra sempre o valor em aberto do dia)`, `Payment link for ${a.label} copied (always charges the current open amount)`));
   };
 
   // ---- E-mail (03/10): cobrança, extrato e "cobrar todos" ----
@@ -657,6 +679,7 @@ export default function BillingPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="start" className="rounded-xl">
                           <DropdownMenuItem onClick={() => copyCollection(a)}><Copy className="mr-2 h-4 w-4" /> {L("Copiar mensagem (WhatsApp)", "Copy message")}</DropdownMenuItem>
+                          {online.connected && <DropdownMenuItem onClick={() => copyPayLink(a)}><CreditCard className="mr-2 h-4 w-4" /> {L("Copiar link de pagamento (cartão/Pix)", "Copy payment link (card/Pix)")}</DropdownMenuItem>}
                           {pixFor(a) && <DropdownMenuItem onClick={() => copyPix(a)}><Copy className="mr-2 h-4 w-4" /> {L(`Copiar Pix de ${fmtMoney(a.owed)}`, `Copy Pix of ${fmtMoney(a.owed)}`)}</DropdownMenuItem>}
                           <DropdownMenuItem disabled={mailing === a.key} onClick={() => emailCharge(a)}><Mail className="mr-2 h-4 w-4" /> {L("Enviar cobrança por e-mail", "Email reminder")}</DropdownMenuItem>
                         </DropdownMenuContent>

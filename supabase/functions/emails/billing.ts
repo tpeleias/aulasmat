@@ -97,11 +97,30 @@ function itemsTable(ctx: Ctx, items: OpenItem[]) {
 <td style="padding:12px 0 0 8px;font-size:17px;font-weight:bold;color:#13141b;text-align:right;white-space:nowrap">${money(ctx, total)}</td></tr></table>`;
 }
 
-function payBlock(ctx: Ctx, total: number) {
+/**
+ * Pagamento on-line pelo Stripe da própria empresa (09/10, função "pay"): com
+ * a conta conectada, o botão do e-mail abre o pagamento do valor em aberto,
+ * no cartão ou no Pix. O link é assinado e sempre cobra o valor de agora.
+ */
+export async function onlinePayLink(admin: Admin, ctx: Ctx, st: Pick<AccountStatement, "student" | "guardian">) {
+  const { data: a } = await admin.from("accounts").select("online_payments").eq("id", ctx.account.id).maybeSingle();
+  if (!a?.online_payments) return null;
+  const key = (await admin.rpc("pay_secret", { _name: `stripe_key:${ctx.account.id}` })).data;
+  const sec = (await admin.rpc("pay_secret", { _name: "pay_link_secret" })).data;
+  if (typeof key !== "string" || !key || typeof sec !== "string" || !sec) return null;
+  const b64 = (x: string) => btoa(unescape(encodeURIComponent(x))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const k = b64(JSON.stringify([st.student, st.guardian ?? ""]));
+  const ck = await crypto.subtle.importKey("raw", new TextEncoder().encode(sec), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const t = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", ck, new TextEncoder().encode(`${ctx.account.id}|${k}`))))
+    .map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
+  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/go?c=${ctx.account.id}&k=${k}&t=${t}`;
+}
+
+function payBlock(ctx: Ctx, total: number, online?: string | null) {
   const en = ctx.account.locale === "en";
   const s = ctx.settings;
   const key = String(s.pix_key ?? "").trim();
-  const link = String(s.payment_link ?? "").trim();
+  const link = online || String(s.payment_link ?? "").trim();
   const blocks: string[] = [];
   if (key && total > 0) {
     const code = buildPixPayload({ key, name: String(s.pix_receiver_name ?? ""), city: String(s.pix_city ?? ""), amount: total });
@@ -112,10 +131,12 @@ ${code ? `<div style="font-size:12px;color:#77756c;margin:0 0 4px">${en ? "Pix c
 <div style="font-family:Menlo,Consolas,monospace;font-size:12px;line-height:1.5;color:#1d1f27;background:#ffffff;border:1px dashed #d9d3c3;border-radius:8px;padding:10px;word-break:break-all">${esc(code)}</div>` : ""}
 </div>`);
   }
-  return { blocks, link: link ? { href: link, label: String(s.payment_link_label ?? "").trim() || (en ? "Pay online" : "Pagar on-line") } : undefined, note: String(s.payment_link_note ?? "").trim() };
+  const label = online ? (en ? "Pay by card or Pix" : "Pagar com cartão ou Pix")
+    : String(s.payment_link_label ?? "").trim() || (en ? "Pay online" : "Pagar on-line");
+  return { blocks, link: link ? { href: link, label } : undefined, note: online ? "" : String(s.payment_link_note ?? "").trim() };
 }
 
-export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; statement?: boolean }): Msg {
+export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; statement?: boolean; online?: string | null }): Msg {
   const en = ctx.account.locale === "en";
   const name = (st.guardian ?? st.student).trim().split(/\s+/)[0];
   if (st.owed <= 0) {
@@ -129,7 +150,7 @@ export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; s
         : (en ? "There's nothing to pay right now." : "Não há nada em aberto no momento."))],
     };
   }
-  const pay = payBlock(ctx, st.owed);
+  const pay = payBlock(ctx, st.owed, o.online);
   const intro = o.statement
     ? (en ? `Here is your statement with ${ctx.account.name}.` : `Segue o seu extrato com ${ctx.account.name}.`)
     : (en ? `This is a reminder of the open balance with ${ctx.account.name}.` : `Este é um lembrete do valor em aberto com ${ctx.account.name}.`);
@@ -155,7 +176,8 @@ export function chargeMail(ctx: Ctx, st: AccountStatement, o: { auto: boolean; s
 export async function sendCharge(admin: Admin, apiKey: string, ctx: Ctx, st: AccountStatement,
   o: { auto: boolean; statement?: boolean; sentBy?: string | null }) {
   const to = await billingRecipients(admin, ctx, st);
-  const m = chargeMail(ctx, st, o);
+  const online = st.owed > 0 ? await onlinePayLink(admin, ctx, st).catch(() => null) : null;
+  const m = chargeMail(ctx, st, { ...o, online });
   const sent: string[] = [];
   for (const e of to) {
     if (await deliver(admin, apiKey, ctx, e, m, { kind: o.statement ? "statement" : "charge", student: st.student, guardian: st.guardian, sentBy: o.sentBy })) sent.push(e);

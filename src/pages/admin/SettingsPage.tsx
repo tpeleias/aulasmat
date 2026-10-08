@@ -20,6 +20,7 @@ import PackagesSettings from "@/components/PackagesSettings";
 import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import MeetingSettings from "@/components/MeetingSettings";
+import OnlinePaymentsSettings from "@/components/OnlinePaymentsSettings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScarcityEditor } from "@/components/ScarcityEditor";
@@ -575,6 +576,7 @@ export default function SettingsPage() {
     integracoes: <>
       <GoogleCalendarSettings />
       <MeetingSettings />
+      <OnlinePaymentsSettings />
     </>,
   };
 

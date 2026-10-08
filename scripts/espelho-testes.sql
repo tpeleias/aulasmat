@@ -3585,4 +3585,35 @@ DELETE FROM public.lessons WHERE student_name = 'Gil';
 DELETE FROM public.wallet_transactions WHERE student_name = 'Gil';
 DELETE FROM public.lesson_packages WHERE name = 'Pacote 4';
 
+\echo '--- 63. Pagamento on-line (Stripe da empresa, 09/10) ---'
+UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((public.online_payments_status() ->> 'allowed')::boolean = false, 'empresa sem a funcao liberada nao ve o pagamento on-line');
+DO $$
+BEGIN
+  PERFORM public.pay_secret('pay_link_secret');
+  RAISE EXCEPTION 'FALHOU: admin leu segredo do cofre';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - ninguem de fora le os segredos do pagamento';
+END $$;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.online_payments;
+  INSERT INTO public.online_payments (account_id, session_id, student_name, amount) VALUES (current_setting('teste.a')::uuid, 'cs_x', 'Bia', 10);
+  RAISE EXCEPTION 'FALHOU: admin gravou pagamento on-line na mao';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - pagamento on-line so a funcao grava';
+END $$;
+COMMIT;
+UPDATE public.accounts SET online_payments = true WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((public.online_payments_status() ->> 'allowed')::boolean AND NOT (public.online_payments_status() ->> 'connected')::boolean,
+  'liberada e ainda sem a chave: aparece para conectar');
+COMMIT;
+UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
+
 \echo '=== FIM ==='
