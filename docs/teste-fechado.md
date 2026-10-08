@@ -196,7 +196,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Agenda com visão do mês (pedido da esposa do Thiago, repassado por ele): no computador, cada dia mostra até 3 atendimentos com hora e nome, "+N mais" e o "+" para marcar; no celular, pontinhos na cor de cada profissional e, embaixo, a lista do dia tocado. Tocar no dia abre a visão de 1 dia | T |
 
-### 08/10 - site (o app recebe no próximo `.aab`)
+### 08/10 - versão 1.18.4
 
 | Mudança | Origem |
 |---|---|
