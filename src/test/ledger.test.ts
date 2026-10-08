@@ -91,6 +91,29 @@ describe("razão da conta (pacotes e aulas)", () => {
     }
   });
 
+  it("pacote por aulas: aula coberta aparece como do pacote, com o numero dela", () => {
+    const ls = [lesson("a", "2026-09-02T15:00:00Z"), { ...lesson("b", "2026-09-09T15:00:00Z"), duration_minutes: 120 }, lesson("c", "2026-09-16T15:00:00Z")];
+    const txs = [
+      tx(-2000, "package", "2026-09-01T10:00:00Z", { description: "Pacote 10", package_purchase_id: "P" } as Partial<LedgerTx>),
+      tx(2000, "adjustment", "2026-09-01T10:00:00Z", { description: "Pix" }),
+      tx(0, "lesson", "2026-09-03T00:00:00Z", { lesson_id: "a" }),
+      tx(0, "lesson", "2026-09-10T00:00:00Z", { lesson_id: "b" }),
+      tx(-110, "lesson", "2026-09-17T00:00:00Z", { lesson_id: "c" }),
+    ];
+    const led = buildLedger(txs, ls, labels, {
+      purchases: [{ id: "P", name: "Pacote 10", sessions: 3.5, minutes: 60, price: 2000, created_at: "2026-09-01T10:00:00Z" }],
+      uses: [{ purchase_id: "P", lesson_id: "a", sessions: 1 }, { purchase_id: "P", lesson_id: "b", sessions: 2 }, { purchase_id: "P", lesson_id: "c", sessions: 0.5 }],
+    });
+    expect(led.charges.filter(c => !c.packageSale).map(c => c.status)).toEqual(["package", "package", "open"]);
+    expect(led.charges.find(c => c.lessonId === "b")!.packageUses[0]).toMatchObject({ from: 1, to: 3, total: 3.5 });
+    expect(led.packages[0]).toMatchObject({ used: 3.5, left: 0, saleChargeId: led.charges.find(c => c.packageSale)!.id });
+    // A venda do pacote foi paga pelo Pix; a terceira aula, meio coberta, deve 110.
+    expect(led.charges.find(c => c.packageSale)!.status).toBe("paid");
+    const st = computeStatements(txs, ls)[0];
+    expect(st.owed).toBe(110);
+    expect(led.charges.filter(c => c.open > 0).map(c => c.open)).toEqual([110]);
+  });
+
   it("descobre o tamanho do pacote pelo cadastro ou pelo nome", () => {
     expect(packageSizeFrom("Mensal", [{ name: "Mensal", lessons: 8 }])).toBe(8);
     expect(packageSizeFrom("Pacote 5 aulas — R$ 1.050,00")).toBe(5);

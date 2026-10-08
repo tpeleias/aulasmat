@@ -96,9 +96,33 @@ export function summaryMail(ctx: Ctx, l: Lesson & { class_summary: string }, tea
   };
 }
 
-export function packageMail(ctx: Ctx, payer: string, balance: number, out: boolean): Msg {
+export function packageMail(ctx: Ctx, payer: string, balance: number, out: boolean, sessionsLeft?: number): Msg {
   const w = word(ctx);
   const first = payer.split(/\s+/)[0];
+  // Pacote por aulas (08/10): o aviso fala em aulas, não em dinheiro.
+  if (sessionsLeft != null) {
+    const n = String(Math.round(sessionsLeft * 100) / 100).replace(".", w.en ? "." : ",");
+    // Só o número: o plural da palavra do ramo ("sessões") não sai de um "s" no fim.
+    const left = n;
+    const vars = { nome: first, responsavel: payer, saldo: left };
+    return out ? {
+      vars,
+      subject: w.en ? `Your package has been used up · ${ctx.account.name}` : `O pacote acabou · ${ctx.account.name}`,
+      kicker: w.en ? "Package used up" : "Pacote encerrado", tone: "remind",
+      title: w.en ? `${first}, your package has been used up` : `${first}, o pacote acabou`,
+      rows: balance < 0 ? [[w.en ? "Open" : "Em aberto", `<b>${money(ctx, -balance)}</b>`]] : [],
+      paragraphs: [esc(w.en
+        ? `The last ${w.l} used the last one in the package. To keep going with a new package, just reply to this email.`
+        : `${w.a("A última", "O último")} ${w.l} usou ${w.a("a última", "o último")} do pacote. Para seguir com um pacote novo, é só responder este e-mail.`)],
+    } : {
+      vars,
+      subject: w.en ? `Your package is running out · ${ctx.account.name}` : `Seu pacote está acabando · ${ctx.account.name}`,
+      kicker: w.en ? "Package running out" : "Pacote acabando", tone: "remind",
+      title: w.en ? `${first}, your package is running out` : `${first}, seu pacote está acabando`,
+      rows: [[w.en ? "Left in the package" : "Restam no pacote", `<b>${esc(left)}</b>`]],
+      paragraphs: [esc(w.en ? `To renew, just reply to this email.` : `Para renovar, é só responder este e-mail.`)],
+    };
+  }
   const vars = { nome: first, responsavel: payer, saldo: money(ctx, Math.max(0, balance)) };
   return out ? {
     vars,
@@ -190,6 +214,9 @@ async function sendSummary(admin: Admin, apiKey: string, ctx: Ctx, lessonId: str
   return sent;
 }
 
+const accountKeyOf = (t: { guardian_name: string | null; student_name: string }) =>
+  (t.guardian_name ?? "").trim() ? `g:${t.guardian_name!.trim().toLowerCase()}` : `s:${t.student_name.trim().toLowerCase()}`;
+
 /**
  * Depois do débito de um atendimento, de quem já comprou pacote: avisa uma
  * vez quando o crédito não cobre mais um atendimento igual, e uma vez quando
@@ -199,6 +226,34 @@ async function sendPackage(admin: Admin, apiKey: string, ctx: Ctx, txId: string)
   if (!pref(ctx, "package_low")) return 0;
   const { data: tx } = await admin.from("wallet_transactions").select("id, guardian_name, student_name, amount, lesson_id").eq("id", txId).maybeSingle();
   if (!tx || !tx.lesson_id) return 0;
+  const payerOf = (t: { guardian_name: string | null; student_name: string }) => (t.guardian_name ?? "").trim() || t.student_name;
+
+  // Pacote por aulas (08/10): se esta aula gastou pacote, o aviso conta aulas.
+  const { data: used } = await admin.from("package_uses").select("purchase_id").eq("lesson_id", tx.lesson_id);
+  if (used?.length) {
+    const { data: buys } = await admin.from("package_purchases").select("id, sessions, student_name, guardian_name, created_at")
+      .eq("account_id", ctx.account.id).order("created_at");
+    const mine = (buys ?? []).filter(p => accountKeyOf(p) === accountKeyOf(tx));
+    if (!mine.length) return 0;
+    const { data: allUses } = await admin.from("package_uses").select("purchase_id, sessions").in("purchase_id", mine.map(p => p.id));
+    const usedBy = new Map<string, number>();
+    for (const u of allUses ?? []) usedBy.set(u.purchase_id, (usedBy.get(u.purchase_id) ?? 0) + Number(u.sessions));
+    const left = Math.round(mine.reduce((s, p) => s + Math.max(0, Number(p.sessions) - (usedBy.get(p.id) ?? 0)), 0) * 100) / 100;
+    const state = left <= 0.004 ? "out" : left <= 1.004 ? "low" : null;
+    if (!state) return 0;
+    const last = used[used.length - 1].purchase_id;
+    const { data: mark } = await admin.from("email_event_sent")
+      .upsert({ account_id: ctx.account.id, key: `pkgs:${last}:${state}` }, { onConflict: "account_id,key", ignoreDuplicates: true }).select("key");
+    if (!mark?.length) return 0;
+    const st = await statementFor(admin, ctx, tx.student_name, tx.guardian_name);
+    const m = packageMail(ctx, payerOf(tx), st?.balance ?? 0, state === "out", left);
+    let sent = 0;
+    for (const e of await billingRecipients(admin, ctx, { guardian: (tx.guardian_name ?? "").trim() || null, student: tx.student_name })) {
+      if (await deliver(admin, apiKey, ctx, e, m, { kind: "package", student: tx.student_name, guardian: tx.guardian_name })) sent++;
+    }
+    return sent;
+  }
+
   const st = await statementFor(admin, ctx, tx.student_name, tx.guardian_name);
   if (!st) return 0;
   const { data: vouchers } = await admin.from("wallet_transactions").select("amount").eq("lesson_id", tx.lesson_id).eq("kind", "voucher");

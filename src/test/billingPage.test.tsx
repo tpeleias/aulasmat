@@ -82,6 +82,18 @@ describe("Financeiro (08/10)", () => {
     expect(dates).toEqual(["10/09", "20/09"]);
   });
 
+  it("vender pacote mostra quantas aulas e quais em aberto ele ja cobre", async () => {
+    render(<BillingPage />);
+    await waitFor(() => expect(screen.getByText("Aluno: Caio")).toBeTruthy());
+    const card = screen.getByText("Aluno: Caio").closest(".rounded-2xl") as HTMLElement;
+    fireEvent.click(within(card).getByRole("button", { name: /Pagamento/ }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByText("Pacote 5 aulas"));
+    expect(within(dialog).getByText(/5 aulas de 60 min/)).toBeTruthy();
+    expect(within(dialog).getByText(/Já cobre 1 aula em aberto/)).toBeTruthy();
+    expect(within(dialog).getByText(/Recebido agora/)).toBeTruthy();
+  });
+
   it("antes de registrar, mostra o que o pagamento vai quitar", async () => {
     render(<BillingPage />);
     await waitFor(() => expect(screen.getByText("Aluno: Caio")).toBeTruthy());

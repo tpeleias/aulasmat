@@ -7,7 +7,7 @@ import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
 import AccountLedger from "@/components/AccountLedger";
-import { buildLedger } from "@/lib/ledger";
+import { buildLedger, currentPurchase, type PackagePurchase, type PackageUse } from "@/lib/ledger";
 
 import { L } from "@/lib/i18n";
 const fmt = (v: number) => fmtMoney(v);
@@ -19,6 +19,8 @@ export default function StudentBilling() {
   const settings = useAppSettings();
   const [txs, setTxs] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);
+  const [purchases, setPurchases] = useState<PackagePurchase[]>([]);
+  const [uses, setUses] = useState<PackageUse[]>([]);
 
   useEffect(() => {
     if (!student) return;
@@ -26,6 +28,11 @@ export default function StudentBilling() {
       .order("created_at", { ascending: false }).then(({ data }) => setTxs(data ?? []));
     scopeToAccount(supabase.from("lessons").select("*"), student)
       .eq("status", "realizada").then(({ data }) => setLessons(data ?? []));
+    // Pacotes por aulas (08/10): a família lê só as próprias compras (RLS).
+    scopeToAccount(supabase.from("package_purchases" as never).select("*"), student)
+      .then(({ data, error }: { data: unknown; error: unknown }) => setPurchases(error ? [] : ((data ?? []) as PackagePurchase[])));
+    supabase.from("package_uses" as never).select("purchase_id, lesson_id, sessions")
+      .then(({ data, error }) => setUses(error ? [] : ((data ?? []) as unknown as PackageUse[])));
   }, [student]);
 
   // Same ledger rule as the teacher's screen: money received pays the oldest lesson first,
@@ -40,11 +47,24 @@ export default function StudentBilling() {
   const ledger = useMemo(() => buildLedger(txs as LedgerTx[], lessons as LedgerLesson[], {
     appointment: ap.s, entry: L("Lançamento", "Entry"), payment: L("Pagamento", "Payment"),
     package: L("Pacote", "Package"), voucher: "Voucher", leftover: L("Sobra de desconto", "Leftover discount"), adjustment: L("Ajuste", "Adjustment"),
-  }), [txs, lessons, ap]);
+  }, { purchases, uses }), [txs, lessons, ap, purchases, uses]);
+  const pkg = currentPurchase(ledger.packages);
 
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">{L("Financeiro", "Billing")}</h1>
+
+      {pkg && (
+        <Card className="flex items-center justify-between gap-3 border-primary/40 bg-primary/5 p-5">
+          <div>
+            <div className="text-xs text-muted-foreground">{pkg.name}</div>
+            <div className="text-2xl font-bold tabular-nums text-primary">
+              {L(`Restam ${String(pkg.left).replace(".", ",")} ${pkg.left === 1 ? ap.l : ap.lp}`, `${pkg.left} ${pkg.left === 1 ? ap.l : ap.lp} left`)}
+            </div>
+          </div>
+          <div className="text-right text-xs text-muted-foreground">{L(`de ${pkg.sessions}`, `of ${pkg.sessions}`)}</div>
+        </Card>
+      )}
 
       <div className="grid gap-3 md:grid-cols-3">
         <Card className="p-5">

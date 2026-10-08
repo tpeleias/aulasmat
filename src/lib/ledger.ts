@@ -16,7 +16,24 @@ import type { LedgerLesson, LedgerTx } from "@shared/statements";
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
-export type ChargeStatus = "paid" | "partial" | "open";
+/** "package": a aula foi coberta inteira por um pacote (não custou dinheiro). */
+export type ChargeStatus = "paid" | "partial" | "open" | "package";
+
+/** Compra de pacote por aulas (tabela package_purchases, 08/10). */
+export type PackagePurchase = {
+  id: string; name: string; sessions: number; minutes: number; price: number;
+  created_at: string; converted?: boolean;
+};
+export type PackageUse = { purchase_id: string; lesson_id: string; sessions: number };
+
+export type LedgerPackage = PackagePurchase & {
+  used: number;
+  left: number;
+  /** As aulas que gastaram este pacote, em ordem de data. */
+  lessons: { chargeId: string; sessions: number; from: number; to: number }[];
+  /** A cobrança do pacote (o valor dele), se houver. */
+  saleChargeId: string | null;
+};
 
 export type LedgerCharge = {
   /** Id do lançamento da cobrança. */
@@ -40,6 +57,12 @@ export type LedgerCharge = {
   /** Ajuste manual negativo (sem aula). */
   manual: boolean;
   txId: string;
+  /** O que esta aula gastou de pacote: "aula 3 de 10". */
+  packageUses: { purchaseId: string; label: string; sessions: number; from: number; to: number; total: number }[];
+  /** Valor cheio de uma aula coberta por pacote (só para mostrar). */
+  fullValue: number | null;
+  /** Esta cobrança é a venda de um pacote (id da compra). */
+  packageSale: string | null;
 };
 
 export type SourceKind = "package" | "payment" | "voucher" | "leftover";
@@ -82,6 +105,14 @@ export type AccountLedger = {
   charges: LedgerCharge[];
   sources: LedgerSource[];
   entries: LedgerEntry[];
+  packages: LedgerPackage[];
+};
+
+export type LedgerOptions = {
+  /** Os pacotes cadastrados (para achar o tamanho dos pacotes antigos, por valor). */
+  catalog?: { name: string; lessons: number }[];
+  purchases?: PackagePurchase[];
+  uses?: PackageUse[];
 };
 
 export type LedgerLabels = {
@@ -107,7 +138,11 @@ export function packageSizeFrom(label: string, packages: { name: string; lessons
 /**
  * O razão de UMA conta: `txs` já filtrados para ela, `lessons` as realizadas.
  */
-export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: LedgerLabels, packages: { name: string; lessons: number }[] = []): AccountLedger {
+export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: LedgerLabels, opts: LedgerOptions = {}): AccountLedger {
+  const packages = opts.catalog ?? [];
+  const purchases = [...(opts.purchases ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
+  const purchaseIds = new Set(purchases.map(p => p.id));
+  const uses = (opts.uses ?? []).filter(u => purchaseIds.has(u.purchase_id));
   const lessonById = new Map(lessons.map(l => [l.id, l]));
   const charges: LedgerCharge[] = [];
   const lessonVouchers = new Map<string, LedgerTx[]>();
@@ -115,7 +150,9 @@ export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: Le
 
   for (const t of txs) {
     const amount = Number(t.amount);
-    if (amount >= 0) {
+    // A aula coberta inteira por pacote fica com débito zero, mas continua aula.
+    const coveredLesson = t.kind === "lesson" && amount === 0 && !!t.lesson_id;
+    if (amount >= 0 && !coveredLesson) {
       if (t.kind === "voucher" && t.lesson_id) {
         lessonVouchers.set(t.lesson_id, [...(lessonVouchers.get(t.lesson_id) ?? []), t]);
       } else if (amount > 0) {
@@ -129,9 +166,11 @@ export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: Le
       date: lesson?.start_at ?? t.created_at,
       student: lesson?.student_name ?? t.student_name,
       detail: lesson ? `${lesson.subject ?? labels.appointment} (${lesson.duration_minutes} min)` : (t.description ?? labels.entry),
-      gross: -amount, discount: 0, discountLabel: null, net: -amount,
-      paid: 0, open: -amount, status: "open", paidBy: [],
-      manual: !t.lesson_id,
+      gross: -amount || 0, discount: 0, discountLabel: null, net: -amount || 0,
+      paid: 0, open: -amount || 0, status: "open", paidBy: [],
+      manual: !t.lesson_id && !(t as LedgerTx & { package_purchase_id?: string | null }).package_purchase_id,
+      packageUses: [], fullValue: null,
+      packageSale: t.lesson_id ? null : ((t as LedgerTx & { package_purchase_id?: string | null }).package_purchase_id ?? null),
     });
   }
 
@@ -200,6 +239,34 @@ export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: Le
     }
     c.status = c.open <= 0 ? "paid" : c.paid > 0 ? "partial" : "open";
   }
+
+  // Pacotes por aulas: cada uso vira "aula N de T" na aula, e cada compra
+  // sabe quanto gastou e em quais aulas.
+  const chargeByLesson = new Map(charges.filter(c => c.lessonId).map(c => [c.lessonId!, c]));
+  const ledgerPackages: LedgerPackage[] = purchases.map(p => {
+    const mine = uses.filter(u => u.purchase_id === p.id && chargeByLesson.has(u.lesson_id))
+      .map(u => ({ u, c: chargeByLesson.get(u.lesson_id)! }))
+      .sort((a, b) => a.c.date.localeCompare(b.c.date));
+    let acc = 0;
+    const list = mine.map(({ u, c }) => {
+      const from = acc;
+      acc = Math.round((acc + Number(u.sessions)) * 10000) / 10000;
+      c.packageUses.push({ purchaseId: p.id, label: p.name, sessions: Number(u.sessions), from, to: acc, total: Number(p.sessions) });
+      return { chargeId: c.id, sessions: Number(u.sessions), from, to: acc };
+    });
+    const sale = charges.find(c => c.packageSale === p.id) ?? null;
+    return {
+      ...p, sessions: Number(p.sessions), minutes: Number(p.minutes), price: Number(p.price),
+      used: acc, left: Math.max(0, Math.round((Number(p.sessions) - acc) * 10000) / 10000),
+      lessons: list, saleChargeId: sale?.id ?? null,
+    };
+  });
+  for (const c of charges) {
+    if (!c.packageUses.length || !c.lessonId) continue;
+    const l = lessonById.get(c.lessonId) as (LedgerLesson & { price?: number | null }) | undefined;
+    if (l?.price != null) c.fullValue = Math.round(Number(l.price) * l.duration_minutes / 60 * 100) / 100;
+    if (c.gross === 0) c.status = "package";
+  }
   // "partial" no pacote quer dizer que ele pagou só parte daquela aula.
   for (const s of sources) {
     for (const cv of s.covers) {
@@ -213,7 +280,7 @@ export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: Le
   const raw: Raw[] = [];
   for (const c of charges) {
     raw.push({
-      id: c.id, date: c.date, kind: c.manual ? "adjustment" : "lesson",
+      id: c.id, date: c.date, kind: c.packageSale ? "package" : c.manual ? "adjustment" : "lesson",
       label: c.manual ? (c.detail || labels.adjustment) : c.detail, detail: null,
       amount: -c.gross, lessonId: c.lessonId, txIds: [c.txId],
     });
@@ -235,7 +302,7 @@ export function buildLedger(txs: LedgerTx[], lessons: LedgerLesson[], labels: Le
   let bal = 0;
   const entries = raw.map(e => { bal = round2(bal + e.amount); return { ...e, balance: bal }; });
 
-  return { charges: byDate, sources, entries };
+  return { charges: byDate, sources, entries, packages: ledgerPackages };
 }
 
 /**
@@ -250,7 +317,17 @@ export function lessonsLeftIn(source: LedgerSource, charges: LedgerCharge[]): nu
   return Math.floor(source.left / unit + 1e-9);
 }
 
-/** O pacote que está em uso agora: o mais recente que ainda tem saldo. */
+/** O pacote antigo (por valor) que está em uso agora: o mais recente que ainda tem saldo. */
 export function currentPackage(sources: LedgerSource[]): LedgerSource | null {
   return [...sources].reverse().find(s => s.kind === "package" && s.left > 0) ?? null;
+}
+
+/** O pacote por aulas em uso: o mais antigo que ainda tem aula (é o que a próxima aula vai gastar). */
+export function currentPurchase(packages: LedgerPackage[]): LedgerPackage | null {
+  return packages.find(p => p.left > 0) ?? null;
+}
+
+/** Que aula(s) do pacote esta aula gastou: 3 de 10, ou 3 a 4 de 10. */
+export function packageSlots(u: { from: number; to: number }): { first: number; last: number } {
+  return { first: Math.floor(u.from + 1e-6) + 1, last: Math.max(Math.floor(u.from + 1e-6) + 1, Math.ceil(u.to - 1e-6)) };
 }

@@ -33,12 +33,12 @@ export default function BottomNav({ items, more, moreTitle = L("Mais", "More") }
               onClick={() => haptics.tap()}
               className={({ isActive }) =>
                 `flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[11px] font-medium transition-colors ${
-                  isActive ? "text-primary" : "text-muted-foreground"
+                  isActive ? "font-semibold text-primary" : "text-muted-foreground"
                 }`}
             >
               {({ isActive }) => (
                 <>
-                  <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${isActive ? "bg-primary/10" : ""}`}>
+                  <span className={`flex h-8 w-14 items-center justify-center rounded-full transition-all ${isActive ? "bg-brand-gold/25 shadow-[0_4px_12px_-6px_hsl(var(--brand-gold)/0.8)]" : ""}`}>
                     <it.icon className="h-5 w-5" strokeWidth={isActive ? 2.4 : 2} />
                   </span>
                   {it.label}

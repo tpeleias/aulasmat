@@ -1,9 +1,9 @@
 // Pacotes da empresa (tabela lesson_packages): "N aulas por R$ X".
 //
-// A aula continua valendo o preço cheio; o desconto do pacote entra como
-// voucher, para a conta da família fechar em zero depois das N aulas. O
-// voucher é a diferença entre o valor cheio das N aulas (1 hora cada, ao
-// valor da hora da empresa) e o preço do pacote.
+// Desde 08/10 o pacote abate AULAS, não valor: vender cria uma compra com N
+// aulas de X minutos, e cada aula realizada gasta duração / X delas (migration
+// 20261008010000). packageUnitPrice e packageVoucher ficam para ler os
+// pacotes antigos, vendidos como dinheiro + voucher.
 
 export type LessonPackage = {
   id: string;
@@ -14,7 +14,14 @@ export type LessonPackage = {
   sort_order: number;
   /** Pacote de um serviço (migration 20260925150000); nulo = pacote geral. */
   service_id?: string | null;
+  /** Minutos de cada aula do pacote (migration 20261008010000); nulo = a duração do serviço, ou 60. */
+  minutes?: number | null;
 };
+
+/** De quantos minutos é cada aula do pacote. */
+export function packageMinutes(p: Pick<LessonPackage, "minutes" | "service_id">, services: { id: string; duration_minutes: number }[]): number {
+  return p.minutes ?? services.find(s => s.id === p.service_id)?.duration_minutes ?? 60;
+}
 
 /**
  * Quanto vale UMA sessão do pacote pelo preço cheio: a do serviço dele (ou o
