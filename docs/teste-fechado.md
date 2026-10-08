@@ -212,4 +212,5 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Pacotes cadastrados ganham "duração de cada aula" (Configurações → Pacotes); o assistente ganhou a ação de vender pacote | T |
 | O único pacote antigo com saldo (Rafael, Pacote 5 aulas de 03/10, sobravam R$ 440) foi convertido: 3 aulas já usadas, restam 2; a conta segue zerada | T |
 | Visual mais moderno: botões dourados com brilho e sombra, cartões mais arredondados com sombra suave, abas e barra de baixo mais destacadas, títulos na fonte da marca | T |
+| Pagamento on-line pelo Stripe da própria empresa (só o Portal de Aulas tem liberado): em Configurações → Integrações a empresa cola a chave do Stripe; o e-mail de cobrança e a mensagem do WhatsApp ganham o link "Pagar com cartão ou Pix" com o valor em aberto, o Financeiro ganha "Copiar link de pagamento" e o portal da família ganha "Pagar agora". Quando o Stripe confirma, o pagamento entra sozinho no Financeiro | T |
 

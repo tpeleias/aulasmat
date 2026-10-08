@@ -7,6 +7,11 @@ import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
 import AccountLedger from "@/components/AccountLedger";
+import { Button } from "@/components/ui/button";
+import { CreditCard } from "lucide-react";
+import { toast } from "sonner";
+import { payAction, payErrorText, useOnlinePayments } from "@/lib/onlinePayments";
+import { openExternal } from "@/lib/whatsapp";
 import { buildLedger, currentPurchase, type PackagePurchase, type PackageUse } from "@/lib/ledger";
 
 import { L } from "@/lib/i18n";
@@ -49,6 +54,16 @@ export default function StudentBilling() {
     package: L("Pacote", "Package"), voucher: "Voucher", leftover: L("Sobra de desconto", "Leftover discount"), adjustment: L("Ajuste", "Adjustment"),
   }, { purchases, uses }), [txs, lessons, ap, purchases, uses]);
   const pkg = currentPurchase(ledger.packages);
+  // Pagamento on-line pelo Stripe da empresa (09/10): só aparece se ela conectou.
+  const online = useOnlinePayments();
+  const [paying, setPaying] = useState(false);
+  const payNow = async () => {
+    setPaying(true);
+    const r = await payAction<{ url: string }>({ action: "checkout" });
+    setPaying(false);
+    if (!r.ok || !r.data?.url) { toast.error(payErrorText(r.error)); return; }
+    if (!openExternal(r.data.url)) window.location.href = r.data.url;
+  };
 
   return (
     <div className="space-y-6">
@@ -80,6 +95,16 @@ export default function StudentBilling() {
           <div className="text-2xl font-bold tabular-nums">{lessons.length}</div>
         </Card>
       </div>
+
+      {online.connected && owed > 0 && (
+        <Card className="flex flex-wrap items-center justify-between gap-3 border-primary/40 bg-primary/5 p-5">
+          <div>
+            <div className="font-semibold">{L("Pagar agora", "Pay now")}</div>
+            <div className="text-sm text-muted-foreground">{L(`${fmt(owed)} no cartão ou no Pix. O pagamento entra sozinho e você recebe o recibo.`, `${fmt(owed)} by card or Pix. It's recorded automatically and you get the receipt.`)}</div>
+          </div>
+          <Button size="lg" disabled={paying} onClick={payNow} className="gap-2"><CreditCard className="h-5 w-5" /> {paying ? L("Abrindo…", "Opening…") : L("Pagar com cartão ou Pix", "Pay by card or Pix")}</Button>
+        </Card>
+      )}
 
       {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
         <Card className="p-5 space-y-3 border-primary/40">
