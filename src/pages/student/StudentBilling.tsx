@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useStudent, useAppSettings } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { scopeToAccount, fmtMoney } from "@/lib/balance";
 import { computeStatements, type LedgerTx, type LedgerLesson } from "@/lib/billing";
 import { useWords } from "@/hooks/useVocabulary";
+import AccountLedger from "@/components/AccountLedger";
+import { buildLedger } from "@/lib/ledger";
 
 import { L } from "@/lib/i18n";
 const fmt = (v: number) => fmtMoney(v);
@@ -36,7 +36,11 @@ export default function StudentBilling() {
   );
   const owed = statement?.owed ?? 0;
   const credit = statement && statement.balance > 0 ? statement.balance : 0;
-  const openItems = statement?.items ?? [];
+  // As mesmas abas do Financeiro do professor (08/10), sem os botões de editar.
+  const ledger = useMemo(() => buildLedger(txs as LedgerTx[], lessons as LedgerLesson[], {
+    appointment: ap.s, entry: L("Lançamento", "Entry"), payment: L("Pagamento", "Payment"),
+    package: L("Pacote", "Package"), voucher: "Voucher", leftover: L("Sobra de desconto", "Leftover discount"), adjustment: L("Ajuste", "Adjustment"),
+  }), [txs, lessons, ap]);
 
   return (
     <div className="space-y-6">
@@ -57,23 +61,6 @@ export default function StudentBilling() {
         </Card>
       </div>
 
-      {openItems.length > 0 && (
-        <Card className="p-5">
-          <h2 className="mb-3 font-semibold">{L(`${ap.p} em aberto`, `Outstanding ${ap.lp}`)}</h2>
-          <div className="space-y-2">
-            {openItems.map(i => (
-              <div key={i.id} className="flex items-center justify-between gap-2 border-t border-border pt-2 text-sm first:border-0 first:pt-0">
-                <div>
-                  <div>{format(new Date(i.date), L("dd/MM/yyyy 'às' HH:mm", "MMM d, yyyy 'at' h:mm a"))}</div>
-                  <div className="text-xs text-muted-foreground">{i.detail}{i.partial ? L(" · saldo restante", " · remaining balance") : ""}</div>
-                </div>
-                <Badge variant="destructive">{fmtMoney(i.amount)}</Badge>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {settings?.show_payment_info_to_students && (settings.pix_key || settings.payment_link) && (
         <Card className="p-5 space-y-3 border-primary/40">
           <h2 className="font-semibold">{L("Como pagar", "How to pay")}</h2>
@@ -81,20 +68,9 @@ export default function StudentBilling() {
         </Card>
       )}
 
-      <Card className="p-5">
-        <h2 className="font-semibold mb-3">{L("Extrato", "Statement")}</h2>
-        {txs.length === 0 && <p className="text-sm text-muted-foreground">{L("Nenhum lançamento.", "No entries.")}</p>}
-        <div className="space-y-2">
-          {txs.map(t => (
-            <div key={t.id} className="flex items-center justify-between border-t border-border pt-2 first:border-0 first:pt-0 text-sm">
-              <div>
-                <div>{t.description ?? (t.kind === "lesson" ? ap.s : t.kind === "voucher" ? "Voucher" : t.kind === "package" ? L("Pacote", "Package") : L("Lançamento", "Entry"))}</div>
-                <div className="text-xs text-muted-foreground">{format(new Date(t.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
-              </div>
-              <Badge variant={Number(t.amount) >= 0 ? "default" : "destructive"}>{fmt(Number(t.amount))}</Badge>
-            </div>
-          ))}
-        </div>
+      <Card className="p-4 md:p-5">
+        <h2 className="mb-3 font-semibold">{L("Extrato", "Statement")}</h2>
+        <AccountLedger ledger={ledger} defaultTab={owed > 0 ? "lessons" : "payments"} />
       </Card>
     </div>
   );

@@ -195,3 +195,11 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Agenda com visão do mês (pedido da esposa do Thiago, repassado por ele): no computador, cada dia mostra até 3 atendimentos com hora e nome, "+N mais" e o "+" para marcar; no celular, pontinhos na cor de cada profissional e, embaixo, a lista do dia tocado. Tocar no dia abre a visão de 1 dia | T |
+
+### 08/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Financeiro refeito: cada conta abre em três abas. "Aulas" fica na ordem da data da aula (antes saía na ordem em que a cobrança foi lançada), agrupada por mês, e cada aula diz se está paga, quanto falta e com o que foi paga ("Pago com Pacote 10 aulas · 12/09"). "Pagamentos" mostra cada pagamento ou pacote numa linha só (dinheiro + desconto do pacote), com a barra de quanto já foi usado, "Abateu 7 de 10 aulas", quanto sobra e a lista das aulas onde foi abatido. "Extrato" junta tudo com o saldo depois de cada linha. Botão para trocar entre mais recentes / mais antigas primeiro | T |
+| Financeiro mais prático: busca pelo nome, filtros (Todas, A receber, Com crédito, Em atraso), o pacote em uso aparece no cartão da conta ("sobra R$ 660, 3 aulas"), os botões de cobrança foram para um menu "Cobrar" (mensagem, Pix, e-mail) e o resto para "⋯"; ao registrar um pagamento, a tela mostra antes quais aulas ele vai quitar | T |
+| Portal do cliente: o Financeiro mostra as mesmas abas, sem os botões de editar | T |

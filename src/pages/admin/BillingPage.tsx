@@ -8,7 +8,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
-import { Plus, ChevronDown, ChevronRight, Pencil, Trash2, CalendarClock, Wallet, ArrowDownLeft, ArrowUpRight, Info, Percent, Copy, Mail, History } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import AccountLedger from "@/components/AccountLedger";
+import { buildLedger, currentPackage, lessonsLeftIn, type AccountLedger as Ledger } from "@/lib/ledger";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { accountKey, accountLabel, fmtMoney, capitalize } from "@/lib/balance";
@@ -42,7 +46,8 @@ type StudentRow = { id: string; student_name: string; guardian_name: string | nu
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
 type DiscountRow = { student_name: string; guardian_name: string | null; kind: DiscountKind; value: number };
 
-type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null; discount: Discount | null };
+type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null; discount: Discount | null; ledger: Ledger };
+type AccountFilter = "all" | "owed" | "credit" | "overdue";
 
 // Lessons are always charged at the list price. A package is the money received
 // plus a voucher for the discount, so 10 lessons close at exactly zero.
@@ -76,12 +81,6 @@ const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[
 // recalcula sozinho a cada aula; os outros dois são um abatimento pontual,
 // que entra como voucher e fica parado onde está.
 type DiscountScope = "lesson" | "open" | "always";
-
-const kindLabel = (t: Tx, v: Vocabulary) =>
-  t.kind === "lesson" ? v.appointment.s
-    : t.kind === "package" ? L("Pacote", "Package")
-      : t.kind === "voucher" ? "Voucher"
-        : Number(t.amount) >= 0 ? L("Pagamento", "Payment") : L("Ajuste", "Adjustment");
 
 export default function BillingPage() {
   const teacherName = useTeacherName();
@@ -185,14 +184,27 @@ export default function BillingPage() {
       discountByKey.set(accountKey(d), { kind: d.kind, value: Number(d.value) });
     }
 
-    const merged = [...byKey.values()].map(s => ({
-      ...s,
-      txs: txsByKey.get(s.key) ?? [],
-      nextLesson: nextByKey.get(s.key) ?? null,
-      discount: discountByKey.get(s.key) ?? null,
-    }));
+    const doneByKey = new Map<string, LessonRow[]>();
+    for (const l of done) (doneByKey.get(accountKey(l)) ?? doneByKey.set(accountKey(l), []).get(accountKey(l))!).push(l);
+    const ledgerLabels = {
+      appointment: v.appointment.s, entry: L("Lançamento", "Entry"), payment: L("Pagamento", "Payment"),
+      package: L("Pacote", "Package"), voucher: "Voucher", leftover: L("Sobra de desconto", "Leftover discount"), adjustment: L("Ajuste", "Adjustment"),
+    };
+
+    const merged = [...byKey.values()].map(s => {
+      const own = txsByKey.get(s.key) ?? [];
+      return {
+        ...s,
+        txs: own,
+        nextLesson: nextByKey.get(s.key) ?? null,
+        discount: discountByKey.get(s.key) ?? null,
+        // Mesma ordem que computeStatements recebeu: o empate entre aulas na
+        // mesma hora fica igual nos dois, e o "em aberto" bate.
+        ledger: buildLedger(own, doneByKey.get(s.key) ?? [], ledgerLabels, packages),
+      };
+    });
     return sortAccounts(merged, sort);
-  }, [txs, students, lessons, discounts, sort, v]);
+  }, [txs, students, lessons, discounts, sort, v, packages]);
 
   // O widget de cobrança do Android lê daqui (e da tela Hoje): quem acabou de
   // registrar um pagamento vê o widget já sem aquela dívida.
@@ -249,7 +261,24 @@ export default function BillingPage() {
       + (r.data.noEmail ? L(` · ${r.data.noEmail} sem e-mail no cadastro`, ` · ${r.data.noEmail} without email`) : ""));
   };
 
-  const overdueCount = useMemo(() => accounts.filter(isOverdue).length, [accounts]);
+  // ---- Busca e filtro (08/10) ----
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<AccountFilter>("all");
+  const FILTERS: { key: AccountFilter; label: string }[] = [
+    { key: "all", label: L("Todas", "All") },
+    { key: "owed", label: L("A receber", "To receive") },
+    { key: "credit", label: L("Com crédito", "With credit") },
+    { key: "overdue", label: L("Em atraso", "Overdue") },
+  ];
+  const matches = (a: Account, f: AccountFilter) =>
+    f === "all" || (f === "owed" ? a.owed > 0 : f === "credit" ? a.owed <= 0 && a.balance > 0 : isOverdue(a));
+  const counts = useMemo(() => Object.fromEntries((["all", "owed", "credit", "overdue"] as AccountFilter[])
+    .map(f => [f, accounts.filter(a => matches(a, f)).length])) as Record<AccountFilter, number>, [accounts]);
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const norm = (x: string | null) => (x ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return accounts.filter(a => matches(a, filter) && (!q || norm(a.label).includes(q) || norm(a.student).includes(q) || norm(a.guardian).includes(q)));
+  }, [accounts, filter, query]);
 
   // ---- Register payment ----
   const quickOption = QUICK.find(x => x.key === quick) ?? QUICK[0];
@@ -261,6 +290,17 @@ export default function BillingPage() {
     : Number(String(voucher || "0").replace(",", ".")) || 0;
   const creditValue = Math.round((payValue + voucherValue) * 100) / 100;
   const leftover = payFor ? Math.round((creditValue - payFor.owed) * 100) / 100 : 0;
+  // O que este pagamento quita, da mais antiga para a mais nova - a mesma
+  // regra do extrato, para quem registra ver antes onde o dinheiro vai cair.
+  const payPreview = (() => {
+    if (!payFor || !(creditValue > 0)) return [];
+    let pool = creditValue;
+    return payFor.items.map(i => {
+      const take = Math.round(Math.min(pool, i.amount) * 100) / 100;
+      pool = Math.round((pool - take) * 100) / 100;
+      return { ...i, take };
+    }).filter(i => i.take > 0);
+  })();
 
   const openPay = (a: Account) => {
     haptics.tap();
@@ -449,22 +489,30 @@ export default function BillingPage() {
         </div>
 
         {!loading && <PeriodSummary lessons={lessons} txs={txs} statements={accounts} />}
-        {overdueCount > 0 && (
-          <div className="text-xs text-destructive">{L(`${overdueCount} conta${overdueCount > 1 ? "s" : ""} em atraso (mais de 30 dias)`, `${overdueCount} overdue account${overdueCount > 1 ? "s" : ""} (over 30 days)`)}</div>
-        )}
-
         {!loading && accounts.length > 0 && (
-          <div className="flex items-center justify-between gap-3">
-            <span className="text-xs text-muted-foreground">
-              {L(`${accounts.length} conta${accounts.length > 1 ? "s" : ""}`, `${accounts.length} account${accounts.length > 1 ? "s" : ""}`)}
-            </span>
+          <div className="space-y-2">
             <div className="flex items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={query} onChange={e => setQuery(e.target.value)} placeholder={L("Buscar pelo nome", "Search by name")}
+                  aria-label={L("Buscar conta", "Search account")} className="h-10 rounded-xl pl-9" />
+              </div>
+              <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              {FILTERS.map(f => (
+                <button key={f.key} type="button" onClick={() => { haptics.tap(); setFilter(f.key); }}
+                  className={cn("rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+                    filter === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted",
+                    f.key === "overdue" && filter !== f.key && counts.overdue > 0 && "text-destructive")}>
+                  {f.label} <span className="tabular-nums opacity-70">{counts[f.key]}</span>
+                </button>
+              ))}
               {accounts.some(a => a.owed > 0) && (
-                <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === "all"} onClick={chargeAllEmail}>
+                <Button size="sm" variant="ghost" className="ml-auto h-8 gap-1 rounded-xl text-xs" disabled={mailing === "all"} onClick={chargeAllEmail}>
                   <Mail className="h-3.5 w-3.5" /> {L("Cobrar todos por e-mail", "Email all reminders")}
                 </Button>
               )}
-              <SortMenu value={sort} options={ACCOUNT_SORTS} onChange={setSort} />
             </div>
           </div>
         )}
@@ -473,169 +521,124 @@ export default function BillingPage() {
           <ListSkeleton rows={4} />
         ) : accounts.length === 0 ? (
           <EmptyState icon={Wallet} title={L("Nenhuma conta ainda", "No accounts yet")} description={L(`As contas aparecem aqui assim que houver ${v.client.lp} ou ${ap.lp}.`, `Accounts show up here once you have ${v.client.lp} or ${ap.lp}.`)} />
+        ) : visible.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">{L("Nenhuma conta com esse filtro.", "No accounts match this filter.")}</p>
         ) : (
           <div className="space-y-3">
-            {accounts.map(a => {
+            {visible.map(a => {
               const isExp = !!expanded[a.key];
               const overdue = isOverdue(a);
               const credit = a.balance > 0 ? a.balance : 0;
+              const pkg = currentPackage(a.ledger.sources);
+              const pkgLeft = pkg ? lessonsLeftIn(pkg, a.ledger.charges) : null;
+              const toggle = () => { haptics.tap(); setExpanded(e => ({ ...e, [a.key]: !isExp })); };
               return (
-                <Card key={a.key} className="rounded-2xl p-4 md:p-5">
-                  <div className="flex items-start justify-between gap-3 flex-wrap">
-                    <button className="flex items-center gap-2 text-left min-w-0" onClick={() => { haptics.tap(); setExpanded(e => ({ ...e, [a.key]: !isExp })); }}>
-                      {isExp ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
+                <Card key={a.key} className={cn("rounded-2xl p-4 md:p-5", overdue && "border-destructive/40")}>
+                  <div className="flex items-start justify-between gap-3">
+                    <button className="flex min-w-0 items-start gap-2 text-left" onClick={toggle} aria-expanded={isExp}>
+                      {isExp ? <ChevronDown className="mt-1 h-4 w-4 shrink-0" /> : <ChevronRight className="mt-1 h-4 w-4 shrink-0" />}
                       <div className="min-w-0">
-                        <div className="font-semibold text-lg truncate">{a.label}</div>
-                        <div className="text-xs text-muted-foreground truncate">
-                          {v.client.s}: {a.student}
-                          {a.items.length > 0 ? ` · ${a.items.length} ${a.items.length > 1 ? v.appointment.lp : v.appointment.l} ${L("em aberto", "outstanding")}` : L(" · em dia", " · up to date")}
+                        <div className="truncate text-lg font-semibold">{a.label}</div>
+                        <div className="truncate text-xs text-muted-foreground">
+                          {a.guardian ? `${v.client.s}: ${a.student} · ` : ""}
+                          {a.items.length > 0 ? `${a.items.length} ${a.items.length > 1 ? ap.lp : ap.l} ${L("em aberto", "outstanding")}` : L("em dia", "up to date")}
                         </div>
-                        {a.discount && (
-                          <Badge variant="outline" className="mt-1 gap-1 text-[10px] font-normal">
-                            <Percent className="h-2.5 w-2.5" />
-                            {L("Desconto fixo de", "Standing discount of")} {describeDiscount(a.discount)}
-                          </Badge>
-                        )}
                       </div>
                     </button>
-                    <div className="flex items-center gap-3 ml-auto">
-                      <div className="text-right">
-                        {credit > 0 ? (
-                          <>
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Crédito", "Credit")}</div>
-                            <div className="text-xl font-bold tabular-nums text-success">{fmtMoney(credit)}</div>
-                          </>
-                        ) : a.owed > 0 ? (
-                          <>
-                            <div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
-                              {overdue ? L(`Em atraso · ${daysOpen(a.oldestOpenDate)} dias`, `Overdue · ${daysOpen(a.oldestOpenDate)} days`) : L("A receber", "To receive")}
-                            </div>
-                            <div className={`text-xl font-bold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(a.owed)}</div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Situação", "Status")}</div>
-                            <div className="text-base font-medium text-muted-foreground">{L("Em dia", "Up to date")}</div>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex flex-col gap-1.5">
-                        <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
-                          <Plus className="w-4 h-4" /> {L("Pagamento", "Payment")}
-                        </Button>
-                        {a.owed > 0 && (
-                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyCollection(a)}>
-                            <Copy className="w-3.5 h-3.5" /> {L("Copiar cobrança", "Copy request")}
-                          </Button>
-                        )}
-                        {a.owed > 0 && (
-                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === a.key} onClick={() => emailCharge(a)}>
-                            <Mail className="w-3.5 h-3.5" /> {L("Cobrar por e-mail", "Email reminder")}
-                          </Button>
-                        )}
-                        {a.owed > 0 && pixFor(a) && (
-                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => copyPix(a)}>
-                            <Copy className="w-3.5 h-3.5" /> {L("Copiar Pix", "Copy Pix")}
-                          </Button>
-                        )}
-                        {plan.packages && (
-                          <Button size="sm" variant="outline" className="h-8 gap-1 rounded-xl text-xs" onClick={() => openDiscount(a)}>
-                            <Percent className="w-3.5 h-3.5" /> {L("Desconto", "Discount")}
-                          </Button>
-                        )}
-                      </div>
+                    <div className="shrink-0 text-right">
+                      {a.owed > 0 ? (
+                        <>
+                          <div className={`text-[10px] uppercase tracking-wide ${overdue ? "text-destructive" : "text-muted-foreground"}`}>
+                            {overdue ? L(`Em atraso · ${daysOpen(a.oldestOpenDate)} dias`, `Overdue · ${daysOpen(a.oldestOpenDate)} days`) : L("A receber", "To receive")}
+                          </div>
+                          <div className={`text-xl font-bold tabular-nums ${overdue ? "text-destructive" : ""}`}>{fmtMoney(a.owed)}</div>
+                        </>
+                      ) : credit > 0 ? (
+                        <>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Crédito", "Credit")}</div>
+                          <div className="text-xl font-bold tabular-nums text-success">{fmtMoney(credit)}</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{L("Situação", "Status")}</div>
+                          <div className="text-base font-medium text-muted-foreground">{L("Em dia", "Up to date")}</div>
+                        </>
+                      )}
                     </div>
                   </div>
 
+                  {(pkg || a.discount) && (
+                    <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
+                      {pkg && (
+                        <Badge variant="outline" className="gap-1 border-primary/30 text-[11px] font-normal">
+                          <Package className="h-3 w-3 text-primary" />
+                          {pkg.label}: {L(`sobra ${fmtMoney(pkg.left)}`, `${fmtMoney(pkg.left)} left`)}
+                          {pkgLeft ? L(` (${pkgLeft} ${pkgLeft === 1 ? ap.l : ap.lp})`, ` (${pkgLeft} ${pkgLeft === 1 ? ap.l : ap.lp})`) : ""}
+                        </Badge>
+                      )}
+                      {a.discount && (
+                        <Badge variant="outline" className="gap-1 text-[11px] font-normal">
+                          <Percent className="h-3 w-3" />
+                          {L("Desconto fixo de", "Standing discount of")} {describeDiscount(a.discount)}
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 pl-6">
+                    <Button size="sm" className="h-9 gap-1 rounded-xl" onClick={() => openPay(a)}>
+                      <Plus className="h-4 w-4" /> {L("Pagamento", "Payment")}
+                    </Button>
+                    {a.owed > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="sm" variant="outline" className="h-9 gap-1 rounded-xl" onClick={() => haptics.tap()}>
+                            <Send className="h-3.5 w-3.5" /> {L("Cobrar", "Request")} <ChevronDown className="h-3.5 w-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start" className="rounded-xl">
+                          <DropdownMenuItem onClick={() => copyCollection(a)}><Copy className="mr-2 h-4 w-4" /> {L("Copiar mensagem (WhatsApp)", "Copy message")}</DropdownMenuItem>
+                          {pixFor(a) && <DropdownMenuItem onClick={() => copyPix(a)}><Copy className="mr-2 h-4 w-4" /> {L(`Copiar Pix de ${fmtMoney(a.owed)}`, `Copy Pix of ${fmtMoney(a.owed)}`)}</DropdownMenuItem>}
+                          <DropdownMenuItem disabled={mailing === a.key} onClick={() => emailCharge(a)}><Mail className="mr-2 h-4 w-4" /> {L("Enviar cobrança por e-mail", "Email reminder")}</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 rounded-xl" aria-label={L("Mais opções", "More options")} onClick={() => haptics.tap()}>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="rounded-xl">
+                        {plan.packages && <DropdownMenuItem onClick={() => openDiscount(a)}><Percent className="mr-2 h-4 w-4" /> {L("Desconto", "Discount")}</DropdownMenuItem>}
+                        <DropdownMenuItem disabled={mailing === a.key + ":s"} onClick={() => emailCharge(a, true)}><Mail className="mr-2 h-4 w-4" /> {L("Enviar extrato por e-mail", "Email statement")}</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => setHistoryFor(a)}><History className="mr-2 h-4 w-4" /> {L("E-mails enviados", "Emails sent")}</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    {!isExp && (
+                      <button type="button" onClick={toggle} className="ml-auto text-xs font-medium text-primary">
+                        {L("Ver detalhes", "Details")}
+                      </button>
+                    )}
+                  </div>
+
                   {isExp && (
-                    <div className="mt-4 border-t border-border pt-3 space-y-4">
-                      <div className="flex flex-wrap gap-2">
-                        <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-xl text-xs" disabled={mailing === a.key + ":s"} onClick={() => emailCharge(a, true)}>
-                          <Mail className="w-3.5 h-3.5" /> {L("Enviar extrato por e-mail", "Email statement")}
-                        </Button>
-                        <Button size="sm" variant="ghost" className="h-8 gap-1 rounded-xl text-xs" onClick={() => setHistoryFor(a)}>
-                          <History className="w-3.5 h-3.5" /> {L("E-mails enviados", "Emails sent")}
-                        </Button>
-                      </div>
+                    <div className="mt-4 space-y-3 border-t border-border pt-3">
                       {a.nextLesson && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <CalendarClock className="w-3.5 h-3.5" />
-                          {L(`${v.appointment.proximo} ${v.appointment.l}`, `Next ${v.appointment.l}`)}: <span className="text-foreground capitalize">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
-                          · {a.nextLesson.subject ?? v.appointment.s} ({teacherName(a.nextLesson.teacher)})
+                          <CalendarClock className="h-3.5 w-3.5" />
+                          {L(`${ap.proximo} ${ap.l}`, `Next ${ap.l}`)}: <span className="capitalize text-foreground">{format(new Date(a.nextLesson.start_at), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
+                          · {a.nextLesson.subject ?? ap.s} ({teacherName(a.nextLesson.teacher)})
                         </div>
                       )}
-
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Em aberto", "Outstanding")}</div>
-                        {a.items.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">{L(`${v.appointment.nenhum} ${v.appointment.l} em aberto.`, `No outstanding ${v.appointment.lp}.`)}</p>
-                        ) : (
-                          <ul className="divide-y divide-border rounded-xl border border-border">
-                            {a.items.map(i => (
-                              <li key={i.id} className="flex items-start justify-between gap-2 px-3 py-2 text-sm">
-                                <span className="min-w-0 truncate">
-                                  <span className="capitalize">{format(new Date(i.date), L("EEE dd/MM 'às' HH:mm", "EEE, MMM d 'at' h:mm a"), { locale: dateLocale() })}</span>
-                                  <span className="text-muted-foreground"> · {i.detail}</span>
-                                  {i.discount && (
-                                    <div className="text-[10px] text-muted-foreground truncate">{i.discount.label}</div>
-                                  )}
-                                </span>
-                                <span className="shrink-0 flex flex-col items-end">
-                                  {i.discount && (
-                                    <span className="text-[10px] text-muted-foreground line-through tabular-nums">
-                                      {fmtMoney(i.discount.gross)}
-                                    </span>
-                                  )}
-                                  <span className="font-medium tabular-nums">
-                                    {fmtMoney(i.amount)}{i.partial && <span className="text-xs font-normal text-muted-foreground"> {L("restante", "remaining")}</span>}
-                                  </span>
-                                  {i.discount && (
-                                    <span className="text-[10px] text-success tabular-nums">−{fmtMoney(i.discount.amount)} {L("desconto", "discount")}</span>
-                                  )}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{L("Extrato", "Statement")}</div>
-                        {a.txs.length === 0 ? (
-                          <p className="text-sm text-muted-foreground">{L("Nenhum lançamento ainda.", "No entries yet.")}</p>
-                        ) : (
-                          <ul className="space-y-1">
-                            {a.txs.map(t => {
-                              const val = Number(t.amount);
-                              const manual = t.kind !== "lesson";
-                              return (
-                                <li key={t.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm">
-                                  <div className="flex items-center gap-2 min-w-0">
-                                    {val >= 0 ? <ArrowDownLeft className="w-3.5 h-3.5 shrink-0 text-success" /> : <ArrowUpRight className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />}
-                                    <Badge variant="outline" className="shrink-0 text-[10px]">{kindLabel(t, v)}</Badge>
-                                    <span className="truncate text-muted-foreground">{t.description ?? "—"}</span>
-                                    <span className="shrink-0 text-xs text-muted-foreground whitespace-nowrap">{format(new Date(t.created_at), L("dd/MM", "MMM d"), { locale: dateLocale() })}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <span className={`font-medium tabular-nums whitespace-nowrap ${val >= 0 ? "text-success" : ""}`}>{val > 0 ? "+" : ""}{fmtMoney(val)}</span>
-                                    {manual ? (
-                                      <>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openEdit(t)} title={L("Editar", "Edit")}><Pencil className="w-3 h-3" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeTx(t)} title={L("Remover", "Remove")}><Trash2 className="w-3 h-3" /></Button>
-                                      </>
-                                    ) : t.lesson_id ? (
-                                      <>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => openLessonEdit(t.lesson_id!)} title={L(`Editar ${v.appointment.l}`, `Edit ${v.appointment.l}`)}><Pencil className="w-3 h-3" /></Button>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => removeLesson(t.lesson_id!)} title={L(`Excluir ${v.appointment.l}`, `Delete ${v.appointment.l}`)}><Trash2 className="w-3 h-3" /></Button>
-                                      </>
-                                    ) : null}
-                                  </div>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
-                      </div>
+                      <AccountLedger ledger={a.ledger} defaultTab={a.owed > 0 || a.ledger.sources.length === 0 ? "lessons" : "payments"} actions={{
+                        onEditLesson: openLessonEdit,
+                        onDeleteLesson: removeLesson,
+                        onEditTx: id => { const t = txs.find(x => x.id === id); if (t) openEdit(t); },
+                        onDeleteTx: id => { const t = txs.find(x => x.id === id); if (t) removeTx(t); },
+                        txInfo: id => { const t = txs.find(x => x.id === id); return t && { amount: Number(t.amount), kind: t.kind, description: t.description }; },
+                      }} />
                     </div>
                   )}
                 </Card>
@@ -709,6 +712,24 @@ export default function BillingPage() {
                         ? L(`Quita ${ap.pick("todos", "todas")} ${ap.os} ${ap.lp} em aberto${leftover > 0 ? ` e sobra ${fmtMoney(leftover)} de crédito` : ""}.`, `Pays off all outstanding ${ap.lp}${leftover > 0 ? ` with ${fmtMoney(leftover)} credit left over` : ""}.`)
                         : L(`Quita ${ap.os} ${ap.lp} mais ${ap.pick("antigos", "antigas")}; ficam ${fmtMoney(-leftover)} em aberto.`, `Pays off the oldest ${ap.lp}; ${fmtMoney(-leftover)} stays outstanding.`)}
                   </span>
+                </div>
+              )}
+              {payPreview.length > 0 && (
+                <div className="rounded-xl border border-border p-2.5">
+                  <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{L("Vai quitar", "Will pay off")}</div>
+                  <ul className="space-y-0.5 text-xs">
+                    {payPreview.slice(0, 5).map(i => (
+                      <li key={i.id} className="flex justify-between gap-2">
+                        <span className="min-w-0 truncate">
+                          <Check className={cn("mr-1 inline h-3 w-3", i.take < i.amount ? "text-warning" : "text-success")} />
+                          <span className="capitalize">{format(new Date(i.date), L("EEE dd/MM", "EEE MMM d"), { locale: dateLocale() })}</span>
+                          <span className="text-muted-foreground"> · {i.detail}</span>
+                        </span>
+                        <span className="shrink-0 tabular-nums">{i.take < i.amount ? L(`${fmtMoney(i.take)} de ${fmtMoney(i.amount)}`, `${fmtMoney(i.take)} of ${fmtMoney(i.amount)}`) : fmtMoney(i.amount)}</span>
+                      </li>
+                    ))}
+                    {payPreview.length > 5 && <li className="text-muted-foreground">{L(`+ ${payPreview.length - 5} ${ap.lp}`, `+ ${payPreview.length - 5} more`)}</li>}
+                  </ul>
                 </div>
               )}
               {!isVoucherOnly && (
