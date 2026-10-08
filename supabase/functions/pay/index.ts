@@ -268,9 +268,15 @@ Deno.serve(async (req) => {
       // A chave funciona? (e de quem é a conta)
       const acct = await stripe(key, "GET", "/account").catch(e => ({ error: String(e) }));
       if ((acct as { error?: string }).error) return json({ error: "stripe_refused", detail: (acct as { error: string }).error }, 400);
-      // O endereço que o Stripe avisa quando a família paga.
+      // O endereço que o Stripe avisa quando a família paga (trocando a chave,
+      // o aviso antigo sai para não ficarem dois).
+      const hookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/webhook?c=${account}`;
+      const old = await stripe(key, "GET", "/webhook_endpoints?limit=100").catch(() => ({ data: [] }));
+      for (const w of (old.data ?? []) as { id: string; url: string }[]) {
+        if (w.url === hookUrl) await stripe(key, "DELETE", `/webhook_endpoints/${w.id}`).catch(() => null);
+      }
       const hook = await stripe(key, "POST", "/webhook_endpoints", {
-        url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/webhook?c=${account}`,
+        url: hookUrl,
         enabled_events: ["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "checkout.session.expired"],
         description: "Cronys - pagamentos das famílias",
       });
