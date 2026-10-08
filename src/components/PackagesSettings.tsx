@@ -11,19 +11,19 @@ import { fmtMoney } from "@/lib/balance";
 import { useWords } from "@/hooks/useVocabulary";
 import { useLessonPrice } from "@/hooks/useLessonPrice";
 import { dbErrorMessage } from "@/lib/dbErrors";
-import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
+import { packageMinutes, type LessonPackage } from "@/lib/packages";
 import { useServices } from "@/hooks/useServices";
 import { WheelSelect } from "@/components/WheelSelect";
 
 import { L, currencySymbol } from "@/lib/i18n";
-type Draft = { id?: string; name: string; lessons: string; price: string; service_id: string | null };
+type Draft = { id?: string; name: string; lessons: string; price: string; service_id: string | null; minutes: string };
 
-const EMPTY: Draft = { name: "", lessons: "", price: "", service_id: null };
+const EMPTY: Draft = { name: "", lessons: "", price: "", service_id: null, minutes: "" };
 
 /**
  * Os pacotes da empresa (tabela lesson_packages, migration 20260925040000):
- * "N aulas por R$ X". No Financeiro eles viram botões que lançam o dinheiro e
- * um voucher com a diferença para o valor cheio.
+ * "N aulas de X min por R$ X". No Financeiro, vender um pacote dá à família N
+ * aulas, e cada aula realizada gasta uma (migration 20261008010000).
  */
 export default function PackagesSettings() {
   const w = useWords();
@@ -34,7 +34,7 @@ export default function PackagesSettings() {
   const [busy, setBusy] = useState(false);
   const { services: allServices } = useServices(false);
   const services = allServices ?? [];
-  const unit = (p: { service_id?: string | null }) => packageUnitPrice(p, services, listPrice);
+  const minutesOf = (p: Pick<LessonPackage, "minutes" | "service_id">) => packageMinutes(p, services);
   const serviceName = (id?: string | null) => services.find(s => s.id === id)?.name;
 
   const load = useCallback(async () => {
@@ -56,7 +56,12 @@ export default function PackagesSettings() {
       return;
     }
     setBusy(true);
-    const row = { name: draft.name.trim(), lessons, price, ...(services.length ? { service_id: draft.service_id } : {}) };
+    const minutes = draft.minutes.trim() ? Math.round(Number(draft.minutes)) : null;
+    if (minutes != null && !(minutes >= 5 && minutes <= 600)) {
+      toast.error(L(`A duração de cada ${ap.l} vai de 5 a 600 minutos`, `Each ${ap.l} lasts 5 to 600 minutes`));
+      return;
+    }
+    const row = { name: draft.name.trim(), lessons, price, minutes, ...(services.length ? { service_id: draft.service_id } : {}) };
     const { error } = draft.id
       ? await supabase.from("lesson_packages" as never).update(row as never).eq("id", draft.id)
       : await supabase.from("lesson_packages" as never).insert({ ...row, sort_order: items.length + 1 } as never);
@@ -78,7 +83,9 @@ export default function PackagesSettings() {
     if (error) toast.error(dbErrorMessage(error, w)); else { toast.success(L("Pacote excluído", "Package deleted")); load(); }
   };
 
-  const preview = draft ? packageVoucher(Math.round(Number(draft.lessons)) || 0, Number(String(draft.price).replace(",", ".")) || 0, unit(draft)) : 0;
+  const draftMinutes = draft ? (draft.minutes.trim() ? Number(draft.minutes) : minutesOf({ minutes: null, service_id: draft.service_id })) : 60;
+  const draftLessons = draft ? Math.round(Number(draft.lessons)) || 0 : 0;
+  const draftPrice = draft ? Number(String(draft.price).replace(",", ".")) || 0 : 0;
 
   return (
     <Card className="p-5 space-y-4">
@@ -86,8 +93,8 @@ export default function PackagesSettings() {
         <div>
           <h2 className="font-semibold text-sm uppercase text-muted-foreground">{L("Pacotes", "Packages")}</h2>
           <p className="text-xs text-muted-foreground mt-1">
-            {L(`Aparecem como botões ao registrar pagamento no Financeiro. ${cap1(ap.os)} ${ap.lp} continuam a ${fmtMoney(listPrice)}/h; a diferença entra como voucher.`,
-               `They show up as buttons when recording a payment in Billing. ${ap.p} stay at ${fmtMoney(listPrice)}/h; the difference goes in as a voucher.`)}
+            {L(`Vendidos no Financeiro (botão Pagamento). O pacote abate ${ap.lp}, não valor: cada ${ap.l} ${ap.pick("realizado", "realizada")} gasta 1 ${ap.l} do pacote, e ${ap.um} ${ap.l} com o dobro da duração gasta 2.`,
+               `Sold in Billing (Payment button). The package uses up ${ap.lp}, not money: each completed ${ap.l} uses 1, and a ${ap.l} twice as long uses 2.`)}
           </p>
         </div>
         {!draft && (
@@ -109,14 +116,14 @@ export default function PackagesSettings() {
             <div className="min-w-0">
               <div className={`truncate text-sm font-medium ${p.active ? "" : "text-muted-foreground line-through"}`}>{p.name}</div>
               <div className="text-xs text-muted-foreground">
-                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp}{serviceName(p.service_id) ? L(` de ${serviceName(p.service_id)}`, ` of ${serviceName(p.service_id)}`) : ""} {L("por", "for")} {fmtMoney(Number(p.price))}
-                {packageVoucher(p.lessons, Number(p.price), unit(p)) > 0 && ` · ${L("voucher de", "voucher of")} ${fmtMoney(packageVoucher(p.lessons, Number(p.price), unit(p)))}`}
+                {p.lessons} {p.lessons === 1 ? ap.l : ap.lp} {L("de", "of")} {minutesOf(p)} min{serviceName(p.service_id) ? ` · ${serviceName(p.service_id)}` : ""} {L("por", "for")} {fmtMoney(Number(p.price))}
+                <span className="text-muted-foreground/80"> · {fmtMoney(Number(p.price) / p.lessons)} {L(`por ${ap.l}`, `per ${ap.l}`)}</span>
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <Switch checked={p.active} onCheckedChange={v => toggle(p, v)} title={p.active ? L("Desligar", "Turn off") : L("Ligar", "Turn on")} />
               <Button size="icon" variant="ghost" className="h-8 w-8" title={L("Editar", "Edit")}
-                onClick={() => setDraft({ id: p.id, name: p.name, lessons: String(p.lessons), price: String(p.price), service_id: p.service_id ?? null })}>
+                onClick={() => setDraft({ id: p.id, name: p.name, lessons: String(p.lessons), price: String(p.price), service_id: p.service_id ?? null, minutes: p.minutes ? String(p.minutes) : "" })}>
                 <Pencil className="h-3.5 w-3.5" />
               </Button>
               <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive" title={L("Excluir", "Delete")} onClick={() => remove(p)}>
@@ -153,8 +160,16 @@ export default function PackagesSettings() {
               <Input type="number" step="0.01" inputMode="decimal" value={draft.price} onChange={e => setDraft({ ...draft, price: e.target.value })} />
             </div>
           </div>
-          {preview > 0 && (
-            <p className="text-xs text-muted-foreground">{L(`Voucher lançado junto: ${fmtMoney(preview)} (a diferença para o valor cheio).`, `Voucher added with it: ${fmtMoney(preview)} (the difference from full price).`)}</p>
+          <div>
+            <Label>{L(`Duração de cada ${ap.l} (min)`, `Length of each ${ap.l} (min)`)}</Label>
+            <Input type="number" min={5} max={600} value={draft.minutes} onChange={e => setDraft({ ...draft, minutes: e.target.value })}
+              placeholder={String(minutesOf({ minutes: null, service_id: draft.service_id }))} />
+          </div>
+          {draftLessons > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {L(`${draftLessons} ${draftLessons === 1 ? ap.l : ap.lp} de ${draftMinutes} min${draftPrice > 0 ? `, ${fmtMoney(draftPrice / draftLessons)} cada (avuls${ap.pick("o", "a")}: ${fmtMoney(listPrice * draftMinutes / 60)})` : ""}. ${cap1(ap.um)} ${ap.l} de ${draftMinutes * 2} min gasta 2.`,
+                 `${draftLessons} ${draftLessons === 1 ? ap.l : ap.lp} of ${draftMinutes} min${draftPrice > 0 ? `, ${fmtMoney(draftPrice / draftLessons)} each (single: ${fmtMoney(listPrice * draftMinutes / 60)})` : ""}. A ${draftMinutes * 2}-min ${ap.l} uses 2.`)}
+            </p>
           )}
           <div className="flex justify-end gap-2">
             <Button variant="outline" size="sm" onClick={() => setDraft(null)} disabled={busy}>{L("Cancelar", "Cancel")}</Button>

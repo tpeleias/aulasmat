@@ -3500,4 +3500,89 @@ DELETE FROM public.lessons WHERE id = current_setting('teste.pl')::uuid;
 DELETE FROM public.push_outbox;
 DELETE FROM public.push_devices;
 
+\echo '--- 62. Pacote que abate aulas, nao valor (08/10) ---'
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.a')::uuid;
+-- Tres aulas realizadas de Gil (sem responsavel), 220 cada; a primeira ja paga em dinheiro.
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-08-01 10:00-03', 60, 220, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-08-08 10:00-03', 60, 220, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-08-15 10:00-03', 120, 220, 'realizada');
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.a')::uuid, 'Gil', 220, 'adjustment', 'Pix');
+SELECT public.assert((SELECT payment_status FROM public.lessons WHERE student_name = 'Gil' AND start_at = '2026-08-01 10:00-03') = 'pago',
+  'a primeira aula de Gil esta paga em dinheiro');
+INSERT INTO public.lesson_packages (account_id, name, lessons, price) VALUES (current_setting('teste.a')::uuid, 'Pacote 4', 4, 800);
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.sell_package('Gil', NULL, (SELECT id FROM public.lesson_packages WHERE name = 'Pacote 4'), 800);
+COMMIT;
+
+SELECT public.assert((SELECT count(*) FROM public.package_purchases WHERE student_name = 'Gil') = 1, 'a venda cria a compra');
+-- O pacote nao pega a aula ja paga; pega a de 1h (1 bloco) e a de 2h (2 blocos).
+SELECT public.assert((SELECT coalesce(sum(u.sessions), 0) FROM public.package_uses u JOIN public.lessons l ON l.id = u.lesson_id
+                       WHERE l.student_name = 'Gil') = 3, 'as aulas em aberto gastam 3 blocos (1h + 2h)');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.package_uses u JOIN public.lessons l ON l.id = u.lesson_id
+                       WHERE l.student_name = 'Gil' AND l.start_at = '2026-08-01 10:00-03'), 'a aula paga em dinheiro fica fora do pacote');
+SELECT public.assert((SELECT amount FROM public.wallet_transactions w JOIN public.lessons l ON l.id = w.lesson_id
+                       WHERE l.student_name = 'Gil' AND l.start_at = '2026-08-15 10:00-03' AND w.kind = 'lesson') = 0,
+  'aula coberta pelo pacote nao custa nada em dinheiro');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Gil') = 0,
+  'conta zerada: pacote vendido e pago, aulas cobertas');
+SELECT public.assert((SELECT payment_status FROM public.lessons WHERE student_name = 'Gil' AND start_at = '2026-08-15 10:00-03') = 'pago',
+  'aula coberta aparece como paga');
+
+-- Mais duas aulas de 1h: a primeira gasta o ultimo bloco, a segunda volta a ser cobrada.
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-08-22 10:00-03', 60, 220, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-08-29 10:00-03', 60, 220, 'realizada');
+SELECT public.assert((SELECT sum(u.sessions) FROM public.package_uses u JOIN public.package_purchases p ON p.id = u.purchase_id
+                       WHERE p.student_name = 'Gil') = 4, 'o pacote de 4 acabou');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Gil') = -220,
+  'a quinta aula volta a ser cobrada em dinheiro');
+
+-- Desmarcar uma aula e encurtar outra devolve blocos.
+UPDATE public.lessons SET status = 'agendada' WHERE student_name = 'Gil' AND start_at = '2026-08-22 10:00-03';
+UPDATE public.lessons SET duration_minutes = 30 WHERE student_name = 'Gil' AND start_at = '2026-08-15 10:00-03';
+-- Agora: 1h (1) + 30min (0.5) = 1.5 usados; a de 29/08 pega 1; sobra 1.5.
+SELECT public.assert((SELECT sum(u.sessions) FROM public.package_uses u JOIN public.package_purchases p ON p.id = u.purchase_id
+                       WHERE p.student_name = 'Gil') = 2.5, 'desmarcar e encurtar aula devolve blocos ao pacote');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Gil') = 0,
+  'e o que estava cobrado volta a ser coberto');
+-- Aula de 2h com 1,5 bloco sobrando: 3/4 cobertos, 1/4 em dinheiro (440 / 4 = 110).
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Gil', 'thiago', '2026-09-05 10:00-03', 120, 220, 'realizada');
+SELECT public.assert((SELECT amount FROM public.wallet_transactions w JOIN public.lessons l ON l.id = w.lesson_id
+                       WHERE l.student_name = 'Gil' AND l.start_at = '2026-09-05 10:00-03' AND w.kind = 'lesson') = -110,
+  'pacote que nao cobre a aula inteira: so o resto vira dinheiro');
+
+-- A familia le a propria compra; a outra empresa nao.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ub'), true);
+SELECT public.assert((SELECT count(*) FROM public.package_purchases) = 0, 'outra empresa nao ve as compras');
+SELECT public.assert((SELECT count(*) FROM public.package_uses) = 0, 'nem os usos');
+DO $$
+BEGIN
+  PERFORM public.sell_package('Gil', NULL, (SELECT id FROM public.lesson_packages LIMIT 1), 0, NULL, current_setting('teste.a')::uuid);
+  RAISE EXCEPTION 'FALHOU: vendeu pacote na empresa dos outros';
+EXCEPTION WHEN raise_exception THEN
+  IF sqlerrm LIKE 'FALHOU%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - nao vende pacote na empresa dos outros';
+END $$;
+COMMIT;
+
+-- Excluir a compra: as aulas voltam ao valor cheio e a cobranca do pacote sai.
+DELETE FROM public.package_purchases WHERE student_name = 'Gil';
+SELECT public.assert((SELECT count(*) FROM public.package_uses u JOIN public.lessons l ON l.id = u.lesson_id WHERE l.student_name = 'Gil') = 0,
+  'sem compra, sem uso');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Gil') = 220 + 800 - 220 - 220 - 110 - 220 - 440,
+  'excluir a compra devolve as aulas ao valor cheio (o pagamento recebido fica)');
+DELETE FROM public.lessons WHERE student_name = 'Gil';
+DELETE FROM public.wallet_transactions WHERE student_name = 'Gil';
+DELETE FROM public.lesson_packages WHERE name = 'Pacote 4';
+
 \echo '=== FIM ==='

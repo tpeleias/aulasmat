@@ -131,19 +131,33 @@ const tools = [
   },
   {
     name: "add_wallet_credit",
-    description: "Registra dinheiro recebido de um responsável/aluno (Pix, pacote, etc.) e, se for o caso, o voucher de desconto junto. As aulas em aberto da conta são quitadas automaticamente, das mais antigas para as mais novas; o que sobrar fica como crédito. É a ÚNICA forma de marcar aulas como pagas. Confirme valor e conta com o usuário antes de chamar.",
+    description: "Registra dinheiro recebido de um responsável/aluno (Pix, cartão, pagamento de um pacote já vendido) e, se for o caso, um voucher de desconto. As cobranças em aberto da conta são quitadas automaticamente, das mais antigas para as mais novas; o que sobrar fica como crédito. NÃO use para vender pacote: para isso existe sell_package. Confirme valor e conta com o usuário antes de chamar.",
     input_schema: {
       type: "object",
       properties: {
         student_name: { type: "string" },
         guardian_name: { type: "string" },
         amount: { type: "number", description: "Dinheiro recebido, valor positivo em reais. Use 0 para lançar só um voucher." },
-        kind: { type: "string", enum: ["package", "adjustment"], description: "Padrão package" },
+        kind: { type: "string", enum: ["adjustment"], description: "Sempre adjustment (pacote se vende com sell_package)" },
         description: { type: "string" },
         voucher_amount: { type: "number", description: "Voucher de desconto lançado junto, em reais (crédito, sempre positivo). A partir do Cronys Start." },
-        voucher_description: { type: "string", description: "Motivo do voucher, ex: 'Voucher pacote 10 aulas'" },
+        voucher_description: { type: "string", description: "Motivo do voucher, ex: 'Desconto combinado'" },
       },
       required: ["student_name", "amount"],
+    },
+  },
+  {
+    name: "sell_package",
+    description: "Vende um pacote cadastrado (Configurações → Pacotes) para a conta: ela ganha N aulas, e cada aula realizada gasta uma (uma aula com o dobro da duração gasta duas), começando pelas que estão em aberto. O valor do pacote entra como cobrança; paid_amount é o que já foi recebido agora (0 se vai pagar depois). Confirme o pacote, a conta e o valor recebido com o usuário antes de chamar.",
+    input_schema: {
+      type: "object",
+      properties: {
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
+        package_name: { type: "string", description: "Nome do pacote cadastrado, ex: 'Pacote 10 aulas'" },
+        paid_amount: { type: "number", description: "Dinheiro recebido agora, em reais. 0 se ainda não pagou." },
+      },
+      required: ["student_name", "package_name"],
     },
   },
   {
@@ -367,7 +381,7 @@ async function executeTool(admin: ReturnType<typeof createClient>, accountId: st
         _student: student.student_name,
         _guardian: student.guardian_name,
         _amount: money,
-        _kind: input.kind ?? "package",
+        _kind: "adjustment",
         _description: input.description ?? null,
         _voucher: voucher,
         _voucher_description: input.voucher_description ?? null,
@@ -376,6 +390,24 @@ async function executeTool(admin: ReturnType<typeof createClient>, accountId: st
       // explica. Devolver como resultado deixa o assistente repassar isso.
       if (error) return { error: error.message };
       return { account: student, received: money, voucher, ids: data };
+    }
+    case "sell_package": {
+      const student = await resolveStudent(admin, accountId, input.student_name, input.guardian_name);
+      if ("error" in student) return student;
+      const { data: pkgs } = await admin.from("lesson_packages").select("id, name, lessons, price, active").eq("account_id", accountId);
+      const wanted = String(input.package_name ?? "").trim().toLowerCase();
+      const pkg = (pkgs ?? []).find((p: any) => p.name.trim().toLowerCase() === wanted)
+        ?? (pkgs ?? []).find((p: any) => p.active && p.name.toLowerCase().includes(wanted));
+      if (!pkg) return { error: `Pacote "${input.package_name}" não encontrado. Pacotes cadastrados: ${(pkgs ?? []).map((p: any) => p.name).join(", ") || "nenhum"}.` };
+      const { data, error } = await admin.rpc("sell_package", {
+        _account: accountId,
+        _student: student.student_name,
+        _guardian: student.guardian_name,
+        _package: pkg.id,
+        _paid: Math.abs(Number(input.paid_amount ?? 0)),
+      });
+      if (error) return { error: error.message };
+      return { account: student, package: pkg.name, lessons: pkg.lessons, price: pkg.price, paid: Number(input.paid_amount ?? 0), ids: data };
     }
     case "list_blocks": {
       let q = admin.from("blocks").select("*").eq("account_id", accountId);
@@ -491,11 +523,11 @@ ${vocabularyNote(vocabulary)}${english ? `\nIDIOMA: esta empresa usa o app em IN
 A data e a hora atuais estão no fim destas instruções. Use-as para interpretar datas relativas como "amanhã", "quinta que vem", etc.
 
 Regras importantes:
-- Preço e duração padrão: nesta empresa a aula custa ${brl(listPrice)} por hora e dura 60 minutos. Ao criar uma aula, OMITA o campo "price" — o sistema preenche com esse valor sozinho. Só informe "price" quando o professor pedir um valor diferente para aquela aula. Nunca lance uma aula com valor menor por causa de pacote ou de desconto: o valor da aula é sempre o cheio, e o abatimento entra como voucher no financeiro. Se o professor quiser mudar o valor de todas as próximas aulas, o lugar é Configurações → Valor da aula (não dá para mudar por aqui).
+- Preço e duração padrão: nesta empresa a aula custa ${brl(listPrice)} por hora e dura 60 minutos. Ao criar uma aula, OMITA o campo "price" — o sistema preenche com esse valor sozinho. Só informe "price" quando o professor pedir um valor diferente para aquela aula. Nunca lance uma aula com valor menor por causa de pacote ou de desconto: o valor da aula é sempre o cheio; pacote e desconto são tratados no financeiro. Se o professor quiser mudar o valor de todas as próximas aulas, o lugar é Configurações → Valor da aula (não dá para mudar por aqui).
 - Antes de criar, editar, excluir uma aula, marcar pagamento ou mexer no financeiro, explique em texto o que você vai fazer (resumo claro: aluno, data/hora, valor, etc.) e só chame a ferramenta depois que o usuário confirmar na conversa. Exceção: consultas (listar, buscar, ver saldo) pode fazer direto, sem confirmar.
 - O campo "teacher" nas ferramentas é sempre o slug (ex: "thiago", "mayara"), nunca o nome com acento/maiúscula. Use list_teachers para descobrir o slug certo.
 - Financeiro: toda aula realizada vira uma cobrança automática pelo valor cheio. Para dar baixa, registre o dinheiro recebido com add_wallet_credit — o sistema quita as aulas mais antigas primeiro e o status "pago"/"pendente" de cada aula é calculado sozinho (não existe marcação manual). Use get_wallet_balance para saber quanto uma conta deve.
-- Pacotes funcionam por VOUCHER, nunca por desconto no valor da aula. O dinheiro recebido entra como amount e o voucher cobre a diferença até o valor cheio, para a conta fechar exata. Com a aula a ${brl(listPrice)}: 10 aulas somam ${brl(listPrice * 10)} e 5 aulas somam ${brl(listPrice * 5)} — confirme com o professor quanto ele recebeu e lance o voucher pela diferença. Se ele disser só "pacote de 10", pergunte o valor recebido em vez de supor.
+- Pacotes abatem AULAS, não valor: vender um pacote (sell_package) dá à conta N aulas, e cada aula realizada gasta uma (com o dobro da duração gasta duas), começando pelas que estão em aberto. A aula coberta não custa nada em dinheiro; o valor do pacote entra como uma cobrança só. Se o professor disser "vendi o pacote de 10 e recebi R$ X", chame sell_package com paid_amount X. Se ele recebeu depois, é add_wallet_credit. Pacotes antigos, vendidos antes de 08/10, eram dinheiro + voucher e continuam assim até acabar.
 - Voucher avulso (desconto ou cortesia combinada pelo professor): add_wallet_credit com amount 0 e voucher_amount igual ao desconto. Voucher é sempre crédito para o aluno, nunca cobrança.
 - Desconto fixo de família: o professor pode marcar um desconto permanente para uma família na tela de Cobrança. Quando existe, o sistema lança o crédito sozinho a cada aula realizada, e por isso a família deve menos que a soma das aulas — isso é esperado, não é erro. Você NÃO cria nem altera desconto fixo: se o professor pedir, diga que é em Cobrança → botão Desconto na conta da família. Descontos fixos hoje: ${discountLine}
 - Planos: algumas funções são dos planos pagos (pacotes, vouchers, desconto por família e bloqueio que se repete toda semana, a partir do Start), e cada plano tem limite de profissionais e de clientes ATIVOS (quem tem atendimento nos últimos 60 dias ou marcado). Se uma ferramenta devolver um erro de plano ou de limite, repasse isso ao professor com naturalidade e siga em frente — não tente contornar por outro caminho, e nunca prometa mudar o plano: quem muda é quem cuida da conta dele.

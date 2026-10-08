@@ -11,7 +11,7 @@ import { format, isFuture } from "date-fns";
 import { Plus, ChevronDown, ChevronRight, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AccountLedger from "@/components/AccountLedger";
-import { buildLedger, currentPackage, lessonsLeftIn, type AccountLedger as Ledger } from "@/lib/ledger";
+import { buildLedger, currentPackage, currentPurchase, lessonsLeftIn, type AccountLedger as Ledger, type PackagePurchase, type PackageUse } from "@/lib/ledger";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
@@ -36,7 +36,7 @@ import PeriodSummary from "@/components/PeriodSummary";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { cap, type Vocabulary } from "@/lib/vocabulary";
-import { packageUnitPrice, packageVoucher, type LessonPackage } from "@/lib/packages";
+import { packageMinutes, type LessonPackage } from "@/lib/packages";
 import { useServices, type Service } from "@/hooks/useServices";
 
 import { dateLocale, L, currencySymbol } from "@/lib/i18n";
@@ -44,32 +44,34 @@ import { useTeacherName } from "@/hooks/useTeacherName";
 type Tx = LedgerTx & { kind: "package" | "lesson" | "adjustment" | "voucher" };
 type StudentRow = { id: string; student_name: string; guardian_name: string | null };
 type LessonRow = LedgerLesson & { status: string; guardian_name: string | null; price: number | null };
+type PurchaseRow = PackagePurchase & { student_name: string; guardian_name: string | null };
 type DiscountRow = { student_name: string; guardian_name: string | null; kind: DiscountKind; value: number };
 
 type Account = AccountStatement & { txs: Tx[]; nextLesson: LessonRow | null; discount: Discount | null; ledger: Ledger };
 type AccountFilter = "all" | "owed" | "credit" | "overdue";
 
-// Lessons are always charged at the list price. A package is the money received
-// plus a voucher for the discount, so 10 lessons close at exactly zero.
 type QuickOption = {
   key: string;
   label: string;
   amount?: number;
-  voucher?: number;
   kind: "package" | "adjustment" | "voucher";
   hint?: string;
+  /** Pacote por aulas (08/10): vender cria a compra com N aulas. */
+  packageId?: string;
+  sessions?: number;
+  minutes?: number;
 };
 
 // Os pacotes são os que a empresa cadastrou em Configurações → Pacotes
-// (tabela lesson_packages). O voucher é a diferença para o valor cheio,
-// calculada com o valor da hora de agora.
+// (tabela lesson_packages). Desde 08/10 o pacote abate AULAS: vender cria uma
+// compra com N aulas (sell_package) e cada aula realizada gasta uma.
 const quickOptions = (listPrice: number, v: Vocabulary, packages: LessonPackage[], services: Service[]): QuickOption[] => [
   { key: "all", label: L("Quitar tudo", "Pay everything"), kind: "adjustment" },
   ...packages.filter(p => p.active).map((p): QuickOption => {
-    const voucher = packageVoucher(p.lessons, Number(p.price), packageUnitPrice(p, services, listPrice));
+    const minutes = packageMinutes(p, services);
     return {
-      key: `pkg:${p.id}`, label: p.name, amount: Number(p.price), voucher, kind: "package",
-      hint: `${fmtMoney(Number(p.price))}${voucher > 0 ? ` + voucher ${fmtMoney(voucher)}` : ""}`,
+      key: `pkg:${p.id}`, label: p.name, amount: Number(p.price), kind: "package", packageId: p.id, sessions: p.lessons, minutes,
+      hint: `${p.lessons} × ${minutes} min · ${fmtMoney(Number(p.price))}`,
     };
   }),
   { key: "single", label: L(`1 ${v.appointment.l} ${v.appointment.pick("avulso", "avulsa")}`, `1 single ${v.appointment.l}`), amount: listPrice, kind: "adjustment" },
@@ -105,6 +107,8 @@ export default function BillingPage() {
   const [students, setStudents] = useState<StudentRow[]>([]);
   const [lessons, setLessons] = useState<LessonRow[]>([]);
   const [discounts, setDiscounts] = useState<DiscountRow[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
+  const [uses, setUses] = useState<PackageUse[]>([]);
   const [payment, setPayment] = useState<PaymentInfo>({ pixKey: null, paymentLink: null });
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -114,7 +118,6 @@ export default function BillingPage() {
   const [quick, setQuick] = useState("all");
   const [amount, setAmount] = useState<string>("");
   const [desc, setDesc] = useState("");
-  const [voucher, setVoucher] = useState("");
   const [allowNegative, setAllowNegative] = useState(false);
 
   const [editingTx, setEditingTx] = useState<Tx | null>(null);
@@ -131,15 +134,20 @@ export default function BillingPage() {
   const [dItemId, setDItemId] = useState("");
 
   const load = async () => {
-    const [tx, st, ls, dc, cfg] = await Promise.all([
-      supabase.from("wallet_transactions").select("id, guardian_name, student_name, amount, kind, lesson_id, description, created_at").order("created_at", { ascending: false }),
+    const [tx, st, ls, dc, cfg, pp, pu] = await Promise.all([
+      supabase.from("wallet_transactions").select("*").order("created_at", { ascending: false }),
       supabase.from("students").select("id, student_name, guardian_name").order("student_name"),
       supabase.from("lessons").select("id, student_name, guardian_name, start_at, duration_minutes, subject, teacher, status, price"),
       supabase.from("account_discounts").select("student_name, guardian_name, kind, value"),
       // "*" e não a lista: as colunas de pagamento por empresa vêm da migration
       // 20260924010000, e pedir coluna que não existe derrubaria a consulta.
       supabase.from("settings").select("*").maybeSingle(),
+      // Pacotes por aulas (migration 20261008010000); sem a tabela, fica vazio.
+      supabase.from("package_purchases" as never).select("*"),
+      supabase.from("package_uses" as never).select("purchase_id, lesson_id, sessions"),
     ]);
+    setPurchases(pp.error ? [] : ((pp.data ?? []) as unknown as PurchaseRow[]));
+    setUses(pu.error ? [] : ((pu.data ?? []) as unknown as PackageUse[]));
     setPayment(paymentInfoFromSettings(cfg.data as Record<string, unknown> | null));
     setTxs((tx.data ?? []) as Tx[]);
     setStudents((st.data ?? []) as StudentRow[]);
@@ -200,11 +208,15 @@ export default function BillingPage() {
         discount: discountByKey.get(s.key) ?? null,
         // Mesma ordem que computeStatements recebeu: o empate entre aulas na
         // mesma hora fica igual nos dois, e o "em aberto" bate.
-        ledger: buildLedger(own, doneByKey.get(s.key) ?? [], ledgerLabels, packages),
+        ledger: buildLedger(own, doneByKey.get(s.key) ?? [], ledgerLabels, {
+          catalog: packages,
+          purchases: purchases.filter(p => accountKey(p) === s.key),
+          uses,
+        }),
       };
     });
     return sortAccounts(merged, sort);
-  }, [txs, students, lessons, discounts, sort, v, packages]);
+  }, [txs, students, lessons, discounts, sort, v, packages, purchases, uses]);
 
   // O widget de cobrança do Android lê daqui (e da tela Hoje): quem acabou de
   // registrar um pagamento vê o widget já sem aquela dívida.
@@ -283,17 +295,31 @@ export default function BillingPage() {
   // ---- Register payment ----
   const quickOption = QUICK.find(x => x.key === quick) ?? QUICK[0];
   const isVoucherOnly = quickOption.kind === "voucher";
+  const isPackage = !!quickOption.packageId;
   const rawValue = Number(String(amount).replace(",", "."));
   const payValue = isVoucherOnly ? 0 : (Number.isFinite(rawValue) ? rawValue : 0);
-  const voucherValue = isVoucherOnly
-    ? (Number.isFinite(rawValue) ? rawValue : 0)
-    : Number(String(voucher || "0").replace(",", ".")) || 0;
+  const voucherValue = isVoucherOnly ? (Number.isFinite(rawValue) ? rawValue : 0) : 0;
   const creditValue = Math.round((payValue + voucherValue) * 100) / 100;
   const leftover = payFor ? Math.round((creditValue - payFor.owed) * 100) / 100 : 0;
   // O que este pagamento quita, da mais antiga para a mais nova - a mesma
   // regra do extrato, para quem registra ver antes onde o dinheiro vai cair.
+  // Pacote: as aulas em aberto que ele vai cobrir (até acabar), por duração.
+  const packagePreview = (() => {
+    if (!payFor || !isPackage) return [];
+    let left = quickOption.sessions ?? 0;
+    const out: { id: string; date: string; detail: string; sessions: number; partial: boolean }[] = [];
+    for (const c of payFor.ledger.charges) {
+      if (left <= 0 || !c.lessonId || c.open <= 0) continue;
+      const l = lessons.find(x => x.id === c.lessonId);
+      const need = l ? (l.duration_minutes / (quickOption.minutes ?? 60)) * (c.open / (c.net || c.open)) : 1;
+      const take = Math.min(left, need);
+      left -= take;
+      out.push({ id: c.id, date: c.date, detail: c.detail, sessions: Math.round(take * 100) / 100, partial: take < need - 1e-6 });
+    }
+    return out;
+  })();
   const payPreview = (() => {
-    if (!payFor || !(creditValue > 0)) return [];
+    if (!payFor || !(creditValue > 0) || isPackage) return [];
     let pool = creditValue;
     return payFor.items.map(i => {
       const take = Math.round(Math.min(pool, i.amount) * 100) / 100;
@@ -310,7 +336,6 @@ export default function BillingPage() {
     setQuick(q.key);
     setAmount(q.key === "all" ? String(a.owed) : q.amount != null ? String(q.amount) : "");
     setDesc(q.key === "all" ? L("Pagamento", "Payment") : q.kind === "package" ? q.label : "");
-    setVoucher(q.voucher ? String(q.voucher) : "");
     setAllowNegative(false);
   };
 
@@ -318,7 +343,6 @@ export default function BillingPage() {
     if (!payFor) return;
     setQuick(key);
     const q = QUICK.find(x => x.key === key)!;
-    setVoucher(q.voucher ? String(q.voucher) : "");
     if (key === "all") { setAmount(String(payFor.owed)); setDesc("Pagamento"); }
     else if (key === "custom" || key === "voucher") { setAmount(""); setDesc(key === "voucher" ? "Voucher" : ""); }
     else { setAmount(String(q.amount)); setDesc(q.label); }
@@ -329,6 +353,21 @@ export default function BillingPage() {
     const q = quickOption;
     const value = payValue;
 
+    if (isPackage) {
+      if (!Number.isFinite(value) || value < 0) { toast.error(L("Informe quanto recebeu agora (ou 0)", "Enter how much you received now (or 0)")); return; }
+      setBusy(true);
+      const { error } = await supabase.rpc("sell_package" as never, {
+        _student: payFor.student, _guardian: payFor.guardian, _package: q.packageId, _paid: value,
+        _paid_description: desc.trim() && desc.trim() !== q.label ? desc.trim() : null,
+      } as never);
+      setBusy(false);
+      if (error) { haptics.warning(); toast.error(dbErrorMessage(error, v)); return; }
+      haptics.success();
+      toast.success(L(`${q.label} vendido: ${q.sessions} ${ap.lp} para ${payFor.label}`, `${q.label} sold: ${q.sessions} ${ap.lp} for ${payFor.label}`));
+      setPayFor(null);
+      load();
+      return;
+    }
     if (isVoucherOnly) {
       if (!(voucherValue > 0)) { toast.error(L("Informe o valor do voucher", "Enter the voucher amount")); return; }
     } else {
@@ -463,6 +502,19 @@ export default function BillingPage() {
     if (error) toast.error(error.message); else { haptics.success(); toast.success(L("Lançamento removido", "Entry removed")); load(); }
   };
 
+  // ---- Pacote por aulas: excluir a compra ----
+  const removePurchase = async (id: string) => {
+    const p = purchases.find(x => x.id === id);
+    if (!p) return;
+    if (!confirm(L(`Excluir a compra "${p.name}"?\n\n${cap(ap.os)} ${ap.lp} que ela cobriu voltam a ser ${ap.pick("cobrados", "cobradas")} pelo valor cheio e a cobrança do pacote sai. Um pagamento já registrado continua como crédito.`,
+      `Delete the purchase "${p.name}"?\n\nThe ${ap.lp} it covered go back to full price and the package charge is removed. A payment already recorded stays as credit.`))) return;
+    const { error } = await supabase.from("package_purchases" as never).delete().eq("id", id);
+    if (error) { toast.error(dbErrorMessage(error, v)); return; }
+    haptics.success();
+    toast.success(L("Compra do pacote excluída", "Package purchase deleted"));
+    load();
+  };
+
   // ---- Lessons behind a charge ----
   const openLessonEdit = async (lessonId: string) => {
     const { data, error } = await supabase.from("lessons").select("*").eq("id", lessonId).maybeSingle();
@@ -529,7 +581,8 @@ export default function BillingPage() {
               const isExp = !!expanded[a.key];
               const overdue = isOverdue(a);
               const credit = a.balance > 0 ? a.balance : 0;
-              const pkg = currentPackage(a.ledger.sources);
+              const purchase = currentPurchase(a.ledger.packages);
+              const pkg = purchase ? null : currentPackage(a.ledger.sources);
               const pkgLeft = pkg ? lessonsLeftIn(pkg, a.ledger.charges) : null;
               const toggle = () => { haptics.tap(); setExpanded(e => ({ ...e, [a.key]: !isExp })); };
               return (
@@ -567,8 +620,14 @@ export default function BillingPage() {
                     </div>
                   </div>
 
-                  {(pkg || a.discount) && (
+                  {(purchase || pkg || a.discount) && (
                     <div className="mt-2 flex flex-wrap gap-1.5 pl-6">
+                      {purchase && (
+                        <Badge className="gap-1 border-transparent bg-primary/15 text-[11px] font-medium text-primary hover:bg-primary/15">
+                          <Package className="h-3 w-3" />
+                          {purchase.name}: {L(`restam ${String(purchase.left).replace(".", ",")} de ${purchase.sessions}`, `${purchase.left} of ${purchase.sessions} left`)}
+                        </Badge>
+                      )}
                       {pkg && (
                         <Badge variant="outline" className="gap-1 border-primary/30 text-[11px] font-normal">
                           <Package className="h-3 w-3 text-primary" />
@@ -638,6 +697,7 @@ export default function BillingPage() {
                         onEditTx: id => { const t = txs.find(x => x.id === id); if (t) openEdit(t); },
                         onDeleteTx: id => { const t = txs.find(x => x.id === id); if (t) removeTx(t); },
                         txInfo: id => { const t = txs.find(x => x.id === id); return t && { amount: Number(t.amount), kind: t.kind, description: t.description }; },
+                        onDeletePurchase: removePurchase,
                       }} />
                     </div>
                   )}
@@ -679,7 +739,7 @@ export default function BillingPage() {
               </div>
               <div className="grid grid-cols-[1fr_2fr] gap-3">
                 <div>
-                  <Label>{isVoucherOnly ? `Voucher (${currencySymbol()})` : `${L("Valor", "Amount")} (${currencySymbol()})`}</Label>
+                  <Label>{isVoucherOnly ? `Voucher (${currencySymbol()})` : isPackage ? `${L("Recebido agora", "Received now")} (${currencySymbol()})` : `${L("Valor", "Amount")} (${currencySymbol()})`}</Label>
                   <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={amount} onChange={e => setAmount(e.target.value)} />
                 </div>
                 <div>
@@ -687,17 +747,32 @@ export default function BillingPage() {
                   <Input className="h-11 rounded-xl" value={desc} onChange={e => setDesc(e.target.value)} placeholder={isVoucherOnly ? L("Ex.: desconto combinado", "E.g. agreed discount") : L("Ex.: Pix de setembro", "E.g. September transfer")} />
                 </div>
               </div>
-              {!isVoucherOnly && plan.packages && (
-                <div>
-                  <Label>{L("Voucher junto", "Voucher with it")} ({currencySymbol()})</Label>
-                  <Input type="number" step="0.01" inputMode="decimal" className="h-11 rounded-xl" value={voucher} onChange={e => setVoucher(e.target.value)} placeholder="0" />
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    {L(`Desconto do pacote em crédito, já que ${ap.os} ${ap.lp} entram a ${fmtMoney(listPrice)}/h. Os botões de pacote calculam esse valor sozinhos; os pacotes se cadastram em Configurações → Pacotes.`,
-                       `The package discount as credit, since ${ap.lp} are billed at ${fmtMoney(listPrice)}/h. Package buttons calculate it for you; set up packages in Settings → Packages.`)}
+              {isPackage && (
+                <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-3 text-xs">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                    <Package className="h-4 w-4" /> {L(`${quickOption.sessions} ${ap.lp} de ${quickOption.minutes} min`, `${quickOption.sessions} ${ap.lp} of ${quickOption.minutes} min`)}
+                  </div>
+                  <p className="text-muted-foreground">
+                    {L(`Cada ${ap.l} ${ap.pick("realizado", "realizada")} gasta 1 ${ap.l} do pacote (${ap.um} ${ap.l} de ${(quickOption.minutes ?? 60) * 2} min gasta 2). O valor do pacote entra como cobrança; o que você recebeu agora a paga.`,
+                       `Each completed ${ap.l} uses 1 from the package (a ${(quickOption.minutes ?? 60) * 2}-min ${ap.l} uses 2). The package price is charged; what you received now pays it.`)}
                   </p>
+                  {packagePreview.length > 0 && (
+                    <div>
+                      <div className="mb-0.5 font-medium">{L(`Já cobre ${packagePreview.length} ${packagePreview.length === 1 ? ap.l : ap.lp} em aberto:`, `Already covers ${packagePreview.length} open ${packagePreview.length === 1 ? ap.l : ap.lp}:`)}</div>
+                      <ul className="space-y-0.5">
+                        {packagePreview.slice(0, 5).map(i => (
+                          <li key={i.id} className="flex justify-between gap-2">
+                            <span className="min-w-0 truncate"><Check className="mr-1 inline h-3 w-3 text-primary" /><span className="capitalize">{format(new Date(i.date), L("EEE dd/MM", "EEE MMM d"), { locale: dateLocale() })}</span> <span className="text-muted-foreground">· {i.detail}</span></span>
+                            {i.sessions !== 1 && <span className="shrink-0 tabular-nums">{String(i.sessions).replace(".", ",")}</span>}
+                          </li>
+                        ))}
+                        {packagePreview.length > 5 && <li className="text-muted-foreground">+ {packagePreview.length - 5}</li>}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               )}
-              {creditValue > 0 && (
+              {creditValue > 0 && !isPackage && (
                 <div className="flex items-start gap-2 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>
@@ -732,7 +807,7 @@ export default function BillingPage() {
                   </ul>
                 </div>
               )}
-              {!isVoucherOnly && (
+              {!isVoucherOnly && !isPackage && (
                 <label className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Checkbox checked={allowNegative} onCheckedChange={v => setAllowNegative(v === true)} />
                   {L("Ajuste ou estorno (permitir valor negativo)", "Adjustment or refund (allow negative amount)")}
