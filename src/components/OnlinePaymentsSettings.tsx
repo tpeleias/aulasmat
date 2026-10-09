@@ -130,7 +130,7 @@ export default function OnlinePaymentsSettings() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
                 <Label htmlFor="pay-installments">{L("Parcelar no cartão em até", "Card installments up to")}</Label>
-                <p className="text-xs text-muted-foreground">{L("Pix e boleto ficam à vista. A taxa de cada parcela é a do seu plano no Asaas. Cada parcela paga entra no Financeiro.", "Pix and boleto stay in full. Each installment's fee is your Asaas plan's. Each installment paid goes into Billing.")}</p>
+                <p className="text-xs text-muted-foreground">{L("O Pix é sempre à vista. A taxa de cada parcela é a do seu plano no Asaas. Cada parcela paga entra no Financeiro.", "Pix is always in full. Each installment's fee is your Asaas plan's. Each installment paid goes into Billing.")}</p>
               </div>
               <select id="pay-installments" className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
                 value={st.installments} onChange={e => saveInstallments(Number(e.target.value))}>

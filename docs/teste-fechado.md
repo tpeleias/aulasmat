@@ -228,4 +228,4 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Texto de ajuda do Asaas corrigido em Configurações → Integrações (o Thiago não achou "Integrações" no Asaas): a chave se gera pelo computador, na foto do canto de cima → Integrações → Chaves API, só para o administrador | T |
-| Asaas parcelado: em Configurações → Integrações, com o Asaas em uso, o campo "Parcelar no cartão em até" (Portal de Aulas começa em 12x, como o Thiago pediu). Pix e boleto à vista. Cada parcela paga entra no Financeiro uma vez só, e a página do link avisa "No cartão, em até 12x" | T |
+| Asaas parcelado: em Configurações → Integrações, com o Asaas em uso, o campo "Parcelar no cartão em até" (Portal de Aulas começa em 12x, como o Thiago pediu). O Pix é sempre à vista. Cada parcela paga entra no Financeiro uma vez só, e a página do link avisa "No cartão, em até 12x" | T |

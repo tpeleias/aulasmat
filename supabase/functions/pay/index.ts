@@ -208,7 +208,7 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
     const link = await asaas(key, "POST", "/paymentLinks", {
       name: title.slice(0, 255), description: what, value: st.owed,
       // Parcelado (só no cartão) quando a empresa aceita mais de 1x
-      // (accounts.online_max_installments); Pix e boleto seguem à vista.
+      // (accounts.online_max_installments); o Pix é sempre à vista.
       billingType: "UNDEFINED", chargeType: acct.installments > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
       maxInstallmentCount: acct.installments, notificationEnabled: false,
     });

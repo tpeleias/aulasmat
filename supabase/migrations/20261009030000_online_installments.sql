@@ -1,7 +1,7 @@
 -- Parcelamento no cartão pelo Asaas (09/10, pedido do Thiago: "até 12x").
 -- O número de parcelas vai em cada link que a função "pay" cria no Asaas;
--- aqui fica o máximo que a empresa aceita (1 = só à vista). Pix e boleto
--- continuam à vista. O Stripe segue à vista.
+-- aqui fica o máximo que a empresa aceita (1 = só à vista). O Pix é sempre
+-- à vista. O Stripe segue à vista.
 
 ALTER TABLE public.accounts
   ADD COLUMN IF NOT EXISTS online_max_installments integer NOT NULL DEFAULT 1
