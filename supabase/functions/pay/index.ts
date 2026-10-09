@@ -205,13 +205,23 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
       await asaas(key, "DELETE", `/paymentLinks/${o.session_id}`).catch(() => null);
       await admin.from("online_payments").update({ status: "expired" }).eq("id", o.id).eq("status", "open");
     }
-    const link = await asaas(key, "POST", "/paymentLinks", {
+    const linkBody = (n: number) => ({
       name: title.slice(0, 255), description: what, value: st.owed,
-      // Parcelado (só no cartão) quando a empresa aceita mais de 1x
+      // Parcelado quando a empresa aceita mais de 1x
       // (accounts.online_max_installments); o Pix é sempre à vista.
-      billingType: "UNDEFINED", chargeType: acct.installments > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
-      maxInstallmentCount: acct.installments, notificationEnabled: false,
+      billingType: "UNDEFINED", chargeType: n > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
+      maxInstallmentCount: n, notificationEnabled: false,
     });
+    let link;
+    try {
+      link = await asaas(key, "POST", "/paymentLinks", linkBody(acct.installments));
+    } catch (e) {
+      // O Asaas recusou o parcelado (valor baixo para parcelar, conta sem
+      // cartão...): segue à vista, para a família conseguir pagar.
+      if (acct.installments <= 1) throw e;
+      console.error("asaas parcelado recusado", String(e));
+      link = await asaas(key, "POST", "/paymentLinks", linkBody(1));
+    }
     id = link.id; url = link.url;
   }
   await admin.from("online_payments").insert({
