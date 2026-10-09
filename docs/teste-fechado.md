@@ -223,7 +223,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Link de pagamento curto: no lugar do endereço comprido da função, cronys.com.br/pagar/<código>, com uma página que mostra a empresa e o valor em aberto antes de abrir o pagamento. Os links compridos já enviados continuam funcionando | T |
 | Pagamento on-line (só o Portal de Aulas): interruptor para escolher entre o padrão (Pix e link das Configurações, como o InfinitePay) e o pagamento on-line, e escolha entre Stripe e Asaas. O Asaas conecta pela chave de API, como o Stripe, e o pagamento entra sozinho no Financeiro | T |
 
-### 09/10 - site
+### 09/10 - site e versão 1.18.7 (`.aab` no teste interno e no fechado em 09/10)
 
 | Mudança | Origem |
 |---|---|
