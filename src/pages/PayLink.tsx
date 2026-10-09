@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { CheckCircle2, CreditCard, Lock, PartyPopper } from "lucide-react";
+import { CheckCircle2, CreditCard, Lock, PartyPopper, QrCode } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -13,7 +13,7 @@ import { L } from "@/lib/i18n";
  * quem é a cobrança e o valor em aberto de agora, e só abre o Stripe ou o
  * Asaas da empresa quando a pessoa toca em "Pagar" (função "pay").
  */
-type Info = { ok: boolean; error?: string; company?: string; name?: string; owed?: number; items?: number; available?: boolean; installments?: number };
+type Info = { ok: boolean; error?: string; company?: string; name?: string; owed?: number; items?: number; available?: boolean; installments?: number; provider?: "stripe" | "asaas" | null };
 type State = "loading" | "ready" | "paid" | "settled" | "unavailable" | "invalid";
 
 export default function PayLink() {
@@ -21,7 +21,7 @@ export default function PayLink() {
   const [params] = useSearchParams();
   const [info, setInfo] = useState<Info | null>(null);
   const [state, setState] = useState<State>("loading");
-  const [opening, setOpening] = useState(false);
+  const [opening, setOpening] = useState<"pix" | "card" | null>(null);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -38,12 +38,14 @@ export default function PayLink() {
     })();
   }, [code]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pay = async () => {
-    setOpening(true); setFailed(false);
-    const { data, error } = await supabase.functions.invoke("pay", { body: { action: "open", code } });
+  // No Asaas, um botão por forma (Pix ou cartão; boleto não); no Stripe, um
+  // só, que já oferece os dois.
+  const pay = async (method: "pix" | "card") => {
+    setOpening(method); setFailed(false);
+    const { data, error } = await supabase.functions.invoke("pay", { body: { action: "open", code, method } });
     const d = data as { ok?: boolean; url?: string; error?: string } | null;
     if (error || !d?.ok || !d.url) {
-      setOpening(false);
+      setOpening(null);
       if (d?.error === "nothing_owed") { setState("settled"); return; }
       setFailed(true);
       return;
@@ -79,11 +81,25 @@ export default function PayLink() {
                 <div className="mt-1 text-4xl font-bold tabular-nums text-primary">{fmtMoney(info.owed ?? 0)}</div>
                 {!!info.items && <div className="mt-1 text-xs text-muted-foreground">{L(`${info.items} ${info.items === 1 ? "item" : "itens"} em aberto`, `${info.items} open ${info.items === 1 ? "item" : "items"}`)}</div>}
               </div>
-              <Button size="lg" className="w-full gap-2" disabled={opening} onClick={pay}>
-                <CreditCard className="h-5 w-5" /> {opening ? L("Abrindo o pagamento…", "Opening payment…") : L("Pagar com cartão ou Pix", "Pay by card or Pix")}
-              </Button>
-              {(info.installments ?? 1) > 1 && (
-                <p className="text-sm text-muted-foreground">{L(`No cartão, em até ${info.installments}x.`, `By card, in up to ${info.installments} installments.`)}</p>
+              {info.provider === "asaas" ? (
+                <div className="space-y-2">
+                  <Button size="lg" className="w-full gap-2" disabled={!!opening} onClick={() => pay("pix")}>
+                    <QrCode className="h-5 w-5" /> {opening === "pix" ? L("Abrindo o Pix…", "Opening Pix…") : L("Pagar com Pix", "Pay with Pix")}
+                  </Button>
+                  <Button size="lg" variant="outline" className="w-full gap-2" disabled={!!opening} onClick={() => pay("card")}>
+                    <CreditCard className="h-5 w-5" /> {opening === "card" ? L("Abrindo o cartão…", "Opening card…")
+                      : (info.installments ?? 1) > 1 ? L(`Pagar no cartão, em até ${info.installments}x`, `Pay by card, up to ${info.installments} installments`) : L("Pagar no cartão", "Pay by card")}
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Button size="lg" className="w-full gap-2" disabled={!!opening} onClick={() => pay("card")}>
+                    <CreditCard className="h-5 w-5" /> {opening ? L("Abrindo o pagamento…", "Opening payment…") : L("Pagar com cartão ou Pix", "Pay by card or Pix")}
+                  </Button>
+                  {(info.installments ?? 1) > 1 && (
+                    <p className="text-sm text-muted-foreground">{L(`No cartão, em até ${info.installments}x.`, `By card, in up to ${info.installments} installments.`)}</p>
+                  )}
+                </>
               )}
               {failed && <p className="text-sm text-destructive">{L("Não deu para abrir agora. Tente de novo em instantes.", "Couldn't open it now. Try again shortly.")}</p>}
               <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground"><Lock className="h-3.5 w-3.5" /> {L("Pagamento seguro. O recibo chega por e-mail.", "Secure payment. The receipt arrives by email.")}</p>
