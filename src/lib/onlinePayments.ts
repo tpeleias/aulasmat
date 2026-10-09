@@ -10,9 +10,14 @@ import { L } from "@/lib/i18n";
  * `connected`: o escolhido está conectado (o botão de pagar aparece).
  */
 export type Provider = "stripe" | "asaas";
-/** `installments`: até quantas vezes o Asaas deixa parcelar no cartão (1 = à vista). */
-export type OnlineStatus = { allowed: boolean; connected: boolean; provider: Provider | null; stripe: boolean; asaas: boolean; installments: number };
-const NONE: OnlineStatus = { allowed: false, connected: false, provider: null, stripe: false, asaas: false, installments: 1 };
+/**
+ * Parcelas no cartão pelo Asaas, por faixa de valor (migration
+ * 20261009040000): "até R$ up_to, em até max vezes"; acima de todas, `above`.
+ */
+export type InstallmentRule = { tiers: { up_to: number; max: number }[]; above: number };
+/** `installments`: o máximo de parcelas de sempre; `installment_rule`: a regra por valor. */
+export type OnlineStatus = { allowed: boolean; connected: boolean; provider: Provider | null; stripe: boolean; asaas: boolean; installments: number; installment_rule: InstallmentRule };
+const NONE: OnlineStatus = { allowed: false, connected: false, provider: null, stripe: false, asaas: false, installments: 1, installment_rule: { tiers: [], above: 1 } };
 
 export function useOnlinePayments() {
   const [status, setStatus] = useState<OnlineStatus>(NONE);
@@ -54,8 +59,14 @@ export async function setProvider(p: Provider | null) {
   return error ? error.message : null;
 }
 
-/** Até quantas vezes o Asaas deixa parcelar no cartão (1 a 12). */
-export async function setInstallments(n: number) {
-  const { error } = await supabase.rpc("set_online_installments" as never, { _n: n } as never);
+/** Grava a regra de parcelas por valor (o banco confere: faixas crescentes, de 1 a 12x). */
+export async function setInstallmentRule(rule: InstallmentRule) {
+  const { error } = await supabase.rpc("set_online_installment_rule" as never, { _rule: rule } as never);
   return error ? error.message : null;
+}
+
+/** Até quantas parcelas para um valor (a mesma conta da função "pay"). */
+export function installmentsFor(rule: InstallmentRule, amount: number) {
+  const tier = [...rule.tiers].sort((a, b) => a.up_to - b.up_to).find(t => amount <= t.up_to);
+  return tier ? tier.max : rule.above;
 }
