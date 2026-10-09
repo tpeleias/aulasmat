@@ -10,8 +10,9 @@ import { L } from "@/lib/i18n";
  * `connected`: o escolhido está conectado (o botão de pagar aparece).
  */
 export type Provider = "stripe" | "asaas";
-export type OnlineStatus = { allowed: boolean; connected: boolean; provider: Provider | null; stripe: boolean; asaas: boolean };
-const NONE: OnlineStatus = { allowed: false, connected: false, provider: null, stripe: false, asaas: false };
+/** `installments`: até quantas vezes o Asaas deixa parcelar no cartão (1 = à vista). */
+export type OnlineStatus = { allowed: boolean; connected: boolean; provider: Provider | null; stripe: boolean; asaas: boolean; installments: number };
+const NONE: OnlineStatus = { allowed: false, connected: false, provider: null, stripe: false, asaas: false, installments: 1 };
 
 export function useOnlinePayments() {
   const [status, setStatus] = useState<OnlineStatus>(NONE);
@@ -50,5 +51,11 @@ export function payErrorText(code: string) {
 /** Escolhe o pagamento on-line: nulo = o padrão (Pix e link das Configurações). */
 export async function setProvider(p: Provider | null) {
   const { error } = await supabase.rpc("set_online_provider" as never, { _provider: p } as never);
+  return error ? error.message : null;
+}
+
+/** Até quantas vezes o Asaas deixa parcelar no cartão (1 a 12). */
+export async function setInstallments(n: number) {
+  const { error } = await supabase.rpc("set_online_installments" as never, { _n: n } as never);
   return error ? error.message : null;
 }
