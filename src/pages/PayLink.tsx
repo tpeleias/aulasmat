@@ -13,7 +13,7 @@ import { L } from "@/lib/i18n";
  * quem é a cobrança e o valor em aberto de agora, e só abre o Stripe ou o
  * Asaas da empresa quando a pessoa toca em "Pagar" (função "pay").
  */
-type Info = { ok: boolean; error?: string; company?: string; name?: string; owed?: number; items?: number; available?: boolean };
+type Info = { ok: boolean; error?: string; company?: string; name?: string; owed?: number; items?: number; available?: boolean; installments?: number };
 type State = "loading" | "ready" | "paid" | "settled" | "unavailable" | "invalid";
 
 export default function PayLink() {
@@ -82,6 +82,9 @@ export default function PayLink() {
               <Button size="lg" className="w-full gap-2" disabled={opening} onClick={pay}>
                 <CreditCard className="h-5 w-5" /> {opening ? L("Abrindo o pagamento…", "Opening payment…") : L("Pagar com cartão ou Pix", "Pay by card or Pix")}
               </Button>
+              {(info.installments ?? 1) > 1 && (
+                <p className="text-sm text-muted-foreground">{L(`No cartão, em até ${info.installments}x.`, `By card, in up to ${info.installments} installments.`)}</p>
+              )}
               {failed && <p className="text-sm text-destructive">{L("Não deu para abrir agora. Tente de novo em instantes.", "Couldn't open it now. Try again shortly.")}</p>}
               <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground"><Lock className="h-3.5 w-3.5" /> {L("Pagamento seguro. O recibo chega por e-mail.", "Secure payment. The receipt arrives by email.")}</p>
             </>

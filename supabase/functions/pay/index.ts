@@ -153,10 +153,12 @@ async function statementOf(admin: Admin, account: string, student: string, guard
   return statements.find(s => s.key === key) ?? null;
 }
 
-type Acct = { name: string; provider: Provider | null };
+type Acct = { name: string; provider: Provider | null; installments: number };
 async function allowed(admin: Admin, account: string): Promise<Acct | null> {
-  const { data } = await admin.from("accounts").select("name, online_payments, online_provider, active").eq("id", account).maybeSingle();
-  return data && data.online_payments && data.active !== false ? { name: data.name, provider: data.online_provider ?? null } : null;
+  const { data } = await admin.from("accounts").select("name, online_payments, online_provider, online_max_installments, active").eq("id", account).maybeSingle();
+  return data && data.online_payments && data.active !== false
+    ? { name: data.name, provider: data.online_provider ?? null, installments: Math.min(12, Math.max(1, Number(data.online_max_installments) || 1)) }
+    : null;
 }
 
 type Opened = { url: string; amount: number } | { error: "not_enabled" | "not_connected" | "nothing_owed" };
@@ -203,10 +205,23 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
       await asaas(key, "DELETE", `/paymentLinks/${o.session_id}`).catch(() => null);
       await admin.from("online_payments").update({ status: "expired" }).eq("id", o.id).eq("status", "open");
     }
-    const link = await asaas(key, "POST", "/paymentLinks", {
+    const linkBody = (n: number) => ({
       name: title.slice(0, 255), description: what, value: st.owed,
-      billingType: "UNDEFINED", chargeType: "DETACHED", dueDateLimitDays: 3, maxInstallmentCount: 1, notificationEnabled: false,
+      // Parcelado quando a empresa aceita mais de 1x
+      // (accounts.online_max_installments); o Pix é sempre à vista.
+      billingType: "UNDEFINED", chargeType: n > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
+      maxInstallmentCount: n, notificationEnabled: false,
     });
+    let link;
+    try {
+      link = await asaas(key, "POST", "/paymentLinks", linkBody(acct.installments));
+    } catch (e) {
+      // O Asaas recusou o parcelado (valor baixo para parcelar, conta sem
+      // cartão...): segue à vista, para a família conseguir pagar.
+      if (acct.installments <= 1) throw e;
+      console.error("asaas parcelado recusado", String(e));
+      link = await asaas(key, "POST", "/paymentLinks", linkBody(1));
+    }
     id = link.id; url = link.url;
   }
   await admin.from("online_payments").insert({
@@ -215,7 +230,41 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
   return { url, amount: st.owed };
 }
 
-/** O Stripe ou o Asaas confirmou: lança o pagamento uma vez só. */
+const methodLabel = (m: string | null) => (m === "pix" ? "Pix" : m === "card" ? "cartão" : m === "boleto" ? "boleto" : "cartão/Pix");
+
+/**
+ * O Asaas confirmou um pagamento feito por um link nosso. Cada pagamento do
+ * Asaas é lançado uma vez só (a marca é o id dele): no parcelado, cada parcela
+ * é um pagamento, com o valor dela (no cartão chegam todas de uma vez; no
+ * boleto, mês a mês). O primeiro pagamento tira o link do ar.
+ */
+async function settleAsaas(admin: Admin, account: string, p: Record<string, any>, method: string | null) {
+  const { data: link } = await admin.from("online_payments").select("id, status, student_name, guardian_name")
+    .eq("session_id", String(p.paymentLink)).eq("account_id", account).eq("provider", "asaas").maybeSingle();
+  if (!link) return { result: "unknown", first: false };
+  const amount = Number(p.value ?? 0);
+  if (!(amount > 0)) return { result: "no_value", first: false };
+  const part = p.installmentNumber ? ` - parcela ${p.installmentNumber}` : "";
+  const { data: claim, error: dup } = await admin.from("online_payments").insert({
+    account_id: account, provider: "asaas", session_id: `asaas_payment:${p.id}`, student_name: link.student_name,
+    guardian_name: link.guardian_name, amount, status: "paid", paid_at: new Date().toISOString(), method,
+  }).select("id").maybeSingle();
+  if (dup || !claim) return { result: "already", first: false };
+  const { data, error } = await admin.rpc("register_payment", {
+    _account: account, _student: link.student_name, _guardian: link.guardian_name, _amount: amount,
+    _kind: "adjustment", _description: `Pagamento on-line (${methodLabel(method)})${part}`, _voucher: 0, _voucher_description: null,
+  });
+  if (error) {
+    await admin.from("online_payments").delete().eq("id", claim.id);
+    throw new Error(error.message);
+  }
+  await admin.from("online_payments").update({ wallet_tx_id: (data as { payment_id?: string } | null)?.payment_id ?? null }).eq("id", claim.id);
+  const { data: first } = await admin.from("online_payments").update({ status: "paid", paid_at: new Date().toISOString(), method })
+    .eq("id", link.id).eq("status", "open").select("id");
+  return { result: "paid", first: !!first?.length };
+}
+
+/** O Stripe confirmou: lança o pagamento uma vez só. */
 async function settle(admin: Admin, account: string, sessionId: string, amount: number, method: string | null) {
   const { data: row } = await admin.from("online_payments").select("id, status, student_name, guardian_name, provider")
     .eq("session_id", sessionId).eq("account_id", account).maybeSingle();
@@ -225,7 +274,7 @@ async function settle(admin: Admin, account: string, sessionId: string, amount: 
   const { data: claimed } = await admin.from("online_payments").update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", row.id).neq("status", "paid").select("id");
   if (!claimed?.length) return "already";
-  const label = method === "pix" ? "Pix" : method === "card" ? "cartão" : method === "boleto" ? "boleto" : "cartão/Pix";
+  const label = methodLabel(method);
   const { data, error } = await admin.rpc("register_payment", {
     _account: account, _student: row.student_name, _guardian: row.guardian_name, _amount: amount,
     _kind: "adjustment", _description: `Pagamento on-line (${label})`, _voucher: 0, _voucher_description: null,
@@ -345,8 +394,8 @@ Deno.serve(async (req) => {
       // responde 200 e segue.
       if (!["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"].includes(ev.event) || !p.paymentLink) return json({ ignored: ev.event ?? null });
       const method = p.billingType === "PIX" ? "pix" : p.billingType === "CREDIT_CARD" ? "card" : p.billingType === "BOLETO" ? "boleto" : null;
-      const result = await settle(admin, account, String(p.paymentLink), Number(p.value ?? 0), method);
-      if (result === "paid") {
+      const { result, first } = await settleAsaas(admin, account, p, method);
+      if (first) {
         // Pago: o link sai do ar para ninguém pagar de novo.
         const key = await secret(admin, `asaas_key:${account}`);
         if (key) await asaas(key, "DELETE", `/paymentLinks/${p.paymentLink}`).catch(() => null);
@@ -380,6 +429,7 @@ Deno.serve(async (req) => {
         return json({
           ok: true, company: acct.name, name: first,
           owed: st?.owed ?? 0, items: st?.items.length ?? 0,
+          installments: acct.provider === "asaas" ? acct.installments : 1,
           available: !!acct.provider && !!(await secret(admin, `${acct.provider}_key:${link.account_id}`)),
         });
       }

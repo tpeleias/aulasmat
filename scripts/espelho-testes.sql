@@ -3701,4 +3701,33 @@ END $$;
 ROLLBACK;
 UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
 
+\echo '--- 65. Parcelamento no Asaas (09/10) ---'
+UPDATE public.accounts SET online_payments = true, online_max_installments = 1 WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((public.online_payments_status() ->> 'installments')::int = 1, 'por padrao, so a vista');
+SELECT public.set_online_installments(12);
+SELECT public.assert((public.online_payments_status() ->> 'installments')::int = 12, 'o admin libera ate 12x');
+DO $$
+BEGIN
+  PERFORM public.set_online_installments(13);
+  RAISE EXCEPTION 'FALHOU: aceitou 13 parcelas';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%invalid installments%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - no maximo 12 parcelas';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.set_online_installments(2);
+  RAISE EXCEPTION 'FALHOU: cliente mexeu no parcelamento';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - cliente nao mexe no parcelamento';
+END $$;
+ROLLBACK;
+UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
+
 \echo '=== FIM ==='

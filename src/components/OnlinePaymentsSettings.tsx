@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { L } from "@/lib/i18n";
-import { payAction, payErrorText, setProvider, useOnlinePayments, type Provider } from "@/lib/onlinePayments";
+import { payAction, payErrorText, setInstallments, setProvider, useOnlinePayments, type Provider } from "@/lib/onlinePayments";
 
 const NAMES: Record<Provider, string> = { stripe: "Stripe", asaas: "Asaas" };
 
@@ -80,6 +80,13 @@ export default function OnlinePaymentsSettings() {
   };
   const showForm = !has(choice) || editing;
 
+  const saveInstallments = async (n: number) => {
+    const err = await setInstallments(n);
+    if (err) { toast.error(payErrorText("failed")); return; }
+    toast.success(n > 1 ? L(`Cartão em até ${n}x`, `Card in up to ${n} installments`) : L("Cartão só à vista", "Card in full only"));
+    await st.reload();
+  };
+
   return (
     <Card className="space-y-4 p-5">
       <div className="flex items-start justify-between gap-4">
@@ -118,7 +125,22 @@ export default function OnlinePaymentsSettings() {
               <span className="flex items-center gap-2 text-sm font-medium text-success"><CheckCircle2 className="h-4 w-4" /> {L(`${NAMES[choice]} conectado`, `${NAMES[choice]} connected`)}</span>
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>{L("Trocar a chave", "Change key")}</Button>
             </div>
-          ) : (
+          ) : null}
+          {!showForm && choice === "asaas" && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <Label htmlFor="pay-installments">{L("Parcelar no cartão em até", "Card installments up to")}</Label>
+                <p className="text-xs text-muted-foreground">{L("O Pix é sempre à vista. A taxa de cada parcela é a do seu plano no Asaas. Cada parcela paga entra no Financeiro.", "Pix is always in full. Each installment's fee is your Asaas plan's. Each installment paid goes into Billing.")}</p>
+              </div>
+              <select id="pay-installments" className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
+                value={st.installments} onChange={e => saveInstallments(Number(e.target.value))}>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
+                  <option key={n} value={n}>{n === 1 ? L("1x (à vista)", "1x (in full)") : `${n}x`}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {showForm && (
             <div className="space-y-2">
               <Label htmlFor="pay-key">{choice === "stripe" ? L("Chave secreta do Stripe", "Stripe secret key") : L("Chave de API do Asaas", "Asaas API key")}</Label>
               <Input id="pay-key" type="password" autoComplete="off"

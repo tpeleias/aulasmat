@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 // Pagamento on-line pelo Stripe ou Asaas da empresa (09/10): a tela só aparece
 // para a empresa com a função liberada, o interruptor escolhe entre o padrão e
 // o on-line, e a chave vai para a função "pay".
-type Status = { allowed: boolean; connected: boolean; provider: "stripe" | "asaas" | null; stripe: boolean; asaas: boolean };
+type Status = { allowed: boolean; connected: boolean; provider: "stripe" | "asaas" | null; stripe: boolean; asaas: boolean; installments?: number };
 let status: Status = { allowed: false, connected: false, provider: null, stripe: false, asaas: false };
 let payReply: (body: Record<string, unknown>) => unknown = () => ({ ok: true, test: true, name: "Portal de Aulas" });
 const rpc = vi.fn(async (name: string) => (name === "online_payments_status" ? { data: status, error: null } : { data: null, error: null }));
@@ -68,6 +68,24 @@ describe("Pagamento on-line (Stripe ou Asaas da empresa)", () => {
   });
 });
 
+describe("Parcelamento no Asaas (até 12x)", () => {
+  beforeEach(() => rpc.mockClear());
+  it("Asaas em uso: escolhe até quantas vezes parcelar no cartão", async () => {
+    status = { ...none, connected: true, provider: "asaas", asaas: true, installments: 12 };
+    render(<OnlinePaymentsSettings />);
+    const sel = await screen.findByLabelText("Parcelar no cartão em até") as HTMLSelectElement;
+    expect(sel.value).toBe("12");
+    fireEvent.change(sel, { target: { value: "6" } });
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("set_online_installments", { _n: 6 }));
+  });
+  it("no Stripe não aparece o parcelamento", async () => {
+    status = { ...none, connected: true, provider: "stripe", stripe: true };
+    render(<OnlinePaymentsSettings />);
+    expect(await screen.findByText("Stripe conectado")).toBeTruthy();
+    expect(screen.queryByLabelText("Parcelar no cartão em até")).toBeNull();
+  });
+});
+
 describe("Link curto /pagar/<código>", () => {
   beforeEach(() => invoke.mockClear());
   const at = (path: string) => render(
@@ -80,8 +98,15 @@ describe("Link curto /pagar/<código>", () => {
     expect(await screen.findByText("Portal de Aulas")).toBeTruthy();
     expect(screen.getByText(/220,00/)).toBeTruthy();
     expect(invoke).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/em até/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com cartão ou Pix/ }));
     await waitFor(() => expect(invoke).toHaveBeenCalledWith("pay", { body: { action: "open", code: "abcd2345" } }));
+  });
+
+  it("no Asaas parcelado, avisa que dá para parcelar", async () => {
+    payReply = () => ({ ok: true, company: "Portal de Aulas", name: "Ana", owed: 600, items: 3, available: true, installments: 12 });
+    at("/pagar/abcd2345");
+    expect(await screen.findByText("No cartão, em até 12x.")).toBeTruthy();
   });
 
   it("sem nada em aberto, diz que está tudo em dia", async () => {
