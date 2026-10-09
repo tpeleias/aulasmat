@@ -153,11 +153,23 @@ async function statementOf(admin: Admin, account: string, student: string, guard
   return statements.find(s => s.key === key) ?? null;
 }
 
-type Acct = { name: string; provider: Provider | null; installments: number };
+type Rule = { tiers?: { up_to: number; max: number }[]; above?: number } | null;
+type Acct = { name: string; provider: Provider | null; installments: (amount: number) => number };
+const clamp = (n: unknown) => Math.min(12, Math.max(1, Math.floor(Number(n)) || 1));
+/**
+ * Até quantas parcelas para um valor (a mesma conta de installments_for no
+ * banco): a primeira faixa "até R$ X" que cobre o valor; acima de todas, o
+ * "acima disso"; sem regra, o máximo de sempre.
+ */
+function installmentsFor(rule: Rule, fallback: number, amount: number) {
+  if (!rule || typeof rule !== "object") return clamp(fallback);
+  const tier = [...(rule.tiers ?? [])].sort((a, b) => Number(a.up_to) - Number(b.up_to)).find(t => amount <= Number(t.up_to));
+  return clamp(tier ? tier.max : rule.above ?? fallback);
+}
 async function allowed(admin: Admin, account: string): Promise<Acct | null> {
-  const { data } = await admin.from("accounts").select("name, online_payments, online_provider, online_max_installments, active").eq("id", account).maybeSingle();
+  const { data } = await admin.from("accounts").select("name, online_payments, online_provider, online_max_installments, online_installment_rule, active").eq("id", account).maybeSingle();
   return data && data.online_payments && data.active !== false
-    ? { name: data.name, provider: data.online_provider ?? null, installments: Math.min(12, Math.max(1, Number(data.online_max_installments) || 1)) }
+    ? { name: data.name, provider: data.online_provider ?? null, installments: (amount: number) => installmentsFor(data.online_installment_rule as Rule, data.online_max_installments, amount) }
     : null;
 }
 
@@ -207,18 +219,19 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
     }
     const linkBody = (n: number) => ({
       name: title.slice(0, 255), description: what, value: st.owed,
-      // Parcelado quando a empresa aceita mais de 1x
-      // (accounts.online_max_installments); o Pix é sempre à vista.
+      // Parcelado quando a regra da empresa dá mais de 1x para este valor
+      // (accounts.online_installment_rule); o Pix é sempre à vista.
       billingType: "UNDEFINED", chargeType: n > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
       maxInstallmentCount: n, notificationEnabled: false,
     });
+    const n = acct.installments(st.owed);
     let link;
     try {
-      link = await asaas(key, "POST", "/paymentLinks", linkBody(acct.installments));
+      link = await asaas(key, "POST", "/paymentLinks", linkBody(n));
     } catch (e) {
       // O Asaas recusou o parcelado (valor baixo para parcelar, conta sem
       // cartão...): segue à vista, para a família conseguir pagar.
-      if (acct.installments <= 1) throw e;
+      if (n <= 1) throw e;
       console.error("asaas parcelado recusado", String(e));
       link = await asaas(key, "POST", "/paymentLinks", linkBody(1));
     }
@@ -429,7 +442,7 @@ Deno.serve(async (req) => {
         return json({
           ok: true, company: acct.name, name: first,
           owed: st?.owed ?? 0, items: st?.items.length ?? 0,
-          installments: acct.provider === "asaas" ? acct.installments : 1,
+          installments: acct.provider === "asaas" ? acct.installments(st?.owed ?? 0) : 1,
           available: !!acct.provider && !!(await secret(admin, `${acct.provider}_key:${link.account_id}`)),
         });
       }

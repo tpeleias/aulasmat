@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 // Pagamento on-line pelo Stripe ou Asaas da empresa (09/10): a tela só aparece
 // para a empresa com a função liberada, o interruptor escolhe entre o padrão e
 // o on-line, e a chave vai para a função "pay".
-type Status = { allowed: boolean; connected: boolean; provider: "stripe" | "asaas" | null; stripe: boolean; asaas: boolean; installments?: number };
+type Status = { allowed: boolean; connected: boolean; provider: "stripe" | "asaas" | null; stripe: boolean; asaas: boolean; installments?: number; installment_rule?: { tiers: { up_to: number; max: number }[]; above: number } };
 let status: Status = { allowed: false, connected: false, provider: null, stripe: false, asaas: false };
 let payReply: (body: Record<string, unknown>) => unknown = () => ({ ok: true, test: true, name: "Portal de Aulas" });
 const rpc = vi.fn(async (name: string) => (name === "online_payments_status" ? { data: status, error: null } : { data: null, error: null }));
@@ -21,6 +21,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import OnlinePaymentsSettings from "@/components/OnlinePaymentsSettings";
 import PayLink from "@/pages/PayLink";
 import { financeHidden } from "@/hooks/useStudent";
+import { installmentsFor } from "@/lib/onlinePayments";
 
 const none: Status = { allowed: true, connected: false, provider: null, stripe: false, asaas: false };
 
@@ -68,21 +69,39 @@ describe("Pagamento on-line (Stripe ou Asaas da empresa)", () => {
   });
 });
 
-describe("Parcelamento no Asaas (até 12x)", () => {
+describe("Parcelas no Asaas por valor", () => {
   beforeEach(() => rpc.mockClear());
-  it("Asaas em uso: escolhe até quantas vezes parcelar no cartão", async () => {
-    status = { ...none, connected: true, provider: "asaas", asaas: true, installments: 12 };
+  const rule = { tiers: [{ up_to: 300, max: 2 }, { up_to: 500, max: 3 }, { up_to: 1000, max: 4 }], above: 4 };
+  it("mostra as faixas e grava a regra editada", async () => {
+    status = { ...none, connected: true, provider: "asaas", asaas: true, installments: 4, installment_rule: rule };
     render(<OnlinePaymentsSettings />);
-    const sel = await screen.findByLabelText("Parcelar no cartão em até") as HTMLSelectElement;
-    expect(sel.value).toBe("12");
-    fireEvent.change(sel, { target: { value: "6" } });
-    await waitFor(() => expect(rpc).toHaveBeenCalledWith("set_online_installments", { _n: 6 }));
+    expect(((await screen.findByLabelText("Valor da faixa 1")) as HTMLInputElement).value).toBe("300");
+    expect((screen.getByLabelText("Parcelas da faixa 3") as HTMLSelectElement).value).toBe("4");
+    fireEvent.change(screen.getByLabelText("Parcelas acima das faixas"), { target: { value: "6" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar parcelas" }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("set_online_installment_rule", { _rule: { ...rule, above: 6 } }));
+  });
+  it("tira uma faixa", async () => {
+    status = { ...none, connected: true, provider: "asaas", asaas: true, installments: 4, installment_rule: rule };
+    render(<OnlinePaymentsSettings />);
+    await screen.findByLabelText("Valor da faixa 1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Tirar faixa" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Salvar parcelas" }));
+    await waitFor(() => expect(rpc).toHaveBeenCalledWith("set_online_installment_rule", { _rule: { tiers: rule.tiers.slice(1), above: 4 } }));
   });
   it("no Stripe não aparece o parcelamento", async () => {
     status = { ...none, connected: true, provider: "stripe", stripe: true };
     render(<OnlinePaymentsSettings />);
     expect(await screen.findByText("Stripe conectado")).toBeTruthy();
-    expect(screen.queryByLabelText("Parcelar no cartão em até")).toBeNull();
+    expect(screen.queryByText("Parcelas no cartão por valor")).toBeNull();
+  });
+  it("a conta das parcelas por valor", () => {
+    expect(installmentsFor(rule, 150)).toBe(2);
+    expect(installmentsFor(rule, 300)).toBe(2);
+    expect(installmentsFor(rule, 300.01)).toBe(3);
+    expect(installmentsFor(rule, 999)).toBe(4);
+    expect(installmentsFor(rule, 5000)).toBe(4);
+    expect(installmentsFor({ tiers: [], above: 1 }, 5000)).toBe(1);
   });
 });
 

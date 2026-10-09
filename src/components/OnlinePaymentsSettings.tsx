@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CheckCircle2, CreditCard } from "lucide-react";
+import { CheckCircle2, CreditCard, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { L } from "@/lib/i18n";
-import { payAction, payErrorText, setInstallments, setProvider, useOnlinePayments, type Provider } from "@/lib/onlinePayments";
+import { payAction, payErrorText, setInstallmentRule, setProvider, useOnlinePayments, type InstallmentRule, type Provider } from "@/lib/onlinePayments";
 
 const NAMES: Record<Provider, string> = { stripe: "Stripe", asaas: "Asaas" };
 
@@ -80,13 +80,6 @@ export default function OnlinePaymentsSettings() {
   };
   const showForm = !has(choice) || editing;
 
-  const saveInstallments = async (n: number) => {
-    const err = await setInstallments(n);
-    if (err) { toast.error(payErrorText("failed")); return; }
-    toast.success(n > 1 ? L(`Cartão em até ${n}x`, `Card in up to ${n} installments`) : L("Cartão só à vista", "Card in full only"));
-    await st.reload();
-  };
-
   return (
     <Card className="space-y-4 p-5">
       <div className="flex items-start justify-between gap-4">
@@ -126,20 +119,7 @@ export default function OnlinePaymentsSettings() {
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>{L("Trocar a chave", "Change key")}</Button>
             </div>
           ) : null}
-          {!showForm && choice === "asaas" && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="min-w-0">
-                <Label htmlFor="pay-installments">{L("Parcelar no cartão em até", "Card installments up to")}</Label>
-                <p className="text-xs text-muted-foreground">{L("O Pix é sempre à vista. A taxa de cada parcela é a do seu plano no Asaas. Cada parcela paga entra no Financeiro.", "Pix is always in full. Each installment's fee is your Asaas plan's. Each installment paid goes into Billing.")}</p>
-              </div>
-              <select id="pay-installments" className="h-10 rounded-xl border border-input bg-background px-3 text-sm"
-                value={st.installments} onChange={e => saveInstallments(Number(e.target.value))}>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map(n => (
-                  <option key={n} value={n}>{n === 1 ? L("1x (à vista)", "1x (in full)") : `${n}x`}</option>
-                ))}
-              </select>
-            </div>
-          )}
+          {!showForm && choice === "asaas" && <InstallmentRuleEditor rule={st.installment_rule} onSaved={st.reload} />}
           {showForm && (
             <div className="space-y-2">
               <Label htmlFor="pay-key">{choice === "stripe" ? L("Chave secreta do Stripe", "Stripe secret key") : L("Chave de API do Asaas", "Asaas API key")}</Label>
@@ -158,5 +138,72 @@ export default function OnlinePaymentsSettings() {
         </>
       )}
     </Card>
+  );
+}
+
+const times = (n: number) => (n === 1 ? L("1x (à vista)", "1x (in full)") : `${n}x`);
+const TIMES = Array.from({ length: 12 }, (_, i) => i + 1);
+const selectCls = "h-9 rounded-xl border border-input bg-background px-2 text-sm";
+
+/**
+ * Parcelas no cartão por faixa de valor (09/10, pedido do Thiago): "até R$ 300
+ * em até 2x, até R$ 500 em até 3x..." e o máximo acima de todas. O Pix é
+ * sempre à vista.
+ */
+function InstallmentRuleEditor({ rule, onSaved }: { rule: InstallmentRule; onSaved: () => Promise<void> | void }) {
+  const [tiers, setTiers] = useState(rule.tiers.map(t => ({ up_to: String(t.up_to), max: t.max })));
+  const [above, setAbove] = useState(rule.above);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    setTiers(rule.tiers.map(t => ({ up_to: String(t.up_to), max: t.max })));
+    setAbove(rule.above);
+  }, [rule]);
+
+  const parsed = tiers.map(t => ({ up_to: Number(String(t.up_to).replace(/\./g, "").replace(",", ".")), max: t.max }));
+  const sorted = [...parsed].sort((a, b) => a.up_to - b.up_to);
+  const invalid = parsed.some(t => !(t.up_to > 0)) || new Set(parsed.map(t => t.up_to)).size !== parsed.length;
+
+  const save = async () => {
+    setSaving(true);
+    const err = await setInstallmentRule({ tiers: sorted, above });
+    setSaving(false);
+    if (err) { toast.error(L("Confira as faixas: valores diferentes e maiores que zero.", "Check the ranges: different values above zero.")); return; }
+    toast.success(L("Parcelas salvas", "Installments saved"));
+    await onSaved();
+  };
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-3">
+      <div>
+        <div className="text-sm font-medium">{L("Parcelas no cartão por valor", "Card installments by amount")}</div>
+        <p className="text-xs text-muted-foreground">{L("O Pix é sempre à vista. A taxa de cada parcela é a do seu plano no Asaas. Cada parcela paga entra no Financeiro.", "Pix is always in full. Each installment's fee is your Asaas plan's. Each installment paid goes into Billing.")}</p>
+      </div>
+      {tiers.map((t, i) => (
+        <div key={i} className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">{L("Até R$", "Up to")}</span>
+          <Input aria-label={L(`Valor da faixa ${i + 1}`, `Range ${i + 1} amount`)} inputMode="decimal" className="h-9 w-24"
+            value={t.up_to} onChange={e => setTiers(tiers.map((x, j) => (j === i ? { ...x, up_to: e.target.value } : x)))} />
+          <span className="text-muted-foreground">{L("em até", "up to")}</span>
+          <select aria-label={L(`Parcelas da faixa ${i + 1}`, `Range ${i + 1} installments`)} className={selectCls}
+            value={t.max} onChange={e => setTiers(tiers.map((x, j) => (j === i ? { ...x, max: Number(e.target.value) } : x)))}>
+            {TIMES.map(n => <option key={n} value={n}>{times(n)}</option>)}
+          </select>
+          <Button size="icon" variant="ghost" aria-label={L("Tirar faixa", "Remove range")} onClick={() => setTiers(tiers.filter((_, j) => j !== i))}><Trash2 className="h-4 w-4" /></Button>
+        </div>
+      ))}
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-muted-foreground">{tiers.length ? L("Acima disso, em até", "Above that, up to") : L("Qualquer valor, em até", "Any amount, up to")}</span>
+        <select aria-label={L("Parcelas acima das faixas", "Installments above the ranges")} className={selectCls} value={above} onChange={e => setAbove(Number(e.target.value))}>
+          {TIMES.map(n => <option key={n} value={n}>{times(n)}</option>)}
+        </select>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" className="gap-1" disabled={tiers.length >= 10}
+          onClick={() => setTiers([...tiers, { up_to: String((sorted.at(-1)?.up_to || 0) + 500), max: Math.min(12, (sorted.at(-1)?.max ?? 1) + 1) }])}>
+          <Plus className="h-4 w-4" /> {L("Faixa", "Range")}
+        </Button>
+        <Button size="sm" onClick={save} disabled={saving || invalid}>{saving ? L("Salvando…", "Saving…") : L("Salvar parcelas", "Save installments")}</Button>
+      </div>
+    </div>
   );
 }

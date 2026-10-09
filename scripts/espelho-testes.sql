@@ -3730,4 +3730,45 @@ END $$;
 ROLLBACK;
 UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
 
+\echo '--- 66. Parcelas por faixa de valor (09/10) ---'
+SELECT public.assert(public.installments_for('{"tiers":[{"up_to":300,"max":2},{"up_to":500,"max":3},{"up_to":1000,"max":4}],"above":4}'::jsonb, 1, 250) = 2, 'ate 300: 2x');
+SELECT public.assert(public.installments_for('{"tiers":[{"up_to":300,"max":2},{"up_to":500,"max":3},{"up_to":1000,"max":4}],"above":4}'::jsonb, 1, 300.01) = 3, 'de 300 a 500: 3x');
+SELECT public.assert(public.installments_for('{"tiers":[{"up_to":300,"max":2},{"up_to":500,"max":3},{"up_to":1000,"max":4}],"above":4}'::jsonb, 1, 2500) = 4, 'acima de 1000: o maximo de cima');
+SELECT public.assert(public.installments_for(NULL, 6, 2500) = 6, 'sem regra: o maximo de sempre');
+UPDATE public.accounts SET online_payments = true WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.set_online_installment_rule('{"tiers":[{"up_to":500,"max":3},{"up_to":300,"max":2}],"above":5}'::jsonb);
+SELECT public.assert((public.online_payments_status() -> 'installment_rule' -> 'tiers' -> 0 ->> 'up_to')::numeric = 300
+  AND (public.online_payments_status() ->> 'installments')::int = 5, 'a regra grava em ordem e o maximo acompanha');
+DO $$
+BEGIN
+  PERFORM public.set_online_installment_rule('{"tiers":[{"up_to":300,"max":2},{"up_to":300,"max":3}],"above":4}'::jsonb);
+  RAISE EXCEPTION 'FALHOU: aceitou duas faixas com o mesmo valor';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%invalid rule%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - faixas repetidas recusadas';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_online_installment_rule('{"tiers":[],"above":13}'::jsonb);
+  RAISE EXCEPTION 'FALHOU: aceitou 13x';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%invalid rule%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - no maximo 12x';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.set_online_installment_rule('{"tiers":[],"above":2}'::jsonb);
+  RAISE EXCEPTION 'FALHOU: cliente mexeu nas parcelas';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - cliente nao mexe nas parcelas';
+END $$;
+ROLLBACK;
+UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
+
 \echo '=== FIM ==='
