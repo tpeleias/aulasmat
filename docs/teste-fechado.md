@@ -215,7 +215,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Pagamento on-line pelo Stripe da própria empresa (só o Portal de Aulas tem liberado): em Configurações → Integrações a empresa cola a chave do Stripe; o e-mail de cobrança e a mensagem do WhatsApp ganham o link "Pagar com cartão ou Pix" com o valor em aberto, o Financeiro ganha "Copiar link de pagamento" e o portal da família ganha "Pagar agora". Quando o Stripe confirma, o pagamento entra sozinho no Financeiro | T |
 
 
-### 09/10 - site (o app recebe no próximo `.aab`)
+### 09/10 - site e versão 1.18.6 (`.aab` no teste interno e no fechado em 09/10)
 
 | Mudança | Origem |
 |---|---|
