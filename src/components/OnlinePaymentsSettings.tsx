@@ -72,7 +72,8 @@ export default function OnlinePaymentsSettings() {
       L("Comece com a chave de teste (sk_test_); quando estiver tudo certo, troque pela real (sk_live_).", "Start with the test key (sk_test_); when all is good, switch to the live one (sk_live_)."),
     ],
     asaas: [
-      L("No Asaas da empresa: Integrações → Chaves de API → Gerar chave, e copie (começa com $aact_).", "In your company's Asaas: Integrations → API keys → Generate key, and copy it (starts with $aact_)."),
+      L("No Asaas, pelo computador (o aplicativo não tem essa opção): toque na sua foto no canto de cima → Integrações (ou Minha conta → Integração) → Chaves API → Gerar chave de API. Copie na hora: ela só aparece uma vez (começa com $aact_).", "In Asaas, on a computer (the app doesn't have it): your avatar at the top → Integrations (or My account → Integration) → API keys → Generate API key. Copy it right away: it's shown only once (starts with $aact_)."),
+      L("Só aparece para o administrador da conta, e com o cadastro aprovado.", "Only the account admin sees it, once the account is approved."),
       L("Para aceitar Pix, cadastre uma chave Pix no Asaas (Pix → Minhas chaves). Cartão e boleto já vêm ligados.", "To accept Pix, register a Pix key in Asaas (Pix → My keys). Card and boleto come on already."),
       L("Para testar antes, use uma conta do Sandbox (sandbox.asaas.com): a chave de lá começa com $aact_hmlg_.", "To test first, use a Sandbox account (sandbox.asaas.com): its key starts with $aact_hmlg_."),
     ],
