@@ -23,6 +23,7 @@ const PublicHome = lazy(() => import("./pages/PublicHome"));
 const RamoPage = lazy(() => import("./pages/RamoPage"));
 const NewPassword = lazy(() => import("./pages/NewPassword"));
 const EmailUnsubscribe = lazy(() => import("./pages/EmailUnsubscribe"));
+const PayLink = lazy(() => import("./pages/PayLink"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const TermsOfUse = lazy(() => import("./pages/TermsOfUse"));
 const DeleteAccountInfo = lazy(() => import("./pages/DeleteAccountInfo"));
@@ -90,6 +91,7 @@ const App = () => (
             <Route path="/trocar-senha" element={<ChangePassword />} />
             <Route path="/nova-senha" element={<NewPassword />} />
             <Route path="/email/sair" element={<EmailUnsubscribe />} />
+            <Route path="/pagar/:code" element={<PayLink />} />
             <Route path="/inicio" element={<PublicHome />} />
             <Route path="/privacidade" element={<PrivacyPolicy />} />
             <Route path="/termos" element={<TermsOfUse />} />

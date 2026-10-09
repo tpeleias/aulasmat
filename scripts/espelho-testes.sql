@@ -3616,4 +3616,89 @@ SELECT public.assert((public.online_payments_status() ->> 'allowed')::boolean AN
 COMMIT;
 UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
 
+\echo '--- 64. Financeiro escondido do cliente, link curto e Stripe/Asaas (09/10) ---'
+BEGIN;
+INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
+VALUES (current_setting('teste.a')::uuid, 'Bia', 'Ana', -50, 'adjustment', 'teste 64');
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE description = 'teste 64') = 1,
+  'com o financeiro ligado, o cliente le a propria carteira');
+RESET ROLE;
+RESET SESSION AUTHORIZATION;
+UPDATE public.settings SET show_finance_to_clients = false WHERE account_id = current_setting('teste.a')::uuid;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions) = 0,
+  'com o financeiro desligado, o banco nao entrega a carteira ao cliente');
+SELECT public.assert((SELECT count(*) FROM public.package_purchases) = 0,
+  'nem os pacotes');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((SELECT count(*) FROM public.wallet_transactions WHERE description = 'teste 64') = 1,
+  'o admin continua vendo tudo');
+ROLLBACK;
+
+BEGIN;
+SELECT public.assert(public.pay_link_code(current_setting('teste.a')::uuid, 'Bia', 'Ana') ~ '^[a-z0-9]{8}$',
+  'o link curto tem 8 letras e numeros');
+SELECT public.assert(public.pay_link_code(current_setting('teste.a')::uuid, 'Caio', ' ana ') = public.pay_link_code(current_setting('teste.a')::uuid, 'Bia', 'Ana'),
+  'a mesma conta (o responsavel) tem sempre o mesmo codigo');
+SELECT public.assert(public.pay_link_code(current_setting('teste.a')::uuid, 'Bia', NULL) <> public.pay_link_code(current_setting('teste.a')::uuid, 'Bia', 'Ana'),
+  'conta diferente, codigo diferente');
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+BEGIN
+  PERFORM public.pay_link_code(current_setting('teste.a')::uuid, 'Bia', 'Ana');
+  RAISE EXCEPTION 'FALHOU: admin gerou link curto direto';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - so a funcao gera o link curto';
+END $$;
+DO $$
+BEGIN
+  PERFORM 1 FROM public.pay_links;
+  RAISE EXCEPTION 'FALHOU: admin leu a tabela dos links';
+EXCEPTION WHEN insufficient_privilege THEN RAISE NOTICE '  ok - a tabela dos links e fechada';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.set_online_provider('stripe');
+  RAISE EXCEPTION 'FALHOU: empresa sem a funcao escolheu o Stripe';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not enabled%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - empresa sem a funcao nao escolhe provedor';
+END $$;
+SELECT public.assert((public.online_payments_status() ->> 'provider') IS NULL, 'sem a funcao, nenhum provedor');
+ROLLBACK;
+
+UPDATE public.accounts SET online_payments = true WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+BEGIN
+  PERFORM public.set_online_provider('asaas');
+  RAISE EXCEPTION 'FALHOU: escolheu o Asaas sem conectar';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not connected%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so escolhe o provedor depois de conectar';
+END $$;
+SELECT public.set_online_provider(NULL);
+SELECT public.assert((public.online_payments_status() ->> 'allowed')::boolean AND (public.online_payments_status() ->> 'provider') IS NULL,
+  'voltar ao padrao (Pix e link das Configuracoes) sempre pode');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.set_online_provider(NULL);
+  RAISE EXCEPTION 'FALHOU: cliente mexeu no provedor';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - cliente nao mexe no provedor';
+END $$;
+ROLLBACK;
+UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
+
 \echo '=== FIM ==='

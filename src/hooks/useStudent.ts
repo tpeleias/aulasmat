@@ -37,6 +37,8 @@ export function useStudent() {
 export type AppSettings = {
   pix_key: string | null; payment_link: string | null;
   show_payment_info_to_students: boolean;
+  /** Desligado, o portal do cliente não mostra nada do financeiro (migration 20261009020000). */
+  show_finance_to_clients?: boolean;
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
   work_start: string; work_end: string; slot_minutes: number;
@@ -51,3 +53,6 @@ export function useAppSettings(options?: { enabled?: boolean }) {
   }, [options?.enabled]);
   return s;
 }
+
+/** A empresa escondeu o financeiro do portal do cliente (09/10). */
+export const financeHidden = (s: Pick<AppSettings, "show_finance_to_clients"> | null | undefined) => s?.show_finance_to_clients === false;

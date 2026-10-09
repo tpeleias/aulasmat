@@ -1,6 +1,6 @@
 import { Navigate, NavLink, Link } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import { useStudent, useAppSettings } from "@/hooks/useStudent";
+import { useStudent, useAppSettings, financeHidden } from "@/hooks/useStudent";
 import { Button } from "@/components/ui/button";
 import ThemeToggle from "@/components/ThemeToggle";
 import AnimatedOutlet from "@/components/AnimatedOutlet";
@@ -39,7 +39,7 @@ export default function StudentLayout() {
     { to: "/aluno", label: L("Início", "Home"), icon: LayoutDashboard, end: true },
     { to: "/aluno/aulas", label: w.appointment.p, icon: Calendar },
     ...(settings?.allow_student_booking ? [{ to: "/aluno/agendar", label: L("Agendar", "Book"), icon: CalendarPlus }] : []),
-    { to: "/aluno/financeiro", label: L("Financeiro", "Billing"), icon: Wallet },
+    ...(financeHidden(settings) ? [] : [{ to: "/aluno/financeiro", label: L("Financeiro", "Billing"), icon: Wallet }]),
     { to: "/aluno/materiais", label: L("Materiais", "Materials"), icon: FolderOpen },
     ...(tasks ? [{ to: "/aluno/tarefas", label: w.task.p, icon: ListChecks }] : []),
   ];

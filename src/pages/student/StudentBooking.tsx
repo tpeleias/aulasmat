@@ -280,7 +280,7 @@ export default function StudentBooking() {
             placeholder={L(`Escolha ${w.topic.o} ${w.topic.l}`, `Choose the ${w.topic.l}`)}
             options={offered.map(sv => ({
               value: sv.id,
-              label: `${sv.name} · ${sv.duration_minutes} min${sv.price != null && settings?.show_payment_info_to_students ? ` · ${fmtMoney(Number(sv.price))}` : ""}`,
+              label: `${sv.name} · ${sv.duration_minutes} min${sv.price != null && settings?.show_payment_info_to_students && settings.show_finance_to_clients !== false ? ` · ${fmtMoney(Number(sv.price))}` : ""}`,
             }))} />
         </div>
       )}

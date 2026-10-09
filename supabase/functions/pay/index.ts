@@ -1,22 +1,26 @@
-// Pagamento on-line pelo Stripe da própria empresa (09/10). Ver a migration
-// 20261009010000_online_payments.sql.
+// Pagamento on-line pela conta da própria empresa no Stripe ou no Asaas (09/10).
+// Ver as migrations 20261009010000_online_payments.sql e
+// 20261009020000_client_finance_and_pay_providers.sql.
 //
-//   POST {action: "connect", key}               <- admin: conecta a conta Stripe da empresa
-//   POST {action: "link", student, guardian}    <- admin: o link assinado para mandar à família
-//   POST {action: "checkout"}                   <- família logada: abre o pagamento do que deve
-//   GET  /go?c&k&t                              <- link do e-mail/WhatsApp: abre o pagamento e redireciona
-//   POST /webhook?c=<empresa>                   <- o Stripe: pagamento confirmado
-//   GET  /done                                  <- volta do Stripe ("obrigado")
+//   POST {action: "connect", provider?, key}      <- admin: conecta o Stripe (padrão) ou o Asaas
+//   POST {action: "link", student, guardian}      <- admin: o link curto (cronys.com.br/pagar/<código>)
+//   POST {action: "checkout"}                     <- família logada: abre o pagamento do que deve
+//   POST {action: "info" | "open", code}          <- a página /pagar/<código> (sem login)
+//   GET  /go?c&k&t                                <- link comprido antigo (ainda funciona)
+//   POST /webhook?c=<empresa>                     <- o Stripe: pagamento confirmado
+//   POST /webhook-asaas?c=<empresa>               <- o Asaas: pagamento confirmado
+//   GET  /done                                    <- volta do Stripe ("obrigado")
 //
 // O valor é sempre o em aberto NA HORA (o mesmo cálculo do Financeiro,
 // _shared/statements.ts): o link do WhatsApp de semana passada cobra o valor
-// de hoje, não o de quando foi mandado.
+// de hoje, não o de quando foi mandado. Qual dos dois cobra é a escolha da
+// empresa (accounts.online_provider); sem escolha, não há pagamento on-line.
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { computeStatementsCore, type AccountStatement, type LedgerLesson, type LedgerTx } from "../_shared/statements.ts";
 
 type Admin = SupabaseClient;
+type Provider = "stripe" | "asaas";
 const SITE = "https://cronys.com.br";
-const API = "https://api.stripe.com/v1";
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -29,12 +33,12 @@ const html = (title: string, text: string, status = 200) => new Response(
 <h1 style="font-size:22px;margin:0 0 10px">${title}</h1><p style="font-size:15px;line-height:1.5;color:#3a3c46;margin:0">${text}</p></div></body></html>`,
   { status, headers: { "content-type": "text/html; charset=utf-8" } });
 
-const esc = (s: string) => s.replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 const keyOf = (student: string, guardian: string | null) =>
   (guardian ?? "").trim() ? `g:${guardian!.trim().toLowerCase()}` : `s:${student.trim().toLowerCase()}`;
+const CODE = /^[a-z0-9]{8}$/;
 
 // ---------------------------------------------------------------------------
-// Cofre e assinatura dos links
+// Cofre e links
 // ---------------------------------------------------------------------------
 async function secret(admin: Admin, name: string): Promise<string | null> {
   const { data } = await admin.rpc("pay_secret", { _name: name });
@@ -45,15 +49,18 @@ async function hmac(key: string, msg: string) {
   const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(msg)));
   return Array.from(sig).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
 }
-const b64 = (s: string) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const unb64 = (s: string) => decodeURIComponent(escape(atob(s.replace(/-/g, "+").replace(/_/g, "/"))));
 
-/** O link assinado de uma conta: não expira e sempre cobra o valor de agora. */
-export async function signedLink(admin: Admin, account: string, student: string, guardian: string | null) {
-  const s = await secret(admin, "pay_link_secret");
-  if (!s) return null;
-  const k = b64(JSON.stringify([student, guardian ?? ""]));
-  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/go?c=${account}&k=${k}&t=${await hmac(s, `${account}|${k}`)}`;
+/** O link curto de uma conta: não expira e sempre cobra o valor de agora. */
+async function shortLink(admin: Admin, account: string, student: string, guardian: string | null) {
+  const { data, error } = await admin.rpc("pay_link_code", { _account: account, _student: student, _guardian: guardian });
+  if (error || typeof data !== "string") throw new Error(error?.message ?? "sem código");
+  return { code: data, url: `${SITE}/pagar/${data}` };
+}
+async function linkOf(admin: Admin, code: string) {
+  if (!CODE.test(code)) return null;
+  const { data } = await admin.from("pay_links").select("code, account_id, student_name, guardian_name").eq("code", code).maybeSingle();
+  return data as { code: string; account_id: string; student_name: string; guardian_name: string | null } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -70,7 +77,7 @@ function form(obj: Record<string, unknown>, prefix = "", out = new URLSearchPara
   return out;
 }
 async function stripe(key: string, method: string, path: string, body?: Record<string, unknown>) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(`https://api.stripe.com/v1${path}`, {
     method,
     headers: { Authorization: `Bearer ${key}`, ...(body ? { "content-type": "application/x-www-form-urlencoded" } : {}) },
     body: body ? form(body) : undefined,
@@ -85,7 +92,7 @@ function safeEqual(a: string, b: string) {
   for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return r === 0;
 }
-async function verifySignature(payload: string, header: string | null, whsec: string) {
+async function verifyStripe(payload: string, header: string | null, whsec: string) {
   if (!header) return false;
   const t = Number(header.split(",").find(p => p.startsWith("t="))?.slice(2));
   const sigs = header.split(",").filter(p => p.startsWith("v1=")).map(p => p.slice(3));
@@ -94,6 +101,36 @@ async function verifySignature(payload: string, header: string | null, whsec: st
   const mac = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", k, new TextEncoder().encode(`${t}.${payload}`))))
     .map(b => b.toString(16).padStart(2, "0")).join("");
   return sigs.some(s => safeEqual(s, mac));
+}
+
+// ---------------------------------------------------------------------------
+// Asaas (REST direto). Chave "$aact_hmlg_..." é do ambiente de testes
+// (sandbox); a gravada com "sandbox|" na frente também (chave antiga, sem a
+// marca, que só o sandbox aceitou ao conectar).
+// ---------------------------------------------------------------------------
+function asaasEnv(stored: string) {
+  const sandbox = stored.startsWith("sandbox|") || stored.includes("_hmlg_");
+  return { key: stored.replace(/^sandbox\|/, ""), base: sandbox ? "https://api-sandbox.asaas.com/v3" : "https://api.asaas.com/v3", sandbox };
+}
+async function asaas(stored: string, method: string, path: string, body?: Record<string, unknown>) {
+  const { key, base } = asaasEnv(stored);
+  const res = await fetch(`${base}${path}`, {
+    method,
+    headers: { access_token: key, "content-type": "application/json", "User-Agent": "Cronys" },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.errors?.[0]?.description ?? `asaas ${res.status}`);
+  return data;
+}
+/** Segredo do aviso do Asaas: 48 letras e números, sem três iguais seguidos. */
+function asaasToken() {
+  const alpha = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  for (;;) {
+    const bytes = crypto.getRandomValues(new Uint8Array(48));
+    const t = Array.from(bytes).map(b => alpha[b % alpha.length]).join("");
+    if (!/(.)\1\1/.test(t)) return t;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -116,57 +153,79 @@ async function statementOf(admin: Admin, account: string, student: string, guard
   return statements.find(s => s.key === key) ?? null;
 }
 
-async function allowed(admin: Admin, account: string) {
-  const { data } = await admin.from("accounts").select("name, online_payments, active").eq("id", account).maybeSingle();
-  return data && data.online_payments && data.active !== false ? data as { name: string } : null;
+type Acct = { name: string; provider: Provider | null };
+async function allowed(admin: Admin, account: string): Promise<Acct | null> {
+  const { data } = await admin.from("accounts").select("name, online_payments, online_provider, active").eq("id", account).maybeSingle();
+  return data && data.online_payments && data.active !== false ? { name: data.name, provider: data.online_provider ?? null } : null;
 }
 
-/** Abre uma sessão de pagamento no Stripe da empresa, pelo valor em aberto agora. */
-async function openCheckout(admin: Admin, account: string, student: string, guardian: string | null, back: string) {
+type Opened = { url: string; amount: number } | { error: "not_enabled" | "not_connected" | "nothing_owed" };
+
+/** Abre o pagamento do valor em aberto agora, no Stripe ou no Asaas da empresa. */
+async function openCheckout(admin: Admin, account: string, student: string, guardian: string | null, back: string, done: string): Promise<Opened> {
   const acct = await allowed(admin, account);
-  if (!acct) return { error: "not_enabled" as const };
-  const key = await secret(admin, `stripe_key:${account}`);
-  if (!key) return { error: "not_connected" as const };
+  if (!acct) return { error: "not_enabled" };
+  if (!acct.provider) return { error: "not_connected" };
+  const key = await secret(admin, `${acct.provider}_key:${account}`);
+  if (!key) return { error: "not_connected" };
   const st = await statementOf(admin, account, student, guardian);
-  if (!st || st.owed <= 0) return { error: "nothing_owed" as const };
-  const cents = Math.round(st.owed * 100);
+  if (!st || st.owed <= 0) return { error: "nothing_owed" };
   const who = st.guardian ?? st.student;
-  const base = {
-    mode: "payment",
-    line_items: [{ quantity: 1, price_data: { currency: "brl", unit_amount: cents, product_data: { name: `${acct.name} · ${who}`, description: `${st.items.length} item(ns) em aberto` } } }],
-    success_url: `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/done?back=${encodeURIComponent(back)}`,
-    cancel_url: back,
-    locale: "pt-BR",
-    metadata: { account_id: account, student: st.student, guardian: st.guardian ?? "", owed: st.owed.toFixed(2) },
-    payment_intent_data: { description: `${acct.name} · ${who}` },
-  };
-  let session;
-  try {
-    session = await stripe(key, "POST", "/checkout/sessions", { ...base, payment_method_types: ["card", "pix"] });
-  } catch (e) {
-    // Conta Stripe sem Pix ativado: segue só com cartão.
-    if (!/pix/i.test(String(e))) throw e;
-    session = await stripe(key, "POST", "/checkout/sessions", { ...base, payment_method_types: ["card"] });
+  const title = `${acct.name} · ${who}`;
+  const what = `${st.items.length} item(ns) em aberto`;
+
+  let id: string, url: string;
+  if (acct.provider === "stripe") {
+    const base = {
+      mode: "payment",
+      line_items: [{ quantity: 1, price_data: { currency: "brl", unit_amount: Math.round(st.owed * 100), product_data: { name: title, description: what } } }],
+      success_url: done,
+      cancel_url: back,
+      locale: "pt-BR",
+      metadata: { account_id: account, student: st.student, guardian: st.guardian ?? "", owed: st.owed.toFixed(2) },
+      payment_intent_data: { description: title },
+    };
+    let session;
+    try {
+      session = await stripe(key, "POST", "/checkout/sessions", { ...base, payment_method_types: ["card", "pix"] });
+    } catch (e) {
+      // Conta Stripe sem Pix ativado: segue só com cartão.
+      if (!/pix/i.test(String(e))) throw e;
+      session = await stripe(key, "POST", "/checkout/sessions", { ...base, payment_method_types: ["card"] });
+    }
+    id = session.id; url = session.url;
+  } else {
+    // O link do Asaas pode ser pago mais de uma vez: o anterior da mesma
+    // conta, ainda em aberto, sai do ar antes de abrir o novo.
+    const { data: old } = await admin.from("online_payments").select("id, session_id").eq("account_id", account).eq("provider", "asaas")
+      .eq("status", "open").eq("student_name", st.student);
+    for (const o of old ?? []) {
+      await asaas(key, "DELETE", `/paymentLinks/${o.session_id}`).catch(() => null);
+      await admin.from("online_payments").update({ status: "expired" }).eq("id", o.id).eq("status", "open");
+    }
+    const link = await asaas(key, "POST", "/paymentLinks", {
+      name: title.slice(0, 255), description: what, value: st.owed,
+      billingType: "UNDEFINED", chargeType: "DETACHED", dueDateLimitDays: 3, maxInstallmentCount: 1, notificationEnabled: false,
+    });
+    id = link.id; url = link.url;
   }
   await admin.from("online_payments").insert({
-    account_id: account, session_id: session.id, student_name: st.student, guardian_name: st.guardian, amount: st.owed,
+    account_id: account, provider: acct.provider, session_id: id, student_name: st.student, guardian_name: st.guardian, amount: st.owed,
   });
-  return { url: session.url as string, amount: st.owed };
+  return { url, amount: st.owed };
 }
 
-/** O Stripe confirmou: lança o pagamento uma vez só. */
-async function settle(admin: Admin, account: string, session: Record<string, any>) {
-  if (session.payment_status !== "paid") return "not_paid";
-  const { data: row } = await admin.from("online_payments").select("id, status, student_name, guardian_name").eq("session_id", session.id).maybeSingle();
+/** O Stripe ou o Asaas confirmou: lança o pagamento uma vez só. */
+async function settle(admin: Admin, account: string, sessionId: string, amount: number, method: string | null) {
+  const { data: row } = await admin.from("online_payments").select("id, status, student_name, guardian_name, provider")
+    .eq("session_id", sessionId).eq("account_id", account).maybeSingle();
   if (!row || row.status === "paid") return "already";
-  // Marca primeiro (só quem mudar de 'open' para 'paid' lança): dois avisos do
-  // Stripe ao mesmo tempo não viram dois pagamentos.
+  // Marca primeiro (só quem mudar de 'open' para 'paid' lança): dois avisos ao
+  // mesmo tempo não viram dois pagamentos.
   const { data: claimed } = await admin.from("online_payments").update({ status: "paid", paid_at: new Date().toISOString() })
     .eq("id", row.id).neq("status", "paid").select("id");
   if (!claimed?.length) return "already";
-  const amount = Number(session.amount_total ?? 0) / 100;
-  const method = (session.payment_method_types ?? []).length === 1 ? session.payment_method_types[0] : null;
-  const label = method === "pix" ? "Pix" : method === "card" ? "cartão" : "cartão/Pix";
+  const label = method === "pix" ? "Pix" : method === "card" ? "cartão" : method === "boleto" ? "boleto" : "cartão/Pix";
   const { data, error } = await admin.rpc("register_payment", {
     _account: account, _student: row.student_name, _guardian: row.guardian_name, _amount: amount,
     _kind: "adjustment", _description: `Pagamento on-line (${label})`, _voucher: 0, _voucher_description: null,
@@ -177,6 +236,57 @@ async function settle(admin: Admin, account: string, session: Record<string, any
   }
   await admin.from("online_payments").update({ wallet_tx_id: (data as { payment_id?: string } | null)?.payment_id ?? null, method }).eq("id", row.id);
   return "paid";
+}
+
+// ---------------------------------------------------------------------------
+// Conectar
+// ---------------------------------------------------------------------------
+async function connectStripe(admin: Admin, account: string, key: string) {
+  if (!/^(sk|rk)_(test|live)_[A-Za-z0-9]{10,}$/.test(key)) return json({ error: "invalid_key" }, 400);
+  const acct = await stripe(key, "GET", "/account").catch(e => ({ error: String(e) }));
+  if ((acct as { error?: string }).error) return json({ error: "stripe_refused", detail: (acct as { error: string }).error }, 400);
+  // O endereço que o Stripe avisa quando a família paga (trocando a chave, o
+  // aviso antigo sai para não ficarem dois).
+  const hookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/webhook?c=${account}`;
+  const old = await stripe(key, "GET", "/webhook_endpoints?limit=100").catch(() => ({ data: [] }));
+  for (const w of (old.data ?? []) as { id: string; url: string }[]) {
+    if (w.url === hookUrl) await stripe(key, "DELETE", `/webhook_endpoints/${w.id}`).catch(() => null);
+  }
+  const hook = await stripe(key, "POST", "/webhook_endpoints", {
+    url: hookUrl,
+    enabled_events: ["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "checkout.session.expired"],
+    description: "Cronys - pagamentos das famílias",
+  });
+  await admin.rpc("pay_store_secret", { _name: `stripe_key:${account}`, _value: key }).throwOnError();
+  await admin.rpc("pay_store_secret", { _name: `stripe_whsec:${account}`, _value: hook.secret }).throwOnError();
+  const a = acct as { settings?: { dashboard?: { display_name?: string } }; business_profile?: { name?: string }; email?: string };
+  return json({ ok: true, test: key.includes("_test_"), name: a.settings?.dashboard?.display_name ?? a.business_profile?.name ?? a.email ?? null });
+}
+
+async function connectAsaas(admin: Admin, account: string, raw: string, email: string | null) {
+  if (!/^\$aact_\S{20,}$/.test(raw)) return json({ error: "invalid_key" }, 400);
+  // Chave sem a marca do ambiente: tenta a de verdade e, se não der, o sandbox.
+  let stored = raw;
+  let probe = await asaas(stored, "GET", "/customers?limit=1").then(() => null, e => String(e));
+  if (probe && !/_(prod|hmlg)_/.test(raw)) {
+    stored = `sandbox|${raw}`;
+    probe = await asaas(stored, "GET", "/customers?limit=1").then(() => null, e => String(e));
+  }
+  if (probe) return json({ error: "asaas_refused", detail: probe }, 400);
+  const hookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/webhook-asaas?c=${account}`;
+  const old = await asaas(stored, "GET", "/webhooks?limit=100").catch(() => ({ data: [] }));
+  for (const w of (old.data ?? []) as { id: string; url: string }[]) {
+    if (w.url === hookUrl) await asaas(stored, "DELETE", `/webhooks/${w.id}`).catch(() => null);
+  }
+  const token = asaasToken();
+  await asaas(stored, "POST", "/webhooks", {
+    name: "Cronys - pagamentos das famílias", url: hookUrl, email: email ?? undefined, enabled: true, interrupted: false,
+    apiVersion: 3, authToken: token, sendType: "SEQUENTIALLY", events: ["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"],
+  });
+  await admin.rpc("pay_store_secret", { _name: `asaas_key:${account}`, _value: stored }).throwOnError();
+  await admin.rpc("pay_store_secret", { _name: `asaas_whsec:${account}`, _value: token }).throwOnError();
+  const info = await asaas(stored, "GET", "/myAccount/commercialInfo/").catch(() => null) as { name?: string; companyName?: string } | null;
+  return json({ ok: true, test: asaasEnv(stored).sandbox, name: info?.companyName ?? info?.name ?? null });
 }
 
 // ---------------------------------------------------------------------------
@@ -197,22 +307,24 @@ Deno.serve(async (req) => {
   const raw = await req.text().catch(() => "");
 
   try {
-    // --- Volta do Stripe ---
+    // --- Volta do Stripe (link antigo) ---
     if (url.pathname.endsWith("/done")) {
       return html("Pagamento recebido", "Obrigado! O pagamento foi registrado e você vai receber o recibo por e-mail. Já pode fechar esta página.");
     }
 
-    // --- Webhook do Stripe da empresa ---
+    // --- Aviso do Stripe da empresa ---
     if (url.pathname.endsWith("/webhook")) {
       const account = url.searchParams.get("c") ?? "";
       if (!/^[0-9a-f-]{36}$/.test(account)) return json({ error: "bad account" }, 400);
       const whsec = await secret(admin, `stripe_whsec:${account}`);
-      if (!whsec || !(await verifySignature(raw, req.headers.get("stripe-signature"), whsec))) return json({ error: "assinatura inválida" }, 400);
+      if (!whsec || !(await verifyStripe(raw, req.headers.get("stripe-signature"), whsec))) return json({ error: "assinatura inválida" }, 400);
       const ev = JSON.parse(raw);
       const s = ev.data?.object ?? {};
       if (s.metadata?.account_id !== account) return json({ ignored: "outra empresa" });
       if (ev.type === "checkout.session.completed" || ev.type === "checkout.session.async_payment_succeeded") {
-        return json({ ok: true, result: await settle(admin, account, s) });
+        if (s.payment_status !== "paid") return json({ ok: true, result: "not_paid" });
+        const types = (s.payment_method_types ?? []) as string[];
+        return json({ ok: true, result: await settle(admin, account, s.id, Number(s.amount_total ?? 0) / 100, types.length === 1 ? types[0] : null) });
       }
       if (ev.type === "checkout.session.expired" || ev.type === "checkout.session.async_payment_failed") {
         await admin.from("online_payments").update({ status: "expired" }).eq("session_id", s.id).eq("status", "open");
@@ -221,22 +333,62 @@ Deno.serve(async (req) => {
       return json({ ignored: ev.type });
     }
 
-    // --- Link do e-mail / WhatsApp (sem login) ---
+    // --- Aviso do Asaas da empresa ---
+    if (url.pathname.endsWith("/webhook-asaas")) {
+      const account = url.searchParams.get("c") ?? "";
+      if (!/^[0-9a-f-]{36}$/.test(account)) return json({ error: "bad account" }, 400);
+      const token = await secret(admin, `asaas_whsec:${account}`);
+      if (!token || !safeEqual(req.headers.get("asaas-access-token") ?? "", token)) return json({ error: "token inválido" }, 401);
+      const ev = JSON.parse(raw || "{}");
+      const p = ev.payment ?? {};
+      // O Asaas para a fila se a resposta não for 200: o que não é nosso
+      // responde 200 e segue.
+      if (!["PAYMENT_CONFIRMED", "PAYMENT_RECEIVED"].includes(ev.event) || !p.paymentLink) return json({ ignored: ev.event ?? null });
+      const method = p.billingType === "PIX" ? "pix" : p.billingType === "CREDIT_CARD" ? "card" : p.billingType === "BOLETO" ? "boleto" : null;
+      const result = await settle(admin, account, String(p.paymentLink), Number(p.value ?? 0), method);
+      if (result === "paid") {
+        // Pago: o link sai do ar para ninguém pagar de novo.
+        const key = await secret(admin, `asaas_key:${account}`);
+        if (key) await asaas(key, "DELETE", `/paymentLinks/${p.paymentLink}`).catch(() => null);
+      }
+      return json({ ok: true, result });
+    }
+
+    // --- Link comprido antigo do e-mail / WhatsApp (sem login) ---
     if (url.pathname.endsWith("/go")) {
       const account = url.searchParams.get("c") ?? "", k = url.searchParams.get("k") ?? "", t = url.searchParams.get("t") ?? "";
       const s = await secret(admin, "pay_link_secret");
       if (!s || !account || !k || (await hmac(s, `${account}|${k}`)) !== t) return html("Link inválido", "Este link de pagamento não é válido. Peça um novo a quem enviou.", 400);
       let student = "", guardian: string | null = null;
       try { const [a, b] = JSON.parse(unb64(k)); student = String(a); guardian = String(b) || null; } catch { return html("Link inválido", "Este link de pagamento não é válido.", 400); }
-      const r = await openCheckout(admin, account, student, guardian, SITE);
-      if ("url" in r && r.url) return new Response(null, { status: 303, headers: { Location: r.url } });
-      if (r.error === "nothing_owed") return html("Tudo em dia", "Não há nada em aberto agora. Obrigado!");
-      return html("Pagamento indisponível", "O pagamento on-line não está disponível no momento. Fale com quem enviou o link.", 503);
+      const { code } = await shortLink(admin, account, student, guardian);
+      return new Response(null, { status: 303, headers: { Location: `${SITE}/pagar/${code}` } });
+    }
+
+    let body: Record<string, any> = {};
+    try { body = raw ? JSON.parse(raw) : {}; } catch { /* vazio */ }
+
+    // --- A página /pagar/<código> (sem login) ---
+    if (body.action === "info" || body.action === "open") {
+      const link = await linkOf(admin, String(body.code ?? ""));
+      if (!link) return json({ ok: false, error: "invalid" }, 404);
+      const acct = await allowed(admin, link.account_id);
+      if (body.action === "info") {
+        if (!acct) return json({ ok: false, error: "not_enabled" });
+        const st = await statementOf(admin, link.account_id, link.student_name, link.guardian_name);
+        const first = ((st?.guardian ?? st?.student ?? link.guardian_name ?? link.student_name) || "").trim().split(/\s+/)[0];
+        return json({
+          ok: true, company: acct.name, name: first,
+          owed: st?.owed ?? 0, items: st?.items.length ?? 0,
+          available: !!acct.provider && !!(await secret(admin, `${acct.provider}_key:${link.account_id}`)),
+        });
+      }
+      const page = `${SITE}/pagar/${link.code}`;
+      const r = await openCheckout(admin, link.account_id, link.student_name, link.guardian_name, page, `${page}?pago=1`);
+      return "url" in r ? json({ ok: true, url: r.url, amount: r.amount }) : json({ ok: false, error: r.error });
     }
 
     // --- Ações com login ---
-    let body: Record<string, any> = {};
-    try { body = raw ? JSON.parse(raw) : {}; } catch { /* vazio */ }
     const user = await caller(req);
     if (!user) return json({ error: "no_auth" }, 401);
     const { data: roles } = await admin.from("user_roles").select("account_id, role").eq("user_id", user.id);
@@ -248,42 +400,25 @@ Deno.serve(async (req) => {
       if (!studentRole) return json({ error: "forbidden" }, 403);
       const { data: st } = await admin.from("students").select("student_name, guardian_name").eq("account_id", studentRole.account_id).eq("user_id", user.id).limit(1).maybeSingle();
       if (!st) return json({ error: "no_account" }, 404);
-      const r = await openCheckout(admin, studentRole.account_id, st.student_name, st.guardian_name, `${SITE}/aluno/financeiro`);
+      const back = `${SITE}/aluno/financeiro`;
+      const r = await openCheckout(admin, studentRole.account_id, st.student_name, st.guardian_name, back, `${back}?pago=1`);
       return "url" in r ? json({ ok: true, ...r }) : json({ ok: false, error: r.error }, 400);
     }
 
     if (!adminRole) return json({ error: "forbidden" }, 403);
     const account = adminRole.account_id as string;
-    if (!(await allowed(admin, account))) return json({ error: "not_enabled" }, 403);
+    const acct = await allowed(admin, account);
+    if (!acct) return json({ error: "not_enabled" }, 403);
 
     if (body.action === "link") {
-      if (!(await secret(admin, `stripe_key:${account}`))) return json({ error: "not_connected" }, 400);
-      const link = await signedLink(admin, account, String(body.student ?? ""), (body.guardian ?? null) as string | null);
-      return link ? json({ ok: true, url: link }) : json({ error: "no_secret" }, 500);
+      if (!acct.provider || !(await secret(admin, `${acct.provider}_key:${account}`))) return json({ error: "not_connected" }, 400);
+      const { url: link } = await shortLink(admin, account, String(body.student ?? ""), (body.guardian ?? null) as string | null);
+      return json({ ok: true, url: link });
     }
 
     if (body.action === "connect") {
       const key = String(body.key ?? "").trim();
-      if (!/^(sk|rk)_(test|live)_[A-Za-z0-9]{10,}$/.test(key)) return json({ error: "invalid_key" }, 400);
-      // A chave funciona? (e de quem é a conta)
-      const acct = await stripe(key, "GET", "/account").catch(e => ({ error: String(e) }));
-      if ((acct as { error?: string }).error) return json({ error: "stripe_refused", detail: (acct as { error: string }).error }, 400);
-      // O endereço que o Stripe avisa quando a família paga (trocando a chave,
-      // o aviso antigo sai para não ficarem dois).
-      const hookUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/webhook?c=${account}`;
-      const old = await stripe(key, "GET", "/webhook_endpoints?limit=100").catch(() => ({ data: [] }));
-      for (const w of (old.data ?? []) as { id: string; url: string }[]) {
-        if (w.url === hookUrl) await stripe(key, "DELETE", `/webhook_endpoints/${w.id}`).catch(() => null);
-      }
-      const hook = await stripe(key, "POST", "/webhook_endpoints", {
-        url: hookUrl,
-        enabled_events: ["checkout.session.completed", "checkout.session.async_payment_succeeded", "checkout.session.async_payment_failed", "checkout.session.expired"],
-        description: "Cronys - pagamentos das famílias",
-      });
-      await admin.rpc("pay_store_secret", { _name: `stripe_key:${account}`, _value: key }).throwOnError();
-      await admin.rpc("pay_store_secret", { _name: `stripe_whsec:${account}`, _value: hook.secret }).throwOnError();
-      const a = acct as { settings?: { dashboard?: { display_name?: string } }; business_profile?: { name?: string }; email?: string };
-      return json({ ok: true, test: key.includes("_test_"), name: a.settings?.dashboard?.display_name ?? a.business_profile?.name ?? a.email ?? null });
+      return body.provider === "asaas" ? await connectAsaas(admin, account, key, user.email ?? null) : await connectStripe(admin, account, key);
     }
 
     return json({ error: "unknown action" }, 400);

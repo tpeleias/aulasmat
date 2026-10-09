@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import UpdateBanner from "@/components/UpdateBanner";
 import { NotificationEmailCard } from "@/components/NotificationEmailCard";
 import { supabase } from "@/integrations/supabase/client";
-import { useStudent, useAppSettings } from "@/hooks/useStudent";
+import { useStudent, useAppSettings, financeHidden } from "@/hooks/useStudent";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -110,13 +110,13 @@ export default function StudentDashboard() {
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard icon={Calendar} label={`${ap.proximos} ${ap.lp}`} value={upcoming.length} href="/aluno/aulas" />
-        <StatCard
+        {!financeHidden(settings) && <StatCard
           icon={Wallet}
           label={owed > 0 ? L("Em aberto", "Outstanding") : L("Crédito", "Credit")}
           value={fmt(owed > 0 ? owed : credit)}
           href="/aluno/financeiro"
           tone={owed > 0 ? "destructive" : "default"}
-        />
+        />}
         {tasks && <StatCard icon={ListChecks} label={L(`${w.task.p} ${w.task.pick("pendentes", "pendentes")}`, `Pending ${w.task.lp}`)} value={dueHomework.length} href="/aluno/tarefas" />}
         <StatCard icon={FolderOpen} label={L("Materiais", "Materials")} value={L("Acessar", "Open")} href="/aluno/materiais" />
       </div>
