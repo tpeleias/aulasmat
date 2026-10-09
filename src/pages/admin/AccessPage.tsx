@@ -31,6 +31,7 @@ type Visibility = {
   allow_student_booking: boolean;
   show_availability_to_students: boolean;
   show_payment_info_to_students: boolean;
+  show_finance_to_clients: boolean;
 };
 
 const FILTERS = [
@@ -44,6 +45,7 @@ type Filter = typeof FILTERS[number]["key"];
 const toggles = (w: Vocabulary): { key: keyof Visibility; label: string; hint: string }[] => [
   { key: "allow_student_booking", label: L(`Deixar marcar ${w.appointment.l}`, `Allow booking ${w.appointment.lp}`), hint: L(`${cap(w.payer.o)} ${w.payer.l} escolhe um horário livre e agenda sozinho.`, `The ${w.payer.l} picks a free time and books on their own.`) },
   { key: "show_availability_to_students", label: L("Mostrar disponibilidade", "Show availability"), hint: L(`Link com os horários livres de cada ${w.staff.l}.`, `Link with each ${w.staff.l}'s free times.`) },
+  { key: "show_finance_to_clients", label: L("Mostrar o financeiro", "Show billing"), hint: L(`Desligado, ${w.payer.o} ${w.payer.l} vê só ${w.appointment.os} ${w.appointment.lp}, os materiais e o resto: valores, saldo e pagamentos ficam só com a empresa.`, `When off, the ${w.payer.l} only sees ${w.appointment.lp}, materials and the rest: amounts, balance and payments stay with the business.`) },
   { key: "show_payment_info_to_students", label: L("Mostrar como pagar", "Show how to pay"), hint: L("Chave Pix e link de pagamento no portal.", "Payment link in the portal.") },
 ];
 
@@ -65,7 +67,7 @@ export default function AccessPage() {
   const load = async () => {
     const [{ data: st }, { data: cfg }] = await Promise.all([
       supabase.from("students").select("id, student_name, guardian_name, user_id, guardian_username, child_user_id, child_username").order("student_name"),
-      supabase.from("settings").select("id, allow_student_booking, show_availability_to_students, show_payment_info_to_students").maybeSingle(),
+      supabase.from("settings").select("id, allow_student_booking, show_availability_to_students, show_payment_info_to_students, show_finance_to_clients").maybeSingle(),
     ]);
     setStudents((st ?? []) as Student[]);
     if (cfg) {
@@ -112,7 +114,7 @@ export default function AccessPage() {
     else if (plan.school_code) lines.push(L(`Para criar sua conta pelo app, use o código ${w.business.do} ${w.business.l}: ${plan.school_code}`, `To create your account in the app, use our code: ${plan.school_code}`));
     if (s.child_username) lines.push(L(`Acesso ${w.client.do} ${w.client.l}: usuário ${s.child_username} (entra na mesma tela, com a senha dele).`, `The ${w.client.l}'s login: username ${s.child_username} (same sign-in screen, with their own password).`));
     if (password.trim()) lines.push(L(`Senha provisória: ${password.trim()} (o app pede para trocar no primeiro acesso).`, `Temporary password: ${password.trim()} (the app asks you to change it on first sign-in).`));
-    lines.push("", L(`Por lá você vê ${listWithTasks([`${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}`, "o que está em aberto", "os materiais", ...(tasks ? [`${w.task.os} ${w.task.lp}`] : [])], w, false)}.`, `There you'll see ${listWithTasks([`upcoming ${w.appointment.lp}`, "what's outstanding", "materials"], w, tasks)}.`));
+    lines.push("", L(`Por lá você vê ${listWithTasks([`${w.appointment.os} ${w.appointment.pick("próximos", "próximas")} ${w.appointment.lp}`, ...(visibility?.show_finance_to_clients === false ? [] : ["o que está em aberto"]), "os materiais", ...(tasks ? [`${w.task.os} ${w.task.lp}`] : [])], w, false)}.`, `There you'll see ${listWithTasks([`upcoming ${w.appointment.lp}`, ...(visibility?.show_finance_to_clients === false ? [] : ["what's outstanding"]), "materials"], w, tasks)}.`));
     return lines.join("\n");
   };
 
@@ -154,7 +156,7 @@ export default function AccessPage() {
               </div>
               <Switch
                 checked={!!visibility?.[t.key]}
-                disabled={!visibility}
+                disabled={!visibility || (t.key === "show_payment_info_to_students" && visibility.show_finance_to_clients === false)}
                 onCheckedChange={v => saveVisibility(t.key, v)}
               />
             </div>

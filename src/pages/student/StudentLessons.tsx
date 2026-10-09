@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useStudent, useAppSettings } from "@/hooks/useStudent";
+import { useStudent, useAppSettings, financeHidden } from "@/hooks/useStudent";
 import { useAuth } from "@/hooks/useAuth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -97,7 +97,7 @@ function LessonList({ lessons, all, settings, showSummary, hideFinancial, onChan
               {/* Pedido sem resposta, recusado ou cancelado não tem cobrança para
                   mostrar - exibir valor ali fazia parecer que a família devia
                   por uma aula que ninguém confirmou. */}
-              {!hideFinancial && !isRequest(l.status) && !isDiscarded(l.status) && (
+              {!hideFinancial && settings && !financeHidden(settings) && !isRequest(l.status) && !isDiscarded(l.status) && (
                 <Badge variant={l.payment_status === "pago" ? "default" : "destructive"}>{fmt(Number(l.price) * Number(l.duration_minutes) / 60)} · {L(l.payment_status, l.payment_status === "pago" ? "paid" : "pending")}</Badge>
               )}
               {/* Falta cobrada: a aula não aconteceu, mas entrou na cobrança pela

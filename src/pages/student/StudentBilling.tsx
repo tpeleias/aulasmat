@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useStudent, useAppSettings } from "@/hooks/useStudent";
+import { useStudent, useAppSettings, financeHidden } from "@/hooks/useStudent";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { PaymentMethods } from "@/components/PaymentMethods";
 import { scopeToAccount, fmtMoney } from "@/lib/balance";
@@ -54,9 +55,17 @@ export default function StudentBilling() {
     package: L("Pacote", "Package"), voucher: "Voucher", leftover: L("Sobra de desconto", "Leftover discount"), adjustment: L("Ajuste", "Adjustment"),
   }, { purchases, uses }), [txs, lessons, ap, purchases, uses]);
   const pkg = currentPurchase(ledger.packages);
-  // Pagamento on-line pelo Stripe da empresa (09/10): só aparece se ela conectou.
+  // Pagamento on-line pelo Stripe ou Asaas da empresa (09/10): só aparece se ela escolheu e conectou.
   const online = useOnlinePayments();
   const [paying, setPaying] = useState(false);
+  // Volta do pagamento on-line (?pago=1): o aviso do Stripe/Asaas pode levar
+  // alguns segundos para lançar.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("pago") !== "1") return;
+    toast.success(L("Pagamento recebido! Ele aparece aqui em instantes, e o recibo vai por e-mail.", "Payment received! It shows up here shortly, and the receipt goes by email."));
+    setParams({}, { replace: true });
+  }, [params, setParams]);
   const payNow = async () => {
     setPaying(true);
     const r = await payAction<{ url: string }>({ action: "checkout" });
@@ -64,6 +73,9 @@ export default function StudentBilling() {
     if (!r.ok || !r.data?.url) { toast.error(payErrorText(r.error)); return; }
     if (!openExternal(r.data.url)) window.location.href = r.data.url;
   };
+
+  // A empresa escondeu o financeiro do portal (09/10).
+  if (financeHidden(settings)) return <Navigate to="/aluno" replace />;
 
   return (
     <div className="space-y-6">

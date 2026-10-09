@@ -14,7 +14,7 @@ import { buildPixPayload } from "../_shared/pix.ts";
 import { amountInWordsFor } from "../_shared/extenso.ts";
 import {
   authEmail, cap1, clientEmails, clientMsg, ctxFor, deliver, esc, fmtDay, fmtTime, localMidnight, localParts, pref,
-  real, teacherInfo, word, type Admin, type Ctx, type Lesson, type Msg,
+  real, SITE, teacherInfo, word, type Admin, type Ctx, type Lesson, type Msg,
 } from "./core.ts";
 
 const NOTE_AUTO_PT = "Mensagem enviada automaticamente. Caso o pagamento já tenha sido realizado, por favor, desconsidere este aviso.";
@@ -98,22 +98,18 @@ function itemsTable(ctx: Ctx, items: OpenItem[]) {
 }
 
 /**
- * Pagamento on-line pelo Stripe da própria empresa (09/10, função "pay"): com
- * a conta conectada, o botão do e-mail abre o pagamento do valor em aberto,
- * no cartão ou no Pix. O link é assinado e sempre cobra o valor de agora.
+ * Pagamento on-line pela conta da própria empresa no Stripe ou no Asaas
+ * (09/10, função "pay"): com um dos dois escolhido e conectado, o botão do
+ * e-mail leva ao link curto cronys.com.br/pagar/<código>, que sempre cobra o
+ * valor em aberto de agora, no cartão ou no Pix.
  */
 export async function onlinePayLink(admin: Admin, ctx: Ctx, st: Pick<AccountStatement, "student" | "guardian">) {
-  const { data: a } = await admin.from("accounts").select("online_payments").eq("id", ctx.account.id).maybeSingle();
-  if (!a?.online_payments) return null;
-  const key = (await admin.rpc("pay_secret", { _name: `stripe_key:${ctx.account.id}` })).data;
-  const sec = (await admin.rpc("pay_secret", { _name: "pay_link_secret" })).data;
-  if (typeof key !== "string" || !key || typeof sec !== "string" || !sec) return null;
-  const b64 = (x: string) => btoa(unescape(encodeURIComponent(x))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const k = b64(JSON.stringify([st.student, st.guardian ?? ""]));
-  const ck = await crypto.subtle.importKey("raw", new TextEncoder().encode(sec), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const t = Array.from(new Uint8Array(await crypto.subtle.sign("HMAC", ck, new TextEncoder().encode(`${ctx.account.id}|${k}`))))
-    .map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 40);
-  return `${Deno.env.get("SUPABASE_URL")}/functions/v1/pay/go?c=${ctx.account.id}&k=${k}&t=${t}`;
+  const { data: a } = await admin.from("accounts").select("online_payments, online_provider").eq("id", ctx.account.id).maybeSingle();
+  if (!a?.online_payments || !a.online_provider) return null;
+  const key = (await admin.rpc("pay_secret", { _name: `${a.online_provider}_key:${ctx.account.id}` })).data;
+  if (typeof key !== "string" || !key) return null;
+  const { data: code } = await admin.rpc("pay_link_code", { _account: ctx.account.id, _student: st.student, _guardian: st.guardian });
+  return typeof code === "string" && code ? `${SITE}/pagar/${code}` : null;
 }
 
 function payBlock(ctx: Ctx, total: number, online?: string | null) {
