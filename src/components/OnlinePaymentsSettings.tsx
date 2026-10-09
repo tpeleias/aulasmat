@@ -74,7 +74,7 @@ export default function OnlinePaymentsSettings() {
     asaas: [
       L("No Asaas, pelo computador (o aplicativo não tem essa opção): toque na sua foto no canto de cima → Integrações (ou Minha conta → Integração) → Chaves API → Gerar chave de API. Copie na hora: ela só aparece uma vez (começa com $aact_).", "In Asaas, on a computer (the app doesn't have it): your avatar at the top → Integrations (or My account → Integration) → API keys → Generate API key. Copy it right away: it's shown only once (starts with $aact_)."),
       L("Só aparece para o administrador da conta, e com o cadastro aprovado.", "Only the account admin sees it, once the account is approved."),
-      L("Para aceitar Pix, cadastre uma chave Pix no Asaas (Pix → Minhas chaves). Cartão e boleto já vêm ligados.", "To accept Pix, register a Pix key in Asaas (Pix → My keys). Card and boleto come on already."),
+      L("Para aceitar Pix, cadastre uma chave Pix no Asaas (Pix → Minhas chaves). O cartão já vem ligado. Boleto o Cronys não oferece: a família escolhe Pix ou cartão.", "To accept Pix, register a Pix key in Asaas (Pix → My keys). Card comes on already. Boleto isn't offered: the family picks Pix or card."),
       L("Para testar antes, use uma conta do Sandbox (sandbox.asaas.com): a chave de lá começa com $aact_hmlg_.", "To test first, use a Sandbox account (sandbox.asaas.com): its key starts with $aact_hmlg_."),
     ],
   };

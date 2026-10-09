@@ -4,8 +4,8 @@
 //
 //   POST {action: "connect", provider?, key}      <- admin: conecta o Stripe (padrão) ou o Asaas
 //   POST {action: "link", student, guardian}      <- admin: o link curto (cronys.com.br/pagar/<código>)
-//   POST {action: "checkout"}                     <- família logada: abre o pagamento do que deve
-//   POST {action: "info" | "open", code}          <- a página /pagar/<código> (sem login)
+//   POST {action: "checkout"}                     <- família logada: o link curto da conta dela
+//   POST {action: "info" | "open", code, method?} <- a página /pagar/<código> (sem login); method pix|card
 //   GET  /go?c&k&t                                <- link comprido antigo (ainda funciona)
 //   POST /webhook?c=<empresa>                     <- o Stripe: pagamento confirmado
 //   POST /webhook-asaas?c=<empresa>               <- o Asaas: pagamento confirmado
@@ -176,7 +176,7 @@ async function allowed(admin: Admin, account: string): Promise<Acct | null> {
 type Opened = { url: string; amount: number } | { error: "not_enabled" | "not_connected" | "nothing_owed" };
 
 /** Abre o pagamento do valor em aberto agora, no Stripe ou no Asaas da empresa. */
-async function openCheckout(admin: Admin, account: string, student: string, guardian: string | null, back: string, done: string): Promise<Opened> {
+async function openCheckout(admin: Admin, account: string, student: string, guardian: string | null, back: string, done: string, method: "pix" | "card" = "card"): Promise<Opened> {
   const acct = await allowed(admin, account);
   if (!acct) return { error: "not_enabled" };
   if (!acct.provider) return { error: "not_connected" };
@@ -217,14 +217,15 @@ async function openCheckout(admin: Admin, account: string, student: string, guar
       await asaas(key, "DELETE", `/paymentLinks/${o.session_id}`).catch(() => null);
       await admin.from("online_payments").update({ status: "expired" }).eq("id", o.id).eq("status", "open");
     }
+    // Um link por forma de pagamento (o Asaas não junta Pix e cartão sem o
+    // boleto, e o Thiago não quer boleto): Pix à vista, ou cartão parcelado
+    // pela regra da empresa (accounts.online_installment_rule).
     const linkBody = (n: number) => ({
       name: title.slice(0, 255), description: what, value: st.owed,
-      // Parcelado quando a regra da empresa dá mais de 1x para este valor
-      // (accounts.online_installment_rule); o Pix é sempre à vista.
-      billingType: "UNDEFINED", chargeType: n > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
+      billingType: method === "pix" ? "PIX" : "CREDIT_CARD", chargeType: n > 1 ? "INSTALLMENT" : "DETACHED", dueDateLimitDays: 3,
       maxInstallmentCount: n, notificationEnabled: false,
     });
-    const n = acct.installments(st.owed);
+    const n = method === "pix" ? 1 : acct.installments(st.owed);
     let link;
     try {
       link = await asaas(key, "POST", "/paymentLinks", linkBody(n));
@@ -442,12 +443,14 @@ Deno.serve(async (req) => {
         return json({
           ok: true, company: acct.name, name: first,
           owed: st?.owed ?? 0, items: st?.items.length ?? 0,
+          provider: acct.provider,
           installments: acct.provider === "asaas" ? acct.installments(st?.owed ?? 0) : 1,
           available: !!acct.provider && !!(await secret(admin, `${acct.provider}_key:${link.account_id}`)),
         });
       }
       const page = `${SITE}/pagar/${link.code}`;
-      const r = await openCheckout(admin, link.account_id, link.student_name, link.guardian_name, page, `${page}?pago=1`);
+      const method = body.method === "pix" ? "pix" : "card";
+      const r = await openCheckout(admin, link.account_id, link.student_name, link.guardian_name, page, `${page}?pago=1`, method);
       return "url" in r ? json({ ok: true, url: r.url, amount: r.amount }) : json({ ok: false, error: r.error });
     }
 
@@ -463,9 +466,13 @@ Deno.serve(async (req) => {
       if (!studentRole) return json({ error: "forbidden" }, 403);
       const { data: st } = await admin.from("students").select("student_name, guardian_name").eq("account_id", studentRole.account_id).eq("user_id", user.id).limit(1).maybeSingle();
       if (!st) return json({ error: "no_account" }, 404);
-      const back = `${SITE}/aluno/financeiro`;
-      const r = await openCheckout(admin, studentRole.account_id, st.student_name, st.guardian_name, back, `${back}?pago=1`);
-      return "url" in r ? json({ ok: true, ...r }) : json({ ok: false, error: r.error }, 400);
+      // O portal leva à mesma página do link curto, onde a família escolhe
+      // Pix ou cartão (e vê as parcelas).
+      const acctS = await allowed(admin, studentRole.account_id);
+      if (!acctS) return json({ ok: false, error: "not_enabled" }, 400);
+      if (!acctS.provider || !(await secret(admin, `${acctS.provider}_key:${studentRole.account_id}`))) return json({ ok: false, error: "not_connected" }, 400);
+      const { url: page } = await shortLink(admin, studentRole.account_id, st.student_name, st.guardian_name);
+      return json({ ok: true, url: page });
     }
 
     if (!adminRole) return json({ error: "forbidden" }, 403);

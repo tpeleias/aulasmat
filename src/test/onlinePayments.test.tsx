@@ -119,13 +119,19 @@ describe("Link curto /pagar/<código>", () => {
     expect(invoke).toHaveBeenCalledTimes(1);
     expect(screen.queryByText(/em até/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com cartão ou Pix/ }));
-    await waitFor(() => expect(invoke).toHaveBeenCalledWith("pay", { body: { action: "open", code: "abcd2345" } }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("pay", { body: { action: "open", code: "abcd2345", method: "card" } }));
   });
 
-  it("no Asaas parcelado, avisa que dá para parcelar", async () => {
-    payReply = () => ({ ok: true, company: "Portal de Aulas", name: "Ana", owed: 600, items: 3, available: true, installments: 12 });
+  it("no Asaas: Pix ou cartão (sem boleto), com as parcelas no botão do cartão", async () => {
+    payReply = b => (b.action === "info"
+      ? { ok: true, company: "Portal de Aulas", name: "Ana", owed: 600, items: 3, available: true, installments: 4, provider: "asaas" }
+      : { ok: false, error: "failed" });
     at("/pagar/abcd2345");
-    expect(await screen.findByText("No cartão, em até 12x.")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: /Pagar com Pix/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("pay", { body: { action: "open", code: "abcd2345", method: "pix" } }));
+    fireEvent.click(screen.getByRole("button", { name: /Pagar no cartão, em até 4x/ }));
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith("pay", { body: { action: "open", code: "abcd2345", method: "card" } }));
+    expect(screen.queryByText(/boleto/i)).toBeNull();
   });
 
   it("sem nada em aberto, diz que está tudo em dia", async () => {
