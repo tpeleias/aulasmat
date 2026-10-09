@@ -222,3 +222,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Acessos ganha "Mostrar o financeiro" (todas as empresas; pedido de uma empresa interessada, repassado pelo Thiago): desligado, o portal do cliente some com o Financeiro, os valores das aulas e o saldo, e o banco deixa de entregar a carteira e os pacotes ao login do cliente. A empresa continua vendo tudo | T |
 | Link de pagamento curto: no lugar do endereço comprido da função, cronys.com.br/pagar/<código>, com uma página que mostra a empresa e o valor em aberto antes de abrir o pagamento. Os links compridos já enviados continuam funcionando | T |
 | Pagamento on-line (só o Portal de Aulas): interruptor para escolher entre o padrão (Pix e link das Configurações, como o InfinitePay) e o pagamento on-line, e escolha entre Stripe e Asaas. O Asaas conecta pela chave de API, como o Stripe, e o pagamento entra sozinho no Financeiro | T |
+
+### 09/10 - site
+
+| Mudança | Origem |
+|---|---|
+| Texto de ajuda do Asaas corrigido em Configurações → Integrações (o Thiago não achou "Integrações" no Asaas): a chave se gera pelo computador, na foto do canto de cima → Integrações → Chaves API, só para o administrador | T |
