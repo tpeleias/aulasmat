@@ -627,8 +627,8 @@ export default function BillingPage() {
               // volta para a tela, para a pessoa não se perder na lista.
               const collapse = (el: HTMLElement) => {
                 toggle();
-                const card = el.closest("[data-account]");
-                requestAnimationFrame(() => card?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+                const card = el.closest<HTMLElement>("[data-account]");
+                requestAnimationFrame(() => card?.scrollIntoView?.({ block: "nearest", behavior: "smooth" }));
               };
               return (
                 <Card key={a.key} data-account={a.key} className={cn("rounded-2xl p-4 md:p-5", overdue && "border-destructive/40")}>
