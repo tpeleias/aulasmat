@@ -32,6 +32,7 @@ import { EmailHistoryDialog } from "@/components/EmailHistoryDialog";
 import ListSkeleton from "@/components/ListSkeleton";
 import EmptyState from "@/components/EmptyState";
 import PullToRefresh from "@/components/PullToRefresh";
+import SplitHistoryNotice from "@/components/SplitHistoryNotice";
 import SortMenu, { useSortPreference } from "@/components/SortMenu";
 import PeriodSummary from "@/components/PeriodSummary";
 import { useWords } from "@/hooks/useVocabulary";
@@ -576,6 +577,7 @@ export default function BillingPage() {
           </p>
         </div>
 
+        {!loading && <SplitHistoryNotice onMerged={load} />}
         {!loading && <PeriodSummary lessons={lessons} txs={txs} statements={accounts} />}
         {!loading && accounts.length > 0 && (
           <div className="space-y-2">

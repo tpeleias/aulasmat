@@ -16,6 +16,7 @@ import StudentSheet, { type SheetLesson } from "@/components/StudentSheet";
 import EmptyState from "@/components/EmptyState";
 import ListSkeleton from "@/components/ListSkeleton";
 import PullToRefresh from "@/components/PullToRefresh";
+import SplitHistoryNotice from "@/components/SplitHistoryNotice";
 import SortMenu, { useSortPreference } from "@/components/SortMenu";
 import { accountKey, fmtMoney } from "@/lib/balance";
 import { computeStatements, isOverdue, type LedgerTx } from "@/lib/billing";
@@ -174,7 +175,18 @@ export default function StudentsPage() {
       : await supabase.from("students").insert(payload);
     setBusy(false);
     if (error) { haptics.warning(); toast.error(dbErrorMessage(error, w)); }
-    else { haptics.success(); toast.success(L(`${c.s} ${c.pick("salvo", "salva")}`, `${c.s} saved`)); setEditing(null); setSelected(null); load(); }
+    else {
+      haptics.success();
+      // Mudou o responsável ou o nome: o banco leva o histórico junto
+      // (students_history_follows); avisa para ninguém estranhar.
+      const before = editing.id ? students.find(s => s.id === editing.id) : undefined;
+      const norm = (x?: string | null) => (x ?? "").trim().toLowerCase();
+      const moved = !!before && (norm(before.guardian_name) !== norm(editing.guardian_name) || norm(before.student_name) !== norm(editing.student_name));
+      toast.success(moved
+        ? L(`${c.s} ${c.pick("salvo", "salva")}. O histórico (${w.appointment.lp} e financeiro) foi junto.`, `${c.s} saved. The history (${w.appointment.lp} and billing) moved along.`)
+        : L(`${c.s} ${c.pick("salvo", "salva")}`, `${c.s} saved`));
+      setEditing(null); setSelected(null); load();
+    }
   };
 
   const remove = async (id: string) => {
@@ -222,6 +234,8 @@ export default function StudentsPage() {
             </Button>}
           </div>
         </div>
+
+        {!isTeacher && <SplitHistoryNotice onMerged={load} />}
 
         {!isTeacher && atActiveLimit && (
           <ProUpsell titulo={L(`Você chegou a ${activeLimit} ${c.lp} ativos, o limite do seu plano`, `You've reached ${activeLimit} active ${c.lp}, your plan's limit`)} icon={Users} compacto>
