@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, Trash2, Link2, FileText, Plus, Download } from "lucide-react";
+import { Upload, Trash2, Link2, Plus, Download } from "lucide-react";
+import { MaterialIcon, MaterialOpenButton, type Material } from "@/components/MaterialView";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { sanitizeFilename } from "@/lib/sanitizeFilename";
@@ -22,8 +23,10 @@ type Student = { id: string; student_name: string; guardian_name?: string | null
 // teacherMode: o login de professor (funcionário) só vê Materiais e Tarefas, só
 // põe para quem já teve aula com ele e só apaga o que ele mesmo pôs - o banco
 // confere tudo isso (migration 20260925100000); aqui é só para não oferecer.
-export function StudentManageDialog({ student, open, onOpenChange, onChanged, teacherMode = false }: {
+export function StudentManageDialog({ student, open, onOpenChange, onChanged, teacherMode = false, tab }: {
   student: Student | null; open: boolean; onOpenChange: (v: boolean) => void; onChanged: () => void; teacherMode?: boolean;
+  /** Aba que abre primeiro (o botão "Materiais e tarefas" do aluno abre direto nos materiais). */
+  tab?: "account" | "materials" | "homework";
 }) {
   const w0 = useWords();
   const tasks = useTasksEnabled();
@@ -46,7 +49,7 @@ export function StudentManageDialog({ student, open, onOpenChange, onChanged, te
             {L(`Você poderá pôr ${listWithTasks(["materiais"], w0, tasks)} depois ${w0.appointment.pick("do primeiro", "da primeira")} ${w0.appointment.l} ${w0.appointment.pick("feito", "feita")} com ${student.student_name}.`, `You'll be able to add ${listWithTasks(["materials"], w0, tasks)} after your first ${w0.appointment.l} with ${student.student_name}.`)}
           </p>
         )}
-        <Tabs defaultValue={teacherMode ? "materials" : "account"}>
+        <Tabs key={`${student.id}-${tab ?? ""}`} defaultValue={tab && !(teacherMode && tab === "account") ? tab : teacherMode ? "materials" : "account"}>
           <TabsList className={`grid ${["grid-cols-1", "grid-cols-2", "grid-cols-3"][(teacherMode ? 0 : 1) + (tasks ? 1 : 0)]} w-full`}>
             {!teacherMode && <TabsTrigger value="account">{L("Conta", "Account")}</TabsTrigger>}
             <TabsTrigger value="materials">{L("Materiais", "Materials")}</TabsTrigger>
@@ -268,12 +271,13 @@ type Perms = { canAdd: boolean; ownerId: string | null };
 function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [title, setTitle] = useState("");
-  const [items, setItems] = useState<any[]>([]);
+  const [url, setUrl] = useState("");
+  const [items, setItems] = useState<Material[]>([]);
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.from("student_materials").select("*").eq("student_id", student.id).order("created_at", { ascending: false });
-    setItems(data ?? []);
+    setItems((data ?? []) as Material[]);
   };
   useEffect(() => { load(); }, [student.id]);
 
@@ -311,16 +315,25 @@ function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
     }
   };
 
-  const remove = async (item: any) => {
-    if (!confirm(L("Excluir material?", "Delete material?"))) return;
-    await supabase.storage.from("student-materials").remove([item.file_path]);
-    const { error } = await supabase.from("student_materials").delete().eq("id", item.id);
-    if (error) toast.error(error.message); else { toast.success(L("Excluído", "Deleted")); load(); }
+  // Link (Drive, YouTube, site): o aluno abre direto, sem baixar.
+  const addLink = async () => {
+    const u = url.trim();
+    if (!/^https?:\/\/\S+$/i.test(u)) { toast.error(L("Cole um link que comece com https://", "Paste a link starting with https://")); return; }
+    setBusy(true);
+    const { error } = await supabase.from("student_materials").insert({
+      student_id: student.id, title: title.trim() || u.replace(/^https?:\/\//i, "").slice(0, 80), kind: "link", url: u,
+    } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(L("Link adicionado", "Link added"));
+    setTitle(""); setUrl(""); load();
   };
 
-  const download = async (path: string) => {
-    const { data } = await supabase.storage.from("student-materials").createSignedUrl(path, 60);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+  const remove = async (item: Material) => {
+    if (!confirm(L("Excluir material?", "Delete material?"))) return;
+    if (item.file_path) await supabase.storage.from("student-materials").remove([item.file_path]);
+    const { error } = await supabase.from("student_materials").delete().eq("id", item.id);
+    if (error) toast.error(error.message); else { toast.success(L("Excluído", "Deleted")); load(); }
   };
 
   return (
@@ -329,18 +342,23 @@ function MaterialsTab({ student, perms }: { student: Student; perms: Perms }) {
         <div><Label>{L("Título do material (opcional)", "Material title (optional)")}</Label><Input value={title} onChange={e => setTitle(e.target.value)} placeholder={L("Padrão: nome do arquivo", "Default: file name")} /></div>
         <input ref={fileRef} type="file" hidden onClick={(e) => { (e.target as HTMLInputElement).value = ""; }} onChange={e => { const f = e.target.files?.[0]; if (f) upload(f); }} />
         <Button onClick={() => fileRef.current?.click()} disabled={busy} className="gap-2"><Upload className="w-4 h-4" /> {busy ? L("Enviando...", "Uploading...") : L("Enviar arquivo", "Upload file")}</Button>
+        <div className="flex gap-2">
+          <Input value={url} onChange={e => setUrl(e.target.value)} placeholder={L("Ou cole um link (Drive, YouTube...)", "Or paste a link (Drive, YouTube...)")} aria-label={L("Link do material", "Material link")} />
+          <Button variant="outline" onClick={addLink} disabled={busy || !url.trim()} className="shrink-0 gap-1.5"><Link2 className="w-4 h-4" /> {L("Adicionar", "Add")}</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">{L("Com o Claude ligado ao Cronys, dá para pedir: “manda para o aluno uma lista de exercícios sobre frações”. Ele escreve e o material aparece aqui.", "With Claude connected to Cronys, you can ask: “send the student a worksheet on fractions”. It writes it and the material shows up here.")}</p>
       </Card>}
       <div className="space-y-2 max-h-72 overflow-y-auto">
         {items.length === 0 && <p className="text-sm text-muted-foreground text-center py-4">{L("Nenhum material.", "No materials.")}</p>}
         {items.map(m => (
           <Card key={m.id} className="p-3 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary shrink-0" />
+            <MaterialIcon m={m} />
             <div className="flex-1 min-w-0">
               <div className="text-sm font-medium truncate">{m.title}</div>
               <div className="text-xs text-muted-foreground">{format(new Date(m.created_at), L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
             </div>
-            <Button size="icon" variant="ghost" onClick={() => download(m.file_path)}><Download className="w-4 h-4" /></Button>
-            {(!perms.ownerId || m.uploaded_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(m)}><Trash2 className="w-4 h-4" /></Button>}
+            <MaterialOpenButton m={m} />
+            {(!perms.ownerId || m.uploaded_by === perms.ownerId) && <Button size="icon" variant="ghost" onClick={() => remove(m)} aria-label={L("Excluir", "Delete")}><Trash2 className="w-4 h-4" /></Button>}
           </Card>
         ))}
       </div>

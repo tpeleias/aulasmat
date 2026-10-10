@@ -4075,4 +4075,28 @@ SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a'))
 UPDATE public.user_roles SET role = 'admin' WHERE user_id = current_setting('teste.ua')::uuid AND role = 'user';
 SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) IS NOT NULL, 'voltou a ser admin: chave volta');
 
+\echo '--- 73. Materiais: link e pagina escrita (11/10) ---'
+INSERT INTO public.student_materials (account_id, student_id, title, kind, url)
+SELECT s.account_id, s.id, 'Video da aula', 'link', 'https://youtu.be/abc' FROM public.students s WHERE s.account_id = current_setting('teste.a')::uuid LIMIT 1;
+INSERT INTO public.student_materials (account_id, student_id, title, kind, content)
+SELECT s.account_id, s.id, 'Lista 1', 'page', '# Lista 1' || chr(10) || '1. Resolva $x^2 = 4$' FROM public.students s WHERE s.account_id = current_setting('teste.a')::uuid LIMIT 1;
+SELECT public.assert((SELECT count(*) FROM public.student_materials WHERE kind IN ('link', 'page') AND account_id = current_setting('teste.a')::uuid) = 2,
+  'material pode ser link ou pagina, sem arquivo');
+DO $$
+BEGIN
+  INSERT INTO public.student_materials (account_id, student_id, title, kind, url)
+  SELECT s.account_id, s.id, 'x', 'link', 'javascript:alert(1)' FROM public.students s WHERE s.account_id = current_setting('teste.a')::uuid LIMIT 1;
+  RAISE EXCEPTION 'FALHOU: aceitou link que nao e http';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - link precisa ser http(s)';
+END $$;
+DO $$
+BEGIN
+  INSERT INTO public.student_materials (account_id, student_id, title)
+  SELECT s.account_id, s.id, 'sem nada' FROM public.students s WHERE s.account_id = current_setting('teste.a')::uuid LIMIT 1;
+  RAISE EXCEPTION 'FALHOU: aceitou arquivo sem caminho';
+EXCEPTION WHEN check_violation THEN
+  RAISE NOTICE '  ok - arquivo continua precisando do caminho';
+END $$;
+
 \echo '=== FIM ==='

@@ -1,7 +1,7 @@
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2, TrendingUp, PauseCircle } from "lucide-react";
+import { CalendarPlus, Settings2, Pencil, Trash2, MapPin, Wallet, Link2, TrendingUp, PauseCircle, FolderOpen } from "lucide-react";
 import { format, isFuture } from "date-fns";
 import { fmtMoney, capitalize } from "@/lib/balance";
 import { isDiscarded, statusLabel } from "@/lib/lessonStatus";
@@ -19,7 +19,7 @@ export type SheetLesson = {
   id: string; start_at: string; duration_minutes: number; subject: string | null; teacher: string; status: string;
 };
 
-export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, manageLabel = "Gerenciar", onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
+export default function StudentSheet({ student, lessons, statement, open, onOpenChange, onSchedule, onManage, manageLabel = "Gerenciar", onMaterials, materialsLabel, onEdit, onDelete, onBilling, onEvolution, onPause, showMoney = true }: {
   student: SheetStudent | null;
   lessons: SheetLesson[];
   statement?: AccountStatement;
@@ -30,6 +30,9 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
   // cadastro nem vê o financeiro.
   onManage?: () => void;
   manageLabel?: string;
+  /** Atalho para Materiais e tarefas (antes só dentro de Gerenciar). */
+  onMaterials?: () => void;
+  materialsLabel?: string;
   onEdit?: () => void;
   onDelete?: () => void;
   onBilling?: () => void;
@@ -87,6 +90,7 @@ export default function StudentSheet({ student, lessons, statement, open, onOpen
         <div className="mt-4 grid grid-cols-2 gap-2">
           {onSchedule && <Button onClick={onSchedule} className="h-11 gap-2 rounded-xl"><CalendarPlus className="h-4 w-4" /> {L("Agendar", "Book")}</Button>}
           {onBilling && <Button onClick={onBilling} variant="secondary" className="h-11 gap-2 rounded-xl"><Wallet className="h-4 w-4" /> {L("Financeiro", "Billing")}</Button>}
+          {onMaterials && <Button onClick={onMaterials} variant="secondary" className="h-11 gap-2 rounded-xl"><FolderOpen className="h-4 w-4" /> {materialsLabel ?? L("Materiais", "Materials")}</Button>}
           {onManage && <Button onClick={onManage} variant="secondary" className="h-11 gap-2 rounded-xl"><Settings2 className="h-4 w-4" /> {manageLabel}</Button>}
           {onEdit && <Button onClick={onEdit} variant="secondary" className="h-11 gap-2 rounded-xl"><Pencil className="h-4 w-4" /> {L("Editar", "Edit")}</Button>}
           <Button onClick={onEvolution} variant="secondary" className="h-11 gap-2 rounded-xl"><TrendingUp className="h-4 w-4" /> {L("Evolução", "Progress")}</Button>

@@ -89,6 +89,7 @@ export default function StudentsPage() {
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
   const [manageFor, setManageFor] = useState<Student | null>(null);
+  const [manageTab, setManageTab] = useState<"account" | "materials" | undefined>(undefined);
   const [importOpen, setImportOpen] = useState(false);
   const defaultTeacher = useDefaultTeacher();
 
@@ -335,8 +336,10 @@ export default function StudentsPage() {
         onOpenChange={v => !v && setSelected(null)}
         onSchedule={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setScheduleFor(s); }}
         showMoney={!isTeacher}
-        onManage={() => { const s = selected!; setSelected(null); setManageFor(s); }}
-        manageLabel={isTeacher ? (tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")) : undefined}
+        onManage={() => { const s = selected!; setSelected(null); setManageTab(isTeacher ? "materials" : "account"); setManageFor(s); }}
+        manageLabel={isTeacher ? (tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")) : L("Acesso", "Access")}
+        onMaterials={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setManageTab("materials"); setManageFor(s); }}
+        materialsLabel={tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")}
         onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
         onBilling={isTeacher ? undefined : () => navigate("/admin/financeiro")}
@@ -413,6 +416,7 @@ export default function StudentsPage() {
       <StudentManageDialog
         teacherMode={isTeacher}
         student={manageFor}
+        tab={manageTab}
         open={!!manageFor}
         onOpenChange={v => !v && setManageFor(null)}
         onChanged={load}
