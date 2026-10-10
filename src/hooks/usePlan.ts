@@ -36,7 +36,7 @@ export type Plan = {
   max_active_clients?: number | null;
   active_client_days?: number;
   active_clients?: number;
-  /** Mensagens de IA que o plano traz (amostra no Pro, inclusas no Max). */
+  /** Mensagens de IA que o plano traz (no Pro e no Max). */
   assistant_messages?: number;
   /** O plano aceita o adicional de IA (Start e Pro). */
   assistant_addon?: boolean;

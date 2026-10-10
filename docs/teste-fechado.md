@@ -296,3 +296,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Assistente ligado pelos planos para quem paga: Pro pago (amostra de 20 mensagens/mês), Max pago (200) e o adicional (+100, Start e Pro) passam a funcionar sozinhos ao pagar. O teste grátis de 14 dias deixa de ter a amostra de IA. Testadores, Demonstração e Google Play Demo seguem sem IA. Pedido do Thiago antes de pedir a produção | T |
+
+### 10/10 - site e banco (o app não muda)
+
+| Mudança | Origem |
+|---|---|
+| Pro pago passa a ter 100 mensagens de IA por mês (no lugar da amostra de 20), com teto de gasto de US$ 3/mês; com o adicional, 200. Teste grátis segue sem IA. Pedido do Thiago | T |
+| Importar clientes: botão "Copiar prompt", que copia instruções para colar numa IA (ChatGPT, Claude, Gemini) junto com os dados e receber a lista no formato da importação. Pedido do Thiago | T |

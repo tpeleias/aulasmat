@@ -158,8 +158,7 @@ export default function AssistantPage() {
             {L(`Marcar ${w.appointment.l}, remarcar, registrar pagamento e consultar o financeiro — conversando.`, `Book, reschedule, record payments and check billing — just by chatting.`)}
           </p>
         </div>
-        {/* Cada conversa custa dinheiro: a IA vem no Max pago, tem amostra no
-            Pro, é adicional no Start e no Pro, ou liberada pela Cronys
+        {/* Cada conversa custa dinheiro: a IA vem no Pro e no Max pagos, é adicional no Start e no Pro, ou liberada pela Cronys
             (plans.ts e migration 20260926100000).
             No app Android, só informa - sem preço nem link de compra. */}
         <Card className="mx-auto max-w-md rounded-2xl border-dashed p-6 text-center">
@@ -167,7 +166,7 @@ export default function AssistantPage() {
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <h2 className="text-lg font-semibold">
-            {emBreve ? L("O Assistente chega em breve", "The Assistant is coming soon") : L("O Assistente vem no Cronys Max", "The Assistant comes with Cronys Max")}
+            {emBreve ? L("O Assistente chega em breve", "The Assistant is coming soon") : L("O Assistente vem no Pro e no Max", "The Assistant comes with Pro and Max")}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {L(`Em vez de abrir a agenda e preencher formulário, você escreve “marca com o Miguel quinta às 15h” e ele marca. Também registra pagamento, responde quanto ${w.payer.um} ${w.payer.l} deve e remarca ${w.appointment.l}.`,
@@ -176,11 +175,11 @@ export default function AssistantPage() {
           <p className="mt-4 rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
             {emBreve
               ? L("Ele está em testes e logo fica disponível nos planos.", "It's being tested and will be available on the plans soon.")
-              : plan.tier === "pro"
-              ? L("Ele vem incluso no Max com a assinatura ativa.", "It's included in Max with an active subscription.")
-              : plan.tier === "pro_solo" || plan.tier === "start"
-                ? L("Ele vem incluso no Cronys Max. No seu plano, dá para adicionar à assinatura.", "It's included in Cronys Max. On your plan, you can add it to your subscription.")
-                : L("Ele vem incluso no Cronys Max, tem uma amostra no Pro e pode ser adicionado no Start e no Pro.", "It's included in Cronys Max, has a sample on Pro, and can be added on Start and Pro.")}
+              : plan.tier === "pro" || plan.tier === "pro_solo"
+              ? L("Ele vem incluso no seu plano com a assinatura ativa (o teste grátis não inclui a IA).", "It's included in your plan with an active subscription (the free trial doesn't include AI).")
+              : plan.tier === "start"
+                ? L("Ele vem incluso no Pro e no Max. No Start, dá para adicionar à assinatura.", "It's included in Pro and Max. On Start, you can add it to your subscription.")
+                : L("Ele vem incluso no Pro e no Max pagos e pode ser adicionado no Start.", "It's included in paid Pro and Max, and can be added on Start.")}
           </p>
           {canSellHere() && isAdmin && !emBreve && (
             <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">{L("Ver planos", "See plans")}</Link></Button>

@@ -50,9 +50,9 @@ describe("preços", () => {
 });
 
 describe("IA", () => {
-  it("a amostra do Pro soma com o adicional", () => {
-    expect(assistantMessages("pro_solo", false)).toBe(20);
-    expect(assistantMessages("pro_solo", true)).toBe(120);
+  it("as 100 do Pro somam com o adicional", () => {
+    expect(assistantMessages("pro_solo", false)).toBe(100);
+    expect(assistantMessages("pro_solo", true)).toBe(200);
     expect(assistantMessages("start", true)).toBe(100);
     expect(assistantMessages("start", false)).toBe(0);
     expect(assistantMessages("pro", false)).toBe(200);

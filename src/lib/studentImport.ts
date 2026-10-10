@@ -122,3 +122,48 @@ export function parseStudents(
   }
   return out;
 }
+
+/**
+ * Instruções para colar numa IA (ChatGPT, Claude, Gemini) junto com os dados
+ * do jeito que a pessoa tem (caderno, WhatsApp, planilha bagunçada). A IA
+ * devolve o texto já no formato que `parseStudents` lê: cabeçalho fixo e
+ * ponto e vírgula, porque endereço costuma ter vírgula.
+ */
+export function aiImportPrompt(words: { client: string; guardian: string }, en = false): string {
+  if (en) return [
+    `Convert the list of ${words.client}s I'll send below into this exact format, to import into Cronys:`,
+    "",
+    "Nome;Responsável;Endereço",
+    "Anna Smith;Mary Smith;10 A Street, Springfield",
+    "Ben Lee;;",
+    "",
+    "Rules:",
+    `- One ${words.client} per line, always with that first header line, exactly as written.`,
+    `- Columns separated by semicolon (;): name of the ${words.client}; ${words.guardian} (if any); address (if any).`,
+    "- Leave a column empty when the information doesn't exist (e.g. \"Ben Lee;;\"). Never make anything up.",
+    "- Don't use semicolons inside the values. Remove phone numbers, notes and anything that isn't name, " + words.guardian + " or address.",
+    "- Write names with capital initials and don't repeat the same person.",
+    "- Reply only with the result inside a code block, with nothing before or after.",
+    "",
+    "My data:",
+    "",
+  ].join("\n");
+  return [
+    `Converta a lista de ${words.client}s que vou mandar abaixo para este formato exato, para importar no Cronys:`,
+    "",
+    "Nome;Responsável;Endereço",
+    "Ana Souza;Maria Souza;Rua A, 10 - Centro",
+    "Bruno Lima;;",
+    "",
+    "Regras:",
+    `- Um ${words.client} por linha, sempre com essa primeira linha de cabeçalho, escrita igual.`,
+    `- Colunas separadas por ponto e vírgula (;): nome do ${words.client}; ${words.guardian} (se houver); endereço (se houver).`,
+    "- Deixe a coluna vazia quando a informação não existir (ex.: \"Bruno Lima;;\"). Nunca invente nada.",
+    `- Não use ponto e vírgula dentro dos valores. Tire telefones, observações e o que não for nome, ${words.guardian} ou endereço.`,
+    "- Escreva os nomes com iniciais maiúsculas e não repita a mesma pessoa.",
+    "- Responda só com o resultado dentro de um bloco de código, sem nada antes ou depois.",
+    "",
+    "Meus dados:",
+    "",
+  ].join("\n");
+}
