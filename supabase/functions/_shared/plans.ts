@@ -82,7 +82,7 @@ export type PlanDef = {
   /** Mensagens de IA por mês que o plano já traz (amostra no Pro, inclusas no Max). */
   assistantMessages: number;
   assistantCostCapUsd: number;
-  /** O assistente do plano exige assinatura paga (Max); a amostra do Pro vale no teste. */
+  /** O assistente do plano exige assinatura paga (Pro e Max; desde 10/10 o teste grátis fica sem IA). */
   assistantNeedsPayment: boolean;
   /** Pode contratar o adicional de IA. */
   assistantAddon: boolean;
@@ -121,7 +121,8 @@ export const PLANS: Record<PlanId, PlanDef> = {
   pro_solo: {
     id: "pro_solo", name: { pt: "Pro", en: "Pro" },
     maxTeachers: 3, includedTeachers: 1, extraTeachers: true, maxActiveClients: null,
-    assistantMessages: 20, assistantCostCapUsd: 0.6, assistantNeedsPayment: false, assistantAddon: true,
+    // A amostra só para quem paga (Thiago, 10/10): no teste grátis, sem IA.
+    assistantMessages: 20, assistantCostCapUsd: 0.6, assistantNeedsPayment: true, assistantAddon: true,
     autoMessagesQuota: null,
     features: { ...PAID_FEATURES, google_calendar: true, email_branding: true },
   },

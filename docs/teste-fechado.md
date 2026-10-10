@@ -290,3 +290,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Vitalício segura só o plano Max; o assistente volta a ser ligado, desligado e limitado pelo gestor (antes uma marca antiga religava o assistente sozinho). O Thiago notou que o assistente ligava automaticamente | T |
+
+### 10/10 - site e banco (o app não muda)
+
+| Mudança | Origem |
+|---|---|
+| Assistente ligado pelos planos para quem paga: Pro pago (amostra de 20 mensagens/mês), Max pago (200) e o adicional (+100, Start e Pro) passam a funcionar sozinhos ao pagar. O teste grátis de 14 dias deixa de ter a amostra de IA. Testadores, Demonstração e Google Play Demo seguem sem IA. Pedido do Thiago antes de pedir a produção | T |
