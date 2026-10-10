@@ -78,7 +78,7 @@ export default function GoogleCalendarSettings() {
 
   if (!plan.google_calendar) {
     return (
-      <ProUpsell titulo={L("Google Agenda é do Cronys Pro e do Max", "Google Calendar comes with Cronys Pro and Max")} compacto>
+      <ProUpsell titulo={L("Google Agenda é do Cronys Pro e do Max IA", "Google Calendar comes with Cronys Pro and Max AI")} compacto>
         {L("os compromissos do Google bloqueiam o horário aqui, e os agendamentos do Cronys aparecem no Google.",
            "your Google events block the time here, and Cronys bookings show up in Google.")}
       </ProUpsell>

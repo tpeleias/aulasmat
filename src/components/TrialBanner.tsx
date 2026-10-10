@@ -48,7 +48,7 @@ function TesterBanner({ until }: { until: string }) {
       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <div>
         <div className="font-medium">
-          {L("Cronys Max de cortesia até", "Complimentary Cronys Max until")} {format(end, L("dd/MM", "MMM d"))}
+          {L("Cronys Max IA de cortesia até", "Complimentary Cronys Max AI until")} {format(end, L("dd/MM", "MMM d"))}
           {days === 0 ? L(" (termina hoje)", " (ends today)") : L(` (${days} dia${days === 1 ? "" : "s"})`, ` (${days} day${days === 1 ? "" : "s"})`)}
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">

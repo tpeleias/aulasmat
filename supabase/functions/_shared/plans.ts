@@ -12,7 +12,7 @@
 // funções e no Node dos scripts.
 //
 // Nomes internos (não mudam, estão no banco e no Stripe): essencial, start,
-// pro_solo (= Pro) e pro (= Max).
+// pro_solo (= Pro) e pro (= Max IA).
 
 export type PlanId = "essencial" | "start" | "pro_solo" | "pro";
 export type PaidPlanId = Exclude<PlanId, "essencial">;
@@ -29,6 +29,8 @@ export const ACTIVE_CLIENT_DAYS = 60;
 /** Teste grátis de quem cria a empresa: o Pro, por N dias, sem cartão. Depois, Essencial. */
 export const TRIAL_PLAN: PlanId = "pro_solo";
 export const TRIAL_DAYS = 14;
+/** No teste grátis do Pro, o conector de IA (do Max IA) vale nos N primeiros dias, para dar o gosto (Thiago, 11/10). */
+export const AI_CONNECTOR_TRIAL_DAYS = 3;
 
 /** O anual custa N mensalidades ("2 meses grátis", ~17% de desconto). */
 export const ANNUAL_MONTHS_CHARGED = 10;
@@ -66,6 +68,8 @@ export type PlanFeatures = {
   email_branding: boolean;
   /** E-mail: texto de cada aviso editável e horário dos lembretes (03/10). */
   email_custom: boolean;
+  /** Conectar IA (Claude, ChatGPT...) pelo conector MCP: só no Max IA (11/10). */
+  ai_connector: boolean;
 };
 
 export type PlanDef = {
@@ -96,6 +100,7 @@ const PAID_FEATURES: PlanFeatures = {
   whatsapp_auto: false, arrival_location: false, services_multi: true,
   teacher_services: false, any_teacher: false, google_calendar: false,
   email_billing: true, email_branding: false, email_custom: false,
+  ai_connector: false,
 };
 
 export const PLANS: Record<PlanId, PlanDef> = {
@@ -109,6 +114,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
       whatsapp_auto: false, arrival_location: false, services_multi: false,
       teacher_services: false, any_teacher: false, google_calendar: false,
       email_billing: false, email_branding: false, email_custom: false,
+      ai_connector: false,
     },
   },
   start: {
@@ -128,7 +134,8 @@ export const PLANS: Record<PlanId, PlanDef> = {
     features: { ...PAID_FEATURES, google_calendar: true, email_branding: true },
   },
   pro: {
-    id: "pro", name: { pt: "Max", en: "Max" },
+    // "Max IA" desde 11/10 (Thiago): o conector de IA é o diferencial do plano.
+    id: "pro", name: { pt: "Max IA", en: "Max AI" },
     maxTeachers: null, includedTeachers: 5, extraTeachers: true, maxActiveClients: null,
     assistantMessages: 200, assistantCostCapUsd: 5, assistantNeedsPayment: true, assistantAddon: false,
     autoMessagesQuota: null,
@@ -136,6 +143,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
       ...PAID_FEATURES,
       whatsapp_auto: true, arrival_location: true, teacher_services: true, any_teacher: true,
       google_calendar: true, email_branding: true, email_custom: true,
+      ai_connector: true,
     },
   },
 };
@@ -212,7 +220,7 @@ export const LOOKUP: Record<Item, Record<Interval, string>> = {
 export const STRIPE_PRODUCT_NAME: Record<Item, string> = {
   start: "Cronys Start",
   pro_solo: "Cronys Pro",
-  pro: "Cronys Max",
+  pro: "Cronys Max IA",
   extra: "Profissional extra",
   assistant: "Assistente Cronys (IA)",
 };

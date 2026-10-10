@@ -136,8 +136,8 @@ export default function Landing() {
             ))}
           </div>
           <p className="mt-4 text-xs text-muted-foreground">
-            {L(`Cliente ativo é quem tem atendimento nos últimos ${ACTIVE_CLIENT_DAYS} dias ou algum marcado; cadastrar é livre. Profissional extra: ${money(itemPrice("extra", "month"))}/mês cada (Pro até ${PLAN_CFG.pro_solo.maxTeachers}; Max a partir do ${PLAN_CFG.pro.includedTeachers + 1}º). O teste grátis de ${TRIAL_DAYS} dias é do Pro. O anual é cobrado de uma vez. Assinatura por cartão, pelo Stripe; na fatura aparece CRONYS.`,
-              `An active client has an appointment in the last ${ACTIVE_CLIENT_DAYS} days or one booked; adding clients is free. Extra professional: ${money(itemPrice("extra", "month"))}/month each (Pro up to ${PLAN_CFG.pro_solo.maxTeachers}; Max from the ${PLAN_CFG.pro.includedTeachers + 1}th). The ${TRIAL_DAYS}-day free trial is for Pro. Yearly plans are billed upfront. Billed by card via Stripe; your statement shows CRONYS.`)}
+            {L(`Cliente ativo é quem tem atendimento nos últimos ${ACTIVE_CLIENT_DAYS} dias ou algum marcado; cadastrar é livre. Profissional extra: ${money(itemPrice("extra", "month"))}/mês cada (Pro até ${PLAN_CFG.pro_solo.maxTeachers}; Max IA a partir do ${PLAN_CFG.pro.includedTeachers + 1}º). O teste grátis de ${TRIAL_DAYS} dias é do Pro. O anual é cobrado de uma vez. Assinatura por cartão, pelo Stripe; na fatura aparece CRONYS.`,
+              `An active client has an appointment in the last ${ACTIVE_CLIENT_DAYS} days or one booked; adding clients is free. Extra professional: ${money(itemPrice("extra", "month"))}/month each (Pro up to ${PLAN_CFG.pro_solo.maxTeachers}; Max AI from the ${PLAN_CFG.pro.includedTeachers + 1}th). The ${TRIAL_DAYS}-day free trial is for Pro. Yearly plans are billed upfront. Billed by card via Stripe; your statement shows CRONYS.`)}
           </p>
           <div className="mt-8"><PlanComparison interval="month" /></div>
         </section>

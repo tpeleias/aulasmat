@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Copy, Link2, Loader2, Sparkles } from "lucide-react";
+import { Check, Copy, Link2, Loader2, Lock, Sparkles } from "lucide-react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { intlLocale, L } from "@/lib/i18n";
+import { canSellHere } from "@/lib/subscription";
 
 /**
  * Conectar IA (11/10): liga o Claude, o ChatGPT ou outra IA que aceite
@@ -21,6 +23,9 @@ import { intlLocale, L } from "@/lib/i18n";
  *
  * `platform`: a versão do painel do gestor, só com números da plataforma.
  */
+/** Pode usar o conector? Max IA sempre; teste do Pro só nos 3 primeiros dias (migration 20261011030000). */
+export type AiAccess = { allowed: boolean; reason: "plan" | "trial" | "not_admin"; until?: string };
+
 export type AiConnector = { id: string; label: string; read_only: boolean; token_hint: string; created_at: string; last_used_at: string | null; mine: boolean };
 
 export function connectorUrl(token: string) {
@@ -35,6 +40,12 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [access, setAccess] = useState<AiAccess | null>(platform ? { allowed: true, reason: "plan" } : null);
+
+  useEffect(() => {
+    if (platform) return;
+    supabase.rpc("ai_connector_my_access" as never).then(({ data }) => setAccess((data as AiAccess | null) ?? { allowed: false, reason: "plan" }));
+  }, [platform]);
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc("ai_connectors_list" as never, { _platform: platform } as never);
@@ -102,6 +113,24 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
         {examples.map(e => <li key={e}>“{e}”</li>)}
       </ul>
 
+      {access && !access.allowed && (
+        <div className="space-y-2 rounded-xl border border-primary/40 bg-primary/5 p-3 text-sm">
+          <p className="flex items-center gap-1.5 font-medium"><Lock className="h-4 w-4" /> {L("Conectar IA é do Cronys Max IA", "Connect AI comes with Cronys Max AI")}</p>
+          <p className="text-xs text-muted-foreground">
+            {L("No Max IA, a IA que você já usa (Claude, ChatGPT) trabalha dentro do Cronys: escreve o “Como foi?”, manda materiais e tarefas, marca e cobra, conversando.",
+               "With Max AI, the AI you already use (Claude, ChatGPT) works inside Cronys: it writes the “How did it go?”, sends materials and tasks, books and bills, by chatting.")}
+          </p>
+          {canSellHere() && <Button asChild size="sm" className="rounded-xl"><Link to="/assinar">{L("Conhecer o Max IA", "See Max AI")}</Link></Button>}
+        </div>
+      )}
+      {access?.allowed && access.reason === "trial" && access.until && (
+        <p className="rounded-xl bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          {L(`No teste grátis, o conector funciona até ${new Date(access.until).toLocaleDateString(intlLocale(), { day: "2-digit", month: "2-digit" })}. Depois, ele é do Max IA.`,
+             `In the free trial, the connector works until ${new Date(access.until).toLocaleDateString(intlLocale(), { month: "short", day: "numeric" })}. After that, it comes with Max AI.`)}
+        </p>
+      )}
+
+      {access?.allowed && <>
       {/* 1. Criar o link */}
       <div className="space-y-2">
         <p className="text-sm font-medium">{L("1. Crie o link de conexão", "1. Create the connection link")}</p>
@@ -171,6 +200,8 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
           </TabsContent>
         </Tabs>
       </div>
+
+      </>}
 
       {/* Conexões ativas */}
       {list && list.length > 0 && (

@@ -105,7 +105,7 @@ export function EmailNotificationsSettings({ value, onChange, accountId = null }
           <div className="space-y-2">
             <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
               {L("Financeiro", "Billing")}
-              {!canBilling && <span className="inline-flex items-center gap-1 font-normal"><Lock className="h-3 w-3" /> {L("nos planos Start, Pro e Max", "on the Start, Pro and Max plans")}</span>}
+              {!canBilling && <span className="inline-flex items-center gap-1 font-normal"><Lock className="h-3 w-3" /> {L("nos planos Start, Pro e Max IA", "on the Start, Pro and Max AI plans")}</span>}
             </p>
             <p className="text-xs text-muted-foreground">
               {L(`A cobrança vai só para quem tem valor em aberto, para ${w.guardian.o} ${w.guardian.l} (ou ${w.client.o} ${w.client.l} sem ${w.guardian.l}), com o Pix copia e cola já com o valor. No Financeiro dá para cobrar na mão, a qualquer momento.`,

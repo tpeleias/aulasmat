@@ -15,7 +15,7 @@ describe("erros do Google Agenda", () => {
     expect(dbErrorMessage(e)).toMatch(/^Desconecte o Google/);
     setLocale("en", "USD");
     expect(dbErrorMessage(e)).toBe("Disconnect Google from your current profile before switching.");
-    expect(dbErrorMessage({ message: "x", hint: "plano:google_calendar" })).toBe("Google Calendar is part of Cronys Pro and Max.");
+    expect(dbErrorMessage({ message: "x", hint: "plano:google_calendar" })).toBe("Google Calendar is part of Cronys Pro and Max AI.");
   });
 
   it("código da função, também vindo em erro HTTP", async () => {

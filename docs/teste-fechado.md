@@ -333,3 +333,10 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Material em página escrita: texto com fórmulas que o aluno lê no portal e salva em PDF ("Salvar em PDF / imprimir") | T |
 | Conector de IA: o Claude manda material (página escrita, link ou arquivo pequeno), passa tarefa com prazo e lista o que o aluno já tem. Pedido do Thiago ("quero e preciso que fique automático") | T |
 | Teste técnico em produção na empresa Google Play Demo: uma lista com fórmulas, um link, um arquivo e uma tarefa para o aluno fictício Bruno Lima; a chave do teste foi desligada em seguida | Revisão técnica |
+
+### 11/10 - site, banco e Stripe (no app Android, entra no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| O plano Max passa a se chamar **Max IA** (Max AI em inglês), no app, nos termos e no Stripe | T |
+| Conectar IA (Claude, ChatGPT) vira recurso do Max IA. No teste grátis do Pro, funciona só nos 3 primeiros dias; no Pro pago, Start e Essencial, a tela mostra o Max IA. Uma chave de empresa sem o plano recebe "a conexão com IA é do plano Max IA". Pedido do Thiago | T |

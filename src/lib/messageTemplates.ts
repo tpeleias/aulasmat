@@ -51,7 +51,7 @@ export const MESSAGE_TYPES = (w: Vocabulary): { key: MessageKey; title: string; 
   },
   {
     key: "a_caminho", title: L("Estou a caminho", "On my way"),
-    when: L("Botão \"Estou a caminho\" (plano Max).", "\"On my way\" button (Max plan)."),
+    when: L("Botão \"Estou a caminho\" (plano Max IA).", "\"On my way\" button (Max AI plan)."),
     tags: [
       ...lessonTags(w),
       { tag: "localizacao", desc: L("\" Minha localização agora: <link do mapa>\" (vazio se o celular não der a posição)", "\" My location now: <map link>\" (empty if the phone doesn't give a position)") },

@@ -62,7 +62,7 @@ const PLANOS = [
   { slug: "essencial", rotulo: "Essencial" },
   { slug: "start", rotulo: "Start" },
   { slug: "pro_solo", rotulo: "Pro" },
-  { slug: "pro", rotulo: "Max" },
+  { slug: "pro", rotulo: "Max IA" },
 ] as const;
 const nomePlano = (p: string) => `Cronys ${(PLAN_CFG[p as PlanId] ?? PLAN_CFG.essencial).name.pt}`;
 

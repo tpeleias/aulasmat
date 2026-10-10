@@ -147,8 +147,8 @@ export default function Subscribe() {
             <input type="checkbox" className="mt-1" checked={withAssistant} onChange={e => setWithAssistant(e.target.checked)} />
             <span>
               {L("No", "On")} <b>Start</b> {L("ou no", "or")} <b>Pro</b>, {L("incluir o adicional de", "include the")} <b>{L("IA", "AI add-on")}</b> (+{money(itemPrice("assistant", interval))}/{perLabel(interval)}):{" "}
-              {L(`marque, remarque e consulte o financeiro conversando, ${ASSISTANT_ADDON.messages} mensagens por mês (no Pro, somadas às ${PLAN_CFG.pro_solo.assistantMessages} inclusas). No Max a IA já vem inclusa, com ${PLAN_CFG.pro.assistantMessages}.`,
-                `book, reschedule and check billing by chatting, ${ASSISTANT_ADDON.messages} messages a month (on Pro, added to the ${PLAN_CFG.pro_solo.assistantMessages} included ones). Max already includes AI, with ${PLAN_CFG.pro.assistantMessages}.`)}
+              {L(`marque, remarque e consulte o financeiro conversando, ${ASSISTANT_ADDON.messages} mensagens por mês (no Pro, somadas às ${PLAN_CFG.pro_solo.assistantMessages} inclusas). No Max IA a IA já vem inclusa, com ${PLAN_CFG.pro.assistantMessages}.`,
+                `book, reschedule and check billing by chatting, ${ASSISTANT_ADDON.messages} messages a month (on Pro, added to the ${PLAN_CFG.pro_solo.assistantMessages} included ones). Max AI already includes AI, with ${PLAN_CFG.pro.assistantMessages}.`)}
             </span>
           </label>
         )}

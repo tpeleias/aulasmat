@@ -64,7 +64,7 @@ export default function MeetingSettings() {
     { value: "google_meet", title: "Google Meet",
       text: L(`Um Meet para cada ${ap.l}, criado no seu Google Agenda.`, `A Meet for each ${ap.l}, created in your Google Calendar.`),
       locked: !plan.google_calendar
-        ? L("Do Cronys Pro e do Max.", "Comes with Cronys Pro and Max.")
+        ? L("Do Cronys Pro e do Max IA.", "Comes with Cronys Pro and Max AI.")
         : !r.google_ready
           ? L("Precisa do Google Agenda conectado, com \"Exportar agendamentos\" ligado (em Integrações). Sem isso, as aulas usam o Jitsi.",
               "Needs Google Calendar connected with \"Export bookings\" on (in Integrations). Without it, sessions use Jitsi.")

@@ -912,7 +912,7 @@ SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
 SELECT public.assert(public.account_plan() = 'pro', 'a empresa do endereco publico e Pro');
 SELECT public.assert(public.account_limit('students') IS NULL, 'sem limite de alunos');
 SELECT public.assert(public.account_can('assistant'), 'com assistente (empresa do Thiago: tudo liberado para sempre)');
-SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Max' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Max (plano "pro")');
+SELECT public.assert((public.my_plan() ->> 'nome') = 'Cronys Max IA' AND (public.my_plan() ->> 'plano') = 'pro', 'e my_plan() se apresenta como Cronys Max IA (plano "pro")');
 COMMIT;
 
 
@@ -1627,8 +1627,8 @@ SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '29000000-0000-0000-0000-000000000001', true);
 SELECT public.assert(public.my_plan() ->> 'plano' = 'pro' AND public.my_plan() ->> 'tier' = 'pro'
-                     AND public.my_plan() ->> 'nome' = 'Cronys Max',
-  'o Max se apresenta como Cronys Max, e o app antigo continua vendo "pro"');
+                     AND public.my_plan() ->> 'nome' = 'Cronys Max IA',
+  'o Max se apresenta como Cronys Max IA, e o app antigo continua vendo "pro"');
 -- Equipe: sem teto, 5 incluidos; o sexto e o setimo viram extra, nao erro.
 INSERT INTO public.teachers (name, active) VALUES ('p2', true), ('p3', true), ('p4', true), ('p5', true), ('p6', true), ('p7', true);
 SELECT public.assert((public.my_plan() ->> 'extra_teachers')::int = 2,
@@ -4098,5 +4098,36 @@ BEGIN
 EXCEPTION WHEN check_violation THEN
   RAISE NOTICE '  ok - arquivo continua precisando do caminho';
 END $$;
+
+\echo '--- 74. Max IA: conector so no Max e 3 dias no teste do Pro (11/10) ---'
+UPDATE public.accounts SET lifetime = false, plan = 'pro', billing_status = 'active', trial_ends_at = NULL, tester_until = NULL
+ WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((public.ai_connector_access(current_setting('teste.a')::uuid) ->> 'allowed')::boolean, 'Max IA: conector liberado');
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) ->> 'account_id' IS NOT NULL, 'Max IA: a chave funciona');
+UPDATE public.accounts SET plan = 'pro_solo', billing_status = 'none', trial_ends_at = now() + interval '13 days'
+ WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((public.ai_connector_access(current_setting('teste.a')::uuid) ->> 'reason') = 'trial', 'teste do Pro, dia 2: conector no gostinho');
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) ->> 'account_id' IS NOT NULL, 'teste do Pro, dia 2: a chave funciona');
+UPDATE public.accounts SET trial_ends_at = now() + interval '10 days' WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(NOT (public.ai_connector_access(current_setting('teste.a')::uuid) ->> 'allowed')::boolean, 'teste do Pro, dia 5: acabou o conector');
+SELECT public.assert((public.ai_connector_resolve(current_setting('teste.tok_a')) ->> 'blocked') = 'plan', 'dia 5: a chave volta marcada como do Max IA');
+UPDATE public.accounts SET billing_status = 'active', trial_ends_at = NULL WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(NOT (public.ai_connector_access(current_setting('teste.a')::uuid) ->> 'allowed')::boolean, 'Pro pago: sem conector');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert(NOT (public.ai_connector_my_access() ->> 'allowed')::boolean, 'a tela sabe que o Pro pago nao tem');
+DO $$
+BEGIN
+  PERFORM public.ai_connector_create('novo');
+  RAISE EXCEPTION 'FALHOU: Pro pago criou conexao';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%Max IA%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - Pro pago nao cria conexao';
+END $$;
+ROLLBACK;
+SELECT public.assert((public.plan_features('pro') ->> 'nome') = 'Cronys Max IA', 'o plano se chama Cronys Max IA');
+UPDATE public.accounts SET plan = 'pro', billing_status = 'none' WHERE id = current_setting('teste.a')::uuid;
 
 \echo '=== FIM ==='
