@@ -278,3 +278,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Menu lateral (computador e tablet) fica parado na tela com rolagem própria; antes ele subia com a página enquanto o menu das Configurações ficava parado. O Thiago achou estranho as duas colunas andarem diferente | T |
 | Painel do gestor reorganizado (o Thiago achou bagunçado): números no topo, abas Empresas / Assinaturas e cupons / Assistente, um cartão por empresa no lugar da tabela de 10 colunas, busca, filtros e ações num menu | T |
 | Painel do gestor: as empresas "Test Business" criadas pelos robôs de teste da Google Play (sem aluno nem aula) aparecem num aviso com "Excluir todas" | T |
+
+### 10/10 - site (painel do gestor; o app não muda)
+
+| Mudança | Origem |
+|---|---|
+| Plano vitalício: uma marca na empresa mantém o Max com assistente para sempre (fim de teste, de cortesia ou assinatura cancelada não rebaixam); o gestor liga e desliga pelo menu da empresa. O Portal de Aulas ficou vitalício. O presente (cortesia com prazo) continua como era. Pedido do Thiago | T |

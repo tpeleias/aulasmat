@@ -3895,4 +3895,33 @@ DELETE FROM public.students WHERE id = current_setting('teste.p1')::uuid;
 SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Pedro' AND student_id IS NULL AND account_id = current_setting('teste.a')::uuid) = 1,
   'cadastro excluido: a aula fica, sem o id');
 
+\echo '--- 70. Plano vitalicio (10/10) ---'
+UPDATE public.accounts SET lifetime = true WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT plan = 'pro' AND assistant_override AND tester_until IS NULL FROM public.accounts WHERE id = current_setting('teste.a')::uuid),
+  'vitalicia fica no Max com assistente');
+UPDATE public.accounts SET trial_ends_at = now() - interval '1 day' WHERE id = current_setting('teste.a')::uuid;
+SELECT public.expire_trials();
+SELECT public.billing_apply_subscription(current_setting('teste.a')::uuid, NULL, NULL, 'canceled', NULL, NULL, NULL);
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a')::uuid) = 'pro'
+  AND public.account_can('assistant', current_setting('teste.a')::uuid),
+  'fim de teste e assinatura cancelada nao rebaixam a vitalicia');
+UPDATE public.accounts SET lifetime = false, billing_status = 'none' WHERE id = current_setting('teste.a')::uuid;
+UPDATE public.accounts SET plan = 'essencial' WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT plan FROM public.accounts WHERE id = current_setting('teste.a')::uuid) = 'essencial',
+  'sem a marca, o plano volta a mudar normalmente');
+UPDATE public.accounts SET plan = 'pro', assistant_override = NULL WHERE id = current_setting('teste.a')::uuid;
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+DO $$
+BEGIN
+  PERFORM public.platform_set_lifetime(current_setting('teste.a')::uuid, true);
+  RAISE EXCEPTION 'FALHOU: admin da empresa ligou o vitalicio';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so o gestor liga o vitalicio';
+END $$;
+ROLLBACK;
+
 \echo '=== FIM ==='
