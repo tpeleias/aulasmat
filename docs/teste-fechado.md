@@ -318,3 +318,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Conectar IA: o passo a passo do Claude passa a indicar "Sem login" e ensina o jeito mais discreto, com a chave no cabeçalho Authorization em vez do link. O Thiago perguntou se a configuração estava certa e o que muda o cabeçalho; a chave que apareceu num print foi desligada | T |
+
+### 11/10 - função do conector (site e app não mudam)
+
+| Mudança | Origem |
+|---|---|
+| Conector de IA mais firme: numa falha momentânea do banco, o conector tenta de novo e, se não der, responde "tente em instantes"; chave errada ou desligada responde "sem permissão". Antes as duas respondiam "não autorizado", e o Claude entendia que precisava de login e travava com "Não foi possível registrar no serviço de login". O Thiago viu o erro ao montar o agente de Marketing | T |
