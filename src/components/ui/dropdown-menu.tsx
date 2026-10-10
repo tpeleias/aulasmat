@@ -4,9 +4,53 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
-const DropdownMenu = DropdownMenuPrimitive.Root;
+// No toque, o menu abre só no toque completo (encostar e soltar sem arrastar),
+// e não no instante em que o dedo encosta: antes, rolar a tela começando em
+// cima do "Cobrar" abria o menu (Thiago, 10/10). No mouse e no teclado, igual.
+const TapToggle = React.createContext<(() => void) | null>(null);
 
-const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+function DropdownMenu({ open: openProp, defaultOpen, onOpenChange, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
+  const [inner, setInner] = React.useState(defaultOpen ?? false);
+  const controlled = openProp !== undefined;
+  const open = controlled ? openProp : inner;
+  const setOpen = React.useCallback((v: boolean) => {
+    if (!controlled) setInner(v);
+    onOpenChange?.(v);
+  }, [controlled, onOpenChange]);
+  const toggle = React.useCallback(() => setOpen(!open), [open, setOpen]);
+  return (
+    <TapToggle.Provider value={toggle}>
+      <DropdownMenuPrimitive.Root open={open} onOpenChange={setOpen} {...props} />
+    </TapToggle.Provider>
+  );
+}
+
+const DropdownMenuTrigger = React.forwardRef<
+  React.ElementRef<typeof DropdownMenuPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Trigger>
+>(({ onPointerDown, onClick, ...props }, ref) => {
+  const toggle = React.useContext(TapToggle);
+  const touch = React.useRef(false);
+  return (
+    <DropdownMenuPrimitive.Trigger
+      ref={ref}
+      onPointerDown={e => {
+        onPointerDown?.(e);
+        touch.current = e.pointerType !== "mouse";
+        // Impede a abertura no "encostar"; quem abre é o clique, que o
+        // navegador só dispara se o dedo não arrastou.
+        if (touch.current && toggle) e.preventDefault();
+      }}
+      onClick={e => {
+        onClick?.(e);
+        if (touch.current && toggle && !e.defaultPrevented) toggle();
+        touch.current = false;
+      }}
+      {...props}
+    />
+  );
+});
+DropdownMenuTrigger.displayName = DropdownMenuPrimitive.Trigger.displayName;
 
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 
