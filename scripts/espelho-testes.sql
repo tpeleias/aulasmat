@@ -1466,9 +1466,9 @@ BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '27000000-0000-0000-0000-000000000001', true);
--- Desde 26/09 o Pro traz uma amostra de IA (20 mensagens), que vale no teste.
-SELECT public.assert(public.account_plan() = 'pro_solo' AND public.account_can('assistant') = true,
-  'empresa nova, no teste do Pro, ja tem a amostra de IA');
+-- A amostra de IA do Pro (20 mensagens) é só para quem paga (10/10): no teste, sem IA.
+SELECT public.assert(public.account_plan() = 'pro_solo' AND public.account_can('assistant') = false,
+  'empresa nova, no teste do Pro, ainda sem a amostra de IA (so pagando)');
 SELECT public.assert((public.my_plan() -> 'assistant_usage' ->> 'limit')::int = 20,
   'com 20 mensagens por mes');
 COMMIT;
@@ -1479,8 +1479,8 @@ SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', current_setting('teste.op'), true);
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, true) ->> 'assistant') = 'true',
   'o gestor libera');
-SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, false) ->> 'assistant') = 'true',
-  'tirar a liberacao manual nao tira a amostra que o plano traz');
+SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, false) ->> 'assistant') = 'false',
+  'tirar a liberacao manual, no teste gratis, deixa sem IA (a amostra e so pagando)');
 SELECT public.assert((public.platform_set_account_plan(current_setting('teste.a27')::uuid, NULL, NULL, true) ->> 'assistant') = 'true',
   'o painel antigo (que manda "limpar" para ligar no Pro) continua ligando');
 COMMIT;
@@ -1953,8 +1953,8 @@ INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES
   ('33000000-0000-0000-0000-000000000001', 'max@x', '{"signup_kind":"school","school_name":"Escola Max","teacher_name":"Lia"}');
 SELECT set_config('teste.a33', (SELECT account_id::text FROM public.user_roles WHERE user_id = '33000000-0000-0000-0000-000000000001'), false);
 
-SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid),
-  'no teste gratis (Pro) ja tem a amostra de IA');
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),
+  'no teste gratis (Pro) ainda sem IA (so pagando, desde 10/10)');
 SELECT public.assert(NOT public.account_can('arrival_location', current_setting('teste.a33')::uuid)
                      AND public.account_can('whatsapp_link', current_setting('teste.a33')::uuid),
   'Pro: WhatsApp de um toque sim, localizacao nao');
@@ -3927,5 +3927,19 @@ EXCEPTION WHEN sqlstate 'P0001' THEN
   RAISE NOTICE '  ok - so o gestor liga o vitalicio';
 END $$;
 ROLLBACK;
+
+\echo '--- 71. Assistente so para quem paga (10/10) ---'
+UPDATE public.platform_settings SET assistant_enabled = true WHERE id;
+UPDATE public.accounts SET lifetime = false, lifetime_assistant = false, plan = 'pro_solo', billing_status = 'none',
+       assistant_override = NULL, trial_ends_at = now() + interval '10 days', tester_until = NULL
+ WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a')::uuid), 'Pro no teste gratis: sem IA');
+UPDATE public.accounts SET billing_status = 'active', trial_ends_at = NULL WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a')::uuid), 'Pro pago: amostra de IA');
+UPDATE public.accounts SET plan = 'pro' WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(public.account_can('assistant', current_setting('teste.a')::uuid), 'Max pago: IA inclusa');
+UPDATE public.accounts SET billing_status = 'none' WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a')::uuid), 'Max sem pagar (cortesia): sem IA');
+UPDATE public.platform_settings SET assistant_enabled = false WHERE id;
 
 \echo '=== FIM ==='
