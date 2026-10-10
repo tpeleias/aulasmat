@@ -193,8 +193,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.students_history_follows() FROM public, anon, authenticated;
 
-DROP TRIGGER IF EXISTS students_history_follows ON public.students;
-CREATE TRIGGER students_history_follows
+CREATE OR REPLACE TRIGGER students_history_follows
   AFTER UPDATE OF student_name, guardian_name ON public.students
   FOR EACH ROW
   WHEN (public.account_key(OLD.student_name, OLD.guardian_name) IS DISTINCT FROM public.account_key(NEW.student_name, NEW.guardian_name)
