@@ -238,13 +238,13 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | App mais leve (o Thiago achou o app lento e os botões de copiar e de atualizar demorando): troca de tela na hora (antes esperava a tela velha sair, quase meio segundo), barra de baixo sem o efeito de vidro, "puxar para atualizar" sem refazer a tela a cada movimento do dedo, links de pagamento buscados de uma vez quando o Financeiro abre (copiar fica instantâneo) e o "Atualizar" da versão nova mostra "Abrindo…" na hora | T |
 
-### 10/10 - site (o app recebe na próxima versão)
+### 10/10 - site e versão 1.18.9 (`.aab` no teste interno e no fechado em 10/10)
 
 | Mudança | Origem |
 |---|---|
 | O histórico acompanha o cadastro (a esposa do Thiago cadastrou um aluno sem responsável, deu aulas, e ao pôr a responsável depois o Financeiro separou as contas): mudar o responsável ou o nome no cadastro leva junto aulas, pagamentos, pacotes e desconto; com irmãos na família, vão só as aulas e pacotes do aluno. Conta que já ficou separada aparece num aviso em Financeiro e em Alunos, com o botão "Juntar na conta de ..." | T |
 
-### 10/10 - site (o app recebe na próxima versão)
+### 10/10 - site e versão 1.18.9 (cont.)
 
 | Mudança | Origem |
 |---|---|
