@@ -117,8 +117,8 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
         <div className="space-y-2 rounded-xl border border-primary/40 bg-primary/5 p-3 text-sm">
           <p className="flex items-center gap-1.5 font-medium"><Lock className="h-4 w-4" /> {L("Conectar IA é do Cronys Max IA", "Connect AI comes with Cronys Max AI")}</p>
           <p className="text-xs text-muted-foreground">
-            {L("No Max IA, a IA que você já usa (Claude, ChatGPT) trabalha dentro do Cronys: escreve o “Como foi?”, manda materiais e tarefas, marca e cobra, conversando.",
-               "With Max AI, the AI you already use (Claude, ChatGPT) works inside Cronys: it writes the “How did it go?”, sends materials and tasks, books and bills, by chatting.")}
+            {L("No Max IA, a IA que você já usa (ChatGPT, Claude e outras que aceitam conector) trabalha dentro do Cronys: escreve o “Como foi?”, manda materiais e tarefas, marca e cobra, conversando.",
+               "With Max AI, the AI you already use (ChatGPT, Claude and others that accept connectors) works inside Cronys: it writes the “How did it go?”, sends materials and tasks, books and bills, by chatting.")}
           </p>
           {canSellHere() && <Button asChild size="sm" className="rounded-xl"><Link to="/assinar">{L("Conhecer o Max IA", "See Max AI")}</Link></Button>}
         </div>
@@ -168,10 +168,11 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
       {/* 2. Colar na IA */}
       <div className="space-y-2">
         <p className="text-sm font-medium">{L("2. Cole o link na sua IA", "2. Paste the link into your AI")}</p>
-        <Tabs defaultValue="claude">
-          <TabsList className="h-8">
-            <TabsTrigger value="claude" className="text-xs">Claude</TabsTrigger>
+        <Tabs defaultValue="chatgpt">
+          <TabsList className="h-8 flex-wrap">
             <TabsTrigger value="chatgpt" className="text-xs">ChatGPT</TabsTrigger>
+            <TabsTrigger value="claude" className="text-xs">Claude</TabsTrigger>
+            <TabsTrigger value="gemini" className="text-xs">Gemini</TabsTrigger>
             <TabsTrigger value="outra" className="text-xs">{L("Outra IA", "Other AI")}</TabsTrigger>
           </TabsList>
           <TabsContent value="claude">
@@ -192,10 +193,20 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
               <li>{L("Nome: Cronys. URL do servidor MCP: cole o link. Autenticação: nenhuma. Marque que confia e crie.", "Name: Cronys. MCP server URL: paste the link. Authentication: none. Confirm you trust it and create.")}</li>
               <li>{L("Numa conversa, escolha o modo de desenvolvedor e ligue o Cronys.", "In a chat, pick developer mode and turn Cronys on.")}</li>
             </ol>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {L("Precisa de um plano pago do ChatGPT. Em alguns planos o ChatGPT só deixa consultar, sem gravar. Se for o seu caso, peça para ele escrever o material e cole no Cronys (no aluno → Materiais → Texto).",
+                 "Requires a paid ChatGPT plan. On some plans ChatGPT can only look things up, not save. If that's your case, ask it to write the material and paste it into Cronys (student → Materials → Text).")}
+            </p>
+          </TabsContent>
+          <TabsContent value="gemini">
+            <p className="text-xs text-muted-foreground">
+              {L("No app do Gemini, os conectores próprios ainda só existem em alguns países (Estados Unidos, em inglês). Aqui, use o Gemini para escrever e cole no Cronys: no aluno → Materiais → Texto → “Copiar prompt para IA”. Quem usa o Gemini CLI no computador pode ligar este mesmo link como servidor MCP.",
+                 "In the Gemini app, custom connectors are only available in some countries (US, English) for now. Elsewhere, use Gemini to write and paste into Cronys: student → Materials → Text → “Copy AI prompt”. If you use Gemini CLI on a computer, you can add this same link as an MCP server.")}
+            </p>
           </TabsContent>
           <TabsContent value="outra">
             <p className="text-xs text-muted-foreground">
-              {L("Qualquer IA ou programa que aceite um servidor MCP por HTTP (Claude Code, Cursor, OpenSquad e outros) funciona com este mesmo link. Se pedirem a chave separada, use o final do link (começa com crn_) como “Bearer token”.", "Any AI or app that accepts an MCP server over HTTP (Claude Code, Cursor, OpenSquad and others) works with this same link. If asked for a separate key, use the end of the link (starts with crn_) as a “Bearer token”.")}
+              {L("Qualquer IA ou programa que aceite um servidor MCP por HTTP (Claude Code, Cursor, Gemini CLI, OpenSquad e outros) funciona com este mesmo link. Se pedirem a chave separada, use o final do link (começa com crn_) como “Bearer token”.", "Any AI or app that accepts an MCP server over HTTP (Claude Code, Cursor, Gemini CLI, OpenSquad and others) works with this same link. If asked for a separate key, use the end of the link (starts with crn_) as a “Bearer token”.")}
             </p>
           </TabsContent>
         </Tabs>

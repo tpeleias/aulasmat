@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { LessonDialog } from "@/components/LessonDialog";
 import { useDefaultTeacher } from "@/hooks/useDefaultTeacher";
 import { StudentManageDialog } from "@/components/StudentManageDialog";
+import StudentWorkDialog from "@/components/StudentWorkDialog";
 import StudentImportDialog from "@/components/StudentImportDialog";
 import StudentSheet, { type SheetLesson } from "@/components/StudentSheet";
 import EmptyState from "@/components/EmptyState";
@@ -89,7 +90,7 @@ export default function StudentsPage() {
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
   const [manageFor, setManageFor] = useState<Student | null>(null);
-  const [manageTab, setManageTab] = useState<"account" | "materials" | undefined>(undefined);
+  const [workFor, setWorkFor] = useState<Student | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const defaultTeacher = useDefaultTeacher();
 
@@ -336,9 +337,9 @@ export default function StudentsPage() {
         onOpenChange={v => !v && setSelected(null)}
         onSchedule={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setScheduleFor(s); }}
         showMoney={!isTeacher}
-        onManage={() => { const s = selected!; setSelected(null); setManageTab(isTeacher ? "materials" : "account"); setManageFor(s); }}
-        manageLabel={isTeacher ? (tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")) : L("Acesso", "Access")}
-        onMaterials={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setManageTab("materials"); setManageFor(s); }}
+        onManage={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setManageFor(s); }}
+        manageLabel={L("Acesso", "Access")}
+        onMaterials={() => { const s = selected!; setSelected(null); setWorkFor(s); }}
         materialsLabel={tasks ? L(`Materiais e ${w.task.lp}`, `Materials and ${w.task.lp}`) : L("Materiais", "Materials")}
         onEdit={isTeacher ? undefined : () => { const s = selected!; setSelected(null); setEditing(s); }}
         onDelete={isTeacher ? undefined : () => remove(selected!.id)}
@@ -414,12 +415,17 @@ export default function StudentsPage() {
       />
 
       <StudentManageDialog
-        teacherMode={isTeacher}
         student={manageFor}
-        tab={manageTab}
         open={!!manageFor}
         onOpenChange={v => !v && setManageFor(null)}
         onChanged={load}
+      />
+
+      <StudentWorkDialog
+        teacherMode={isTeacher}
+        student={workFor}
+        open={!!workFor}
+        onOpenChange={v => !v && setWorkFor(null)}
       />
     </PullToRefresh>
   );

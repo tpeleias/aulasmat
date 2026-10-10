@@ -19,7 +19,7 @@ a empresa dele).
 | Essencial | grátis | 1 profissional, até 10 clientes ativos |
 | Start | R$ 29,90 | 1 profissional, até 25 clientes ativos, pacotes, cobrança por e-mail |
 | Pro | R$ 49,90 | até 3 profissionais, clientes ilimitados, Google Agenda, marca nos e-mails, 100 mensagens de IA/mês |
-| Max IA | R$ 129,90 | 5 profissionais inclusos, **Conectar IA** (o Claude ou o ChatGPT do cliente trabalhando dentro do Cronys: "Como foi?", materiais, tarefas, agenda e cobrança), assistente com 200 mensagens/mês, "estou a caminho" com localização, e-mails personalizados |
+| Max IA | R$ 129,90 | 5 profissionais inclusos, **Conectar IA** (a IA do cliente, como ChatGPT ou Claude, trabalhando dentro do Cronys: "Como foi?", materiais, tarefas, agenda e cobrança), assistente com 200 mensagens/mês, "estou a caminho" com localização, e-mails personalizados |
 
 - Profissional extra: R$ 19,90/mês. Adicional de IA (Start e Pro): R$ 24,90/mês, +100 mensagens.
 - Teste grátis: 14 dias do Pro, sem cartão. Sem o assistente; o Conectar IA funciona só nos 3 primeiros dias.
@@ -33,7 +33,7 @@ a empresa dele).
   pacotes (por número de aulas), vouchers e descontos fixos.
 - Cobrança por link (Pix e cartão, Stripe ou Asaas) e por e-mail.
 - "Como foi?": resumo do atendimento que pode ir por e-mail para a família.
-- Assistente de IA dentro do app e, no Max IA, o Conectar IA (Claude, ChatGPT).
+- Assistente de IA dentro do app e, no Max IA, o Conectar IA (ChatGPT, Claude e outras IAs que aceitam conector).
 - Materiais (arquivo, link ou texto com fórmulas) e tarefas por aluno, também mandados pela IA.
 - Importar clientes de planilha (com botão de prompt para IA).
 
