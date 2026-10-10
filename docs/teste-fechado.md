@@ -284,3 +284,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Plano vitalício: uma marca na empresa mantém o Max com assistente para sempre (fim de teste, de cortesia ou assinatura cancelada não rebaixam); o gestor liga e desliga pelo menu da empresa. O Portal de Aulas ficou vitalício. O presente (cortesia com prazo) continua como era. Pedido do Thiago | T |
+
+### 10/10 - site (painel do gestor; o app não muda)
+
+| Mudança | Origem |
+|---|---|
+| Vitalício segura só o plano Max; o assistente volta a ser ligado, desligado e limitado pelo gestor (antes uma marca antiga religava o assistente sozinho). O Thiago notou que o assistente ligava automaticamente | T |
