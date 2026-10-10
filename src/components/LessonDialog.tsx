@@ -52,6 +52,8 @@ type Lesson = {
   /** Link da reunião (migration 20261005010000): vazio = o automático do profissional. */
   meeting_url?: string | null;
   meeting_source?: string | null;
+  /** O cadastro escolhido (migration 20261010040000). Sem ele, o banco acha pelo nome. */
+  student_id?: string | null;
 };
 
 type AbsencePolicy = { on: boolean; hours: number; percent: number };
@@ -210,6 +212,8 @@ export function LessonDialog({ open, onOpenChange, slotStart, lesson, onSaved, d
     setForm(f => ({
       ...f,
       student_name: match ? match.student_name : name,
+      // Homônimos: o escolhido na lista vai pelo id, e não se mistura com o outro.
+      student_id: match ? match.id : null,
       guardian_name: match ? (match.guardian_name ?? "") : f.guardian_name,
       address: match ? (match.address ?? "") : f.address,
       is_online: match?.address ? false : f.is_online,

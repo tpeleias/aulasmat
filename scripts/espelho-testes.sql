@@ -3861,4 +3861,38 @@ SELECT public.assert((SELECT payment_status FROM public.lessons WHERE student_na
   'juntando, a aula do Davi aparece paga');
 COMMIT;
 
+\echo '--- 69. Aula, lancamento e pacote ligados ao cadastro (student_id, 10/10) ---'
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Rafa' AND student_id = (SELECT id FROM public.students WHERE student_name = 'Rafa')) = 2,
+  'as aulas do Rafa apontam para o cadastro dele');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.wallet_transactions w JOIN public.lessons l ON l.id = w.lesson_id WHERE w.student_id IS DISTINCT FROM l.student_id),
+  'o lancamento da aula herda o cadastro da aula');
+-- Dois "Pedro" sem responsavel: com o id, cada aula sabe de qual e', e
+-- renomear um leva so as dele.
+INSERT INTO public.students (account_id, student_name) VALUES (current_setting('teste.a')::uuid, 'Pedro'), (current_setting('teste.a')::uuid, 'Pedro');
+SELECT set_config('teste.p1', (SELECT id::text FROM public.students WHERE student_name = 'Pedro' ORDER BY id LIMIT 1), false);
+SELECT set_config('teste.p2', (SELECT id::text FROM public.students WHERE student_name = 'Pedro' ORDER BY id DESC LIMIT 1), false);
+INSERT INTO public.lessons (account_id, student_name, student_id, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Pedro', current_setting('teste.p1')::uuid, 'thiago', '2026-07-10 10:00-03', 60, 100, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Pedro', current_setting('teste.p2')::uuid, 'thiago', '2026-07-11 10:00-03', 60, 100, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Pedro', current_setting('teste.p2')::uuid, 'thiago', '2026-07-12 10:00-03', 60, 100, 'realizada');
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Pedro', 'thiago', '2026-07-13 10:00-03', 60, 100, 'agendada');
+SELECT public.assert((SELECT student_id FROM public.lessons WHERE student_name = 'Pedro' AND start_at = '2026-07-13 10:00-03') IS NULL,
+  'sem id e com dois homonimos, nao chuta');
+UPDATE public.students SET student_name = 'Pedro Lima' WHERE id = current_setting('teste.p2')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Pedro Lima') = 2
+  AND (SELECT count(*) FROM public.lessons WHERE student_id = current_setting('teste.p1')::uuid AND student_name = 'Pedro') = 1,
+  'renomear um homonimo leva so as aulas dele');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Pedro Lima') = -200
+  AND (SELECT sum(amount) FROM public.wallet_transactions WHERE student_name = 'Pedro' AND account_id = current_setting('teste.a')::uuid) = -100,
+  'e as cobrancas dele, so as dele');
+-- Mudar a aula para outro aluno troca o cadastro dela.
+UPDATE public.lessons SET student_name = 'Rafa', guardian_name = 'Bruna' WHERE student_name = 'Pedro' AND start_at = '2026-07-13 10:00-03';
+SELECT public.assert((SELECT student_id FROM public.lessons WHERE start_at = '2026-07-13 10:00-03' AND account_id = current_setting('teste.a')::uuid) = (SELECT id FROM public.students WHERE student_name = 'Rafa'),
+  'aula passada para outro aluno aponta para ele');
+-- Excluir o cadastro nao apaga o historico.
+DELETE FROM public.students WHERE id = current_setting('teste.p1')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Pedro' AND student_id IS NULL AND account_id = current_setting('teste.a')::uuid) = 1,
+  'cadastro excluido: a aula fica, sem o id');
+
 \echo '=== FIM ==='

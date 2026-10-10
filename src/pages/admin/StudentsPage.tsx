@@ -30,6 +30,7 @@ import { dbErrorMessage } from "@/lib/dbErrors";
 import { DEFAULT_VOCABULARY, guardianAlwaysShown, type Vocabulary } from "@/lib/vocabulary";
 import { GuardianField } from "@/components/GuardianField";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
+import { sameClient, similarName } from "@/lib/names";
 
 import { L } from "@/lib/i18n";
 type Student = {
@@ -154,6 +155,11 @@ export default function StudentsPage() {
 
   const save = async () => {
     if (!editing?.student_name?.trim()) { toast.error(L(`Nome ${c.do} ${c.l} obrigatório`, `${c.s} name is required`)); return; }
+    // Mesmo nome e mesmo responsável: no Financeiro, os dois viram uma conta só.
+    const twin = sameClient(editing.student_name, editing.guardian_name, students, editing.id);
+    if (twin && !confirm(L(
+      `Já existe ${c.um} ${c.l} "${twin.student_name}" ${twin.guardian_name ? `com ${w.guardian.o} ${w.guardian.l} ${twin.guardian_name}` : `sem ${w.guardian.l}`}. No financeiro, os dois ficariam na mesma conta.\n\nPara separar, ponha o sobrenome. Salvar assim mesmo?`,
+      `There's already a ${c.l} "${twin.student_name}" ${twin.guardian_name ? `with ${w.guardian.l} ${twin.guardian_name}` : `without a ${w.guardian.l}`}. In billing, both would share one account.\n\nAdd a last name to keep them apart. Save anyway?`))) return;
     const zap = normalizeWhatsApp(editing.whatsapp);
     if (zap === "invalido") { toast.error(L("WhatsApp com DDD, ex.: (11) 98765-4321", "WhatsApp with country code, e.g. +1 555 123 4567")); return; }
     const mail = (x?: string | null) => (x ?? "").trim().toLowerCase() || null;
@@ -188,6 +194,11 @@ export default function StudentsPage() {
       setEditing(null); setSelected(null); load();
     }
   };
+
+  // Responsável com grafia parecida com um já cadastrado (Taciana × Thaciana).
+  const guardianLike = editing?.guardian_name?.trim()
+    ? similarName(editing.guardian_name, students.filter(s => s.id !== editing.id).map(s => s.guardian_name))
+    : null;
 
   const remove = async (id: string) => {
     if (!confirm(L(`Excluir ${c.este} ${c.l} do cadastro? (Não afeta ${w.appointment.lp} existentes)`, `Delete this ${c.l}? (Existing ${w.appointment.lp} are not affected)`))) return;
@@ -333,6 +344,15 @@ export default function StudentsPage() {
             </div>
             <GuardianField key={editing?.id ?? "novo"} w={w} inputClassName="h-11 rounded-xl" value={editing?.guardian_name ?? ""}
               onChange={v => setEditing(p => ({ ...p!, guardian_name: v }))} />
+            {guardianLike && (
+              <div className="-mt-1 flex flex-wrap items-center gap-2 rounded-xl bg-warning/10 px-3 py-2 text-xs">
+                <span>{L(`Parecido com "${guardianLike}", que já está cadastrad${w.guardian.pick("o", "a")}. Com outra grafia, o financeiro fica separado.`, `Similar to "${guardianLike}", already registered. A different spelling keeps billing separate.`)}</span>
+                <Button type="button" size="sm" variant="outline" className="h-7 rounded-lg text-xs"
+                  onClick={() => setEditing(p => ({ ...p!, guardian_name: guardianLike }))}>
+                  {L(`Usar "${guardianLike}"`, `Use "${guardianLike}"`)}
+                </Button>
+              </div>
+            )}
             <div><Label>{L("Endereço", "Address")}</Label>
               <Input className="h-11 rounded-xl" value={editing?.address ?? ""} onChange={e => setEditing(p => ({ ...p!, address: e.target.value }))} placeholder={L("Rua, número, bairro, cidade", "Street, number, city")} />
             </div>
