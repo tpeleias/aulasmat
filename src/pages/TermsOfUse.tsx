@@ -54,7 +54,7 @@ export default function TermsOfUse() {
             <h2 className="font-semibold text-base">3. Planos, teste e cancelamento</h2>
             <ul className="list-disc space-y-1 pl-5">
               <li>O plano <strong>Cronys Essencial</strong> é gratuito e tem limites de clientes ativos e profissionais.</li>
-              <li>Os planos <strong>Cronys Start</strong>, <strong>Cronys Pro</strong> e <strong>Cronys Max</strong> são
+              <li>Os planos <strong>Cronys Start</strong>, <strong>Cronys Pro</strong> e <strong>Cronys Max IA</strong> são
                 pagos e liberam os recursos descritos no site e no app.</li>
               <li>A empresa nova começa com um período de teste do Pro. Ao fim dele, se não houver
                 contratação, a conta passa para o Essencial: nada é apagado. Os clientes continuam

@@ -1,9 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 
 // Conectar IA (11/10): cria o link, mostra uma vez, lista e desliga.
 const active = [{ id: "c1", label: "Claude antigo", read_only: true, token_hint: "ab12", created_at: "2026-10-01T12:00:00Z", last_used_at: null, mine: true }];
+let access: { allowed: boolean; reason: string; until?: string } = { allowed: true, reason: "plan" };
 const rpc = vi.fn(async (fn: string) => {
+  if (fn === "ai_connector_my_access") return { data: access, error: null };
   if (fn === "ai_connectors_list") return { data: active, error: null };
   if (fn === "ai_connector_create") return { data: { id: "c2", token: "crn_" + "a".repeat(40) }, error: null };
   return { data: true, error: null };
@@ -14,7 +17,7 @@ vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
 import AiConnectorSettings, { connectorUrl } from "@/components/AiConnectorSettings";
 
 describe("Conectar IA", () => {
-  beforeEach(() => rpc.mockClear());
+  beforeEach(() => { rpc.mockClear(); access = { allowed: true, reason: "plan" }; });
 
   it("o link aponta para a função mcp com a chave", () => {
     expect(connectorUrl("crn_x")).toMatch(/\/functions\/v1\/mcp\/crn_x$/);
@@ -23,6 +26,7 @@ describe("Conectar IA", () => {
   it("cria o link só de leitura e mostra para copiar", async () => {
     render(<AiConnectorSettings />);
     expect(await screen.findByText("Claude antigo")).toBeTruthy();
+    await screen.findByRole("button", { name: /Criar link/ });
     fireEvent.click(screen.getByRole("switch", { name: "Só leitura" }));
     fireEvent.click(screen.getByRole("button", { name: /Criar link/ }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("ai_connector_create", { _label: "Claude", _read_only: true, _platform: false }));
@@ -44,5 +48,20 @@ describe("Conectar IA", () => {
     expect(screen.queryByRole("switch", { name: "Só leitura" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Criar link/ }));
     await waitFor(() => expect(rpc).toHaveBeenCalledWith("ai_connector_create", { _label: "Claude - gestor", _read_only: false, _platform: true }));
+  });
+
+  it("fora do Max IA mostra o plano e não deixa criar, mas deixa desligar o que existe", async () => {
+    access = { allowed: false, reason: "plan" };
+    render(<MemoryRouter><AiConnectorSettings /></MemoryRouter>);
+    expect(await screen.findByText(/Conectar IA é do Cronys Max IA/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Criar link/ })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Desligar" })).toBeTruthy();
+  });
+
+  it("no teste do Pro avisa até quando vale", async () => {
+    access = { allowed: true, reason: "trial", until: "2026-10-14T12:00:00Z" };
+    render(<AiConnectorSettings />);
+    expect(await screen.findByText(/No teste grátis, o conector funciona até 14\/10/)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Criar link/ })).toBeTruthy();
   });
 });

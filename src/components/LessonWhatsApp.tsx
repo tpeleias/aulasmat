@@ -48,7 +48,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
 
   const locate = async () => {
     if (!plan.arrival_location) {
-      toast.info(L("\"Estou a caminho\" com a localização é do Cronys Max.", "\"On my way\" with location is part of Cronys Max."));
+      toast.info(L("\"Estou a caminho\" com a localização é do Cronys Max IA.", "\"On my way\" with location is part of Cronys Max AI."));
       return;
     }
     setLocating(true);
@@ -66,7 +66,7 @@ export function LessonWhatsApp({ lesson, phone }: { lesson: LessonLike; phone: s
         {showOnMyWay && (
           <Button size="sm" variant="outline" className="gap-1.5" onClick={locate} disabled={locating}>
             {locating ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-            {L("Estou a caminho", "On my way")}{!plan.arrival_location && " (Max)"}
+            {L("Estou a caminho", "On my way")}{!plan.arrival_location && L(" (Max IA)", " (Max AI)")}
           </Button>
         )}
       </div>

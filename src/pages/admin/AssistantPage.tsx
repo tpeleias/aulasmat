@@ -166,7 +166,7 @@ export default function AssistantPage() {
             <Bot className="h-5 w-5 text-primary" />
           </div>
           <h2 className="text-lg font-semibold">
-            {emBreve ? L("O Assistente chega em breve", "The Assistant is coming soon") : L("O Assistente vem no Pro e no Max", "The Assistant comes with Pro and Max")}
+            {emBreve ? L("O Assistente chega em breve", "The Assistant is coming soon") : L("O Assistente vem no Pro e no Max IA", "The Assistant comes with Pro and Max AI")}
           </h2>
           <p className="mt-2 text-sm text-muted-foreground">
             {L(`Em vez de abrir a agenda e preencher formulário, você escreve “marca com o Miguel quinta às 15h” e ele marca. Também registra pagamento, responde quanto ${w.payer.um} ${w.payer.l} deve e remarca ${w.appointment.l}.`,
@@ -178,8 +178,8 @@ export default function AssistantPage() {
               : plan.tier === "pro" || plan.tier === "pro_solo"
               ? L("Ele vem incluso no seu plano com a assinatura ativa (o teste grátis não inclui a IA).", "It's included in your plan with an active subscription (the free trial doesn't include AI).")
               : plan.tier === "start"
-                ? L("Ele vem incluso no Pro e no Max. No Start, dá para adicionar à assinatura.", "It's included in Pro and Max. On Start, you can add it to your subscription.")
-                : L("Ele vem incluso no Pro e no Max pagos e pode ser adicionado no Start.", "It's included in paid Pro and Max, and can be added on Start.")}
+                ? L("Ele vem incluso no Pro e no Max IA. No Start, dá para adicionar à assinatura.", "It's included in Pro and Max AI. On Start, you can add it to your subscription.")
+                : L("Ele vem incluso no Pro e no Max IA pagos e pode ser adicionado no Start.", "It's included in paid Pro and Max AI, and can be added on Start.")}
           </p>
           {canSellHere() && isAdmin && !emBreve && (
             <Button asChild className="mt-4 rounded-xl"><Link to="/assinar">{L("Ver planos", "See plans")}</Link></Button>

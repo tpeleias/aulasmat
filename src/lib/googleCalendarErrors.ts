@@ -33,7 +33,7 @@ export async function googleFunctionError(data: unknown, error: unknown): Promis
     case "not_configured":
       return L("O Google Agenda ainda não está disponível no Cronys.", "Google Calendar isn't available in Cronys yet.");
     case "plan":
-      return L("O Google Agenda faz parte do Cronys Pro e do Max.", "Google Calendar is part of Cronys Pro and Max.");
+      return L("O Google Agenda faz parte do Cronys Pro e do Max IA.", "Google Calendar is part of Cronys Pro and Max AI.");
     case "not_enabled":
       return L("Quem te atende ainda não liberou o Google Agenda.", "Your provider hasn't turned on Google Calendar yet.");
     case "forbidden":

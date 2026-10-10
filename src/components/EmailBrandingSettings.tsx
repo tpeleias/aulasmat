@@ -78,7 +78,7 @@ export function EmailBrandingSettings({ value, set, accountId, canBrand, canCust
     <div className="space-y-4">
       <div className={`space-y-3 ${canBrand ? "" : "opacity-60"}`}>
         <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-          {L("A cara da empresa", "Your brand")} {!canBrand && lock(L("nos planos Pro e Max", "on the Pro and Max plans"))}
+          {L("A cara da empresa", "Your brand")} {!canBrand && lock(L("nos planos Pro e Max IA", "on the Pro and Max AI plans"))}
         </p>
         <div className="flex flex-wrap items-center gap-3">
           {logo
@@ -107,7 +107,7 @@ export function EmailBrandingSettings({ value, set, accountId, canBrand, canCust
 
       <div className={`space-y-3 ${canCustom ? "" : "opacity-60"}`}>
         <p className="flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-          {L("Seus textos e horários", "Your texts and times")} {!canCustom && lock(L("no plano Max", "on the Max plan"))}
+          {L("Seus textos e horários", "Your texts and times")} {!canCustom && lock(L("no plano Max IA", "on the Max AI plan"))}
         </p>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span>{L("Lembrete da véspera às", "Day-before reminder at")}</span>

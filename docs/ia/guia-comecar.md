@@ -140,7 +140,8 @@ Fontes: [README do OpenSquad](https://cdn.jsdelivr.net/npm/opensquad@0.1.15/src/
 
 ## E para as empresas que assinam o Cronys?
 
-Elas já podem usar a Etapa 1 hoje: cada empresa cria o próprio link em
+No plano **Max IA** (e nos 3 primeiros dias do teste grátis do Pro), elas
+usam a Etapa 1: cada empresa cria o próprio link em
 **Configurações → Integrações → Conectar IA** e liga no Claude, no ChatGPT ou em
 qualquer IA que aceite conector MCP. A IA é delas, então o Cronys não paga nada
 por isso. O assistente dentro do app continua sendo a opção para quem não quer
