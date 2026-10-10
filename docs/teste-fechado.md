@@ -264,3 +264,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Os menus (como o "Cobrar" do Financeiro) abriam no instante em que o dedo encostava, inclusive ao rolar a tela. Agora, no toque, abrem só no toque completo; no mouse e no teclado, como antes. O Thiago notou no celular | T |
+
+### 10/10 - site (painel do gestor; o app não muda)
+
+| Mudança | Origem |
+|---|---|
+| Painel do gestor: cupons e códigos de desconto das assinaturas (listar com uso, ligar/desligar, criar código novo com %, valor, duração, limite, validade e "só quem nunca assinou"), sem abrir o Stripe. Pedido do Thiago | T |

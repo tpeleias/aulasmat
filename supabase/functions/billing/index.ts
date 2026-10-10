@@ -17,6 +17,8 @@
 //                acontece sozinho no checkout; com a real, só por aqui.
 //   stripe_status / go_live - SÓ o gestor: o modo do Stripe e o "Ligar o modo
 //                real" (golive.ts).
+//   coupons_list / coupon_create / code_active - SÓ o gestor: cupons e códigos
+//                de desconto (coupons.ts).
 //
 // Preço, plano e limite: supabase/functions/_shared/plans.ts.
 //
@@ -26,6 +28,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ASSISTANT_LOOKUP, LOOKUP, allPricePairs, allowsExtraTeachers, ensurePrices, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, toCurrency, type Interval, type Tier } from "../_shared/stripe.ts";
 import { COUPON_CURRENCIES, PLANS } from "../_shared/plans.ts";
 import { goLive, stripeStatus } from "./golive.ts";
+import { createCoupon, listCoupons, setCodeActive } from "./coupons.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,11 +60,14 @@ Deno.serve(async (req) => {
 
     // O gestor da plataforma cria/atualiza os preços (inclusive no modo real),
     // vê em que modo o Stripe está e liga o modo real (golive.ts).
-    if (action === "sync_prices" || action === "stripe_status" || action === "go_live") {
+    if (["sync_prices", "stripe_status", "go_live", "coupons_list", "coupon_create", "code_active"].includes(action)) {
       const { data: isOp } = await userClient.rpc("is_platform_admin");
       if (isOp !== true) return json({ error: "forbidden" }, 403);
       if (action === "stripe_status") return json(await stripeStatus(admin));
       if (action === "go_live") return json(await goLive(admin, String(body?.key ?? "")));
+      if (action === "coupons_list") return json(await listCoupons());
+      if (action === "coupon_create") return json(await createCoupon(body ?? {}));
+      if (action === "code_active") return json(await setCodeActive(body?.id, body?.active));
       return json({ created: await ensurePrices(allPricePairs(), { force: true }) });
     }
 
