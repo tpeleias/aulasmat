@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { FALLBACK_LESSON_PRICE, primeLessonPrice } from "@/hooks/useLessonPrice";
 import { fmtMoney } from "@/lib/balance";
 import { usePlan } from "@/hooks/usePlan";
+import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { useVocabulary, useWords } from "@/hooks/useVocabulary";
 import { tasksDefault } from "@/lib/vocabulary";
@@ -21,6 +22,7 @@ import ServicesSettings from "@/components/ServicesSettings";
 import GoogleCalendarSettings from "@/components/GoogleCalendarSettings";
 import MeetingSettings from "@/components/MeetingSettings";
 import OnlinePaymentsSettings from "@/components/OnlinePaymentsSettings";
+import AiConnectorSettings from "@/components/AiConnectorSettings";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ScarcityEditor } from "@/components/ScarcityEditor";
@@ -56,7 +58,7 @@ const SECTIONS: { id: SectionId; icon: typeof Building2; label: () => string; hi
   { id: "agenda", icon: CalendarDays, label: () => L("Agenda", "Calendar"), hint: v => L(`Horário de trabalho, ${v.topic.lp}`, `Working hours, ${v.topic.lp}`) },
   { id: "cobranca", icon: Wallet, label: () => L("Cobrança", "Billing"), hint: () => L("Valor, moeda, pacotes, Pix, falta", "Price, currency, packages, payment, no-shows") },
   { id: "clientes", icon: Users, label: () => L("Clientes", "Clients"), hint: () => L("Portal, pedidos, mensagens", "Portal, requests, messages") },
-  { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => L("Google Agenda, link das reuniões on-line", "Google Calendar, online meeting links") },
+  { id: "integracoes", icon: Plug, label: () => L("Integrações", "Integrations"), hint: () => L("Google Agenda, reuniões on-line, conectar IA", "Google Calendar, online meetings, connect AI") },
 ];
 
 type Settings = {
@@ -81,6 +83,7 @@ type Settings = {
 
 export default function SettingsPage() {
   const { plan, loading: planLoading } = usePlan();
+  const { isAdmin } = useAuth();
   const v = useWords();
   const { model: vocabModel, reload: reloadVocab } = useVocabulary();
   const isMobile = useIsMobile();
@@ -577,6 +580,7 @@ export default function SettingsPage() {
       <GoogleCalendarSettings />
       <MeetingSettings />
       <OnlinePaymentsSettings />
+      {isAdmin && <AiConnectorSettings />}
     </>,
   };
 

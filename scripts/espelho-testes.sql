@@ -3942,4 +3942,137 @@ UPDATE public.accounts SET billing_status = 'none' WHERE id = current_setting('t
 SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a')::uuid), 'Max sem pagar (cortesia): sem IA');
 UPDATE public.platform_settings SET assistant_enabled = false WHERE id;
 
+\echo '--- 72. Conector de IA: chaves de acesso (11/10) ---'
+DO $$
+DECLARE _op uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_op, 'gestor72@x');
+  DELETE FROM public.user_roles WHERE user_id = _op;
+  INSERT INTO public.platform_admins (user_id, note) VALUES (_op, 'teste 72');
+  PERFORM set_config('teste.op72', _op::text, false);
+END $$;
+-- O admin da empresa B sai num teste antigo: a "outra empresa" aqui e a E.
+DO $$
+DECLARE _u uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO auth.users (id, email) VALUES (_u, 'admin-e72@x');
+  DELETE FROM public.user_roles WHERE user_id = _u;
+  INSERT INTO public.user_roles (user_id, role, account_id) VALUES (_u, 'admin', current_setting('teste.e')::uuid);
+  PERFORM set_config('teste.ue72', _u::text, false);
+END $$;
+UPDATE public.accounts SET active = true WHERE id IN (current_setting('teste.a')::uuid, current_setting('teste.e')::uuid);
+
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT set_config('teste.tok_a', public.ai_connector_create('Claude do Thiago') ->> 'token', false);
+SELECT set_config('teste.tok_ro', public.ai_connector_create('Só leitura', true) ->> 'token', false);
+SELECT public.assert(current_setting('teste.tok_a') ~ '^crn_[0-9a-f]{40}$', 'a chave sai no formato crn_ + 40');
+SELECT public.assert((SELECT count(*) FROM public.ai_connectors_list()) = 2, 'a empresa ve as duas conexoes');
+SELECT public.assert((SELECT bool_and(mine) FROM public.ai_connectors_list()), 'e sabe que foi ela que criou');
+DO $$
+BEGIN
+  PERFORM 1 FROM public.ai_connectors;
+  RAISE EXCEPTION 'FALHOU: leu a tabela de chaves direto';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - ninguem le a tabela de chaves direto';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.ai_connector_resolve(current_setting('teste.tok_a'));
+  RAISE EXCEPTION 'FALHOU: o app resolveu a chave';
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE '  ok - so a funcao mcp resolve a chave';
+END $$;
+DO $$
+BEGIN
+  PERFORM public.ai_connector_create('gestor', false, true);
+  RAISE EXCEPTION 'FALHOU: admin da empresa criou chave do gestor';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so o gestor cria a chave do gestor';
+END $$;
+COMMIT;
+
+-- A outra empresa nao ve nem desliga a chave da primeira.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ue72'), true);
+SELECT public.assert((SELECT count(*) FROM public.ai_connectors_list()) = 0, 'a outra empresa nao ve as chaves da A');
+DO $$
+BEGIN
+  PERFORM public.ai_connector_revoke((SELECT id FROM public.ai_connectors WHERE label = 'Claude do Thiago'));
+  RAISE EXCEPTION 'FALHOU: a outra empresa desligou a chave da A';
+EXCEPTION WHEN insufficient_privilege OR sqlstate 'P0001' THEN
+  RAISE NOTICE '  ok - a outra empresa nao desliga a chave da A';
+END $$;
+ROLLBACK;
+
+-- O que a funcao mcp ve (chave de servico).
+SELECT public.assert((public.ai_connector_resolve(current_setting('teste.tok_a')) ->> 'account_id')::uuid = current_setting('teste.a')::uuid
+  AND (public.ai_connector_resolve(current_setting('teste.tok_a')) ->> 'read_only')::boolean = false,
+  'a chave aponta para a empresa A, com escrita');
+SELECT public.assert((public.ai_connector_resolve(current_setting('teste.tok_ro')) ->> 'read_only')::boolean, 'a chave so de leitura vem marcada');
+SELECT public.assert(public.ai_connector_resolve('crn_' || repeat('0', 40)) IS NULL, 'chave inventada nao vale');
+SELECT public.assert(public.ai_connector_resolve('qualquer coisa') IS NULL, 'texto qualquer nao vale');
+SELECT public.assert((SELECT last_used_at IS NOT NULL FROM public.ai_connectors WHERE label = 'Claude do Thiago'), 'marca o ultimo uso');
+
+-- Empresa desativada pelo gestor: a chave para na hora.
+UPDATE public.accounts SET active = false WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) IS NULL, 'empresa desativada: chave nao vale');
+UPDATE public.accounts SET active = true WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) IS NOT NULL, 'reativou: volta a valer');
+
+-- Desligar a chave.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert(public.ai_connector_revoke((SELECT id FROM public.ai_connectors_list() WHERE label = 'Só leitura')), 'a empresa desliga a propria chave');
+SELECT public.assert((SELECT count(*) FROM public.ai_connectors_list()) = 1, 'a desligada some da lista');
+COMMIT;
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_ro')) IS NULL, 'chave desligada nao vale mais');
+
+-- Quem devia: o saldo por conta, do jeito do financeiro.
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.ai_open_balances(current_setting('teste.a')::uuid) WHERE saldo >= 0),
+  'quem devia: so contas com saldo negativo');
+SELECT public.assert((SELECT count(*) FROM public.ai_open_balances(current_setting('teste.a')::uuid))
+  = (SELECT count(*) FROM (SELECT 1 FROM public.wallet_transactions w WHERE w.account_id = current_setting('teste.a')::uuid
+                            GROUP BY public.account_key(w.student_name, w.guardian_name) HAVING sum(w.amount) < -0.005) x),
+  'quem devia: uma linha por conta devedora, so da empresa da chave');
+
+-- Chave do gestor: so numeros, lidos como o gestor.
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.op72'), true);
+SELECT set_config('teste.tok_op', public.ai_connector_create('Gestor', false, true) ->> 'token', false);
+SELECT public.assert((SELECT count(*) FROM public.ai_connectors_list(true)) = 1, 'o gestor ve a chave dele');
+COMMIT;
+SELECT public.assert((public.ai_connector_resolve(current_setting('teste.tok_op')) ->> 'scope') = 'platform'
+  AND (public.ai_connector_resolve(current_setting('teste.tok_op')) ->> 'read_only')::boolean,
+  'chave do gestor: escopo plataforma, so leitura');
+SELECT public.assert((SELECT count(*) FROM public.ai_platform_overview(current_setting('teste.op72')::uuid)) = (SELECT count(*) FROM public.accounts),
+  'o gestor ve uma linha por empresa');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.ai_platform_overview(current_setting('teste.op72')::uuid) j WHERE j ? 'student_name'),
+  'nenhum nome de cliente sai para o gestor');
+DO $$
+BEGIN
+  PERFORM public.ai_platform_overview(current_setting('teste.ua')::uuid);
+  RAISE EXCEPTION 'FALHOU: admin de empresa leu o painel do gestor';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - o painel so sai para quem e gestor';
+END $$;
+DELETE FROM public.platform_admins WHERE user_id = current_setting('teste.op72')::uuid;
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_op')) IS NULL, 'deixou de ser gestor: chave morre');
+
+-- Perdeu o papel de admin: a chave da empresa morre.
+UPDATE public.user_roles SET role = 'user' WHERE user_id = current_setting('teste.ua')::uuid AND role = 'admin';
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) IS NULL, 'deixou de ser admin: chave morre');
+UPDATE public.user_roles SET role = 'admin' WHERE user_id = current_setting('teste.ua')::uuid AND role = 'user';
+SELECT public.assert(public.ai_connector_resolve(current_setting('teste.tok_a')) IS NOT NULL, 'voltou a ser admin: chave volta');
+
 \echo '=== FIM ==='

@@ -303,3 +303,12 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | Pro pago passa a ter 100 mensagens de IA por mês (no lugar da amostra de 20), com teto de gasto de US$ 3/mês; com o adicional, 200. Teste grátis segue sem IA. Pedido do Thiago | T |
 | Importar clientes: botão "Copiar prompt", que copia instruções para colar numa IA (ChatGPT, Claude, Gemini) junto com os dados e receber a lista no formato da importação. Pedido do Thiago | T |
+
+### 11/10 - site, banco e funções (no app Android, entra no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Conectar IA: em Configurações → Integrações, o administrador cria um link secreto (com opção "só leitura") e liga o Claude, o ChatGPT ou outra IA com conector MCP ao Cronys. Pela IA dá para ver a agenda, quem deve, o resumo do mês, marcar, registrar pagamento e escrever o "Como foi?", sempre confirmando antes de gravar. Excluir não é possível por esse caminho. Pedido do Thiago | T |
+| Painel do gestor, aba "Assistente e IA": conector do gestor, só com os números da plataforma (empresas, planos, testes, receita estimada, gasto com IA), sem dados dos clientes das empresas. Pedido do Thiago | T |
+| Agentes de gestão (financeiro, marketing, prospecção, jurídico) e guia do zero em `docs/ia/`, com o passo a passo do OpenSquad. Pedido do Thiago | T |
+| Teste técnico em produção: o conector respondeu na empresa Google Play Demo (resumo, quem deve, agenda e "Como foi?" da aula do Bruno Lima, que é fictícia) e no gestor; as chaves do teste foram desligadas em seguida | Revisão técnica |
