@@ -232,7 +232,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Parcelas do Asaas por faixa de valor (pedido do Thiago): até R$ 300 em até 2x, até R$ 500 em até 3x, até R$ 1.000 em até 4x e, acima disso, em até 4x. Editável em Configurações → Integrações (pôr, tirar e mudar faixas) | T |
 | Asaas sem boleto (pedido do Thiago): a página do link mostra "Pagar com Pix" e "Pagar no cartão, em até Nx", e cada botão abre o Asaas só naquela forma. O "Pagar agora" do portal leva à mesma página | T |
 
-### 10/10 - site (o app recebe no próximo `.aab`)
+### 10/10 - site e versão 1.18.8 (`.aab` no teste interno e no fechado em 10/10)
 
 | Mudança | Origem |
 |---|---|
