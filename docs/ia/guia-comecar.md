@@ -23,7 +23,12 @@ agenda e o financeiro e, quando for gravar algo, pede sua confirmação.
 3. Dê um nome (ex.: "Claude do Thiago") e clique em **Criar link**. Clique em
    **Copiar**. O link aparece uma vez só.
 4. No Claude: **Configurações → Conectores → Adicionar conector personalizado**.
-   Nome: `Cronys`. URL: cole o link. Clique em **Adicionar**.
+   Nome: `Cronys`. URL: cole o link. Autenticação: **Sem login**. Clique em
+   **Adicionar**.
+   - Mais discreto (opcional): em URL, cole só o começo do link, até `/mcp`.
+     Em **Adicionar cabeçalho**, nome `Authorization` e valor `Bearer crn_...`
+     (a palavra Bearer, um espaço e o final do link). A chave fica escondida no
+     Claude, fora de prints e dos registros do servidor.
 5. Abra uma conversa nova, clique no botão de ferramentas (**+** ou o ícone de
    controles) e veja se o **Cronys** está ligado.
 6. Teste: *"Me dá um resumo do meu Cronys."*

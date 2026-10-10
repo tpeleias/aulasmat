@@ -149,7 +149,9 @@ export default function AiConnectorSettings({ platform = false }: { platform?: b
             <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
               <li>{L("Entre em claude.ai (no computador é mais fácil) e abra Configurações → Conectores.", "Go to claude.ai (easier on a computer) and open Settings → Connectors.")}</li>
               <li>{L("Clique em “Adicionar conector personalizado”.", "Click “Add custom connector”.")}</li>
-              <li>{L("Nome: Cronys. URL: cole o link. Clique em Adicionar (não precisa preencher mais nada).", "Name: Cronys. URL: paste the link. Click Add (nothing else to fill in).")}</li>
+              <li>{L("Nome: Cronys. URL: cole o link. Autenticação: “Sem login”. Clique em Adicionar.", "Name: Cronys. URL: paste the link. Authentication: “No login”. Click Add.")}</li>
+              <li>{L(<>Mais discreto (opcional): em URL, cole só o começo do link, até <b>/mcp</b>. Em “Adicionar cabeçalho”, nome <b>Authorization</b> e valor <b>Bearer</b> + espaço + a chave (o final do link, que começa com crn_). Assim a chave fica escondida no Claude e não aparece em prints.</>,
+                     <>More discreet (optional): in URL, paste only the start of the link, up to <b>/mcp</b>. Under “Add header”, name <b>Authorization</b> and value <b>Bearer</b> + space + the key (the end of the link, starting with crn_). That way the key stays hidden in Claude and doesn't show up in screenshots.</>)}</li>
               <li>{L("Numa conversa nova, no botão de ferramentas (+), confira se o Cronys está ligado e peça o que quiser.", "In a new chat, in the tools button (+), make sure Cronys is on and ask away.")}</li>
               <li>{L("Na primeira vez que ele for gravar algo, o Claude pede sua permissão. Leia e aprove.", "The first time it saves something, Claude asks your permission. Read and approve.")}</li>
             </ol>
