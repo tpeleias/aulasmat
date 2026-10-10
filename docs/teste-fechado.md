@@ -253,7 +253,7 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Painel do gestor: "Ligar o modo real" do Stripe das assinaturas (chave real no cofre; preços, cupons, portal e webhook criados no modo real) | T |
 | Pagamento on-line pelo Asaas conferido de verdade: o teste do Thiago no cartão em 2x (R$ 440) entrou sozinho no Financeiro; o Pix fica para o teste de R$ 5 | T |
 
-### 10/10 - site (o app recebe na próxima versão)
+### 10/10 - site e versão 1.18.10 (`.aab` no teste interno e no fechado em 10/10)
 
 | Mudança | Origem |
 |---|---|
