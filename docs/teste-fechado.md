@@ -243,3 +243,12 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | O histórico acompanha o cadastro (a esposa do Thiago cadastrou um aluno sem responsável, deu aulas, e ao pôr a responsável depois o Financeiro separou as contas): mudar o responsável ou o nome no cadastro leva junto aulas, pagamentos, pacotes e desconto; com irmãos na família, vão só as aulas e pacotes do aluno. Conta que já ficou separada aparece num aviso em Financeiro e em Alunos, com o botão "Juntar na conta de ..." | T |
+
+### 10/10 - site (o app recebe na próxima versão)
+
+| Mudança | Origem |
+|---|---|
+| Aulas, lançamentos e pacotes ligados ao cadastro do aluno, não só ao nome (pedido do Thiago depois do caso do Rafael): dois alunos com o mesmo nome não se misturam ao renomear um deles, e o cadastro avisa nome repetido e responsável com grafia parecida ("Taciana" × "Thaciana"), com o botão "Usar ..." | T |
+| Primeiros passos da empresa nova levam ao primeiro atendimento cobrado: cliente → atendimento → realizado vira cobrança → Pix → portal, e cada passo abre direto o cadastro ou a marcação | T |
+| Painel do gestor: "Ligar o modo real" do Stripe das assinaturas (chave real no cofre; preços, cupons, portal e webhook criados no modo real) | T |
+| Pagamento on-line pelo Asaas conferido de verdade: o teste do Thiago no cartão em 2x (R$ 440) entrou sozinho no Financeiro; o Pix fica para o teste de R$ 5 | T |

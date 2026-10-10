@@ -33,15 +33,17 @@ export default function FirstSteps({ refreshKey = 0 }: { refreshKey?: number }) 
       supabase.from("lessons").select("id", { count: "exact", head: true }).neq("status", "solicitada"),
       supabase.from("students").select("id", { count: "exact", head: true })
         .or("user_id.not.is.null,child_user_id.not.is.null"),
-    ]).then(([s, st, le, po]) => {
+      supabase.from("lessons").select("id", { count: "exact", head: true }).eq("status", "realizada"),
+    ]).then(([s, st, le, po, dn]) => {
       if (!alive) return;
       // Uma consulta que falhou não pode virar "falta fazer": sem resposta, não mostra.
-      if (s.error || st.error || le.error || po.error) return;
+      if (s.error || st.error || le.error || po.error || dn.error) return;
       const cfg = s.data as { pix_key?: string | null; payment_link?: string | null } | null;
       setData({
         hasPayment: !!(cfg?.pix_key?.trim() || cfg?.payment_link?.trim()),
         students: st.count ?? 0,
         lessons: le.count ?? 0,
+        doneLessons: dn.count ?? 0,
         portalLogins: po.count ?? 0,
       });
     });
