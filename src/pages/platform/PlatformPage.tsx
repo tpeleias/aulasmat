@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
 import { CronysWordmark } from "@/components/brand";
 import ThemeToggle from "@/components/ThemeToggle";
+import StripeLiveCard from "@/components/StripeLiveCard";
 import { PRESETS, type BusinessModel } from "@/lib/vocabulary";
 
 type Row = {
@@ -336,6 +337,8 @@ export default function PlatformPage() {
           não chegam até aqui — a trava está no banco, não nesta tela.
           <br />
         </Card>
+
+        <StripeLiveCard />
 
         <Card className="flex items-center gap-3 rounded-xl p-3">
           <Bot className="h-5 w-5 shrink-0 text-muted-foreground" />
