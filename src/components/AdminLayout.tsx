@@ -141,7 +141,10 @@ export default function AdminLayout() {
           sobrou do aviso antigo do APK e, desde a 1.13.4, aparecia em cima do
           menu em todas as telas (revisão de 02/10). */}
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="hidden md:flex md:w-60 md:min-h-full bg-sidebar text-sidebar-foreground md:flex-col">
+        {/* Menu parado na tela, com rolagem própria (Thiago, 10/10): antes ele
+            subia junto com a página, enquanto o menu das Configurações ficava
+            parado, e as duas colunas andavam diferente. */}
+        <aside className="hidden md:sticky md:top-0 md:flex md:h-dvh md:w-60 md:shrink-0 md:flex-col md:self-start md:overflow-y-auto bg-sidebar text-sidebar-foreground">
           <div className="p-5 flex items-center gap-2 border-b border-sidebar-border">
             <div>
               <CronysWordmark tamanho="1.25rem" />

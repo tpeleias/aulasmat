@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound, CreditCard, MoreHorizontal, Search } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import ListSkeleton from "@/components/ListSkeleton";
@@ -70,6 +72,19 @@ const slugify = (raw: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 32);
 
+// Robôs de teste da Google Play abrem empresas "Test Business" e não usam nada.
+const pareceTeste = (r: Row) => /^test business$/i.test(r.name.trim()) && Number(r.aulas) === 0 && Number(r.alunos) === 0
+  && !r.is_public_default && r.billing_status !== "active" && r.billing_status !== "past_due";
+
+type FiltroKey = "todas" | "assinantes" | "testadores" | "desativadas" | "teste";
+const FILTROS: { key: FiltroKey; label: string; test: (r: Row) => boolean }[] = [
+  { key: "todas", label: "Todas", test: () => true },
+  { key: "assinantes", label: "Assinantes", test: r => r.billing_status === "active" || r.billing_status === "past_due" },
+  { key: "testadores", label: "Testadores", test: r => !!r.tester_until },
+  { key: "desativadas", label: "Desativadas", test: r => !r.active },
+  { key: "teste", label: "Robôs de teste", test: pareceTeste },
+];
+
 export default function PlatformPage() {
   const { session, loading: authLoading, signOut } = useAuth();
   const [allowed, setAllowed] = useState<boolean | null>(null);
@@ -83,6 +98,11 @@ export default function PlatformPage() {
   const [slugTocado, setSlugTocado] = useState(false);
   const [login, setLogin] = useState("");
   const [senha, setSenha] = useState("");
+
+  const [busca, setBusca] = useState("");
+  const [filtro, setFiltro] = useState<FiltroKey>("todas");
+  const [limparOpen, setLimparOpen] = useState(false);
+  const [limparConfirma, setLimparConfirma] = useState("");
 
   const [excluir, setExcluir] = useState<Row | null>(null);
   const [confirmaNome, setConfirmaNome] = useState("");
@@ -291,11 +311,39 @@ export default function PlatformPage() {
   };
 
   const total = rows.reduce((s, r) => ({
-    pro: s.pro + (r.plan !== "essencial" ? 1 : 0),
     empresas: s.empresas + (r.active ? 1 : 0),
+    assinantes: s.assinantes + (r.billing_status === "active" || r.billing_status === "past_due" ? 1 : 0),
     alunos: s.alunos + Number(r.alunos),
-    responsaveis: s.responsaveis + Number(r.responsaveis),
-  }), { pro: 0, empresas: 0, alunos: 0, responsaveis: 0 });
+    aulas: s.aulas + Number(r.aulas),
+  }), { empresas: 0, assinantes: 0, alunos: 0, aulas: 0 });
+
+  const q = busca.trim().toLowerCase();
+  const filtroAtual = FILTROS.find(f => f.key === filtro) ?? FILTROS[0];
+  const visiveis = rows.filter(r => filtroAtual.test(r) && (!q || r.name.toLowerCase().includes(q) || r.slug.includes(q)));
+  const testes = rows.filter(pareceTeste);
+
+  // Excluir de uma vez as empresas dos robôs da Play: desativa e exclui cada
+  // uma pelo mesmo caminho do botão de excluir (com a cópia no arquivo).
+  const limparTestes = async () => {
+    setBusy(true);
+    let ok = 0;
+    const falhas: string[] = [];
+    for (const r of testes) {
+      if (r.active) {
+        const { error } = await supabase.rpc("platform_set_account_active", { _account: r.id, _active: false });
+        if (error) { falhas.push(r.slug); continue; }
+      }
+      const { data, error } = await supabase.functions.invoke("platform-console", {
+        body: { action: "delete_account", account_id: r.id, confirm_name: r.name },
+      });
+      if (error || (data as { error?: string })?.error) falhas.push(r.slug); else ok++;
+    }
+    setBusy(false);
+    setLimparOpen(false);
+    if (falhas.length) toast.error(`${ok} excluída(s); não deu em: ${falhas.join(", ")}`);
+    else toast.success(`${ok} empresa(s) de teste excluída(s). A cópia ficou no arquivo.`);
+    load();
+  };
 
   return (
     <div className="min-h-dvh bg-background">
@@ -312,168 +360,175 @@ export default function PlatformPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-5xl space-y-6 p-4 pb-16">
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Empresas</h1>
-            <p className="text-sm text-muted-foreground">
-              {total.empresas} ativa{total.empresas === 1 ? "" : "s"} · {total.pro} no Pro · {total.alunos} aluno
-              {total.alunos === 1 ? "" : "s"} · {total.responsaveis} responsáve
-              {total.responsaveis === 1 ? "l" : "is"} no total
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" className="gap-1 rounded-xl" onClick={() => setSenhaOpen(true)}>
-              <KeyRound className="h-4 w-4" /> Redefinir senha
-            </Button>
-            <Button className="gap-1 rounded-xl" onClick={() => setNovaOpen(true)}>
-              <Plus className="h-4 w-4" /> Nova empresa
-            </Button>
-          </div>
+      <main className="mx-auto max-w-5xl space-y-5 p-4 pb-16">
+        <div>
+          <h1 className="text-2xl font-bold">Gestor da plataforma</h1>
+          <p className="text-sm text-muted-foreground">Você vê só contagens: nome de aluno, agenda e financeiro de cada empresa não chegam aqui (a trava está no banco).</p>
         </div>
 
-        <Card className="rounded-xl border-dashed bg-muted/30 p-3 text-xs text-muted-foreground">
-          Esta conta não pertence a nenhuma empresa, então ela só enxerga as
-          contagens abaixo. Nome de aluno, agenda e financeiro de cada empresa
-          não chegam até aqui — a trava está no banco, não nesta tela.
-          <br />
-        </Card>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[
+            { label: "Empresas ativas", value: total.empresas },
+            { label: "Assinantes", value: total.assinantes },
+            { label: "Alunos", value: total.alunos },
+            { label: "Aulas", value: total.aulas },
+          ].map(t => (
+            <Card key={t.label} className="rounded-2xl p-3">
+              <div className="text-xs text-muted-foreground">{t.label}</div>
+              <div className="text-2xl font-bold tabular-nums">{t.value}</div>
+            </Card>
+          ))}
+        </div>
 
-        <StripeLiveCard />
-        <CouponsCard />
+        <Tabs defaultValue="empresas" className="space-y-4">
+          <TabsList className="w-full justify-start overflow-x-auto rounded-xl">
+            <TabsTrigger value="empresas" className="gap-1.5"><Building2 className="h-3.5 w-3.5" /> Empresas</TabsTrigger>
+            <TabsTrigger value="assinaturas" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> Assinaturas e cupons</TabsTrigger>
+            <TabsTrigger value="assistente" className="gap-1.5"><Bot className="h-3.5 w-3.5" /> Assistente</TabsTrigger>
+          </TabsList>
 
-        <Card className="flex items-center gap-3 rounded-xl p-3">
-          <Bot className="h-5 w-5 shrink-0 text-muted-foreground" />
-          <div className="min-w-0 flex-1 text-sm">
-            <p className="font-medium">Assistente pelos planos</p>
-            <p className="text-xs text-muted-foreground">
-              {assistenteGeral
-                ? "Ligado: a amostra do Pro, a IA do Max e o adicional funcionam, e o adicional está à venda."
-                : "Desligado: bloqueado em todos os planos. Só funciona nas empresas que você liberar uma a uma na tabela (o Portal de Aulas fica sempre liberado)."}
-            </p>
-          </div>
-          <Switch checked={assistenteGeral === true} disabled={busy || assistenteGeral === null}
-            onCheckedChange={alternarAssistenteGeral} aria-label="Assistente pelos planos" />
-        </Card>
+          <TabsContent value="empresas" className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar empresa" aria-label="Buscar empresa" className="h-10 rounded-xl pl-9" />
+              </div>
+              <Button variant="outline" className="h-10 gap-1 rounded-xl" onClick={() => setSenhaOpen(true)}>
+                <KeyRound className="h-4 w-4" /> Redefinir senha
+              </Button>
+              <Button className="h-10 gap-1 rounded-xl" onClick={() => setNovaOpen(true)}>
+                <Plus className="h-4 w-4" /> Nova empresa
+              </Button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {FILTROS.map(f => (
+                <button key={f.key} type="button" onClick={() => setFiltro(f.key)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${filtro === f.key ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"}`}>
+                  {f.label} <span className="tabular-nums opacity-70">{rows.filter(f.test).length}</span>
+                </button>
+              ))}
+            </div>
 
-        {loading ? <ListSkeleton rows={3} /> : (
-          <div className="overflow-x-auto rounded-2xl border border-border">
-            <table className="w-full text-sm">
-              <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2.5 text-left font-medium">Empresa</th>
-                  <th className="px-3 py-2.5 text-left font-medium">Plano</th>
-                  <th className="px-3 py-2.5 text-center font-medium">Assistente</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Responsáveis</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Alunos</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Professores</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Aulas</th>
-                  <th className="px-3 py-2.5 text-right font-medium">Logins</th>
-                  <th className="px-3 py-2.5 text-left font-medium">Última aula</th>
-                  <th className="px-3 py-2.5" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {rows.map(r => (
-                  <tr key={r.id} className={r.active ? "" : "bg-muted/30 text-muted-foreground"}>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          className="group inline-flex items-center gap-1 text-left font-medium text-foreground hover:text-primary"
-                          title="Renomear"
-                          onClick={() => { setRenomear(r); setNomeNovo(r.name); }}
-                        >
-                          {r.name}
-                          <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
-                        </button>
-                        {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
-                        {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
-                        {r.tester_until && <Badge variant="secondary" className="text-[10px]">Testador até {new Date(r.tester_until).toLocaleDateString("pt-BR")}{r.tester_assistant ? " · com assistente" : ""}</Badge>}
-                        {r.trial_ends_at && r.plan === "pro" && <Badge variant="outline" className="text-[10px]">Teste até {new Date(r.trial_ends_at).toLocaleDateString("pt-BR")}</Badge>}
-                        {r.billing_status === "active" && <Badge className="text-[10px]">Assinante{r.paid_until ? ` até ${new Date(r.paid_until).toLocaleDateString("pt-BR")}` : ""}</Badge>}
-                        {r.billing_status === "past_due" && <Badge variant="destructive" className="text-[10px]">Em atraso desde {r.past_due_since ? new Date(r.past_due_since).toLocaleDateString("pt-BR") : "?"}</Badge>}
-                        {r.billing_status === "canceled" && <Badge variant="outline" className="text-[10px]">Cancelou</Badge>}
+            {testes.length > 0 && (
+              <Card className="flex flex-wrap items-center gap-3 rounded-2xl border-warning/40 bg-warning/10 p-3">
+                <Bot className="h-5 w-5 shrink-0 text-warning" />
+                <p className="min-w-0 flex-1 text-sm">
+                  <span className="font-medium">{testes.length} empresa{testes.length === 1 ? "" : "s"} "Test Business" sem nenhum uso</span>
+                  <span className="block text-xs text-muted-foreground">Criadas pelos robôs de teste da Google Play. Dá para excluir todas de uma vez (fica uma cópia no arquivo).</span>
+                </p>
+                <Button size="sm" variant="destructive" className="rounded-xl" disabled={busy} onClick={() => { setLimparOpen(true); setLimparConfirma(""); }}>
+                  <Trash2 className="mr-1 h-3.5 w-3.5" /> Excluir todas
+                </Button>
+              </Card>
+            )}
+
+            {loading ? <ListSkeleton rows={3} /> : visiveis.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Nenhuma empresa aqui.</p>
+            ) : (
+              <div className="space-y-2">
+                {visiveis.map(r => (
+                  <Card key={r.id} className={`rounded-2xl p-4 ${r.active ? "" : "bg-muted/30"}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`font-semibold ${r.active ? "" : "text-muted-foreground"}`}>{r.name}</span>
+                          {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
+                          {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
+                          {r.tester_until && <Badge variant="secondary" className="text-[10px]">Testador até {new Date(r.tester_until).toLocaleDateString("pt-BR")}{r.tester_assistant ? " · com assistente" : ""}</Badge>}
+                          {r.trial_ends_at && r.plan === "pro" && <Badge variant="outline" className="text-[10px]">Teste até {new Date(r.trial_ends_at).toLocaleDateString("pt-BR")}</Badge>}
+                          {r.billing_status === "active" && <Badge className="text-[10px]">Assinante{r.paid_until ? ` até ${new Date(r.paid_until).toLocaleDateString("pt-BR")}` : ""}</Badge>}
+                          {r.billing_status === "past_due" && <Badge variant="destructive" className="text-[10px]">Em atraso desde {r.past_due_since ? new Date(r.past_due_since).toLocaleDateString("pt-BR") : "?"}</Badge>}
+                          {r.billing_status === "canceled" && <Badge variant="outline" className="text-[10px]">Cancelou</Badge>}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {r.slug} · desde {format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                          {r.business_model !== undefined && ` · ${r.business_model ? (PRESETS[r.business_model as BusinessModel]?.nome ?? r.business_model) : "ramo não escolhido"}`}
+                        </div>
                       </div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.slug} · desde {format(new Date(r.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                        {r.business_model !== undefined && ` · ${r.business_model ? (PRESETS[r.business_model as BusinessModel]?.nome ?? r.business_model) : "ramo não escolhido"}`}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex rounded-lg border border-border p-0.5">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 rounded-xl" aria-label={`Ações de ${r.name}`} disabled={busy}>
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="rounded-xl">
+                          <DropdownMenuItem onClick={() => { setRenomear(r); setNomeNovo(r.name); }}><Pencil className="mr-2 h-4 w-4" /> Renomear</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => definirTestador(r)}><Gift className="mr-2 h-4 w-4" /> {r.tester_until ? "Mudar ou encerrar a cortesia" : "Tornar testador (Max de cortesia)"}</DropdownMenuItem>
+                          {r.assistant_monthly_messages !== undefined && (
+                            <DropdownMenuItem onClick={() => mudarLimiteAssistente(r)}><Bot className="mr-2 h-4 w-4" /> Limite do assistente</DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem disabled={r.is_public_default} onClick={() => alternarAtiva(r)}>
+                            <Power className="mr-2 h-4 w-4" /> {r.active ? "Desativar" : "Reativar"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem disabled={r.active || r.is_public_default} className="text-destructive focus:text-destructive"
+                            onClick={() => { setExcluir(r); setConfirmaNome(""); }}>
+                            <Trash2 className="mr-2 h-4 w-4" /> {r.active ? "Excluir (desative antes)" : "Excluir"}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                      {[
+                        { label: "Alunos", value: r.alunos, extra: Number(r.alunos_travados) > 0 ? `${r.alunos_travados} pausado(s)` : "" },
+                        { label: "Responsáveis", value: r.responsaveis, extra: "" },
+                        { label: "Profissionais", value: r.professores, extra: Number(r.professores_travados) > 0 ? `${r.professores_travados} pausado(s)` : "" },
+                        { label: "Aulas", value: r.aulas, extra: r.ultima_aula ? `última ${format(new Date(r.ultima_aula), "dd/MM", { locale: ptBR })}` : "" },
+                        { label: "Logins", value: r.logins, extra: "" },
+                      ].map(m => (
+                        <div key={m.label} className="rounded-xl bg-muted/40 px-2 py-1.5">
+                          <div className="text-[11px] text-muted-foreground">{m.label}</div>
+                          <div className="font-semibold tabular-nums">{m.value}</div>
+                          {m.extra && <div className="text-[10px] text-muted-foreground">{m.extra}</div>}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label={`Plano de ${r.name}`}>
                         {PLANOS.map(({ slug: pl, rotulo }) => (
-                          <button
-                            key={pl} type="button" disabled={busy}
-                            onClick={() => mudarPlano(r, pl)}
-                            className={`rounded-md px-2 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
-                              r.plan === pl ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
+                          <button key={pl} type="button" disabled={busy} onClick={() => mudarPlano(r, pl)} aria-pressed={r.plan === pl}
+                            className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${r.plan === pl ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                             {rotulo}
                           </button>
                         ))}
                       </div>
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <Switch checked={r.assistant} disabled={busy} onCheckedChange={() => alternarAssistente(r)} />
-                        {r.assistant && (
-                          <span className="text-[9px] uppercase tracking-wide text-primary">liberado</span>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                        Assistente
+                        {r.assistant_monthly_messages !== undefined && r.assistant && (
+                          <span className="tabular-nums">{r.assistant_messages ?? 0}/{r.assistant_monthly_messages} msg</span>
                         )}
-                        {r.assistant_monthly_messages !== undefined && (
-                          <button type="button" disabled={busy} onClick={() => mudarLimiteAssistente(r)}
-                            className="text-[10px] tabular-nums text-muted-foreground hover:text-primary"
-                            title={`US$ ${Number(r.assistant_cost_usd ?? 0).toFixed(2)} de US$ ${Number(r.assistant_monthly_cost_usd ?? 0).toFixed(2)} no mês - clique para mudar o limite`}>
-                            {r.assistant_messages ?? 0}/{r.assistant_monthly_messages} msg
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.responsaveis}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {r.alunos}
-                      {Number(r.alunos_travados) > 0 && <div className="text-[10px] text-warning">{r.alunos_travados} pausado{Number(r.alunos_travados) === 1 ? "" : "s"}</div>}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">
-                      {r.professores}
-                      {Number(r.professores_travados) > 0 && <div className="text-[10px] text-warning">{r.professores_travados} pausado{Number(r.professores_travados) === 1 ? "" : "s"}</div>}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.aulas}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums">{r.logins}</td>
-                    <td className="px-3 py-2.5 text-xs">
-                      {r.ultima_aula ? format(new Date(r.ultima_aula), "dd/MM/yyyy", { locale: ptBR }) : "—"}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          size="icon" variant="ghost" className="h-8 w-8" disabled={busy}
-                          title={r.tester_until ? "Testador: mudar ou encerrar a cortesia" : "Tornar testador (Max de cortesia por um período)"}
-                          onClick={() => definirTestador(r)}
-                        >
-                          <Gift className={`h-3.5 w-3.5 ${r.tester_until ? "text-primary" : ""}`} />
-                        </Button>
-                        <Button
-                          size="icon" variant="ghost" className="h-8 w-8" disabled={busy || r.is_public_default}
-                          title={r.is_public_default ? "A empresa do endereço público não pode ser desativada" : (r.active ? "Desativar" : "Reativar")}
-                          onClick={() => alternarAtiva(r)}
-                        >
-                          <Power className={`h-3.5 w-3.5 ${r.active ? "" : "text-success"}`} />
-                        </Button>
-                        <Button
-                          size="icon" variant="ghost" className="h-8 w-8 text-destructive hover:text-destructive"
-                          disabled={busy || r.active || r.is_public_default}
-                          title={r.active ? "Desative a empresa antes de excluir" : "Excluir"}
-                          onClick={() => { setExcluir(r); setConfirmaNome(""); }}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                        <Switch checked={r.assistant} disabled={busy} onCheckedChange={() => alternarAssistente(r)} aria-label={`Assistente de ${r.name}`} />
+                      </label>
+                    </div>
+                  </Card>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="assinaturas" className="space-y-3">
+            <StripeLiveCard />
+            <CouponsCard />
+          </TabsContent>
+
+          <TabsContent value="assistente" className="space-y-3">
+            <Card className="flex items-center gap-3 rounded-xl p-3">
+              <Bot className="h-5 w-5 shrink-0 text-muted-foreground" />
+              <div className="min-w-0 flex-1 text-sm">
+                <p className="font-medium">Assistente pelos planos</p>
+                <p className="text-xs text-muted-foreground">
+                  {assistenteGeral
+                    ? "Ligado: a amostra do Pro, a IA do Max e o adicional funcionam, e o adicional está à venda."
+                    : "Desligado: bloqueado em todos os planos. Só funciona nas empresas que você liberar uma a uma na aba Empresas (o Portal de Aulas fica sempre liberado)."}
+                </p>
+              </div>
+              <Switch checked={assistenteGeral === true} disabled={busy || assistenteGeral === null}
+                onCheckedChange={alternarAssistenteGeral} aria-label="Assistente pelos planos" />
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       <Dialog open={novaOpen} onOpenChange={v => !v && setNovaOpen(false)}>
@@ -620,6 +675,30 @@ export default function PlatformPage() {
           <DialogFooter className="gap-2">
             <Button variant="outline" className="rounded-xl" onClick={() => setRenomear(null)}>Cancelar</Button>
             <Button className="rounded-xl" onClick={confirmarRenome} disabled={busy || !nomeNovo.trim()}>Salvar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={limparOpen} onOpenChange={v => !v && setLimparOpen(false)}>
+        <DialogContent className="rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Excluir {testes.length} empresa{testes.length === 1 ? "" : "s"} de teste</DialogTitle>
+            <DialogDescription>
+              Todas se chamam "Test Business" e não têm aluno nem aula. Os logins delas saem junto, e uma cópia de tudo fica no arquivo.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="max-h-40 overflow-y-auto rounded-xl bg-muted/50 p-2 text-xs">
+            {testes.map(r => <li key={r.id}>{r.name} · {r.slug} · desde {format(new Date(r.created_at), "dd/MM", { locale: ptBR })}</li>)}
+          </ul>
+          <div>
+            <Label htmlFor="limpar-confirma">Digite EXCLUIR para confirmar</Label>
+            <Input id="limpar-confirma" className="h-11 rounded-xl" value={limparConfirma} onChange={e => setLimparConfirma(e.target.value)} autoCapitalize="characters" />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setLimparOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" className="rounded-xl" disabled={busy || limparConfirma.trim().toUpperCase() !== "EXCLUIR"} onClick={limparTestes}>
+              {busy ? "Excluindo…" : "Excluir todas"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

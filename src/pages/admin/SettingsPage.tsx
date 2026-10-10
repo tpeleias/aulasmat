@@ -634,7 +634,7 @@ export default function SettingsPage() {
           </div>
           <div className="md:flex md:items-start md:gap-6">
             {!isMobile && (
-              <nav aria-label={L("Seções das configurações", "Settings sections")} className="sticky top-4 w-56 shrink-0 space-y-1">
+              <nav aria-label={L("Seções das configurações", "Settings sections")} className="sticky top-4 max-h-[calc(100dvh-2rem)] w-56 shrink-0 space-y-1 overflow-y-auto">
                 {SECTIONS.map(x => (
                   <button key={x.id} type="button" onClick={() => open(x.id, true)} aria-current={x.id === shown.id ? "page" : undefined}
                     className={`block w-full rounded-xl px-3 py-2.5 text-left transition-colors ${x.id === shown.id ? "border border-border bg-card shadow-sm" : "hover:bg-muted/60"}`}>

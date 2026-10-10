@@ -270,3 +270,11 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Painel do gestor: cupons e códigos de desconto das assinaturas (listar com uso, ligar/desligar, criar código novo com %, valor, duração, limite, validade e "só quem nunca assinou"), sem abrir o Stripe. Pedido do Thiago | T |
+
+### 10/10 - site e versão 1.18.12 (`.aab` no teste interno e no fechado em 10/10)
+
+| Mudança | Origem |
+|---|---|
+| Menu lateral (computador e tablet) fica parado na tela com rolagem própria; antes ele subia com a página enquanto o menu das Configurações ficava parado. O Thiago achou estranho as duas colunas andarem diferente | T |
+| Painel do gestor reorganizado (o Thiago achou bagunçado): números no topo, abas Empresas / Assinaturas e cupons / Assistente, um cartão por empresa no lugar da tabela de 10 colunas, busca, filtros e ações num menu | T |
+| Painel do gestor: as empresas "Test Business" criadas pelos robôs de teste da Google Play (sem aluno nem aula) aparecem num aviso com "Excluir todas" | T |
