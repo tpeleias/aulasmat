@@ -2,7 +2,7 @@
 //
 // Sem login (quem chama é o Stripe), então a única prova de origem é a
 // assinatura HMAC do cabeçalho Stripe-Signature, conferida com
-// STRIPE_WEBHOOK_SECRET antes de ler qualquer coisa. Evento sem assinatura
+// o segredo do webhook (cofre ou STRIPE_WEBHOOK_SECRET) antes de ler qualquer coisa. Evento sem assinatura
 // válida: 400, e nada muda.
 //
 // Toda mudança de plano passa por billing_apply_subscription no banco - a
@@ -13,7 +13,7 @@
 //   customer.subscription.created | updated | deleted
 //   invoice.paid | invoice.payment_failed
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-import { isAssistantLookup, stripe, syncExtraSeats, tierOfLookup, verifyStripeSignature } from "../_shared/stripe.ts";
+import { isAssistantLookup, stripe, syncExtraSeats, isLiveKey, stripeKey, tierOfLookup, verifyStripeSignature, webhookSecrets } from "../_shared/stripe.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -21,15 +21,20 @@ function json(body: unknown, status = 200) {
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method not allowed" }, 405);
-  const secret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-  if (!secret) return json({ error: "STRIPE_WEBHOOK_SECRET não configurada." }, 500);
+  // O segredo do modo real fica no cofre (gravado por "Ligar o modo real");
+  // o de teste, na secret STRIPE_WEBHOOK_SECRET. Vale qualquer um dos dois.
+  const secrets = await webhookSecrets();
+  if (!secrets.length) return json({ error: "Segredo do webhook não configurado." }, 500);
 
   const payload = await req.text();
-  if (!(await verifyStripeSignature(payload, req.headers.get("stripe-signature"), secret))) {
-    return json({ error: "assinatura inválida" }, 400);
-  }
+  const signature = req.headers.get("stripe-signature");
+  let valid = false;
+  for (const s of secrets) if (await verifyStripeSignature(payload, signature, s)) { valid = true; break; }
+  if (!valid) return json({ error: "assinatura inválida" }, 400);
 
   const event = JSON.parse(payload);
+  // Com o modo real ligado, evento que sobrou do modo de teste não mexe em nada.
+  if (event.livemode === false && isLiveKey(await stripeKey())) return json({ ignored: "test event" });
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   try {

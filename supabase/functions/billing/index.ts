@@ -15,6 +15,8 @@
 //   sync_prices - SÓ o gestor da plataforma: cria/atualiza no Stripe os preços
 //                de supabase/functions/_shared/plans.ts. Com chave de teste isso
 //                acontece sozinho no checkout; com a real, só por aqui.
+//   stripe_status / go_live - SÓ o gestor: o modo do Stripe e o "Ligar o modo
+//                real" (golive.ts).
 //
 // Preço, plano e limite: supabase/functions/_shared/plans.ts.
 //
@@ -23,6 +25,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { ASSISTANT_LOOKUP, LOOKUP, allPricePairs, allowsExtraTeachers, ensurePrices, isAssistantLookup, priceIds, stripe, syncExtraSeats, tierOfLookup, toCurrency, type Interval, type Tier } from "../_shared/stripe.ts";
 import { COUPON_CURRENCIES, PLANS } from "../_shared/plans.ts";
+import { goLive, stripeStatus } from "./golive.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,10 +55,13 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = String(body?.action ?? "checkout");
 
-    // O gestor da plataforma cria/atualiza os preços (inclusive no modo real).
-    if (action === "sync_prices") {
+    // O gestor da plataforma cria/atualiza os preços (inclusive no modo real),
+    // vê em que modo o Stripe está e liga o modo real (golive.ts).
+    if (action === "sync_prices" || action === "stripe_status" || action === "go_live") {
       const { data: isOp } = await userClient.rpc("is_platform_admin");
       if (isOp !== true) return json({ error: "forbidden" }, 403);
+      if (action === "stripe_status") return json(await stripeStatus(admin));
+      if (action === "go_live") return json(await goLive(admin, String(body?.key ?? "")));
       return json({ created: await ensurePrices(allPricePairs(), { force: true }) });
     }
 
