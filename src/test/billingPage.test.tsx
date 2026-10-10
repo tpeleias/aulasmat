@@ -82,6 +82,19 @@ describe("Financeiro (08/10)", () => {
     expect(dates).toEqual(["10/09", "20/09"]);
   });
 
+  it("os detalhes abertos têm onde recolher (em cima e no fim)", async () => {
+    render(<BillingPage />);
+    await waitFor(() => expect(screen.getByText("Ana")).toBeTruthy());
+    const card = () => screen.getByText("Ana").closest("[data-account]") as HTMLElement;
+    fireEvent.click(within(card()).getByRole("button", { name: /Ver detalhes/ }));
+    expect(within(card()).getByRole("tab", { name: /Aulas/ })).toBeTruthy();
+    fireEvent.click(within(card()).getByRole("button", { name: /Recolher detalhes/ }));
+    expect(within(card()).queryByRole("tab", { name: /Aulas/ })).toBeNull();
+    fireEvent.click(within(card()).getByRole("button", { name: /Ver detalhes/ }));
+    fireEvent.click(within(card()).getByRole("button", { name: /^Recolher$/ }));
+    expect(within(card()).queryByRole("tab", { name: /Aulas/ })).toBeNull();
+  });
+
   it("vender pacote mostra quantas aulas e quais em aberto ele ja cobre", async () => {
     render(<BillingPage />);
     await waitFor(() => expect(screen.getByText("Aluno: Caio")).toBeTruthy());
