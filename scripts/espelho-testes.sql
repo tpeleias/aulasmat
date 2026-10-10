@@ -3896,9 +3896,13 @@ SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = '
   'cadastro excluido: a aula fica, sem o id');
 
 \echo '--- 70. Plano vitalicio (10/10) ---'
-UPDATE public.accounts SET lifetime = true WHERE id = current_setting('teste.a')::uuid;
-SELECT public.assert((SELECT plan = 'pro' AND assistant_override AND tester_until IS NULL FROM public.accounts WHERE id = current_setting('teste.a')::uuid),
-  'vitalicia fica no Max com assistente');
+UPDATE public.accounts SET lifetime = true, lifetime_assistant = false WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT plan = 'pro' AND tester_until IS NULL FROM public.accounts WHERE id = current_setting('teste.a')::uuid),
+  'vitalicia fica no Max');
+UPDATE public.accounts SET assistant_override = false WHERE id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT assistant_override = false AND plan = 'pro' FROM public.accounts WHERE id = current_setting('teste.a')::uuid),
+  'na vitalicia, o gestor ainda desliga o assistente');
+UPDATE public.accounts SET assistant_override = true WHERE id = current_setting('teste.a')::uuid;
 UPDATE public.accounts SET trial_ends_at = now() - interval '1 day' WHERE id = current_setting('teste.a')::uuid;
 SELECT public.expire_trials();
 SELECT public.billing_apply_subscription(current_setting('teste.a')::uuid, NULL, NULL, 'canceled', NULL, NULL, NULL);
