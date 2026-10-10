@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { format, isFuture } from "date-fns";
-import { Plus, ChevronDown, ChevronRight, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check, CreditCard } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, ChevronUp, CalendarClock, Wallet, Info, Percent, Copy, Mail, History, Search, MoreHorizontal, Send, Package, Check, CreditCard } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import AccountLedger from "@/components/AccountLedger";
 import { buildLedger, currentPackage, currentPurchase, lessonsLeftIn, type AccountLedger as Ledger, type PackagePurchase, type PackageUse } from "@/lib/ledger";
@@ -623,8 +623,15 @@ export default function BillingPage() {
               const pkg = purchase ? null : currentPackage(a.ledger.sources);
               const pkgLeft = pkg ? lessonsLeftIn(pkg, a.ledger.charges) : null;
               const toggle = () => { haptics.tap(); setExpanded(e => ({ ...e, [a.key]: !isExp })); };
+              // Recolher lá de baixo (detalhe comprido): fecha e traz a conta de
+              // volta para a tela, para a pessoa não se perder na lista.
+              const collapse = (el: HTMLElement) => {
+                toggle();
+                const card = el.closest("[data-account]");
+                requestAnimationFrame(() => card?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+              };
               return (
-                <Card key={a.key} className={cn("rounded-2xl p-4 md:p-5", overdue && "border-destructive/40")}>
+                <Card key={a.key} data-account={a.key} className={cn("rounded-2xl p-4 md:p-5", overdue && "border-destructive/40")}>
                   <div className="flex items-start justify-between gap-3">
                     <button className="flex min-w-0 items-start gap-2 text-left" onClick={toggle} aria-expanded={isExp}>
                       {isExp ? <ChevronDown className="mt-1 h-4 w-4 shrink-0" /> : <ChevronRight className="mt-1 h-4 w-4 shrink-0" />}
@@ -714,11 +721,9 @@ export default function BillingPage() {
                         <DropdownMenuItem onClick={() => setHistoryFor(a)}><History className="mr-2 h-4 w-4" /> {L("E-mails enviados", "Emails sent")}</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    {!isExp && (
-                      <button type="button" onClick={toggle} className="ml-auto text-xs font-medium text-primary">
-                        {L("Ver detalhes", "Details")}
-                      </button>
-                    )}
+                    <button type="button" onClick={toggle} aria-expanded={isExp} className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-primary">
+                      {isExp ? <>{L("Recolher", "Hide")} <ChevronUp className="h-3.5 w-3.5" /></> : <>{L("Ver detalhes", "Details")} <ChevronDown className="h-3.5 w-3.5" /></>}
+                    </button>
                   </div>
 
                   {isExp && (
@@ -738,6 +743,12 @@ export default function BillingPage() {
                         txInfo: id => { const t = txs.find(x => x.id === id); return t && { amount: Number(t.amount), kind: t.kind, description: t.description }; },
                         onDeletePurchase: removePurchase,
                       }} />
+                      <div className="flex justify-center pt-1">
+                        <Button type="button" variant="ghost" size="sm" className="h-8 gap-1 rounded-xl text-xs text-muted-foreground"
+                          onClick={e => collapse(e.currentTarget)}>
+                          <ChevronUp className="h-3.5 w-3.5" /> {L("Recolher detalhes", "Hide details")}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </Card>

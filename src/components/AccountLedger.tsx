@@ -216,7 +216,7 @@ export default function AccountLedger({ ledger, actions, defaultTab = "lessons" 
               <button type="button" onClick={() => { haptics.tap(); setOpenSource(o => ({ ...o, [p.id]: !isOpen })); }}
                 className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
                 {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                {p.lessons.length > 0 ? L(`Ver ${ap.os} ${ap.lp} do pacote`, `See the package's ${ap.lp}`) : L("Detalhes", "Details")}
+                {isOpen ? L("Esconder", "Hide") : p.lessons.length > 0 ? L(`Ver ${ap.os} ${ap.lp} do pacote`, `See the package's ${ap.lp}`) : L("Detalhes", "Details")}
               </button>
             )}
             {isOpen && (
@@ -297,7 +297,7 @@ export default function AccountLedger({ ledger, actions, defaultTab = "lessons" 
                   <button type="button" onClick={() => { haptics.tap(); setOpenSource(o => ({ ...o, [s.id]: !isOpen })); }}
                     className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-primary">
                     {isOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-                    {s.covers.length > 0 ? L(`Ver onde foi abatido`, `See where it went`) : L("Detalhes", "Details")}
+                    {isOpen ? L("Esconder", "Hide") : s.covers.length > 0 ? L(`Ver onde foi abatido`, `See where it went`) : L("Detalhes", "Details")}
                   </button>
                 )}
                 {isOpen && (
