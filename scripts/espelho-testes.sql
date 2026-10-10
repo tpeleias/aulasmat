@@ -3771,4 +3771,22 @@ END $$;
 ROLLBACK;
 UPDATE public.accounts SET online_payments = false WHERE id = current_setting('teste.a')::uuid;
 
+\echo '--- 67. Links curtos de varias contas de uma vez (10/10) ---'
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert(public.admin_pay_links('[{"student":"Bia","guardian":"Ana"}]'::jsonb) = '{}'::jsonb,
+  'sem pagamento on-line conectado, nenhum link');
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+DO $$
+BEGIN
+  PERFORM public.admin_pay_links('[]'::jsonb);
+  RAISE EXCEPTION 'FALHOU: cliente pediu os links da empresa';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so o admin pega os links';
+END $$;
+ROLLBACK;
+
 \echo '=== FIM ==='
