@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { EmailIssueNote, useEmailIssues } from "@/hooks/useEmailIssues";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +76,14 @@ export default function StudentsPage() {
   const [sort, setSort] = useSortPreference<StudentSort>("alunos", STUDENT_SORTS, "name");
   const [selected, setSelected] = useState<Student | null>(null);
   const [editing, setEditing] = useState<Partial<Student> | null>(null);
+  // "?novo=1" (Primeiros passos): abre direto o cadastro.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("novo") !== "1") return;
+    if (!isTeacher) setEditing({ student_name: "", guardian_name: "", address: "" });
+    params.delete("novo");
+    setParams(params, { replace: true });
+  }, [params, setParams, isTeacher]);
   const emailIssues = useEmailIssues();
   const [busy, setBusy] = useState(false);
   const [scheduleFor, setScheduleFor] = useState<Student | null>(null);
