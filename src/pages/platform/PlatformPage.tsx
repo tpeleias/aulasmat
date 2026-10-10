@@ -18,6 +18,7 @@ import ListSkeleton from "@/components/ListSkeleton";
 import { CronysWordmark } from "@/components/brand";
 import ThemeToggle from "@/components/ThemeToggle";
 import StripeLiveCard from "@/components/StripeLiveCard";
+import CouponsCard from "@/components/CouponsCard";
 import { PRESETS, type BusinessModel } from "@/lib/vocabulary";
 
 type Row = {
@@ -339,6 +340,7 @@ export default function PlatformPage() {
         </Card>
 
         <StripeLiveCard />
+        <CouponsCard />
 
         <Card className="flex items-center gap-3 rounded-xl p-3">
           <Bot className="h-5 w-5 shrink-0 text-muted-foreground" />
