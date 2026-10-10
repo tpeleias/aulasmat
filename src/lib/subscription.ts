@@ -76,7 +76,7 @@ function itens(tier: Tier): string[] {
     case "pro":
       return [L(`${p.includedTeachers} profissionais incluídos, cada um com acesso próprio`, `${p.includedTeachers} professionals included, each with their own login`),
         L(`Do ${p.includedTeachers + 1}º em diante, ${money(extra)}/mês cada`, `From the ${p.includedTeachers + 1}th on, ${money(extra)}/month each`),
-        L("Conectar IA: o Claude ou o ChatGPT trabalhando dentro do Cronys", "Connect AI: Claude or ChatGPT working inside Cronys"),
+        L("Conectar IA: a sua IA (ChatGPT, Claude...) trabalhando dentro do Cronys", "Connect AI: your AI (ChatGPT, Claude...) working inside Cronys"),
         L(`IA inclusa (${p.assistantMessages} mensagens/mês)`, `AI included (${p.assistantMessages} messages/month)`),
         L("\"Estou a caminho\" com a localização, pelo WhatsApp", "\"On my way\" with your location, via WhatsApp"),
         L("Cada profissional com os próprios serviços", "Each professional with their own services"),

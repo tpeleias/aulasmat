@@ -113,7 +113,7 @@ const EXTRA_ACCOUNT_TOOLS: ToolDef[] = [
   {
     name: "add_task",
     title: "Passar tarefa ao aluno",
-    description: "Cria uma tarefa para o aluno, com prazo. Ele recebe o aviso (e-mail e celular, se ligados) e entrega pelo portal. Se a tarefa usa um material, mande o material antes com send_material e cite o título na descrição. Confirme título, prazo e aluno com o usuário antes.",
+    description: "Cria uma tarefa para o aluno, com prazo. Ele recebe o aviso (e-mail e celular, se ligados) e entrega pelo portal. Se a tarefa usa um material, mande o material antes com send_material e passe o id dele em material_id: no portal, a tarefa abre o material. Confirme título, prazo e aluno com o usuário antes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -122,6 +122,7 @@ const EXTRA_ACCOUNT_TOOLS: ToolDef[] = [
         title: { type: "string" },
         description: { type: "string" },
         deadline: { type: "string", description: "Prazo em ISO 8601 com -03:00, ex.: 2026-10-17T23:59:00-03:00" },
+        material_id: { type: "string", description: "Opcional: id do material da tarefa (vem na resposta do send_material ou do list_student_materials)" },
       },
       required: ["student_name", "title", "deadline"],
     },
@@ -323,10 +324,17 @@ async function addTask(admin: Admin, conn: Conn, input: Record<string, unknown>)
   const deadline = Date.parse(String(input.deadline ?? ""));
   if (!Number.isFinite(deadline)) return text({ error: "Informe o prazo em ISO 8601 (com -03:00)." }, true);
   const description = String(input.description ?? "").trim().slice(0, 4000) || null;
+  let materialId: string | null = null;
+  if (typeof input.material_id === "string" && input.material_id.trim()) {
+    const { data: m } = await admin.from("student_materials").select("id")
+      .eq("id", input.material_id.trim()).eq("student_id", found.student.id).eq("account_id", accountId).maybeSingle();
+    if (!m) return text({ error: "Esse material não é deste aluno. Confira com list_student_materials." }, true);
+    materialId = m.id;
+  }
   const { data, error } = await admin.from("homework").insert({
     account_id: accountId, student_id: found.student.id, title, description,
-    deadline: new Date(deadline).toISOString(), created_by: conn.user_id,
-  }).select("id, title, deadline, status").single();
+    deadline: new Date(deadline).toISOString(), created_by: conn.user_id, material_id: materialId,
+  }).select("id, title, deadline, status, material_id").single();
   if (error) return text({ error: error.message }, true);
   return text({ ok: true, aluno: found.student.student_name, tarefa: data });
 }
@@ -336,7 +344,7 @@ async function listStudentMaterials(admin: Admin, conn: Conn, input: Record<stri
   if ("error" in found) return text({ error: found.error }, true);
   const [m, h] = await Promise.all([
     admin.from("student_materials").select("id, title, kind, url, created_at").eq("student_id", found.student.id).order("created_at", { ascending: false }).limit(50),
-    admin.from("homework").select("id, title, description, deadline, status").eq("student_id", found.student.id).order("deadline", { ascending: false }).limit(50),
+    admin.from("homework").select("id, title, description, deadline, status, material_id").eq("student_id", found.student.id).order("deadline", { ascending: false }).limit(50),
   ]);
   return text({ aluno: found.student.student_name, materiais: m.data ?? [], tarefas: h.data ?? [] });
 }

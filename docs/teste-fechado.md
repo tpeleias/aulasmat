@@ -346,3 +346,12 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Guia do OpenSquad (`docs/ia/opensquad.md`): instalação, um texto pronto que liga o conector do gestor e cria os squads de marketing, financeiro, prospecção e jurídico, e como rodar cada um. Pedido do Thiago | T |
+
+### 11/10 - site, banco e função do conector (no app Android, entra no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| "Materiais e tarefas" vira uma janela própria, separada do "Acesso" (login e senha). Três botões grandes para mandar material (Arquivo, Link, Texto), lista com o tipo e a data, e "Virar tarefa" num toque. Tarefas com prazo rápido (Amanhã, Em 3 dias, Em 1 semana), separadas em "Para fazer" e "Entregues", atrasadas em vermelho, e o retorno ao aluno escrito ali mesmo. O Thiago achou que era só um atalho para dentro do Gerenciar e pediu algo quase intuitivo | T |
+| Material em texto funciona com qualquer IA: "Copiar prompt para IA" (ChatGPT, Gemini, Claude...), cole a resposta e veja como fica antes de mandar | T |
+| Tarefa ligada a um material: no portal, a tarefa abre o material. O conector de IA também liga os dois | T |
+| Conectar IA sem centrar no Claude: passo a passo de ChatGPT (primeiro), Claude, Gemini e outras, com o aviso de onde cada uma ainda não grava ou não tem conector no Brasil. O Thiago lembrou que aqui a maioria usa ChatGPT e Gemini | T |

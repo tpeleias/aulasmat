@@ -4130,4 +4130,12 @@ ROLLBACK;
 SELECT public.assert((public.plan_features('pro') ->> 'nome') = 'Cronys Max IA', 'o plano se chama Cronys Max IA');
 UPDATE public.accounts SET plan = 'pro', billing_status = 'none' WHERE id = current_setting('teste.a')::uuid;
 
+\echo '--- 75. Tarefa ligada a material (11/10) ---'
+INSERT INTO public.homework (account_id, student_id, title, deadline, material_id)
+SELECT m.account_id, m.student_id, 'Fazer a Lista 1', now() + interval '3 days', m.id
+  FROM public.student_materials m WHERE m.title = 'Lista 1' AND m.account_id = current_setting('teste.a')::uuid LIMIT 1;
+SELECT public.assert((SELECT material_id IS NOT NULL FROM public.homework WHERE title = 'Fazer a Lista 1'), 'a tarefa guarda o material');
+DELETE FROM public.student_materials WHERE title = 'Lista 1' AND account_id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT material_id IS NULL FROM public.homework WHERE title = 'Fazer a Lista 1'), 'apagar o material solta a ligacao e a tarefa fica');
+
 \echo '=== FIM ==='

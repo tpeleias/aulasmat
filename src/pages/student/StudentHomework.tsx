@@ -13,6 +13,7 @@ import { useTasksEnabled, useWords } from "@/hooks/useVocabulary";
 import { tasksAreSubmitted, taskStatusLabel, type Vocabulary } from "@/lib/vocabulary";
 
 import { L } from "@/lib/i18n";
+import { MaterialIcon, MaterialOpenButton, type Material } from "@/components/MaterialView";
 
 // As tarefas do cliente (03/10: o nome é o do ramo). Nas aulas a tarefa se
 // entrega com arquivo; nos outros ramos se marca como feita, e o arquivo
@@ -23,6 +24,8 @@ export default function StudentHomework() {
   const { student } = useStudent();
   const [homeworks, setHomeworks] = useState<any[]>([]);
   const [submissions, setSubmissions] = useState<Record<string, any[]>>({});
+  // Material ligado à tarefa (migration 20261011040000): "faça a Lista 1" abre a Lista 1.
+  const [materials, setMaterials] = useState<Record<string, Material>>({});
 
   const load = async () => {
     if (!student) return;
@@ -33,6 +36,11 @@ export default function StudentHomework() {
       const grouped: Record<string, any[]> = {};
       (subs ?? []).forEach((s: any) => { (grouped[s.homework_id] ||= []).push(s); });
       setSubmissions(grouped);
+      const ids = hw.map((h: any) => h.material_id).filter(Boolean);
+      if (ids.length) {
+        const { data: mats } = await supabase.from("student_materials").select("*").in("id", ids);
+        setMaterials(Object.fromEntries(((mats ?? []) as Material[]).map(m => [m.id, m])));
+      }
     }
   };
   useEffect(() => { load(); }, [student]);
@@ -43,13 +51,13 @@ export default function StudentHomework() {
       {!tasks && <Card className="p-6 text-center text-muted-foreground text-sm">{L("Esta parte não está ligada aqui.", "This section isn't turned on here.")}</Card>}
       {tasks && homeworks.length === 0 && <Card className="p-6 text-center text-muted-foreground text-sm">{L(`${w.task.nenhum} ${w.task.l} por enquanto.`, `No ${w.task.lp} yet.`)}</Card>}
       {tasks && homeworks.map(h => (
-        <HomeworkCard key={h.id} hw={h} subs={submissions[h.id] ?? []} student={student!} onChange={load} w={w} />
+        <HomeworkCard key={h.id} hw={h} subs={submissions[h.id] ?? []} material={h.material_id ? materials[h.material_id] : undefined} student={student!} onChange={load} w={w} />
       ))}
     </div>
   );
 }
 
-function HomeworkCard({ hw, subs, student, onChange, w }: { hw: any; subs: any[]; student: any; onChange: () => void; w: Vocabulary }) {
+function HomeworkCard({ hw, subs, material, student, onChange, w }: { hw: any; subs: any[]; material?: Material; student: any; onChange: () => void; w: Vocabulary }) {
   const submit = tasksAreSubmitted(w.model);
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -105,6 +113,13 @@ function HomeworkCard({ hw, subs, student, onChange, w }: { hw: any; subs: any[]
         )}
       </div>
       <div className="text-xs text-muted-foreground">{L("Prazo", "Due")}: {format(deadline, L("dd/MM/yyyy HH:mm", "MMM d, yyyy h:mm a"))}</div>
+      {material && (
+        <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm">
+          <MaterialIcon m={material} />
+          <span className="min-w-0 flex-1 truncate">{material.title}</span>
+          <MaterialOpenButton m={material} />
+        </div>
+      )}
 
       {subs.length > 0 && (
         <div className="space-y-2">
