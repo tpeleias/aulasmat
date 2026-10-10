@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound, CreditCard, MoreHorizontal, Search } from "lucide-react";
+import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound, CreditCard, MoreHorizontal, Search, Infinity as InfinityIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
@@ -119,9 +119,14 @@ export default function PlatformPage() {
   // Switch geral (migration 20260926120000): desligado, o assistente só
   // funciona nas empresas liberadas uma a uma aqui embaixo.
   const [assistenteGeral, setAssistenteGeral] = useState<boolean | null>(null);
+  // Vitalícias (migration 20261010050000): Max com assistente para sempre.
+  const [vitalicias, setVitalicias] = useState<Set<string>>(new Set());
 
   const load = async () => {
     supabase.rpc("assistant_enabled_for_plans" as never).then(({ data }) => setAssistenteGeral(data === true));
+    supabase.rpc("platform_lifetime_accounts" as never).then(({ data, error }) => {
+      if (!error && Array.isArray(data)) setVitalicias(new Set((data as unknown[]).map(x => String(typeof x === "object" && x ? Object.values(x)[0] : x))));
+    });
     const { data, error } = await supabase.rpc("platform_accounts_overview");
     if (error) { toast.error(error.message); setLoading(false); return; }
     setRows((data ?? []) as Row[]);
@@ -176,6 +181,19 @@ export default function PlatformPage() {
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     toast.success(r.active ? `"${r.name}" desativada` : `"${r.name}" reativada`);
+    load();
+  };
+
+  const alternarVitalicio = async (r: Row) => {
+    const ligar = !vitalicias.has(r.id);
+    if (!confirm(ligar
+      ? `Tornar "${r.name}" vitalícia?\n\nFica no Max com o assistente para sempre: fim de teste, fim de cortesia ou assinatura cancelada não rebaixam.`
+      : `Tirar o vitalício de "${r.name}"?\n\nO plano continua Max por enquanto, mas volta a poder mudar (pelo painel ou pela assinatura).`)) return;
+    setBusy(true);
+    const { error } = await supabase.rpc("platform_set_lifetime" as never, { _account: r.id, _on: ligar } as never);
+    setBusy(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success(ligar ? `"${r.name}" agora é vitalícia (Max com assistente)` : `"${r.name}" não é mais vitalícia`);
     load();
   };
 
@@ -434,6 +452,7 @@ export default function PlatformPage() {
                           <span className={`font-semibold ${r.active ? "" : "text-muted-foreground"}`}>{r.name}</span>
                           {!r.active && <Badge variant="outline" className="text-[10px]">Desativada</Badge>}
                           {r.is_public_default && <Badge variant="secondary" className="text-[10px]">Endereço público</Badge>}
+                          {vitalicias.has(r.id) && <Badge className="gap-1 text-[10px]"><InfinityIcon className="h-3 w-3" /> Vitalícia · Max com assistente</Badge>}
                           {r.tester_until && <Badge variant="secondary" className="text-[10px]">Testador até {new Date(r.tester_until).toLocaleDateString("pt-BR")}{r.tester_assistant ? " · com assistente" : ""}</Badge>}
                           {r.trial_ends_at && r.plan === "pro" && <Badge variant="outline" className="text-[10px]">Teste até {new Date(r.trial_ends_at).toLocaleDateString("pt-BR")}</Badge>}
                           {r.billing_status === "active" && <Badge className="text-[10px]">Assinante{r.paid_until ? ` até ${new Date(r.paid_until).toLocaleDateString("pt-BR")}` : ""}</Badge>}
@@ -453,6 +472,7 @@ export default function PlatformPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="rounded-xl">
                           <DropdownMenuItem onClick={() => { setRenomear(r); setNomeNovo(r.name); }}><Pencil className="mr-2 h-4 w-4" /> Renomear</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => alternarVitalicio(r)}><InfinityIcon className="mr-2 h-4 w-4" /> {vitalicias.has(r.id) ? "Tirar o vitalício" : "Tornar vitalícia (Max com assistente)"}</DropdownMenuItem>
                           <DropdownMenuItem onClick={() => definirTestador(r)}><Gift className="mr-2 h-4 w-4" /> {r.tester_until ? "Mudar ou encerrar a cortesia" : "Tornar testador (Max de cortesia)"}</DropdownMenuItem>
                           {r.assistant_monthly_messages !== undefined && (
                             <DropdownMenuItem onClick={() => mudarLimiteAssistente(r)}><Bot className="mr-2 h-4 w-4" /> Limite do assistente</DropdownMenuItem>
@@ -488,7 +508,7 @@ export default function PlatformPage() {
                     <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="flex rounded-lg border border-border p-0.5" role="group" aria-label={`Plano de ${r.name}`}>
                         {PLANOS.map(({ slug: pl, rotulo }) => (
-                          <button key={pl} type="button" disabled={busy} onClick={() => mudarPlano(r, pl)} aria-pressed={r.plan === pl}
+                          <button key={pl} type="button" disabled={busy || vitalicias.has(r.id)} title={vitalicias.has(r.id) ? "Vitalícia: tire o vitalício no menu ⋯ para mudar o plano" : undefined} onClick={() => mudarPlano(r, pl)} aria-pressed={r.plan === pl}
                             className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${r.plan === pl ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
                             {rotulo}
                           </button>
@@ -499,7 +519,7 @@ export default function PlatformPage() {
                         {r.assistant_monthly_messages !== undefined && r.assistant && (
                           <span className="tabular-nums">{r.assistant_messages ?? 0}/{r.assistant_monthly_messages} msg</span>
                         )}
-                        <Switch checked={r.assistant} disabled={busy} onCheckedChange={() => alternarAssistente(r)} aria-label={`Assistente de ${r.name}`} />
+                        <Switch checked={r.assistant} disabled={busy || vitalicias.has(r.id)} onCheckedChange={() => alternarAssistente(r)} aria-label={`Assistente de ${r.name}`} />
                       </label>
                     </div>
                   </Card>
