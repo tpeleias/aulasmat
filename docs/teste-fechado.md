@@ -340,3 +340,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 |---|---|
 | O plano Max passa a se chamar **Max IA** (Max AI em inglês), no app, nos termos e no Stripe | T |
 | Conectar IA (Claude, ChatGPT) vira recurso do Max IA. No teste grátis do Pro, funciona só nos 3 primeiros dias; no Pro pago, Start e Essencial, a tela mostra o Max IA. Uma chave de empresa sem o plano recebe "a conexão com IA é do plano Max IA". Pedido do Thiago | T |
+
+### 11/10 - documentação (site e app não mudam)
+
+| Mudança | Origem |
+|---|---|
+| Guia do OpenSquad (`docs/ia/opensquad.md`): instalação, um texto pronto que liga o conector do gestor e cria os squads de marketing, financeiro, prospecção e jurídico, e como rodar cada um. Pedido do Thiago | T |
