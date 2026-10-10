@@ -258,3 +258,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Financeiro: os detalhes abertos de uma conta têm onde recolher (o "Ver detalhes" vira "Recolher" e há um "Recolher detalhes" no fim, que volta a conta para a tela); dentro do extrato, "Ver onde foi abatido" e "Ver as aulas do pacote" viram "Esconder" quando abertos. O Thiago notou que não havia como recolher | T |
+
+### 10/10 - site e versão 1.18.11 (`.aab` no teste interno e no fechado em 10/10)
+
+| Mudança | Origem |
+|---|---|
+| Os menus (como o "Cobrar" do Financeiro) abriam no instante em que o dedo encostava, inclusive ao rolar a tela. Agora, no toque, abrem só no toque completo; no mouse e no teclado, como antes. O Thiago notou no celular | T |
