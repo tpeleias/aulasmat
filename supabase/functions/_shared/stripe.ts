@@ -6,7 +6,7 @@
 //
 // Os preços são achados pelo lookup_key (cronys_pro_solo_mensal etc.), e não
 // pelo id: os mesmos nomes existem no modo de teste e no real, então trocar
-// de modo é só trocar a chave STRIPE_SECRET_KEY.
+// de modo é só trocar a chave (ver stripeKey e golive.ts).
 
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
@@ -55,9 +55,49 @@ export function allowsExtraTeachers(plan: string | null | undefined) {
   return plan === "start" || plan === "pro_solo" || plan === "pro" ? PLANS[plan].extraTeachers : false;
 }
 
+// A chave da conta Stripe do Cronys. Desde 10/10 o gestor cola a chave real
+// no painel da plataforma ("Ligar o modo real") e ela fica no cofre do banco
+// (cronys_stripe_key); sem ela, vale a secret STRIPE_SECRET_KEY de antes (a de
+// teste). Lida no máximo a cada minuto, para uma troca valer logo.
+let keyCache: { value: string; at: number } | null = null;
+
+async function vaultSecret(name: string): Promise<string> {
+  const url = Deno.env.get("SUPABASE_URL"), service = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!url || !service) return "";
+  try {
+    const r = await fetch(`${url}/rest/v1/rpc/pay_secret`, {
+      method: "POST",
+      headers: { apikey: service, Authorization: `Bearer ${service}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ _name: name }),
+    });
+    const v = r.ok ? await r.json() : null;
+    return typeof v === "string" ? v : "";
+  } catch {
+    return "";
+  }
+}
+
+export async function stripeKey(): Promise<string> {
+  if (keyCache && Date.now() - keyCache.at < 60_000) return keyCache.value;
+  const value = (await vaultSecret("cronys_stripe_key")) || (Deno.env.get("STRIPE_SECRET_KEY") ?? "");
+  keyCache = { value, at: Date.now() };
+  return value;
+}
+
+/** Depois de gravar uma chave nova, usa ela já (sem esperar o minuto). */
+export function useStripeKey(value: string) { keyCache = { value, at: Date.now() }; }
+
+/** Os segredos aceitos no webhook: o do cofre (modo real) e o da secret antiga (teste). */
+export async function webhookSecrets(): Promise<string[]> {
+  const out = [await vaultSecret("cronys_stripe_whsec"), Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? ""];
+  return out.filter(Boolean);
+}
+
+export const isLiveKey = (k: string) => k.startsWith("sk_live_") || k.startsWith("rk_live_");
+
 /** A chave do Stripe é de teste? Só aí os preços se criam sozinhos. */
-export function stripeTestMode() {
-  const k = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+export async function stripeTestMode() {
+  const k = await stripeKey();
   return k.startsWith("sk_test_") || k.startsWith("rk_test_");
 }
 
@@ -99,7 +139,7 @@ async function productFor(item: Item, existing?: StripePrice): Promise<string> {
  * pede (ação sync_prices), para nunca criar preço de produção sem querer.
  */
 export async function ensurePrices(pairs: { item: Item; interval: Interval }[], opts: { force?: boolean } = {}) {
-  if (!opts.force && !stripeTestMode()) return [];
+  if (!opts.force && !(await stripeTestMode())) return [];
   const keys = pairs.map(p => PLAN_LOOKUP[p.item][p.interval]);
   const list = await stripe<{ data: StripePrice[] }>("GET", "/prices", {
     lookup_keys: keys, active: true, limit: 20, expand: ["data.currency_options"],
@@ -149,8 +189,8 @@ function encode(params: Record<string, unknown>, prefix = "", out: string[] = []
 }
 
 export async function stripe<T = any>(method: "GET" | "POST" | "DELETE", path: string, params: Record<string, unknown> = {}): Promise<T> {
-  const key = Deno.env.get("STRIPE_SECRET_KEY");
-  if (!key) throw new Error("STRIPE_SECRET_KEY não configurada nas secrets das funções.");
+  const key = await stripeKey();
+  if (!key) throw new Error("Chave do Stripe não configurada.");
   const body = encode(params).join("&");
   const url = method === "GET" && body ? `${API}${path}?${body}` : `${API}${path}`;
   const resp = await fetch(url, {
