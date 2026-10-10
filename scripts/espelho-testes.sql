@@ -3789,4 +3789,76 @@ EXCEPTION WHEN sqlstate 'P0001' THEN
 END $$;
 ROLLBACK;
 
+\echo '--- 68. O historico acompanha o cadastro (10/10) ---'
+-- Rafa foi cadastrado sem responsavel, teve duas aulas e pagou uma; a Tati ja
+-- tem outra filha (Lia) cadastrada.
+INSERT INTO public.students (account_id, student_name) VALUES (current_setting('teste.a')::uuid, 'Rafa');
+INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (current_setting('teste.a')::uuid, 'Lia', 'Tati');
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Rafa', 'thiago', '2026-07-01 10:00-03', 60, 100, 'realizada'),
+  (current_setting('teste.a')::uuid, 'Rafa', 'thiago', '2026-07-08 10:00-03', 60, 100, 'realizada');
+INSERT INTO public.lessons (account_id, student_name, guardian_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Lia', 'Tati', 'thiago', '2026-07-02 10:00-03', 60, 100, 'realizada');
+INSERT INTO public.wallet_transactions (account_id, student_name, amount, kind, description)
+VALUES (current_setting('teste.a')::uuid, 'Rafa', 100, 'adjustment', 'Pix');
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Rafa' AND payment_status = 'pago') = 1, 'antes: uma aula do Rafa paga');
+-- Poe a Tati como responsavel do Rafa: tudo vai para a conta da familia.
+UPDATE public.students SET guardian_name = 'Tati' WHERE student_name = 'Rafa' AND account_id = current_setting('teste.a')::uuid;
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM public.lessons WHERE student_name = 'Rafa' AND guardian_name IS NULL)
+  AND NOT EXISTS (SELECT 1 FROM public.wallet_transactions WHERE student_name = 'Rafa' AND guardian_name IS NULL),
+  'nada do Rafa fica na conta sem responsavel');
+SELECT public.assert((SELECT sum(amount) FROM public.wallet_transactions WHERE account_id = current_setting('teste.a')::uuid AND guardian_name = 'Tati') = -200,
+  'a conta da Tati soma as aulas dos dois e o pagamento');
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE guardian_name = 'Tati' AND payment_status = 'pago') = 1
+  AND (SELECT payment_status FROM public.lessons WHERE student_name = 'Rafa' AND start_at = '2026-07-01 10:00-03') = 'pago',
+  'o pagamento quita a aula mais antiga da familia');
+
+-- Rafa muda de responsavel (Bruna) com a Lia ainda na familia da Tati: vao as
+-- aulas dele; o pagamento fica com a familia.
+UPDATE public.students SET guardian_name = 'Bruna' WHERE student_name = 'Rafa' AND account_id = current_setting('teste.a')::uuid;
+SELECT public.assert((SELECT count(*) FROM public.lessons WHERE student_name = 'Rafa' AND guardian_name = 'Bruna') = 2
+  AND (SELECT count(*) FROM public.wallet_transactions WHERE guardian_name = 'Bruna' AND kind = 'lesson') = 2,
+  'com irmaos, vao so as aulas dele');
+SELECT public.assert((SELECT guardian_name FROM public.lessons WHERE student_name = 'Lia' AND account_id = current_setting('teste.a')::uuid) = 'Tati'
+  AND (SELECT sum(amount) FROM public.wallet_transactions WHERE guardian_name = 'Tati') = 0,
+  'a Lia e o pagamento ficam com a Tati');
+
+-- Conta que ja ficou separada (antes desta correcao): aparece no aviso e junta.
+INSERT INTO public.students (account_id, student_name, guardian_name) VALUES (current_setting('teste.a')::uuid, 'Davi', 'Rosa');
+INSERT INTO public.lesson_packages (account_id, name, lessons, price) VALUES (current_setting('teste.a')::uuid, 'Pacote Davi', 4, 400);
+INSERT INTO public.lessons (account_id, student_name, teacher, start_at, duration_minutes, price, status) VALUES
+  (current_setting('teste.a')::uuid, 'Davi', 'thiago', '2026-07-03 10:00-03', 60, 100, 'realizada');
+INSERT INTO public.wallet_transactions (account_id, student_name, guardian_name, amount, kind, description)
+VALUES (current_setting('teste.a')::uuid, 'Davi', 'Rosa', 100, 'adjustment', 'Pix');
+BEGIN;
+SET LOCAL SESSION AUTHORIZATION authenticator;
+SET LOCAL ROLE authenticated;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ualuno'), true);
+SELECT public.assert(public.split_client_histories() = '[]'::jsonb, 'cliente nao ve o aviso');
+DO $$
+BEGIN
+  PERFORM public.merge_client_history((SELECT id FROM public.students WHERE student_name = 'Davi'), NULL);
+  RAISE EXCEPTION 'FALHOU: cliente juntou contas';
+EXCEPTION WHEN sqlstate 'P0001' THEN
+  IF sqlerrm NOT LIKE '%not allowed%' THEN RAISE; END IF;
+  RAISE NOTICE '  ok - so o admin junta contas';
+END $$;
+SELECT set_config('request.jwt.claim.sub', current_setting('teste.ua'), true);
+SELECT public.assert((SELECT count(*) FROM jsonb_array_elements(public.split_client_histories()) e
+                       WHERE e ->> 'student_name' = 'Davi' AND e ->> 'from_guardian' IS NULL AND e ->> 'guardian_name' = 'Rosa'
+                         AND (e ->> 'lessons')::int = 1) = 1, 'o aviso mostra o Davi separado da Rosa');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM jsonb_array_elements(public.split_client_histories()) e WHERE e ->> 'student_name' IN ('Rafa', 'Lia')),
+  'quem ja esta junto nao aparece');
+SELECT public.sell_package('Davi', NULL, (SELECT id FROM public.lesson_packages WHERE name = 'Pacote Davi'), 400);
+SELECT public.merge_client_history((SELECT id FROM public.students WHERE student_name = 'Davi'), NULL);
+SELECT public.assert((SELECT guardian_name FROM public.package_purchases WHERE student_name = 'Davi') = 'Rosa'
+  AND EXISTS (SELECT 1 FROM public.package_uses u JOIN public.lessons l ON l.id = u.lesson_id WHERE l.student_name = 'Davi')
+  AND (SELECT amount FROM public.wallet_transactions w JOIN public.lessons l ON l.id = w.lesson_id WHERE l.student_name = 'Davi' AND w.kind = 'lesson') = 0,
+  'o pacote vai junto e continua abatendo a aula');
+SELECT public.assert(NOT EXISTS (SELECT 1 FROM jsonb_array_elements(public.split_client_histories()) e WHERE e ->> 'student_name' = 'Davi'),
+  'depois de juntar, o aviso some');
+SELECT public.assert((SELECT payment_status FROM public.lessons WHERE student_name = 'Davi') = 'pago',
+  'juntando, a aula do Davi aparece paga');
+COMMIT;
+
 \echo '=== FIM ==='
