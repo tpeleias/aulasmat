@@ -71,7 +71,7 @@ function itens(tier: Tier): string[] {
         L(`Até ${p.maxTeachers} profissionais: você + ${money(extra)}/mês por profissional extra`,
           `Up to ${p.maxTeachers} professionals: you + ${money(extra)}/month per extra professional`),
         L("Google Agenda: o ocupado de lá bloqueia aqui, e os agendamentos vão para lá", "Google Calendar: busy times block here, and bookings go there"),
-        L(`Amostra de IA: ${p.assistantMessages} mensagens/mês`, `AI sample: ${p.assistantMessages} messages/month`),
+        L(`IA inclusa (${p.assistantMessages} mensagens/mês)`, `AI included (${p.assistantMessages} messages/month)`),
         L(`IA como adicional (+${money(ia)}/mês, mais ${ASSISTANT_ADDON.messages} mensagens)`, `AI add-on (+${money(ia)}/month, ${ASSISTANT_ADDON.messages} more messages)`)];
     case "pro":
       return [L(`${p.includedTeachers} profissionais incluídos, cada um com acesso próprio`, `${p.includedTeachers} professionals included, each with their own login`),

@@ -1466,11 +1466,11 @@ BEGIN;
 SET LOCAL SESSION AUTHORIZATION authenticator;
 SET LOCAL ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub', '27000000-0000-0000-0000-000000000001', true);
--- A amostra de IA do Pro (20 mensagens) é só para quem paga (10/10): no teste, sem IA.
+-- A IA do Pro (100 mensagens desde 10/10) é só para quem paga (10/10): no teste, sem IA.
 SELECT public.assert(public.account_plan() = 'pro_solo' AND public.account_can('assistant') = false,
-  'empresa nova, no teste do Pro, ainda sem a amostra de IA (so pagando)');
-SELECT public.assert((public.my_plan() -> 'assistant_usage' ->> 'limit')::int = 20,
-  'com 20 mensagens por mes');
+  'empresa nova, no teste do Pro, ainda sem a IA (so pagando)');
+SELECT public.assert((public.my_plan() -> 'assistant_usage' ->> 'limit')::int = 100,
+  'com 100 mensagens por mes');
 COMMIT;
 
 BEGIN;
@@ -1990,13 +1990,13 @@ COMMIT;
 -- Voltou para o Pro pelo portal: o assistente incluso vai embora.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month');
 SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid)
-                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 20,
-  'no Pro sem o adicional: so a amostra, 20 mensagens');
+                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 100,
+  'no Pro sem o adicional: as 100 inclusas');
 -- Pro com o adicional comprado: tem.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'active', 'pro_solo', 'month', now() + interval '1 month', true);
 SELECT public.assert(public.account_can('assistant', current_setting('teste.a33')::uuid)
-                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 120,
-  'Pro com o adicional: a amostra (20) soma com o adicional (100) = 120');
+                     AND (SELECT messages FROM public.assistant_limits(current_setting('teste.a33')::uuid)) = 200,
+  'Pro com o adicional: as inclusas (100) somam com o adicional (100) = 200');
 -- Cancelou: nada.
 SELECT public.billing_apply_subscription(current_setting('teste.a33')::uuid, 'cus_33', 'sub_33', 'canceled', NULL, NULL, NULL, false);
 SELECT public.assert(NOT public.account_can('assistant', current_setting('teste.a33')::uuid),

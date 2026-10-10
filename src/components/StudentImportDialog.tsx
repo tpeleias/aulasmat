@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { FileUp } from "lucide-react";
+import { FileUp, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,9 +8,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useWords } from "@/hooks/useVocabulary";
 import { dbErrorMessage } from "@/lib/dbErrors";
 import { haptics } from "@/lib/haptics";
-import { parseStudents } from "@/lib/studentImport";
+import { aiImportPrompt, parseStudents } from "@/lib/studentImport";
 
-import { L } from "@/lib/i18n";
+import { isEnglish, L } from "@/lib/i18n";
 type Existing = { student_name: string; guardian_name: string | null };
 
 /**
@@ -53,6 +53,17 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
     let t = new TextDecoder("utf-8").decode(buf);
     if (t.includes("�")) t = new TextDecoder("windows-1252").decode(buf);
     setText(t);
+  };
+
+  // Os dados estão bagunçados (caderno, WhatsApp, outra planilha): a pessoa
+  // copia as instruções, cola numa IA com os dados e traz o resultado pronto.
+  const copyPrompt = async () => {
+    try {
+      await navigator.clipboard.writeText(aiImportPrompt({ client: c.l, guardian: w.guardian.l }, isEnglish()));
+      toast.success(L("Prompt copiado. Cole numa IA (ChatGPT, Claude, Gemini) junto com seus dados e traga a resposta para cá.", "Prompt copied. Paste it into an AI (ChatGPT, Claude, Gemini) with your data and bring the answer back here."));
+    } catch {
+      toast.error(L("Não deu para copiar neste aparelho.", "Couldn't copy on this device."));
+    }
   };
 
   const save = async () => {
@@ -100,13 +111,19 @@ export default function StudentImportDialog({ open, onOpenChange, existing, room
           className="rounded-xl font-mono text-xs"
           placeholder={L("Nome\tResponsável\tEndereço\nAna Souza\tMaria Souza\tRua A, 10\nBruno Lima\tCarlos Lima\t", "Name\tParent\tAddress\nAnna Smith\tMary Smith\t10 A Street\nBen Lee\tCarl Lee\t")}
         />
-        <div>
+        <div className="flex flex-wrap gap-2">
           <input ref={fileRef} type="file" accept=".csv,.txt,.tsv,text/csv,text/plain" className="hidden"
             onChange={e => { readFile(e.target.files?.[0]); e.target.value = ""; }} />
           <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={() => fileRef.current?.click()}>
             <FileUp className="mr-1.5 h-4 w-4" /> {L("Abrir arquivo CSV", "Open CSV file")}
           </Button>
+          <Button type="button" variant="outline" size="sm" className="rounded-xl" onClick={copyPrompt}>
+            <Sparkles className="mr-1.5 h-4 w-4" /> {L("Copiar prompt", "Copy prompt")}
+          </Button>
         </div>
+        <p className="-mt-1 text-xs text-muted-foreground">
+          {L("Dados bagunçados? Copie o prompt, cole numa IA com seus dados e cole a resposta aqui em cima.", "Messy data? Copy the prompt, paste it into an AI with your data and paste the answer up here.")}
+        </p>
 
         {lines.length > 0 && (
           <div className="space-y-2">

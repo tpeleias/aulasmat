@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { detectDelimiter, parseStudents, parseTable } from "@/lib/studentImport";
+import { aiImportPrompt, detectDelimiter, parseStudents, parseTable } from "@/lib/studentImport";
 
 describe("parseTable", () => {
   it("respeita aspas com o separador dentro", () => {
@@ -45,5 +45,22 @@ describe("parseStudents", () => {
     const r = parseStudents("﻿Nome;Responsável\r\nBia;Ana\r\n", []);
     expect(r).toHaveLength(1);
     expect(r[0].student_name).toBe("Bia");
+  });
+});
+
+describe("prompt para IA", () => {
+  it("o formato pedido à IA é o que a importação lê", () => {
+    const p = aiImportPrompt({ client: "aluno", guardian: "responsável" });
+    expect(p).toContain("Nome;Responsável;Endereço");
+    expect(p).toContain("Nunca invente");
+    // O que a IA devolve, no formato do prompt (endereço com vírgula).
+    const out = parseStudents("Nome;Responsável;Endereço\nAna Souza;Maria Souza;Rua A, 10 - Centro\nBruno Lima;;\n", []);
+    expect(out.map(l => [l.student_name, l.guardian_name, l.address])).toEqual([
+      ["Ana Souza", "Maria Souza", "Rua A, 10 - Centro"],
+      ["Bruno Lima", null, null],
+    ]);
+  });
+  it("em inglês também", () => {
+    expect(aiImportPrompt({ client: "student", guardian: "parent" }, true)).toContain("Never make anything up");
   });
 });

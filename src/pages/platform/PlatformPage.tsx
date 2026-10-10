@@ -236,7 +236,7 @@ export default function PlatformPage() {
   const alternarAssistenteGeral = async () => {
     const proximo = !assistenteGeral;
     if (proximo && !confirm(
-      "Liberar o assistente pelos planos?\n\nA amostra do Pro, a IA do Max e o adicional passam a funcionar (e o adicional volta a ser vendido). Cada conversa custa API."
+      "Liberar o assistente pelos planos?\n\nA IA do Pro, a do Max e o adicional passam a funcionar (e o adicional volta a ser vendido). Cada conversa custa API."
     )) return;
     setBusy(true);
     const { error } = await supabase.rpc("platform_set_assistant_enabled" as never, { _on: proximo } as never);
@@ -540,7 +540,7 @@ export default function PlatformPage() {
                 <p className="font-medium">Assistente pelos planos</p>
                 <p className="text-xs text-muted-foreground">
                   {assistenteGeral
-                    ? "Ligado: a amostra do Pro, a IA do Max e o adicional funcionam, e o adicional está à venda."
+                    ? "Ligado: a IA do Pro, a do Max e o adicional funcionam, e o adicional está à venda."
                     : "Desligado: bloqueado em todos os planos. Só funciona nas empresas que você liberar uma a uma na aba Empresas (o Portal de Aulas fica sempre liberado)."}
                 </p>
               </div>
