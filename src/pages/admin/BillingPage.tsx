@@ -247,7 +247,21 @@ export default function BillingPage() {
   // Pagamento on-line pelo Stripe da empresa (09/10): conectado, a mensagem
   // leva o link "pagar com cartão ou Pix" no lugar do link fixo.
   const online = useOnlinePayments();
+  // Os links curtos de todas as contas vêm de uma vez quando a tela abre (10/10):
+  // assim copiar é na hora, sem esperar o servidor a cada toque.
+  const [payCodes, setPayCodes] = useState<Record<string, string>>({});
+  const payKey = (a: Pick<Account, "student" | "guardian">) =>
+    (a.guardian ?? "").trim() ? `g:${a.guardian!.trim().toLowerCase()}` : `s:${a.student.trim().toLowerCase()}`;
+  const owingKeys = accounts.filter(a => a.owed > 0).map(payKey).sort().join("|");
+  useEffect(() => {
+    if (!online.connected || !owingKeys) return;
+    const list = accounts.filter(a => a.owed > 0).map(a => ({ student: a.student, guardian: a.guardian }));
+    supabase.rpc("admin_pay_links" as never, { _accounts: list } as never)
+      .then(({ data, error }) => { if (!error && data) setPayCodes(c => ({ ...c, ...(data as unknown as Record<string, string>) })); });
+  }, [online.connected, owingKeys]); // eslint-disable-line react-hooks/exhaustive-deps
   const payLinkFor = async (a: Account) => {
+    const code = payCodes[payKey(a)];
+    if (code) return `https://cronys.com.br/pagar/${code}`;
     const r = await payAction<{ url: string }>({ action: "link", student: a.student, guardian: a.guardian });
     if (!r.ok) { toast.error(payErrorText(r.error)); return null; }
     return r.data.url;

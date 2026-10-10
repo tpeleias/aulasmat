@@ -231,3 +231,9 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Asaas parcelado: em Configurações → Integrações, com o Asaas em uso, o campo "Parcelar no cartão em até" (Portal de Aulas começa em 12x, como o Thiago pediu). O Pix é sempre à vista. Cada parcela paga entra no Financeiro uma vez só, e a página do link avisa "No cartão, em até 12x" | T |
 | Parcelas do Asaas por faixa de valor (pedido do Thiago): até R$ 300 em até 2x, até R$ 500 em até 3x, até R$ 1.000 em até 4x e, acima disso, em até 4x. Editável em Configurações → Integrações (pôr, tirar e mudar faixas) | T |
 | Asaas sem boleto (pedido do Thiago): a página do link mostra "Pagar com Pix" e "Pagar no cartão, em até Nx", e cada botão abre o Asaas só naquela forma. O "Pagar agora" do portal leva à mesma página | T |
+
+### 10/10 - site (o app recebe no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| App mais leve (o Thiago achou o app lento e os botões de copiar e de atualizar demorando): troca de tela na hora (antes esperava a tela velha sair, quase meio segundo), barra de baixo sem o efeito de vidro, "puxar para atualizar" sem refazer a tela a cada movimento do dedo, links de pagamento buscados de uma vez quando o Financeiro abre (copiar fica instantâneo) e o "Atualizar" da versão nova mostra "Abrindo…" na hora | T |

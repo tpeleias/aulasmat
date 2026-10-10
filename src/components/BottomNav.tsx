@@ -20,7 +20,7 @@ export default function BottomNav({ items, more, moreTitle = L("Mais", "More") }
   return (
     <>
       <nav
-        className="fixed inset-x-0 bottom-0 z-40 md:hidden border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80"
+        className="fixed inset-x-0 bottom-0 z-40 md:hidden border-t border-border bg-card"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         aria-label={L("Navegação principal", "Main navigation")}
       >

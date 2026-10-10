@@ -14,6 +14,7 @@ const DISMISS_KEY = "cronys.update.dismissed";
 
 export default function UpdateBanner() {
   const [available, setAvailable] = useState<string | null>(null);
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
@@ -36,11 +37,15 @@ export default function UpdateBanner() {
 
   if (!available) return null;
 
+  // A tela da Play demora um pouco a abrir: o botão avisa na hora (10/10).
   const update = async () => {
-    const { AppUpdate } = await import("@capawesome/capacitor-app-update");
-    // A atualização dentro do app (tela da própria Play); se não der, a página do app na loja.
-    try { await AppUpdate.performImmediateUpdate(); }
-    catch { await AppUpdate.openAppStore().catch(() => {}); }
+    setOpening(true);
+    try {
+      const { AppUpdate } = await import("@capawesome/capacitor-app-update");
+      // A atualização dentro do app (tela da própria Play); se não der, a página do app na loja.
+      try { await AppUpdate.performImmediateUpdate(); }
+      catch { await AppUpdate.openAppStore().catch(() => {}); }
+    } finally { setOpening(false); }
   };
 
   const later = () => {
@@ -55,7 +60,7 @@ export default function UpdateBanner() {
         <p className="text-sm font-semibold">{L("Nova versão do Cronys", "New Cronys version")}</p>
         <p className="text-xs text-muted-foreground">{L("Atualize para ter as últimas melhorias e correções.", "Update to get the latest improvements and fixes.")}</p>
       </div>
-      <Button size="sm" className="h-9 shrink-0 rounded-xl" onClick={update}>{L("Atualizar", "Update")}</Button>
+      <Button size="sm" className="h-9 shrink-0 rounded-xl" disabled={opening} onClick={update}>{opening ? L("Abrindo…", "Opening…") : L("Atualizar", "Update")}</Button>
       <button type="button" aria-label={L("Depois", "Later")} onClick={later} className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-muted">
         <X className="h-4 w-4" />
       </button>
