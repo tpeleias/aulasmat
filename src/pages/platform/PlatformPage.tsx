@@ -13,6 +13,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Building2, Plus, LogOut, Power, Trash2, ShieldAlert, Copy, Bot, Pencil, Gift, KeyRound, CreditCard, MoreHorizontal, Search, Infinity as InfinityIcon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AiConnectorSettings from "@/components/AiConnectorSettings";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
@@ -402,7 +403,7 @@ export default function PlatformPage() {
           <TabsList className="w-full justify-start overflow-x-auto rounded-xl">
             <TabsTrigger value="empresas" className="gap-1.5"><Building2 className="h-3.5 w-3.5" /> Empresas</TabsTrigger>
             <TabsTrigger value="assinaturas" className="gap-1.5"><CreditCard className="h-3.5 w-3.5" /> Assinaturas e cupons</TabsTrigger>
-            <TabsTrigger value="assistente" className="gap-1.5"><Bot className="h-3.5 w-3.5" /> Assistente</TabsTrigger>
+            <TabsTrigger value="assistente" className="gap-1.5"><Bot className="h-3.5 w-3.5" /> Assistente e IA</TabsTrigger>
           </TabsList>
 
           <TabsContent value="empresas" className="space-y-3">
@@ -547,6 +548,7 @@ export default function PlatformPage() {
               <Switch checked={assistenteGeral === true} disabled={busy || assistenteGeral === null}
                 onCheckedChange={alternarAssistenteGeral} aria-label="Assistente pelos planos" />
             </Card>
+            <AiConnectorSettings platform />
           </TabsContent>
         </Tabs>
       </main>
