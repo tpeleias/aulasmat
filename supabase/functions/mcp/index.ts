@@ -35,7 +35,8 @@ type ToolDef = {
 
 // ---------------------------------------------------------------------------
 // Ferramentas da empresa: as do assistente (menos as que apagam, que por um
-// conector ficam de fora) e mais três que só fazem sentido aqui.
+// conector ficam de fora) e mais as que só fazem sentido aqui (resumo, quem
+// deve, "Como foi?", materiais e tarefas).
 // ---------------------------------------------------------------------------
 const READ_TOOLS = new Set(["find_students", "list_teachers", "list_lessons", "get_wallet_balance", "list_blocks"]);
 const LEFT_OUT = new Set(["delete_lesson", "delete_block"]);
@@ -76,6 +77,56 @@ const EXTRA_ACCOUNT_TOOLS: ToolDef[] = [
     },
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
   },
+  {
+    name: "list_student_materials",
+    title: "Materiais e tarefas do aluno",
+    description: "Lista os materiais (arquivo, link ou página) e as tarefas de um aluno, com prazo e situação. Use antes de mandar algo, para não repetir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        student_name: { type: "string" },
+        guardian_name: { type: "string", description: "Responsável, se houver mais de um aluno com o mesmo nome" },
+      },
+      required: ["student_name"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: false },
+  },
+  {
+    name: "send_material",
+    title: "Mandar material ao aluno",
+    description: "Põe um material na área do aluno no Cronys (ele vê no portal e no app). Mande UM destes: (1) content: o material escrito por você em Markdown, com fórmulas em LaTeX entre $...$ ou $$...$$ (listas de exercícios, resumos, gabaritos) - o aluno lê no portal e salva em PDF; é o jeito preferido; (2) url: um link (Google Drive, YouTube, site), que precisa estar aberto para quem tem o link; (3) file_base64 + file_name: um arquivo pequeno (PDF, imagem, Word, até 4 MB) em base64. Mostre ao usuário o título e um resumo do que vai mandar e espere a confirmação. Não invente gabarito sem conferir.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
+        title: { type: "string", description: "Título que o aluno vê, ex.: 'Lista 3 - Frações'" },
+        content: { type: "string", description: "Markdown com fórmulas $...$ (até 30 mil caracteres)" },
+        url: { type: "string", description: "Link https:// do material" },
+        file_base64: { type: "string", description: "Arquivo em base64 (até 4 MB depois de decodificado)" },
+        file_name: { type: "string", description: "Nome do arquivo com extensão, ex.: lista3.pdf" },
+      },
+      required: ["student_name", "title"],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  },
+  {
+    name: "add_task",
+    title: "Passar tarefa ao aluno",
+    description: "Cria uma tarefa para o aluno, com prazo. Ele recebe o aviso (e-mail e celular, se ligados) e entrega pelo portal. Se a tarefa usa um material, mande o material antes com send_material e cite o título na descrição. Confirme título, prazo e aluno com o usuário antes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        student_name: { type: "string" },
+        guardian_name: { type: "string" },
+        title: { type: "string" },
+        description: { type: "string" },
+        deadline: { type: "string", description: "Prazo em ISO 8601 com -03:00, ex.: 2026-10-17T23:59:00-03:00" },
+      },
+      required: ["student_name", "title", "deadline"],
+    },
+    annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true },
+  },
 ];
 
 function accountToolList(readOnly: boolean): ToolDef[] {
@@ -103,7 +154,8 @@ Regras:
 - Antes de marcar, editar, registrar pagamento, vender pacote, bloquear horário ou escrever um "Como foi?", mostre o que vai fazer e espere o usuário confirmar. Consultas podem ser feitas direto.
 - O campo teacher é o slug do profissional (veja list_teachers).
 - Não omita nem invente valores: sem price, o Cronys usa o valor configurado pela empresa. Pacote e desconto ficam no financeiro, nunca baixando o valor da aula.
-- Excluir atendimento ou bloqueio não é possível por aqui: oriente o usuário a fazer pelo app.
+- Materiais e tarefas: para mandar uma lista, um resumo ou um gabarito, escreva em Markdown com fórmulas $...$ e use send_material com content (o aluno lê e salva em PDF). Para tarefa com prazo, add_task. Confirme antes.
+- Excluir atendimento, bloqueio, material ou tarefa não é possível por aqui: oriente o usuário a fazer pelo app.
 - Os dados são de clientes reais da empresa: use só para o que o usuário pediu.`;
 
 // ---------------------------------------------------------------------------
@@ -190,6 +242,105 @@ async function accountSummary(admin: Admin, accountId: string) {
   };
 }
 
+// Acha UM aluno da empresa pelo nome (e responsável, se vier). Materiais e
+// tarefas são do cadastro (students.id), não do nome.
+async function findStudent(admin: Admin, accountId: string, input: Record<string, unknown>) {
+  const name = String(input.student_name ?? "").trim();
+  if (!name) return { error: "Informe o aluno." } as const;
+  let q = admin.from("students").select("id, student_name, guardian_name").eq("account_id", accountId).ilike("student_name", `%${name}%`);
+  const g = String(input.guardian_name ?? "").trim();
+  if (g) q = q.ilike("guardian_name", `%${g}%`);
+  const { data, error } = await q.limit(10);
+  if (error) return { error: error.message } as const;
+  const rows = (data ?? []) as { id: string; student_name: string; guardian_name: string | null }[];
+  const exact = rows.filter(r => r.student_name.trim().toLowerCase() === name.toLowerCase());
+  const pick = exact.length === 1 ? exact : rows;
+  if (pick.length === 1) return { student: pick[0] } as const;
+  if (pick.length === 0) return { error: `Nenhum aluno com o nome "${name}". Confira com find_students.` } as const;
+  return { error: `Mais de um aluno corresponde a "${name}": ${pick.map(r => `${r.student_name} (resp.: ${r.guardian_name ?? "sem responsável"})`).join("; ")}. Pergunte qual é e mande guardian_name.` } as const;
+}
+
+const FILE_TYPES: Record<string, string> = {
+  pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp",
+  doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain", csv: "text/csv", mp3: "audio/mpeg", m4a: "audio/mp4",
+};
+const MAX_FILE_BYTES = 4 * 1024 * 1024;
+
+function safeFileName(n: string) {
+  return n.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").slice(-80) || "arquivo";
+}
+
+async function sendMaterial(admin: Admin, conn: Conn, input: Record<string, unknown>) {
+  const accountId = conn.account_id!;
+  const found = await findStudent(admin, accountId, input);
+  if ("error" in found) return text({ error: found.error }, true);
+  const st = found.student;
+  const title = String(input.title ?? "").trim().slice(0, 200);
+  if (!title) return text({ error: "Dê um título ao material." }, true);
+  const content = typeof input.content === "string" ? input.content.trim() : "";
+  const url = typeof input.url === "string" ? input.url.trim() : "";
+  const b64 = typeof input.file_base64 === "string" ? input.file_base64.replace(/^data:[^,]*,/, "").replace(/\s+/g, "") : "";
+  if ([content, url, b64].filter(Boolean).length !== 1) return text({ error: "Mande só um: content, url ou file_base64." }, true);
+
+  const base = { account_id: accountId, student_id: st.id, title, uploaded_by: conn.user_id };
+  let row: Record<string, unknown>;
+  if (content) {
+    if (content.length > 30000) return text({ error: "O texto passa de 30 mil caracteres. Divida em dois materiais." }, true);
+    row = { ...base, kind: "page", content };
+  } else if (url) {
+    if (!/^https?:\/\/\S+$/i.test(url) || url.length > 2000) return text({ error: "O link precisa começar com https://." }, true);
+    row = { ...base, kind: "link", url };
+  } else {
+    const name = safeFileName(String(input.file_name ?? "").trim() || `${title}.pdf`);
+    const ext = name.split(".").pop()?.toLowerCase() ?? "";
+    const type = FILE_TYPES[ext];
+    if (!type) return text({ error: `Tipo de arquivo não aceito (.${ext}). Aceitos: ${Object.keys(FILE_TYPES).join(", ")}.` }, true);
+    let bytes: Uint8Array;
+    try { bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0)); } catch { return text({ error: "O base64 do arquivo veio quebrado." }, true); }
+    if (bytes.length === 0) return text({ error: "O arquivo veio vazio." }, true);
+    if (bytes.length > MAX_FILE_BYTES) return text({ error: "O arquivo passa de 4 MB. Mande como link (Google Drive) ou suba pelo app." }, true);
+    const path = `${st.id}/${Date.now()}-${name}`;
+    const { error: upErr } = await admin.storage.from("student-materials").upload(path, bytes, { contentType: type, upsert: false });
+    if (upErr) return text({ error: `Não deu para guardar o arquivo: ${upErr.message}` }, true);
+    row = { ...base, kind: "file", file_path: path, file_type: type };
+  }
+  const { data, error } = await admin.from("student_materials").insert(row).select("id, title, kind, created_at").single();
+  if (error) return text({ error: error.message }, true);
+  return text({ ok: true, aluno: st.student_name, material: data, onde_ver: "Portal do aluno → Materiais" });
+}
+
+async function addTask(admin: Admin, conn: Conn, input: Record<string, unknown>) {
+  const accountId = conn.account_id!;
+  const { data: on } = await admin.rpc("account_tasks_on", { _account: accountId });
+  if (on === false) return text({ error: "As tarefas estão desligadas nesta empresa (Configurações → Portal)." }, true);
+  const found = await findStudent(admin, accountId, input);
+  if ("error" in found) return text({ error: found.error }, true);
+  const title = String(input.title ?? "").trim().slice(0, 200);
+  if (!title) return text({ error: "Dê um título à tarefa." }, true);
+  const deadline = Date.parse(String(input.deadline ?? ""));
+  if (!Number.isFinite(deadline)) return text({ error: "Informe o prazo em ISO 8601 (com -03:00)." }, true);
+  const description = String(input.description ?? "").trim().slice(0, 4000) || null;
+  const { data, error } = await admin.from("homework").insert({
+    account_id: accountId, student_id: found.student.id, title, description,
+    deadline: new Date(deadline).toISOString(), created_by: conn.user_id,
+  }).select("id, title, deadline, status").single();
+  if (error) return text({ error: error.message }, true);
+  return text({ ok: true, aluno: found.student.student_name, tarefa: data });
+}
+
+async function listStudentMaterials(admin: Admin, conn: Conn, input: Record<string, unknown>) {
+  const found = await findStudent(admin, conn.account_id!, input);
+  if ("error" in found) return text({ error: found.error }, true);
+  const [m, h] = await Promise.all([
+    admin.from("student_materials").select("id, title, kind, url, created_at").eq("student_id", found.student.id).order("created_at", { ascending: false }).limit(50),
+    admin.from("homework").select("id, title, description, deadline, status").eq("student_id", found.student.id).order("deadline", { ascending: false }).limit(50),
+  ]);
+  return text({ aluno: found.student.student_name, materiais: m.data ?? [], tarefas: h.data ?? [] });
+}
+
 async function callAccountTool(admin: Admin, conn: Conn, name: string, input: Record<string, unknown>) {
   const accountId = conn.account_id!;
   const allowed = accountToolList(conn.read_only).some(t => t.name === name);
@@ -203,6 +354,10 @@ async function callAccountTool(admin: Admin, conn: Conn, name: string, input: Re
     if (error) return text({ error: error.message }, true);
     return text((data ?? []).slice(0, limit));
   }
+
+  if (name === "send_material") return await sendMaterial(admin, conn, input);
+  if (name === "add_task") return await addTask(admin, conn, input);
+  if (name === "list_student_materials") return await listStudentMaterials(admin, conn, input);
 
   if (name === "set_lesson_summary") {
     const summary = String(input.summary ?? "").trim();
@@ -348,6 +503,11 @@ Deno.serve(async (req) => {
   const conn = resolved.data;
   if (!conn) {
     return json(rpcError(null, -32001, "Chave do Cronys inválida ou desligada. Crie outra em Configurações → Conectar IA."), 403);
+  }
+  // A chave vale, mas o plano da empresa não tem o conector (é do Max IA; no
+  // teste grátis do Pro, só nos 3 primeiros dias). Ver ai_connector_resolve.
+  if ((conn as { blocked?: string }).blocked === "plan") {
+    return json(rpcError(null, -32003, "A conexão com IA é do plano Max IA. Assine o Max IA no Cronys (Configurações → Minha conta → Ver planos) para continuar usando."), 403);
   }
 
   let body: unknown;

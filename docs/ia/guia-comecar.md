@@ -39,6 +39,14 @@ Pronto. Exemplos para o dia a dia:
 - *"Quem está devendo? Monta uma mensagem gentil de WhatsApp para cada responsável."*
 - *"Quais aulas da semana passada estão sem Como foi?"*
 - *"Marca o Pedro quinta às 15h."* (o Claude confirma antes de gravar)
+- *"Faz uma lista de 10 exercícios de frações para o Miguel e manda para ele."*
+  O Claude escreve a lista (com as fórmulas certinhas), mostra para você e,
+  quando você aprova, ela aparece em **Materiais** no portal do aluno, que lê
+  e salva em PDF.
+- *"Passa como tarefa para o Miguel fazer a lista até sexta."* Vira tarefa
+  com prazo, e o aluno recebe o aviso.
+- *"Manda para a Ana este vídeo: https://youtu.be/..."* Vira um link nos
+  materiais dela.
 
 **Para os "Como foi?" a partir dos seus projetos do Claude:** dentro de qualquer
 projeto seu (ex.: "Aulas de Matemática"), com o Cronys ligado na conversa, peça:

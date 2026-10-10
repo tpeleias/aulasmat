@@ -324,3 +324,12 @@ Origem: **T** = o Thiago testando como dono; **K** = relato da Kika Sport;
 | Mudança | Origem |
 |---|---|
 | Conector de IA mais firme: numa falha momentânea do banco, o conector tenta de novo e, se não der, responde "tente em instantes"; chave errada ou desligada responde "sem permissão". Antes as duas respondiam "não autorizado", e o Claude entendia que precisava de login e travava com "Não foi possível registrar no serviço de login". O Thiago viu o erro ao montar o agente de Marketing | T |
+
+### 11/10 - site, banco e função do conector (no app Android, entra no próximo `.aab`)
+
+| Mudança | Origem |
+|---|---|
+| Alunos: botão "Materiais e tarefas" direto na ficha do aluno (antes ficava dentro de Gerenciar, que virou "Acesso"). Materiais passam a aceitar link (Drive, YouTube) além de arquivo. Pedido do Thiago | T |
+| Material em página escrita: texto com fórmulas que o aluno lê no portal e salva em PDF ("Salvar em PDF / imprimir") | T |
+| Conector de IA: o Claude manda material (página escrita, link ou arquivo pequeno), passa tarefa com prazo e lista o que o aluno já tem. Pedido do Thiago ("quero e preciso que fique automático") | T |
+| Teste técnico em produção na empresa Google Play Demo: uma lista com fórmulas, um link, um arquivo e uma tarefa para o aluno fictício Bruno Lima; a chave do teste foi desligada em seguida | Revisão técnica |
