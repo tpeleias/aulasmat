@@ -331,10 +331,23 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(rpcError(null, -32000, "Use POST."), 405, { Allow: "POST, OPTIONS" });
 
+  // Chave errada ou desligada responde 403, e não 401: com 401 o Claude
+  // entende que o servidor pede login (OAuth), tenta se registrar e trava o
+  // conector em "Não foi possível registrar no serviço de login" (11/10).
+  // Falha momentânea do banco responde 503, para a IA tentar de novo, em vez
+  // de parecer chave inválida - foi o que aconteceu às 17h11 do dia 10/10.
+  const token = tokenOf(req);
+  if (!token) return json(rpcError(null, -32001, "Falta a chave do Cronys no link. Crie um link em Configurações → Conectar IA."), 403);
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!) as Admin;
-  const { data: conn } = await admin.rpc("ai_connector_resolve", { _token: tokenOf(req) });
+  let resolved = await admin.rpc("ai_connector_resolve", { _token: token });
+  if (resolved.error) resolved = await admin.rpc("ai_connector_resolve", { _token: token });
+  if (resolved.error) {
+    console.error("ai_connector_resolve", resolved.error.message);
+    return json(rpcError(null, -32002, "O Cronys não respondeu agora. Tente de novo em instantes."), 503, { "Retry-After": "2" });
+  }
+  const conn = resolved.data;
   if (!conn) {
-    return json(rpcError(null, -32001, "Chave do Cronys inválida ou desligada. Crie outra em Configurações → Conectar IA."), 401);
+    return json(rpcError(null, -32001, "Chave do Cronys inválida ou desligada. Crie outra em Configurações → Conectar IA."), 403);
   }
 
   let body: unknown;
